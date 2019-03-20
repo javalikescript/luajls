@@ -1,0 +1,13 @@
+file = "jls"
+project = "JLS"
+title = "JLS 0.1"
+description = "JLS"
+full_description = "The jls Lua libraries provide abstraction interfaces for general-purpose scripting"
+--no_summary = true
+--no_space_before_args = true 
+--sort = true
+--style = "!fixed"
+topics = "doc_topics"
+package = "jls"
+--format = "discount"
+format = "markdown"
