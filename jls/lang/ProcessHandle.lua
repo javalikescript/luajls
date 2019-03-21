@@ -19,6 +19,11 @@ return require('jls.lang.class').create(function(processHandle)
     return self.pid
   end
   
+  --- Returns true if this process is alive.
+  function processHandle:isAlive()
+    return processLib.kill(self.pid, 0) == 0
+  end
+  
   --- Destroys this process.
   function processHandle:destroy()
     processLib.kill(self.pid)
@@ -26,7 +31,7 @@ return require('jls.lang.class').create(function(processHandle)
   
   --- Destroys this process.
   function processHandle:destroyForcibly()
-    processLib.kill(self.pid)
+    self:destroy()
   end
   
 end, function(ProcessHandle)

@@ -1,30 +1,29 @@
 
-return {
-  kill = function(pid)
-    if type(pid) == 'number' and pid > 0 then
-      os.execute('taskkill /PID '..tostring(pid))
-    end
-  end,
-  execute = function(pathOrArgs, env, dir)
-    local line = 'start ""'
-    if dir then
-      line = line..' /D '..dir
-    end
-    local path
-    if type(pathOrArgs) == 'string' then
-      line = line..' '..pathOrArgs
-      path = pathOrArgs
-    elseif type(pathOrArgs) == 'table' then
-      for _, a in ipairs(pathOrArgs) do
-        line = line..' '..a
-      end
-      path = pathOrArgs[1]
+local exePath = 'lua' -- fallback
+-- look for the lua path in the arguments
+if arg then
+  for i = 0, -10, -1 do
+    if arg[i] then
+      exePath = arg[i]
     else
-      return nil
+      break
     end
-    os.execute(line)
-    local imageName = string.gsub(path, '^[^/\\]*[/\\]', '', 1)
-    --os.execute('tasklist /FI "IMAGENAME eq '..imageName..'" /FO csv /NH')
+  end
+end
+
+return {
+  exePath = function()
+    return exePath
+  end,
+  kill = function(pid)
+    error('not available')
+  end,
+  spawn = function(pb)
+    local line = ''
+    for _, a in ipairs(pb.cmd) do
+      line = line..' '..a
+    end
+    os.execute(line) -- will block
     return -1
   end
 }
