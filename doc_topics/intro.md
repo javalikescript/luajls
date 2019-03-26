@@ -7,3 +7,8 @@ Instances, variables and package names are also written in lower camel case, suc
 Constants should be written in uppercase characters separated by underscores, such as MAX_HEIGHT.
 Private fields and methods should start with an underscore.
 
+
+## Main principles
+
+This set of modules or libraries are meant to be simple, composable.
+The conventions are meant to organize and help understanting these libraries.

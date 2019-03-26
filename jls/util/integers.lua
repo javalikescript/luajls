@@ -48,7 +48,7 @@ function integers.fromInt8(i)
 end
 
 function integers.toUInt8(s, o)
-  return string.byte(s, o or 1)
+  return string.byte(s, o)
 end
 
 function integers.toInt8(s, o)
@@ -76,13 +76,14 @@ function bigEndian.fromInt16(i)
   return bigEndian.fromUInt16(integers.unsign(i, 16))
 end
 
-function bigEndian.toUInt16(s)
-  local b1, b2 = string.byte(s, 1, 2)
+function bigEndian.toUInt16(s, o)
+  o = o or 1
+  local b1, b2 = string.byte(s, o, o + 1)
   return (b1 << 8) | b2
 end
 
-function bigEndian.toInt16(s)
-  return integers.sign(bigEndian.toUInt16(s), 16)
+function bigEndian.toInt16(s, o)
+  return integers.sign(bigEndian.toUInt16(s, o), 16)
 end
 
 function bigEndian.fromUInt32(i)
@@ -99,13 +100,14 @@ function bigEndian.fromInt32(i)
   return bigEndian.fromUInt32(integers.unsign(i, 32))
 end
 
-function bigEndian.toUInt32(s)
-  local b1, b2, b3, b4 = string.byte(s, 1, 4)
+function bigEndian.toUInt32(s, o)
+  o = o or 1
+  local b1, b2, b3, b4 = string.byte(s, o, o + 3)
   return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
 end
 
-function bigEndian.toInt32(s)
-  return integers.sign(bigEndian.toUInt32(s), 32)
+function bigEndian.toInt32(s, o)
+  return integers.sign(bigEndian.toUInt32(s, o), 32)
 end
 
 integers.be = bigEndian
@@ -131,13 +133,14 @@ function littleEndian.fromInt16(i)
   return littleEndian.fromUInt16(integers.unsign(i, 16))
 end
 
-function littleEndian.toUInt16(s)
-  local b1, b2 = string.byte(s, 1, 2)
+function littleEndian.toUInt16(s, o)
+  o = o or 1
+  local b1, b2 = string.byte(s, o, o + 1)
   return (b2 << 8) | b1
 end
 
 function littleEndian.toInt16(s)
-  return integers.sign(littleEndian.toUInt16(s), 16)
+  return integers.sign(littleEndian.toUInt16(s, o), 16)
 end
 
 function littleEndian.fromUInt32(i)
@@ -154,13 +157,14 @@ function littleEndian.fromInt32(i)
   return littleEndian.fromUInt32(integers.unsign(i, 32))
 end
 
-function littleEndian.toUInt32(s)
-  local b1, b2, b3, b4 = string.byte(s, 1, 4)
+function littleEndian.toUInt32(s, o)
+  o = o or 1
+  local b1, b2, b3, b4 = string.byte(s, o, o + 3)
   return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1
 end
 
-function littleEndian.toInt32(s)
-  return integers.sign(littleEndian.toUInt32(s), 32)
+function littleEndian.toInt32(s, o)
+  return integers.sign(littleEndian.toUInt32(s, o), 32)
 end
 
 integers.le = littleEndian
