@@ -14,6 +14,10 @@ local secure = false
 local socketToString = net.socketToString
 
 local HTTP_CONST = {
+
+  HTTP_CONTINUE = 100,
+  HTTP_SWITCHING_PROTOCOLS = 101,
+
   HTTP_OK = 200,
 
   HTTP_BAD_REQUEST = 400,
@@ -21,6 +25,7 @@ local HTTP_CONST = {
   HTTP_FORBIDDEN = 403,
   HTTP_NOT_FOUND = 404,
   HTTP_METHOD_NOT_ALLOWED = 405,
+  HTTP_NOT_ACCEPTABLE = 406,
   HTTP_LENGTH_REQUIRED = 411,
   
   HTTP_INTERNAL_SERVER_ERROR = 500,
@@ -60,6 +65,7 @@ local HTTP_CONST = {
   HEADER_KEEP_ALIVE = 'Keep-Alive',
   HEADER_PROXY_CONNECTION = 'Proxy-Connection',
   HEADER_CONNECTION = 'Connection',
+  HEADER_UPGRADE = 'Upgrade',
   HEADER_COOKIE = 'Cookie',
   HEADER_SERVER = 'Server',
   HEADER_CACHE_CONTROL = 'Cache-Control',
@@ -635,7 +641,7 @@ local HttpClient = class.create(function(httpClient)
     logger:finer('httpClient:setUrl('..tostring(url)..')')
     local u = URL:new(url)
     local target = u:getFile()
-    self.isSecure = u:getProtocol() == 'https'
+    self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
     self.host = u:getHost()
     self.port = u:getPort()
     self.request:setTarget(target or '/')
@@ -648,6 +654,9 @@ local HttpClient = class.create(function(httpClient)
     return self.tcpClient:connect(self.host or 'localhost', self.port or 80, callback)
   end
 
+  --- Closes this HTTP client.
+  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
   function httpClient:close(callback)
     return self.tcpClient:close(callback)
   end

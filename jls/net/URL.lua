@@ -90,7 +90,9 @@ return require('jls.lang.class').create(function(url, _, URL)
 
   local PORT_BY_SCHEME = {
     http = 80,
-    https = 443
+    https = 443,
+    ws = 80,
+    wss = 443
   }
 
   -- //<user>:<password>@<host>:<port>/<url-path>
@@ -161,7 +163,7 @@ return require('jls.lang.class').create(function(url, _, URL)
   function URL.parse(url)
     local scheme, specificPart = string.match(url, '^([%w][%w%+%.%-]*):(.*)$')
     scheme = string.lower(scheme)
-    if scheme == 'http' or scheme == 'https' then
+    if scheme == 'http' or scheme == 'https' or scheme == 'ws' or scheme == 'wss' then
       return parseHttp(scheme, specificPart)
     end
     return parseCommon(scheme, specificPart)

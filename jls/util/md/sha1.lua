@@ -1,0 +1,1 @@
+return require('openssl').digest.get('sha1')
