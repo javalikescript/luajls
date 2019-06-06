@@ -87,6 +87,14 @@ function tables.irpairs(list) -- reverseIteratorFactory
   return reverseIterator, list, #list - 1
 end
 
+function tables.shallowCopy(t)
+  local c = {}
+  for k, v in pairs(t) do
+    c[k] = v
+  end
+  return c
+end
+
 function tables.deepCopy(t)
   local c = {}
   for k, v in pairs(t) do

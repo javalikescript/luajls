@@ -1,13 +1,13 @@
 
-local logger = require "jls.lang.logger"
-local net = require("jls.net")
-local http = require("jls.net.http")
+local logger = require('jls.lang.logger')
+local net = require('jls.net')
+local http = require('jls.net.http')
 local Promise = require('jls.lang.Promise')
-local File = require("jls.io.File")
+local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
-local json = require("jls.util.json")
+local json = require('jls.util.json')
 local base64 = require('jls.util.base64')
-local tables = require("jls.util.tables")
+local tables = require('jls.util.tables')
 
 --local loader = require('jls.lang.loader')
 --local ZipFile = loader.tryRequire('jls.util.zip.ZipFile')
@@ -427,20 +427,40 @@ end
 
 local REST_NOT_FOUND = {}
 
+local REST_ANY = '/any'
+local REST_METHOD = '/method'
+
 function httpHandler.shiftPath(path)
   return string.match(path, '^([^/]+)/?(.*)$')
 end
 
 function httpHandler.restPart(handlers, httpExchange, path)
   local name, remainingPath = httpHandler.shiftPath(path)
-  if name and handlers[name] then
-    local handler = handlers[name]
-    if type(handler) == 'table' then
-      return httpHandler.restPart(handler, httpExchange, remainingPath)
-    elseif type(handler) == 'function' then
-      httpExchange:setAttribute('path', remainingPath)
-      return handler(httpExchange)
+  local handler
+  if name then
+    handler = handlers[REST_ANY]
+    if handler then
+      if type(handlers.name) == 'string' then
+        local value = name
+        if type(handlers.value) == 'function' then
+          value = handlers.value(httpExchange, name)
+        end
+        if value == nil then
+          return REST_NOT_FOUND
+        end
+        httpExchange:setAttribute(handlers.name, value)
+      end
+    elseif handlers[name] then
+      handler = handlers[name]
     end
+  else
+    handler = handlers['']
+  end
+  if type(handler) == 'table' then
+    return httpHandler.restPart(handler, httpExchange, remainingPath)
+  elseif type(handler) == 'function' then
+    httpExchange:setAttribute('path', remainingPath)
+    return handler(httpExchange)
   end
   if path == 'names' then
     local names = {}
@@ -464,6 +484,12 @@ function httpHandler.rest(httpExchange)
   if attributes and type(attributes) == 'table' then
     httpExchange:setAttributes(attributes)
   end
+  -- if there is a request body with json content type then decode it
+  --[[local request = httpExchange:getRequest()
+  if request:getBody() and request:getHeader(HTTP_CONST.HEADER_CONTENT_TYPE) == HTTP_CONTENT_TYPES.json then
+    local rt = json.decode(request:getBody())
+    httpExchange:setAttribute('body', rt)
+  end]]
   local path = httpExchange:getRequestArguments()
   local body = httpHandler.restPart(handlers, httpExchange, path)
   if body == nil then
@@ -474,7 +500,7 @@ function httpHandler.rest(httpExchange)
     httpHandler.ok(httpExchange, body, HTTP_CONTENT_TYPES.txt)
   elseif type(body) == 'table' then
     httpHandler.ok(httpExchange, json.encode(body), HTTP_CONTENT_TYPES.json)
-  elseif type(body) == 'boolean' and not body then
+  elseif body == false then
     -- response by handler
   else
     httpHandler.internalServerError(httpExchange)
