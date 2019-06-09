@@ -12,6 +12,12 @@ local processLib = require('jls.lang.process')
 -- @type ProcessBuilder
 return require('jls.lang.class').create(function(processBuilder)
 
+  --- Creates a new ProcessBuilder.
+  -- @function ProcessBuilder:new
+  -- @return a new ProcessBuilder
+  -- @usage
+  --local pb = ProcessBuilder:new('ls', '-ltr')
+  --pb:start()
   function processBuilder:initialize(...)
     self:command(...)
   end
@@ -55,6 +61,8 @@ return require('jls.lang.class').create(function(processBuilder)
     self.stdout = fd.fd
   end
   
+  --- Starts this ProcessBuilder.
+  -- @treturn jls.lang.ProcessHandle a handle of the new process
   function processBuilder:start(onexit)
     --self.cmd[1] = Path.asPathName(self.cmd[1])
     local pid = processLib.spawn(self, onexit)

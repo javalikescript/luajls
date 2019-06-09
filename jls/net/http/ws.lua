@@ -326,6 +326,11 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
 
 end)
 
+--- @section end
+
+--- WebSocket HTTP handler.
+-- The open attribute must be set to a function that will be called with the new accepted WebSockets.
+-- @param httpExchange the HTTP exchange to handle.
 local function upgradeHandler(httpExchange)
   local request = httpExchange:getRequest()
   local response = httpExchange:getResponse()

@@ -827,6 +827,8 @@ local HttpExchange = class.create(Attributes, function(httpExchange)
     self.client = client
   end
 
+  --- Returns the HTTP context.
+  -- @treturn HttpContext the HTTP context.
   function httpExchange:getContext()
     return self.context
   end
@@ -835,6 +837,8 @@ local HttpExchange = class.create(Attributes, function(httpExchange)
     self.context = value
   end
 
+  --- Returns the HTTP request.
+  -- @treturn HttpRequest the HTTP request.
   function httpExchange:getRequest()
     return self.request
   end
@@ -843,6 +847,8 @@ local HttpExchange = class.create(Attributes, function(httpExchange)
     self.request = value
   end
 
+  --- Returns the HTTP response.
+  -- @treturn HttpResponse the HTTP response.
   function httpExchange:getResponse()
     return self.response
   end
@@ -857,6 +863,8 @@ local HttpExchange = class.create(Attributes, function(httpExchange)
     return select(3, string.find(self:getRequest():getTargetPath(), '^'..self:getContext():getPath()..'$'))
   end
 
+  --- Returns a new HTTP response.
+  -- @treturn HttpResponse a new HTTP response.
   function httpExchange:createResponse()
     local response = HttpResponse:new()
     response:setHeader(HTTP_CONST.HEADER_CONNECTION, HTTP_CONST.CONNECTION_CLOSE)
