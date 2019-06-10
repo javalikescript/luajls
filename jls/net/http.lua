@@ -533,11 +533,7 @@ local HeaderStreamHandler = class.create(streams.StreamHandler, function(headerS
 
   function headerStreamHandler:read(tcpClient, buffer)
     if logger:isLoggable(logger.FINE) then
-      local bufferSize
-      if buffer then
-        bufferSize = #buffer
-      end
-      logger:fine('headerStreamHandler:read(?, '..tostring(bufferSize)..')')
+      logger:fine('headerStreamHandler:read(?, #'..tostring(buffer and #buffer)..')')
     end
     if self.onCompleted then
       error('read in progress')

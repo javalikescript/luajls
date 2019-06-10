@@ -59,14 +59,14 @@ local Tcp = class.create(function(tcp)
   --- Returns the local name of this TCP socket.
   -- @treturn string the local name of this TCP socket.
   function tcp:getLocalName()
-    --logger:debug('tcp:getLocalName()')
+    --logger:finer('tcp:getLocalName()')
     return self.tcp:getsockname()
   end
   
   --- Returns the remote name of this TCP socket.
   -- @treturn string the remote name of this TCP socket.
   function tcp:getRemoteName()
-    --logger:debug('tcp:getRemoteName()')
+    --logger:finer('tcp:getRemoteName()')
     return self.tcp:getpeername()
   end
   
@@ -80,7 +80,7 @@ local Tcp = class.create(function(tcp)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the socket is closed.
   function tcp:close(callback)
-    logger:debug('tcp:close()')
+    logger:finer('tcp:close()')
     local cb, d = Promise.ensureCallback(callback)
     if self.tcp then
       self.tcp:close(cb)
@@ -106,8 +106,8 @@ local TcpClient = class.create(Tcp, function(tcpClient)
   --local s = TcpClient:new()
   --s:connect('127.0.0.1', 80)
   function tcpClient:connect(addr, port, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpClient:connect('..tostring(addr)..', '..tostring(port)..', ...)')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpClient:connect('..tostring(addr)..', '..tostring(port)..', ...)')
     end
     local client = self
     local cb, d = Promise.ensureCallback(callback)
@@ -117,8 +117,8 @@ local TcpClient = class.create(Tcp, function(tcpClient)
       if err then
         return cb(err)
       end
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('tcpClient:connect() '..tostring(addr)..':'..tostring(port)..' => #'..tostring(#res))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('tcpClient:connect() '..tostring(addr)..':'..tostring(port)..' => #'..tostring(#res))
         logger:dump(res, 'getaddrinfo', 5)
       end
       local ccb, i = nil, 0
@@ -134,15 +134,15 @@ local TcpClient = class.create(Tcp, function(tcpClient)
         if i < #res then
           i = i + 1
           local ai = res[i]
-          if logger:isLoggable(logger.DEBUG) then
+          if logger:isLoggable(logger.FINER) then
+            logger:finer('tcpClient:connect() on '..tostring(ai.addr)..':'..tostring(ai.port))
             --logger:dump(ai, 'addr['..tostring(i)..']', 5)
-            logger:debug('tcpClient:connect() on '..tostring(ai.addr)..':'..tostring(ai.port))
           end
           client.tcp = luvLib.new_tcp()
           client.tcp:connect(ai.addr, ai.port, ccb)
         else
-          if logger:isLoggable(logger.DEBUG) then
-            logger:debug('tcpClient:connect() error "'..tostring(connectErr)..'"')
+          if logger:isLoggable(logger.FINE) then
+            logger:fine('tcpClient:connect() error "'..tostring(connectErr)..'"')
           end
           return cb(connectErr)
         end
@@ -162,8 +162,8 @@ local TcpClient = class.create(Tcp, function(tcpClient)
   --  s:write('Hello')
   --end)
   function tcpClient:write(data, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpClient:write('..tostring(string.len(data))..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpClient:write('..tostring(string.len(data))..')')
     end
     local cb, d = Promise.ensureCallback(callback)
     if self.tcp then
@@ -184,7 +184,7 @@ local TcpClient = class.create(Tcp, function(tcpClient)
   --  end)
   --end)
   function tcpClient:readStart(stream)
-    logger:debug('tcpClient:readStart(?)')
+    logger:finer('tcpClient:readStart()')
     local cb = streams.ensureCallback(stream)
     -- TODO Raise or return errors
     -- int 0 UV_EALREADY UV_ENOTCONN
@@ -194,22 +194,22 @@ local TcpClient = class.create(Tcp, function(tcpClient)
     else
       cb('closed')
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpClient:readStart() => '..tostring(err))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpClient:readStart() => '..tostring(err))
     end
     return err
   end
 
   --- Stops reading data on this client.
   function tcpClient:readStop()
-    logger:debug('tcpClient:readStop()')
+    logger:finer('tcpClient:readStop()')
     local err = 0
     if self.tcp then
       -- TODO Raise or return errors
       err = self.tcp:read_stop()
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpClient:readStop() => '..tostring(err))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpClient:readStop() => '..tostring(err))
     end
     return err
   end
@@ -217,7 +217,7 @@ local TcpClient = class.create(Tcp, function(tcpClient)
   --- Enables or disables TCP no delay.
   -- @tparam boolean on true to activate TCP no delay.
   function tcpClient:setTcpNoDelay(on)
-    logger:debug('tcpClient:setTcpNoDelay('..tostring(on)..')')
+    logger:finer('tcpClient:setTcpNoDelay('..tostring(on)..')')
     self.tcp:nodelay(on)
     return self
   end
@@ -226,7 +226,7 @@ local TcpClient = class.create(Tcp, function(tcpClient)
   -- @tparam boolean on true to activate keep alive.
   -- @tparam number delay the keep alive delay.
   function tcpClient:setKeepAlive(on, delay)
-    logger:debug('tcpClient:setKeepAlive('..tostring(on)..', '..tostring(delay)..')')
+    logger:finer('tcpClient:setKeepAlive('..tostring(on)..', '..tostring(delay)..')')
     self.tcp:keepalive(on, delay)
     return self
   end
@@ -238,8 +238,8 @@ end)
 local TcpServer = class.create(Tcp, function(tcpServer, super)
 
   function tcpServer:close(callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpServer:close()')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpServer:close()')
     end
     if self.tcp2 then
       local cb, d = Promise.ensureCallback(callback)
@@ -258,8 +258,8 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
 
   function tcpServer:bindThenListen(addr, port, backlog)
     backlog = backlog or 32
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpServer:bindThenListen('..tostring(addr)..', '..tostring(port)..', '..tostring(backlog)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpServer:bindThenListen('..tostring(addr)..', '..tostring(port)..', '..tostring(backlog)..')')
     end
     local server = self
     local tcp = luvLib.new_tcp()
@@ -283,13 +283,13 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
   function tcpServer:handleAccept()
     local tcp = self:tcpAccept()
     if tcp then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('tcpServer:handleAccept() accepting '..socketToString(tcp))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('tcpServer:handleAccept() accepting '..socketToString(tcp))
       end
       local client = TcpClient:new(tcp)
       self:onAccept(client)
     else
-      logger:debug('tcpServer:handleAccept() accept error')
+      logger:finer('tcpServer:handleAccept() accept error')
     end
   end
 
@@ -297,8 +297,8 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
     if self.tcp then
       local tcp = luvLib.new_tcp()
       self.tcp:accept(tcp)
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('tcpServer:accept() '..socketToString(tcp))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('tcpServer:accept() '..socketToString(tcp))
       end
       return tcp
     end
@@ -317,8 +317,8 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
     if type(backlog) ~= 'number' then
       backlog = 32
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpServer:bind('..tostring(node)..', '..tostring(port)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('tcpServer:bind('..tostring(node)..', '..tostring(port)..')')
     end
     local cb, d = Promise.ensureCallback(callback)
     local server = self
@@ -327,8 +327,8 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
         --logger:warn('tcpServer:bind() getaddrinfo() in error, '..tostring(err))
         return cb(err)
       end
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('tcpServer:bind() '..tostring(node)..':'..tostring(port)..' => #'..tostring(#res))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('tcpServer:bind() '..tostring(node)..':'..tostring(port)..' => #'..tostring(#res))
         logger:dump(res, 'getaddrinfo', 5)
       end
       local ai = res[1]
@@ -408,8 +408,8 @@ local UdpSocket = class.create(function(udpSocket)
   --local s = UdpSocket:new()
   --s:bind('0.0.0.0', 1900, {reuseaddr = true, ipv6only = false})
   function udpSocket:bind(addr, port, options)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
     end
     return self.nds:bind(addr, port, options)
   end
@@ -427,8 +427,8 @@ local UdpSocket = class.create(function(udpSocket)
   --- Enables or disables broadcast.
   -- @tparam boolean value true to activate broadcast.
   function udpSocket:setBroadcast(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setBroadcast('..tostring(value)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:setBroadcast('..tostring(value)..')')
     end
     return self.nds:set_broadcast(value)
   end
@@ -436,8 +436,8 @@ local UdpSocket = class.create(function(udpSocket)
   --- Enables or disables multicast loopback mode.
   -- @tparam boolean value true to activate loopback mode.
   function udpSocket:setLoopbackMode(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setLoopbackMode('..tostring(value)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:setLoopbackMode('..tostring(value)..')')
     end
     return self.nds:set_multicast_loop(value)
   end
@@ -445,8 +445,8 @@ local UdpSocket = class.create(function(udpSocket)
   --- Sets the multicast time to live value.
   -- @tparam number value the time to live.
   function udpSocket:setTimeToLive(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setTimeToLive('..tostring(value)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:setTimeToLive('..tostring(value)..')')
     end
     return self.nds:set_multicast_ttl(value)
   end
@@ -454,8 +454,8 @@ local UdpSocket = class.create(function(udpSocket)
   --- Sets the multicast interface.
   -- @tparam string ifaddr the multicast interface.
   function udpSocket:setInterface(ifaddr)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setInterface('..tostring(ifaddr)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:setInterface('..tostring(ifaddr)..')')
     end
     return self.nds:set_multicast_interface(ifaddr)
   end
@@ -464,8 +464,8 @@ local UdpSocket = class.create(function(udpSocket)
   -- @tparam string mcastaddr the multicast address.
   -- @tparam string ifaddr the interface address.
   function udpSocket:joinGroup(mcastaddr, ifaddr)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:joinGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:joinGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
     end
     return self.nds:set_membership(mcastaddr, ifaddr, 'join')
   end
@@ -474,8 +474,8 @@ local UdpSocket = class.create(function(udpSocket)
   -- @tparam string mcastaddr the multicast address.
   -- @tparam string ifaddr the interface address.
   function udpSocket:leaveGroup(mcastaddr, ifaddr)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:leaveGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:leaveGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
     end
     return self.nds:set_membership(mcastaddr, ifaddr, 'leave')
   end
@@ -488,7 +488,7 @@ local UdpSocket = class.create(function(udpSocket)
   --  print('received', err, data)
   --end)
   function udpSocket:receiveStart(stream)
-    logger:debug('udpSocket:receiveStart(?)')
+    logger:finer('udpSocket:receiveStart(?)')
     local cb = streams.ensureCallback(stream)
     -- TODO Raise or return errors
     -- int 0 UV_EALREADY UV_ENOTCONN
@@ -498,22 +498,22 @@ local UdpSocket = class.create(function(udpSocket)
     else
       cb('closed')
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:receiveStart() => '..tostring(err))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:receiveStart() => '..tostring(err))
     end
     return err
   end
 
   --- Stops receiving datagram packets on this socket.
   function udpSocket:receiveStop()
-    logger:debug('udpSocket:receiveStop()')
+    logger:finer('udpSocket:receiveStop()')
     local err = 0
     if self.nds then
       -- TODO Raise or return errors
       err = self.nds:recv_stop()
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:receiveStop() => '..tostring(err))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:receiveStop() => '..tostring(err))
     end
     return err
   end
@@ -528,8 +528,8 @@ local UdpSocket = class.create(function(udpSocket)
   --local s = UdpSocket:new()
   --s:send('Hello', '239.255.255.250', 1900)
   function udpSocket:send(data, addr, port, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:send('..tostring(string.len(data))..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('udpSocket:send('..tostring(string.len(data))..')')
     end
     local cb, d = Promise.ensureCallback(callback)
     if self.nds then
@@ -544,7 +544,7 @@ local UdpSocket = class.create(function(udpSocket)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once this socket is closed.
   function udpSocket:close(callback)
-    logger:debug('udpSocket:close()')
+    logger:finer('udpSocket:close()')
     local cb, d = Promise.ensureCallback(callback)
     if self.nds then
       self.nds:close(cb)

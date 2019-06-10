@@ -100,8 +100,8 @@ local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStrea
       self.buffer = buffer
       self.length = string.len(buffer)
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('bufferedStreamHandler:initialize(?, '..tostring(limit)..', ?, #'..tostring(self.length)..')')
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('bufferedStreamHandler:initialize(?, '..tostring(limit)..', ?, #'..tostring(self.length)..')')
     end
   end
 
@@ -130,11 +130,11 @@ local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStrea
   end
 
   function bufferedStreamHandler:onData(data)
-    if logger:isLoggable(logger.DEBUG) then
+    if logger:isLoggable(logger.FINER) then
       if logger:isLoggable(logger.FINEST) then
         logger:finest('bufferedStreamHandler:onData("'..tostring(data)..'")')
       else
-        logger:debug('bufferedStreamHandler:onData(#'..tostring(data and #data)..')')
+        logger:finer('bufferedStreamHandler:onData(#'..tostring(data and #data)..')')
       end
     end
     if data then
