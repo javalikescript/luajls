@@ -104,6 +104,7 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       secureContext = SecureContext.getDefault()
     end
     self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
+    self.sslReading = false
   end
 
   function secureTcpClient:sslShutdown()
@@ -114,13 +115,16 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       self.ssl:shutdown()
     end
     self.ssl = nil
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('secureTcpClient:sslShutdown() in and out Mem')
+    end
     if self.inMem then
       self.inMem:close()
     end
-    self.inMem = nil
     if self.outMem then
       self.outMem:close()
     end
+    self.inMem = nil
     self.outMem = nil
   end
 
@@ -215,7 +219,8 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
     if logger:isLoggable(logger.FINER) then
       logger:finer('secureTcpClient:sslRead()')
     end
-    while self.inMem:pending() > 0 do
+    --local data = nil -- we may want to proceed all the available data
+    while self.sslReading and (self.inMem:pending() > 0 or self.ssl:pending() > 0) do
       local plainData, op = self.ssl:read()
       if plainData then
         if logger:isLoggable(logger.FINER) then
@@ -225,6 +230,13 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
             logger:finer('ssl:read() => #'..tostring(string.len(plainData)))
           end
         end
+        --[[if data then
+          data = data..plainData
+        else
+          data = plainData
+        end]]
+        -- TODO triggering onData is problematic as it may result in stop reading or closing the connection
+        -- the stream may be no more relevant
         stream:onData(plainData)
       else
         if logger:isLoggable(logger.FINER) then
@@ -239,6 +251,9 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
         return
       end
     end
+    --[[if data then
+      stream:onData(data)
+    end]]
   end
 
   function secureTcpClient:startHandshake()
@@ -333,10 +348,21 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       ]]
       stream:onError(err)
     end
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('ssl:pending() => '..tostring(self.ssl:pending()))
+      logger:finer('inMem:pending() => '..tostring(self.inMem:pending()))
+      logger:finer('outMem:pending() => '..tostring(self.outMem:pending()))
+      --[[if self.ssl:pending() > 0 then
+        local plainData, op = self.ssl:read()
+        logger:finer('ssl:read() => '..tostring(plainData and #plainData)..', '..tostring(op))
+      end]]
+    end
     -- prior to start reading we want to be sure that the connection is still ok
     -- otherwise libuv will crash on an assertion
     if SecureTcpClient.doNotCheckSecureTcp then
+      self.sslReading = true
       super.readStart(self, sslStream)
+      self:sslRead(stream)
     else
       super.write(secureClient, '', function(err)
         if err then
@@ -345,13 +371,20 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
           end
           stream:onError(err)
         else
+          self.sslReading = true
           super.readStart(secureClient, sslStream)
+          secureClient:sslRead(stream)
         end
       end)
     end
-    if self.inMem:pending() > 0 then
-      self:sslRead(stream)
+  end
+
+  function secureTcpClient:readStop()
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('secureTcpClient:readStop()')
     end
+    self.sslReading = false
+    return super.readStop(self)
   end
 
   function secureTcpClient:write(data, callback)

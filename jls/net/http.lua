@@ -347,31 +347,34 @@ local function createChunkFinder()
   local needChunkSize = true
   local chunkSize
   return function(self, buffer, length)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('createChunkFinder() chunk size: '..tostring(chunkSize))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('chunkFinder('..tostring(buffer and #buffer)..', '..tostring(length)..') chunk size: '..tostring(chunkSize))
     end
     if needChunkSize then
       local ib, ie = string.find(buffer, '\r\n', 1, true)
-      if ib then
+      if ib and ib > 1 and ib < 32 then
         local chunkLine = string.sub(buffer, 1, ib - 1)
         if logger:isLoggable(logger.FINEST) then
-          logger:finest('createChunkFinder() chunk line: "'..chunkLine..'"')
+          logger:finest('chunkFinder() chunk line: "'..chunkLine..'"')
         end
         local ic = string.find(chunkLine, ';', 1, true)
         if ic then
           chunkLine = string.sub(buffer, 1, ic - 1)
         end
         chunkSize = tonumber(chunkLine, 16)
-        if not chunkSize then
-          self:onError('Invalid chunk size "'..chunkLine..'"')
+        if chunkSize then
+          needChunkSize = false
+        else
+          self:onError('Invalid chunk size, line length is '..tostring(chunkLine and #chunkLine))
         end
-        needChunkSize = false
         return -1, ie + 1
+      elseif #buffer > 2 then
+        self:onError('Chunk size not found, buffer length is '..tostring(#buffer))
       end
     else
       if chunkSize == 0 then
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('createChunkFinder() chunk ended')
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('chunkFinder() chunk ended')
         end
         -- TODO consume trailer-part
         return -1, -1
@@ -714,6 +717,7 @@ local HttpClient = class.create(function(httpClient)
       return readBody(response, client.tcpClient, buffer)
     end):next(function()
       logger:fine('httpClient:sendReceive() body done')
+      -- TODO We may want to handle redirections, status code 3xx
       resolve(response)
     end, function(err)
       if logger:isLoggable(logger.FINE) then
