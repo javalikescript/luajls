@@ -172,17 +172,31 @@ return class.create(function(zipFile, _, ZipFile)
     local size = ZipFile.STRUCT.EndOfCentralDirectoryRecord:getSize()
     local offset = fileLength - size
     local header = ZipFile.STRUCT.EndOfCentralDirectoryRecord:fromString(fd:readSync(size, offset))
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('readEntries() file length: '..tostring(fileLength)..' EOCDR size: '..tostring(size))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('readEntries() file length: '..tostring(fileLength))
     end
     if header.signature ~= ZipFile.CONSTANT.END_CENTRAL_DIR_SIGNATURE then
-      return nil, 'Invalid zip file, Bad Central Directory Record signature (0x'..string.format('%08x', header.signature)..')'
+      -- the header may have a comment
+      size = 1024
+      offset = fileLength - size
+      local buffer = fd:readSync(size, offset)
+      local index = string.find(buffer, 'PK\x05\x06', 1, true)
+      if index then
+        offset = offset + index - 1
+        header = ZipFile.STRUCT.EndOfCentralDirectoryRecord:fromString(string.sub(buffer, index))
+      end
+      if header.signature ~= ZipFile.CONSTANT.END_CENTRAL_DIR_SIGNATURE then
+        return nil, 'Invalid zip file, Bad Central Directory Record signature (0x'..string.format('%08x', header.signature)..')'
+      end
+    end
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('readEntries() EOCDR size: '..tostring(size)..' offset: '..tostring(offset))
     end
     local entryCount = header.entryCount
     size = ZipFile.STRUCT.FileHeader:getSize()
     offset = header.offset
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('readEntries() offset: '..tostring(offset)..' entry count: '..tostring(entryCount)..' FileHeader size: '..tostring(size))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('readEntries() offset: '..tostring(offset)..' entry count: '..tostring(entryCount)..' FileHeader size: '..tostring(size))
     end
     for i = 1, entryCount do
       local fileHeader = ZipFile.STRUCT.FileHeader:fromString(fd:readSync(size, offset))
@@ -204,21 +218,24 @@ return class.create(function(zipFile, _, ZipFile)
       local entry = ZipEntry:new(filename, comment, nil, fileHeader)
       table.insert(entries, entry)
       --entries[filename] = entry
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('readEntries() entry: '..tostring(i)..' offset: '..tostring(offset)..' filename: #'..tostring(fileHeader.filenameLength)..' comment: #'..tostring(fileHeader.fileCommentLength))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('readEntries() entry: '..tostring(i)..' offset: '..tostring(offset)..' filename: #'..tostring(fileHeader.filenameLength)..' comment: #'..tostring(fileHeader.fileCommentLength))
       end
+    end
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('readEntries() entries: #'..tostring(#entries)..' entry count: '..tostring(entryCount))
     end
     return entries, entryCount, header
   end
 
   --- Creates a new ZipFile with the specified file or filename.
   -- @function ZipFile:new
-    function zipFile:initialize(file)
+  function zipFile:initialize(file)
     local f = File.asFile(file)
-    local fd, entries
+    local fd, entries, err
     if f:isFile() then
       fd = FileDescriptor.openSync(f)
-      local entries, err = readEntries(self.fd, f:length())
+      entries, err = readEntries(fd, f:length())
       if not entries then
         fd:closeSync()
         error(err)
