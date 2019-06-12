@@ -31,7 +31,17 @@ local SecureContext = class.create(function(secureContext)
     --self.sslContext:options(opensslLib.ssl.no_sslv2 | opensslLib.ssl.no_sslv3 | opensslLib.ssl.no_compression)
     
     self.sslContext:verify_mode(opensslLib.ssl.none)
-    --self.sslContext:verify_mode(opensslLib.ssl.peer, function(arg) return true end)
+    --[[
+      self.sslContext:verify_mode(opensslLib.ssl.peer, function(arg)
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('sslContext verify()')
+          for k,v in pairs(arg) do
+            logger:fine('  '..tostring(k)..': '..tostring(v))
+          end
+        end
+        return true
+      end)
+    ]]
     
     if options.certificate and options.key then
       self:use(options.certificate, options.key, options.password)
@@ -42,8 +52,13 @@ local SecureContext = class.create(function(secureContext)
     end
 
     self.sslContext:set_cert_verify(function(arg)
-      --do some check
-      return true --return false will fail ssh handshake
+      --[[if logger:isLoggable(logger.FINE) then
+        logger:fine('sslContext cert_verify()')
+        for k,v in pairs(arg) do
+          logger:fine('  '..tostring(k)..': '..tostring(v))
+        end
+      end]]
+      return true
     end)
   end
 
@@ -95,9 +110,6 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
     if logger:isLoggable(logger.FINER) then
       logger:finer('secureTcpClient:sslInit()')
     end
-    if type(options) ~= 'table' then
-      options = {}
-    end
     self.inMem = opensslLib.bio.mem(BUFFER_SIZE)
     self.outMem = opensslLib.bio.mem(BUFFER_SIZE)
     if not secureContext then
@@ -105,6 +117,10 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
     end
     self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
     self.sslReading = false
+    --[[if self.sslCheckHost == nil then
+      logger:fine('secureTcpClient:sslInit() use default check host')
+      self.sslCheckHost = not isServer
+    end]]
   end
 
   function secureTcpClient:sslShutdown()
@@ -141,9 +157,7 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
   end
 
   function secureTcpClient:connect(addr, port, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('secureTcpClient:connect()')
-    end
+    logger:finer('secureTcpClient:connect()')
     if not self.ssl then
       self:sslInit()
     end
@@ -157,6 +171,18 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       dh:next(function()
         if logger:isLoggable(logger.FINE) then
           logger:fine('secureTcpClient:connect() handshake completed for '..net.socketToString(self.tcp))
+          if logger:isLoggable(logger.FINER) then
+            logger:finer('getpeerverification() => '..tostring(secureClient.ssl:getpeerverification()))
+            logger:finer('peerCert:subject() => '..tostring(secureClient.ssl:peer():subject():oneline()))
+          end
+        end
+        if secureClient.sslCheckHost then
+          local peerCert = secureClient.ssl:peer()
+          if not peerCert:check_host(addr) then
+            logger:fine('secureTcpClient:connect() => Wrong host')
+            cb('Wrong host')
+            return
+          end
         end
         cb()
       end, ecb)
