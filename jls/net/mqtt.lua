@@ -321,7 +321,6 @@ end):next(function()
 end)
 
 event:loop()
-event:close()
 @type MqttClient
 ]]
 local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
@@ -514,7 +513,6 @@ local mqttServer = mqtt.MqttServer:new()
 mqttServer:bind()
 
 event:loop()
-event:close()
 @type MqttServer
 ]]
 local MqttServer = class.create(function(mqttServer)

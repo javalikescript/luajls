@@ -353,5 +353,4 @@ function test_HttpClientServer_keep_alive()
   lu.assertEquals(count, 2)
 end
 
---event:close()
 os.exit(lu.LuaUnit.run())

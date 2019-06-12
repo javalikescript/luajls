@@ -37,5 +37,4 @@ httpServer:createContext('/', function(httpExchange)
 end
 )
 event:loop()
-event:close()
 ```

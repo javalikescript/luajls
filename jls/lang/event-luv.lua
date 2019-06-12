@@ -57,7 +57,7 @@ return require('jls.lang.class').create(function(event)
     luvLib.run('once')
   end
   
-  function event:close() -- TODO Register as shutdown handler
-    luvLib.loop_close()
+  function event:close()
+    --luvLib.loop_close() -- the loop will automatically be closed when it is garbage collected by Lua
   end
 end):new()

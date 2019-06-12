@@ -78,6 +78,9 @@ local HTTP_CONST = {
 local function hasSecure()
   if secure == false then
     secure = loader.tryRequire('jls.net.secure')
+    if not secure then
+      logger:warn('Unable to require jls.net.secure')
+    end
   end
   return secure
 end
@@ -587,7 +590,6 @@ end):next(function(response)
   httpClient:close()
 end)
 event:loop()
-event:close()
 @type HttpClient
 ]]
 local HttpClient = class.create(function(httpClient)
@@ -631,6 +633,7 @@ local HttpClient = class.create(function(httpClient)
       self.tcpClient = options.tcpClient
     elseif self.isSecure and hasSecure() then
       self.tcpClient = secure.TcpClient:new()
+      --self.tcpClient.sslCheckHost = options.checkHost == true
     else
       self.tcpClient = net.TcpClient:new()
     end
@@ -1070,7 +1073,6 @@ httpServer:createContext('/', function(httpExchange)
   response:setBody('It works !')
 end)
 event:loop()
-event:close()
 @type HttpServer
 ]]
 local HttpServer = class.create(HttpContextHolder, function(httpServer, super)

@@ -61,5 +61,4 @@ function test_UdpSocket()
   lu.assertEquals(receivedData, 'Hello')
 end
 
---event:close()
 os.exit(lu.LuaUnit.run())

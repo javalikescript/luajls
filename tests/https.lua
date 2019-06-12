@@ -24,6 +24,7 @@ local function createHttpsClient(headers)
   local client = http.Client:new({
     url = 'https://127.0.0.1:'..tostring(TEST_PORT)..'/',
     method = 'GET',
+    checkHost = false,
     headers = headers
   })
   return client
@@ -266,5 +267,4 @@ end
 
 checkCertificateAndPrivateKey()
 
---event:close()
 os.exit(lu.LuaUnit.run())
