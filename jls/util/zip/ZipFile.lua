@@ -453,41 +453,74 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  function ZipFile.unzipTo(file, directory)
+  local function keepFileName(name)
+    return name
+  end
+
+  local function newRemoveRootFileName(rootName)
+    return function(name)
+      local basename, path = string.match(name, '^([^/]+)/?(.*)$')
+      if rootName then
+        if basename ~= rootName then
+          return nil
+        end
+      else
+        rootName = basename
+      end
+      if path and path ~= '' then
+        return path
+      end
+    end
+  end
+
+  ZipFile.fileNameAdapter = {
+    default = keepFileName,
+    newRemoveRoot = newRemoveRootFileName
+  }
+
+  function ZipFile.unzipTo(file, directory, adaptFileName)
     --local fil = File.asFile(file)
     local dir = File.asFile(directory)
     if not dir:isDirectory() then
       return false, 'The specified directory is invalid'
     end
+    if type(adaptFileName) ~= 'function' then
+      adaptFileName = keepFileName
+    end
     local err = nil
     local zFile = ZipFile:new(file)
     for _, entry in ipairs(zFile:getEntries()) do
-      logger:info('unzip entry "'..entry:getName()..'"')
-      local entryFile = File:new(dir, entry:getName())
-      if entry:isDirectory() then
-        if not entryFile:isDirectory() then
-          if not entryFile:mkdirs() then
-            err = 'Cannot create directory'
-            break
+      local name = adaptFileName(entry:getName(), entry)
+      if name then
+        logger:info('unzip entry "'..name..'"')
+        local entryFile = File:new(dir, name)
+        if entry:isDirectory() then
+          if not entryFile:isDirectory() then
+            if not entryFile:mkdirs() then
+              err = 'Cannot create directory'
+              break
+            end
           end
+        else
+          local parent = entryFile:getParentFile()
+          if parent and not parent:isDirectory() then
+            if not parent:mkdirs() then
+              err = 'Cannot create directory'
+              break
+            end
+          end
+          local content = zFile:getContent(entry)
+          if content then
+            entryFile:write(content)
+          end
+          --[[
+          local dt = entry:getDatetime()
+          local date = Date.fromLocalDateTime(dt)
+          entryFile:setLastModified(date:getTime())
+          ]]
         end
       else
-        local parent = entryFile:getParentFile()
-        if parent and not parent:isDirectory() then
-          if not parent:mkdirs() then
-            err = 'Cannot create directory'
-            break
-          end
-        end
-        local content = zFile:getContent(entry)
-        if content then
-          entryFile:write(content)
-        end
-        --[[
-        local dt = entry:getDatetime()
-        local date = Date.fromLocalDateTime(dt)
-        entryFile:setLastModified(date:getTime())
-        ]]
+        logger:info('skipping entry "'..entry:getName()..'"')
       end
     end
     zFile:close()

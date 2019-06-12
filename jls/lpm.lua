@@ -34,7 +34,7 @@ local Dependency = class.create(function(dependency)
             end
             local installZip = function(zipFile, packageDir)
                 print('Unzip file "'..zipFile:getName()..'" to "'..packageDir:getName()..'"')
-                local status, err = ZipFile.unzipTo(zipFile, packageDir)
+                local status, err = ZipFile.unzipTo(zipFile, packageDir, ZipFile.fileNameAdapter.newRemoveRoot())
                 if not status then
                     print('Fail to unzip file "'..zipFile:getName()..'" due to "'..tostring(err)..'"')
                 end
@@ -90,7 +90,6 @@ local package
 ]]
 
 if command == 'init' then
-    -- main = 'init.lua'
     local packageName = currDir:getName() or 'xyz'
     package = {
         name = packageName,
@@ -136,4 +135,3 @@ elseif command == 'uninstall' then
 end
 
 event:loop()
-event:close()
