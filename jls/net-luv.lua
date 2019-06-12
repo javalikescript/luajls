@@ -24,7 +24,6 @@ client:connect('127.0.0.1', 8080):next(function(err)
 end
 
 event:loop()
-event:close()
 
 ]]
 
@@ -324,7 +323,9 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
     local server = self
     luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, res)
       if err then
-        --logger:warn('tcpServer:bind() getaddrinfo() in error, '..tostring(err))
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('tcpServer:bind('..tostring(node)..', '..tostring(port)..') getaddrinfo() in error, '..tostring(err))
+        end
         return cb(err)
       end
       if logger:isLoggable(logger.FINER) then
@@ -335,7 +336,9 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
       local bindErr
       server.tcp, bindErr = server:bindThenListen(ai.addr, ai.port, backlog)
       if bindErr then
-        --logger:warn('tcpServer:bind() bindThenListen() in error, '..tostring(bindErr))
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('tcpServer:bind() bindThenListen() in error, '..tostring(bindErr))
+        end
         return cb(bindErr)
       end
       -- TODO check if dual socket is necessary on other OSes
@@ -351,14 +354,17 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
         if ai2 then
           server.tcp2, bindErr = server:bindThenListen(ai2.addr, ai2.port, backlog)
           if bindErr then
-            --logger:warn('tcpServer:bind() second bindThenListen() in error, '..tostring(bindErr))
+            if logger:isLoggable(logger.FINE) then
+              logger:warn('tcpServer:bind() second bindThenListen() in error, '..tostring(bindErr))
+            end
             server.tcp:close()
             server.tcp = nil
             return cb(bindErr)
           end
         end
-        return cb()
       end
+      --logger:finer('tcpServer:bind() completed')
+      return cb()
     end)
     return d
   end
