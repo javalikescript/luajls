@@ -244,8 +244,9 @@ local function handleGetDirectory(httpExchange, file)
   local filenames = file:list()
   local body = ''
   local request = httpExchange:getRequest()
-  local accept = request:getHeader('Accept')
-  if accept and string.find(accept, HTTP_CONTENT_TYPES.json) then
+  --local accept = request:getHeader('Accept')
+  --if accept and string.find(accept, HTTP_CONTENT_TYPES.json) then
+  if request:hasHeaderValue(HTTP_CONST.HEADER_ACCEPT, HTTP_CONTENT_TYPES.json) then
     local dir = {}
     for i, filename in ipairs(filenames) do
       local f = File:new(file, filename)
@@ -343,7 +344,7 @@ function httpHandler.webdav(httpExchange)
       -- "0", "1", or "infinity"
       local uriPath = request:getTargetPath()
       uriPath = uriPath..'/'
-      local depth = request:getHeader('Accept') or 'infinity'
+      local depth = request:getHeader('Depth') or 'infinity'
       local filenames = file:list()
       local body = '<?xml version="1.0" encoding="utf-8" ?>\n<multistatus xmlns="DAV:">\n'
       for i, filename in ipairs(filenames) do

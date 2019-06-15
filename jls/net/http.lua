@@ -8,6 +8,7 @@ local URL = require('jls.net.URL')
 local Promise = require('jls.lang.Promise')
 local streams = require('jls.io.streams')
 local loader = require('jls.lang.loader')
+local tables = require('jls.util.tables')
 
 local secure = false
 
@@ -88,7 +89,7 @@ end
 
 --- The HttpMessage class represents the base class for request and response.
 -- @type HttpMessage
-local HttpMessage = class.create(function(httpMessage)
+local HttpMessage = class.create(function(httpMessage, _, HttpMessage)
 
   --- Creates a new Message.
   -- @function HttpMessage:new
@@ -110,15 +111,64 @@ local HttpMessage = class.create(function(httpMessage)
     return self.version or HTTP_CONST.VERSION_1_0
   end
 
+  --- Returns the header start value and a table containing the header value parameters.
+  -- @tparam string value the header value to parse.
+  -- @treturn string the header start value.
+  -- @treturn table a table containing the header value parameters.
+  function HttpMessage.parseHeaderValue(value)
+    local params = tables.split(value, '%s*;%s*')
+    local value = table.remove(params, 1)
+    --return table.unpack(params)
+    return value, params
+  end
+
   --- Returns the header value for the specified name.
+  -- This is the raw value and may contains multiple entries.
   -- @tparam string name the name of the header.
   -- @treturn string the header value corresponding to the name.
   function httpMessage:getHeader(name)
     return self.headers[string.lower(name)]
   end
 
+  function httpMessage:getHeaderValues(name)
+    --[[
+      see
+        https://www.iana.org/assignments/message-headers/message-headers.xhtml
+        https://tools.ietf.org/html/rfc7231#section-5.3.4
+        https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+    ]]
+    local rawValue = self:getHeader(name)
+    if rawValue then
+      return tables.split(rawValue, '%s*,%s*')
+    end
+  end
+
+  function httpMessage:setHeaderValues(name, values)
+    if type(values) == 'table' then
+      self:setHeader(name, table.concat(values, ', '))
+    end
+  end
+
+  function httpMessage:hasHeaderValue(name, value)
+    local values = self:getHeaderValues(name)
+    if values then
+      for _, v in ipairs(values) do
+        local pv = HttpMessage.parseHeaderValue(v)
+        if pv == value then
+          return true
+        end
+      end
+    end
+    return false
+  end
+
   function httpMessage:setHeader(name, value)
-    self.headers[string.lower(name)] = value
+    local valueType = type(value)
+    if valueType == 'string' or valueType == 'number' or valueType == 'boolean' then
+      self.headers[string.lower(name)] = tostring(value)
+    else
+      logger:fine('httpMessage:setHeader('..tostring(name)..', '..tostring(value)..') Invalid value will be ignored')
+    end
   end
 
   function httpMessage:parseHeaderLine(line)

@@ -29,6 +29,11 @@ function tables.filter(list, filterFn)
   return filtered
 end
 
+--- Returns a string by concatenating all the values of the specified table.
+-- tostring is used to get the string of a value.
+-- @tparam table list The list of values to concatenate.
+-- @tparam[opt] string sep An optional separator to add between values.
+-- @treturn string a string with all values joined.
 function tables.concat(list, sep)
   sep = sep or ''
   local buffer
@@ -42,6 +47,11 @@ function tables.concat(list, sep)
   return buffer or ''
 end
 
+--- Returns a table of strings split at each pattern.
+-- @tparam string value The string to split.
+-- @tparam string pattern The pattern used to split the string.
+-- @tparam boolean plain true to find the pattern as a plain string.
+-- @treturn table a table of strings split at each pattern.
 function tables.split(value, pattern, plain)
   local list = {}
   local s = #value
