@@ -37,6 +37,15 @@ local function levelFromString(value)
   return LEVEL[string.upper(value)]
 end
 
+local function levelToString(value)
+  for k, v in pairs(LEVEL) do
+    if v == value then
+      return k
+    end
+  end
+  return ''
+end
+
 --- A Logger class.
 -- A Logger object is used to log messages for a specific system or application component.
 -- @type Logger
@@ -194,6 +203,7 @@ end)
 Logger.LEVEL = LEVEL
 
 Logger.levelFromString = levelFromString
+Logger.levelToString = levelToString
 
 --- @section end
 
@@ -212,6 +222,7 @@ if jlsLoggerLevel then
   local l = levelFromString(jlsLoggerLevel)
   if l then
     logger:setLevel(l)
+    logger:info('set log level to '..levelToString(l)..' based on the JLS_LOGGER_LEVEL environment variable')
   end
 end
 

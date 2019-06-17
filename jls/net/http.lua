@@ -149,6 +149,10 @@ local HttpMessage = class.create(function(httpMessage, _, HttpMessage)
     end
   end
 
+  function httpMessage:hasHeaderIgnoreCase(name, value)
+    return string.lower(self:getHeader(name)) == string.lower(value)
+  end
+
   function httpMessage:hasHeaderValue(name, value)
     local values = self:getHeaderValues(name)
     if values then
@@ -1186,7 +1190,8 @@ local HttpServer = class.create(HttpContextHolder, function(httpServer, super)
         local c = exchange:removeClient()
         if c then
           logger:fine('httpServer:onAccept() keeping client alive')
-          server:onAccept(c, remainingBuffer)
+          exchange:close()
+          return server:onAccept(c, remainingBuffer)
         end
       end
       exchange:close()

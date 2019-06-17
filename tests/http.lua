@@ -4,6 +4,7 @@ local event = require('jls.lang.event')
 local net = require('jls.net')
 local http = require('jls.net.http')
 local streams = require('jls.io.streams')
+local tables = require('jls.util.tables')
 
 local logger = require('jls.lang.logger')
 
@@ -19,45 +20,55 @@ local function createTcpServer(onData)
   local server = net.TcpServer:new()
   assert(server:bind('0.0.0.0', TEST_PORT))
   function server:onAccept(client)
-    local stream = streams.StreamHandler:new()
-    function stream:onData(data)
+    client:readStart(streams.CallbackStreamHandler:new(function(err, data)
       if type(onData) == 'function' then
         onData(server, client, data)
       end
-      if data then
+      if err then
+        logger:warn('tcp server error '..tostring(err))
+        server.t_error = err
+        server:close()
+        client:close()
+      elseif data then
+        logger:finer('tcp server receives data')
         if server.t_receivedData then
           server.t_receivedData = server.t_receivedData..data
         else
           server.t_receivedData = data
         end
       else
+        logger:finer('tcp server receives no data')
         client:close()
         server:close()
       end
-    end
-    client:readStart(stream)
+    end))
   end
   return server
 end
 
 local function createTcpClient(requestData)
   local client = net.TcpClient:new()
-  client.t_receivedCount = 0
+  local receivedCount = 0
   return client:connect('127.0.0.1', TEST_PORT):next(function()
-    local stream = streams.StreamHandler:new()
-    function stream:onData(data)
-      if data then
-        client.t_receivedCount = client.t_receivedCount + 1
+    client:readStart(streams.CallbackStreamHandler:new(function(err, data)
+      if err then
+        logger:warn('tcp client error '..tostring(err))
+        client.t_error = err
+        client:close()
+      elseif data then
+        receivedCount = receivedCount + 1
+        logger:finer('tcp client receives #'..tostring(receivedCount)..' data #'..tostring(#data))
+        logger:finest('tcp client receives data '..tostring(data))
         if client.t_receivedData then
           client.t_receivedData = client.t_receivedData..data
         else
           client.t_receivedData = data
         end
       else
+        logger:finer('tcp client receives no data')
         client:close()
       end
-    end
-    client:readStart(stream)
+    end))
     if requestData then
       client:write(requestData)
     end
@@ -82,18 +93,19 @@ local function createHttpServer(handler)
   local server = http.Server:new()
   server.t_requestCount = 0
   server:createContext('(.*)', function(httpExchange)
-    --print('createHttpServer() handler')
+    server.t_requestCount = server.t_requestCount + 1
+    server.t_request = httpExchange:getRequest()
+    logger:finer('http server handle #'..tostring(server.t_requestCount))
     local super = httpExchange.close
     function httpExchange.close()
+      logger:finer('http exchange closed')
       local keepAlive = httpExchange:getResponse():getHeader('Connection') == 'keep-alive'
       super(httpExchange)
       if not keepAlive then
-        --print('createHttpServer() closing server')
+        logger:finer('http server closing')
         server:close()
       end
     end
-    server.t_requestCount = server.t_requestCount + 1
-    server.t_request = httpExchange:getRequest()
     return handler(httpExchange)
   end)
   return server:bind('::', TEST_PORT):next(function()
@@ -312,14 +324,18 @@ function test_HttpServer_keep_alive()
   local req = createHttpRawRequest(nil, nil, createRawHeaders({Connection = 'keep-alive'}))
   local server, client
   createHttpServer():next(function(s)
+    logger:fine('http server created')
     server = s
     return createTcpClient()
   end):next(function(c)
+    logger:fine('http client created')
     client = c
     return client:write(req)
   end):next(function()
+    logger:fine('http first request write completed')
     return client:write(createHttpRawRequest())
   end):finally(function()
+    logger:fine('http second request write completed')
     --server:close()
   end)
   event:loop()
@@ -328,12 +344,15 @@ function test_HttpServer_keep_alive()
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_requestCount, 2)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
-  lu.assertEquals(client.t_receivedCount, 2)
+  local bodies = tables.split(client.t_receivedData, 'HTTP/1%.')
+  logger:finest('http client received '..tables.concat(bodies, '+'))
+  lu.assertEquals(#bodies, 3)
 end
 
 function test_HttpClientServer_keep_alive()
   local count = 0
   createHttpServer(function(httpExchange)
+    logger:fine('http server created')
     local response = httpExchange:getResponse()
     response:setStatusCode(200, 'Ok')
     response:setBody('<p>Hello.</p>')

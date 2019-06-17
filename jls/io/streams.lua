@@ -17,16 +17,8 @@ local logger = require('jls.lang.logger')
 local StreamHandler = class.create(function(streamHandler)
 
   --- Creates a stream handler.
-  -- @tparam[opt] function onData the handler to process data
-  -- @tparam[opt] function onError the handler to process error
   -- @function StreamHandler:new
-  function streamHandler:initialize(onData, onError)
-    if type(onData) == 'function' then
-      self.onData = onData
-    end
-    if type(onError) == 'function' then
-      self.onError = onError
-    end
+  function streamHandler:initialize()
   end
 
   --- The specified data is available for this stream.
@@ -71,6 +63,9 @@ local CallbackStreamHandler = class.create(StreamHandler, function(callbackStrea
   end
   function callbackStreamHandler:onError(err)
     self.cb(err or 'Unspecified error')
+  end
+  function callbackStreamHandler:toCallback()
+    return self.cb
   end
 end)
 
