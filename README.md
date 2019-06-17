@@ -38,3 +38,8 @@ end
 )
 event:loop()
 ```
+
+See the [web site](http://javalikescript.free.fr/lua/) and the [API documentation](http://javalikescript.free.fr/lua/docs/).
+
+Download [binary](http://javalikescript.free.fr/lua/download/) or access the [source code](https://github.com/javalikescript/luajls).
+
