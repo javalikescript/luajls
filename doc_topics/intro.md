@@ -1,3 +1,28 @@
+## Overview
+
+Luajls is a standard library for lua.
+
+The library provides an abstract interface to the underlying operating system, such as file system and network.
+The jls lua library includes a set of lua modules providing an API to abstract the host platform. The main targeted OSes are Linux and Windows.
+The only required dependency is lua 5.3 Other dependencies are lua native modules such as lfs, luasocket, luv, lua-openssl, lua-cjson.
+
+see [javalikescript/lua](http://javalikescript.free.fr/lua/)
+
+
+## Features
+
+The following packages are available.
+
+* _jls.io_
+File system manipulation, file channel, pipe, serial
+* _jls.lang_
+Base classes including class definition, module loading, logging, event loop, promises, process
+* _jls.net_
+Network classes including TCP and UDP socket, HTTP, MQTT WebSocket client and server
+* _jls.util_
+Utility classes for date and time, json format, deflate and zip file, structs
+
+
 ## Name Convention
 
 The naming convention used is the following:
