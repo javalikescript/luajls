@@ -132,25 +132,19 @@ function test_createArgumentTable()
   lu.assertEquals(tables.createArgumentTable({'-a', '1', '-a', '2'}), {['-a'] = {'1', '2'}})
 end
 
-function test_concat()
-  lu.assertEquals(tables.concat({}, ','), '')
-  lu.assertEquals(tables.concat({'a'}, ','), 'a')
-  lu.assertEquals(tables.concat({'a', 'b', 'c'}, ','), 'a,b,c')
-  lu.assertEquals(tables.concat({'a', 'b', 'c'}), 'abc')
-  local t = {}
-  lu.assertEquals(tables.concat({'a', t, 1, true}, ','), 'a,'..tostring(t)..',1,true')
-end
-
-function test_split()
-  lu.assertEquals(tables.split('', ','), {})
-  lu.assertEquals(tables.split('a', ','), {'a'})
-  lu.assertEquals(tables.split('a,b,c', ','), {'a', 'b', 'c'})
-end
-
 function test_mergeValuesByPath()
   lu.assertEquals(tables.mergeValuesByPath({}, {a = {b = 'A value'}}), {['/a/b'] = {new = 'A value'}})
   lu.assertEquals(tables.mergeValuesByPath({a = {b = 'A value'}}, {}), {['/a/b'] = {old = 'A value'}})
   lu.assertEquals(tables.mergeValuesByPath({a = {b = 'A', c = 'C'}}, {a = {b = 'B', d = 'D'}}), {['/a/b'] = {old = 'A', new = 'B'}, ['/a/c'] = {old = 'C'}, ['/a/d'] = {new = 'D'}})
+end
+
+function test_stringify()
+  lu.assertEquals(tables.stringify({}), '{}')
+  lu.assertEquals(tables.stringify(1), '1')
+  lu.assertEquals(tables.stringify(1.2), '1.2')
+  lu.assertEquals(tables.stringify(true), 'true')
+  lu.assertEquals(tables.stringify("Hi"), '"Hi"')
+  --lu.assertEquals(tables.stringify({a = "Hi", b = 2}), '{a = "Hi", b = 2}')
 end
 
 os.exit(lu.LuaUnit.run())

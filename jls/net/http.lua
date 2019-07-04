@@ -8,7 +8,7 @@ local URL = require('jls.net.URL')
 local Promise = require('jls.lang.Promise')
 local streams = require('jls.io.streams')
 local loader = require('jls.lang.loader')
-local tables = require('jls.util.tables')
+local strings = require('jls.util.strings')
 
 local secure = false
 
@@ -116,7 +116,7 @@ local HttpMessage = class.create(function(httpMessage, _, HttpMessage)
   -- @treturn string the header start value.
   -- @treturn table a table containing the header value parameters.
   function HttpMessage.parseHeaderValue(value)
-    local params = tables.split(value, '%s*;%s*')
+    local params = strings.split(value, '%s*;%s*')
     local value = table.remove(params, 1)
     --return table.unpack(params)
     return value, params
@@ -139,7 +139,7 @@ local HttpMessage = class.create(function(httpMessage, _, HttpMessage)
     ]]
     local rawValue = self:getHeader(name)
     if rawValue then
-      return tables.split(rawValue, '%s*,%s*')
+      return strings.split(rawValue, '%s*,%s*')
     end
   end
 

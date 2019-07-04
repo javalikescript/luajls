@@ -3,7 +3,6 @@ local sigarLib = require('sigar')
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
-local tables = require("jls.util.tables")
 
 
 local function tables_add(st, t)

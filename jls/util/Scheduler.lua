@@ -5,7 +5,7 @@
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
-local tables = require('jls.util.tables')
+local TableList = require('jls.util.TableList')
 local Date = require('jls.util.Date')
 local LocalDateTime = require('jls.util.LocalDateTime')
 
@@ -352,7 +352,7 @@ local Scheduler = class.create(function(scheduler)
   end
 
   function scheduler:removeSchedule(scheduleId)
-    tables.removeTableValue(self.schedules, scheduleId, true)
+    TableList.removeFirst(self.schedules, scheduleId)
   end
 
   function scheduler:removeAllSchedules()

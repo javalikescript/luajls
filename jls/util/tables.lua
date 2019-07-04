@@ -1,101 +1,77 @@
 --- Provide table helper functions.
 -- @module jls.util.tables
 
+local StringBuffer = require('jls.lang.StringBuffer')
+local TableList = require('jls.util.TableList')
+
 local tables = {}
 
-function tables.indexOf(list, value)
-  for i, v in ipairs(list) do
-    if v == value then
-      return i
-    end
+-- Returns a table corresponding to the specifed text.
+-- @tparam string text The string to parse.
+-- @treturn table a table corresponding to the specifed text.
+function tables.parse(text)
+  -- TODO parse the text 
+  local f, err = load('return '..text)
+  if f then
+    return f()
   end
+  return nil, err
 end
 
-function tables.lastIndexOf(list, value)
-  for i = #list, 1, -1 do
-    if list[i] == value then
-      return i
-    end
-  end
-end
-
-function tables.filter(list, filterFn)
-  local filtered = {}
-  for i, v in ipairs(list) do
-    if filterFn(v, i, list) then
-      table.insert(filtered, v)
-    end
-  end
-  return filtered
-end
-
---- Returns a string by concatenating all the values of the specified table.
--- tostring is used to get the string of a value.
--- @tparam table list The list of values to concatenate.
--- @tparam[opt] string sep An optional separator to add between values.
--- @treturn string a string with all values joined.
-function tables.concat(list, sep)
-  sep = sep or ''
-  local buffer
-  for _, value in ipairs(list) do
-    if buffer then
-      buffer = buffer..sep..tostring(value)
+-- Returns a string representing the specifed table value.
+-- @tparam table value The table to convert.
+-- @tparam[opt] string space The indent value to use.
+-- @treturn string a string representing the specifed table value.
+function tables.stringify(value, space)
+  local sb = StringBuffer:new()
+  local indent = space or ''
+  local newline = space and '\n' or ''
+  local err
+  local function stringify(value, prefix)
+    local valueType = type(value)
+    if valueType == 'table' then
+      local subPrefix = prefix..indent
+      sb:append('{')
+      if TableList.isList(value) then
+        -- it looks like a list
+        for _, v in ipairs(value) do
+          sb:append(subPrefix)
+          stringify(v, subPrefix)
+          sb:append(',')
+        end
+      else
+        -- it looks like a map
+        for k, v in pairs(value) do
+          sb:append(subPrefix)
+          if type(k) == 'string' and isName(k) then
+            sb:append(k)
+          else
+            sb:append('[')
+            stringify(k, subPrefix)
+            sb:append(']')
+          end
+          sb:append('=')
+          stringify(v, subPrefix)
+          sb:append(',')
+        end
+      end
+      sb:append('}')
     else
-      buffer = tostring(value)
-    end
-  end
-  return buffer or ''
-end
-
---- Returns a table of strings split at each pattern.
--- @tparam string value The string to split.
--- @tparam string pattern The pattern used to split the string.
--- @tparam boolean plain true to find the pattern as a plain string.
--- @treturn table a table of strings split at each pattern.
-function tables.split(value, pattern, plain)
-  local list = {}
-  local s = #value
-  local p = 1
-  while p <= s do
-    local pStart, pEnd = string.find(value, pattern, p, plain)
-    if pStart then
-      table.insert(list, string.sub(value, p, pStart - 1))
-      p = pEnd + 1
-    else
-      table.insert(list, string.sub(value, p))
-      break
-    end
-  end
-  return list
-end
-
---- Removes the specifed value from the specified table.
--- The matching values are found using equality (==)
--- @tparam table list The table from which to remove the value.
--- @param value The value to remove from the table.
--- @tparam boolean last true to remove only the last value.
--- @treturn table the table to allow method chaining.
-function tables.removeTableValue(list, value, last)
-  for i = #list, 1, -1 do
-    if list[i] == value then
-      table.remove(list, i)
-      if last then
-        break
+      if valueType == 'string' then
+        sb:append('"'..string.gsub(value, '([\\"])', '\\%1')..'"')
+      elseif valueType == 'number' or valueType == 'boolean' then
+        sb:append(tostring(value))
+      else
+        err = 'Invalid type '..valueType
       end
     end
   end
-  return list
+  stringify(value, '')
+  return sb:toString(), err
 end
 
-local function reverseIterator(list, index)
-  index = index - 1
-  if index > 0 then
-      return index, list[index]
-  end
-end
-function tables.irpairs(list) -- reverseIteratorFactory
-  return reverseIterator, list, #list - 1
-end
+
+-- Tree table / Deep table manipulation
 
 function tables.shallowCopy(t)
   local c = {}
@@ -248,92 +224,6 @@ function tables.patch(oldTable, diff)
   end
   return newTable
 end
-
---[[
---- Returns the value resulting of the evaluation of the specified path against the specified table.
--- Valid paths are a/b, a[1] ~ a/[1], a[@id='b'] ~ a/*[@id='b']
--- @tparam table t a table.
--- @tparam string path the expression to evaluate against the table.
--- @return the evaluated value, list of values or nil.
-function tables.evaluatePath(t, path)
-  --local localPath = string.gsub(path, '/.*$', '')
-  --local remainingPath = string.gsub(path, '^[^/]*/', '')
-  local localPath, remainingPath = string.match(path, '^([^/]*)/(.*)$')
-  if not localPath then
-    localPath = path
-  end
-  local key, expression = string.match(localPath, '^([^%[]*)%[(.+)%]$')
-  local value
-  if expression then
-    if #key > 0 then
-      if remainingPath then
-        remainingPath = '['..expression..']/'..remainingPath
-      else
-        remainingPath = '['..expression..']'
-      end
-      value = t[key]
-    else
-      local index = tonumber(expression)
-      if index then
-        value = t[index]
-      else
-        -- TODO
-
-      end
-    end
-  else
-    value = t[localPath]
-  end
-  if remainingPath then
-    if type(value) == 'table' then
-      return tables.find(value, remainingPath)
-    end
-    return nil
-  end
-  return value
-end
-]]
-
-
---- Returns a table containing an entry for each argument name.
--- An entry contains a string or a list of string.
--- An argument name starts with a comma ('-').
--- The arguments without name are available under the empty name ('').
--- @tparam string arguments the command line containing the arguments.
--- @treturn table the arguments as a table.
-function tables.createArgumentTable(arguments)
-  local t = {}
-  local name = ''
-  for _, argument in ipairs(arguments) do
-    if string.find(argument, '^-') then
-      name = argument
-    else
-      local value = t[name]
-      local et = type(value)
-      if et == 'nil' then
-        t[name] = argument
-      elseif et == 'table' then
-        table.insert(value, argument)
-      else
-        t[name] = {value, argument}
-      end
-      name = ''
-    end
-  end
-  return t
-end
-
-function tables.getArgument(t, name, defaultValue)
-  local value = t[name]
-  if value == nil then
-    return defaultValue
-  end
-  if type(value) == 'table' then
-    return value[1]
-  end
-  return value
-end
-
 
 local function getPathKey(path)
   local key, remainingPath
@@ -519,5 +409,48 @@ end
 function tables.mergeValuesByPath(oldTable, newTable, path)
   return mergeValuesByPath(oldTable, newTable, {}, path or '')
 end
+
+
+-- Command line argument parsing
+
+-- Returns a table containing an entry for each argument name.
+-- An entry contains a string or a list of string.
+-- An argument name starts with a comma ('-').
+-- The arguments without name are available under the empty name ('').
+-- @tparam string arguments the command line containing the arguments.
+-- @treturn table the arguments as a table.
+function tables.createArgumentTable(arguments)
+  local t = {}
+  local name = ''
+  for _, argument in ipairs(arguments) do
+    if string.find(argument, '^-') then
+      name = argument
+    else
+      local value = t[name]
+      local et = type(value)
+      if et == 'nil' then
+        t[name] = argument
+      elseif et == 'table' then
+        table.insert(value, argument)
+      else
+        t[name] = {value, argument}
+      end
+      name = ''
+    end
+  end
+  return t
+end
+
+function tables.getArgument(t, name, defaultValue)
+  local value = t[name]
+  if value == nil then
+    return defaultValue
+  end
+  if type(value) == 'table' then
+    return value[1]
+  end
+  return value
+end
+
 
 return tables

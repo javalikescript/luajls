@@ -8,7 +8,7 @@ if event ~= require('jls.lang.event') then
   error('Conflicting event libraries')
 end
 local system = require('jls.lang.system')
-local tables = require('jls.util.tables')
+local TableList = require('jls.util.TableList')
 local streams = require('jls.io.streams')
 
 
@@ -86,10 +86,10 @@ local Selector = class.create(function(selector)
       addMode = mode ~ keepMode
       local subMode = context.mode ~ keepMode
       if subMode & MODE_RECV == MODE_RECV then
-        tables.removeTableValue(self.recvt, socket, true)
+        TableList.removeFirst(self.recvt, socket)
       end
       if subMode & MODE_SEND == MODE_SEND then
-        tables.removeTableValue(self.sendt, socket, true)
+        TableList.removeFirst(self.sendt, socket)
       end
     else
       self.contt[socket] = context
@@ -111,8 +111,8 @@ local Selector = class.create(function(selector)
   end
   
   function selector:unregister(socket)
-    tables.removeTableValue(self.recvt, socket, true)
-    tables.removeTableValue(self.sendt, socket, true)
+    TableList.removeFirst(self.recvt, socket)
+    TableList.removeFirst(self.sendt, socket)
     self.contt[socket] = nil
   end
   

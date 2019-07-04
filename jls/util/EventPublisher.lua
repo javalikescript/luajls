@@ -2,7 +2,7 @@
 -- @module jls.util.EventPublisher
 
 local logger = require('jls.lang.logger')
-local tables = require('jls.util.tables')
+local TableList = require('jls.util.TableList')
 
 --- The EventPublisher class.
 -- The EventPublisher provides a way subsribe and publish events.
@@ -51,7 +51,7 @@ return require('jls.lang.class').create(function(eventPublisher)
   function eventPublisher:unsubscribeEvent(name, key)
     local handlers = self.eventHandlers[name]
     if handlers then
-      tables.removeTableValue(handlers, key, true)
+      TableList.removeFirst(handlers, key)
       if #handlers == 0 then
         self.eventHandlers[name] = nil
       end
