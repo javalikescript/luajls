@@ -119,7 +119,7 @@ return require('jls.lang.class').create(function(struct)
   -- @tparam string t the values to encode as a table
   -- @treturn string the encoded values as a string.
   function struct:toString(t)
-    local s = ''
+    local ts = {}
     for i, def in ipairs(self.struct) do
       local value = t[def.name]
       if not value then
@@ -150,9 +150,9 @@ return require('jls.lang.class').create(function(struct)
       if not rawValue then
         error('Cannot encode value "'..tostring(value)..'" for field "'..tostring(def.name)..'" at index '..tostring(i))
       end
-      s = s..rawValue
+      table.insert(ts, rawValue)
     end
-    return s
+    return table.concat(ts)
   end
 
 end)

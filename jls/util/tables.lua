@@ -41,9 +41,10 @@ function tables.stringify(value, space)
         end
       else
         -- it looks like a map
+        -- The order in which the indices are enumerated is not specified
         for k, v in pairs(value) do
           sb:append(subPrefix)
-          if type(k) == 'string' and isName(k) then
+          if type(k) == 'string' and TableList.isName(k) then
             sb:append(k)
           else
             sb:append('[')

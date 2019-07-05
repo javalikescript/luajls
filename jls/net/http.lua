@@ -8,6 +8,7 @@ local URL = require('jls.net.URL')
 local Promise = require('jls.lang.Promise')
 local streams = require('jls.io.streams')
 local loader = require('jls.lang.loader')
+local StringBuffer = require('jls.lang.StringBuffer')
 local strings = require('jls.util.strings')
 
 local secure = false
@@ -194,13 +195,16 @@ local HttpMessage = class.create(function(httpMessage, _, HttpMessage)
     end
   end
 
-  function httpMessage:getRawHeaders()
-    local content = ''
+  function httpMessage:appendHeaders(buffer)
     for name, value in pairs(self:getHeaders()) do
       -- TODO Capitalize names
-      content = content..name..': '..tostring(value)..'\r\n'
+      buffer:append(name, ': ', tostring(value), '\r\n')
     end
-    return content
+    return buffer
+  end
+
+  function httpMessage:getRawHeaders()
+    return self:appendHeaders(StringBuffer:new()):toString()
   end
 
   function httpMessage:getContentLength()
@@ -228,11 +232,13 @@ local HttpMessage = class.create(function(httpMessage, _, HttpMessage)
   end
 
   function httpMessage:writeHeaders(stream, callback)
-    local buffer = self:getLine()..'\r\n'..self:getRawHeaders()..'\r\n'
+    local buffer = StringBuffer:new(self:getLine(), '\r\n')
+    self:appendHeaders(buffer):append('\r\n')
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('httpMessage:writeHeaders() "'..buffer..'"')
+      logger:finest('httpMessage:writeHeaders() "'..buffer:toString()..'"')
     end
-    return stream:write(buffer, callback)
+    -- TODO write StringBuffer
+    return stream:write(buffer:toString(), callback)
   end
 
   function httpMessage:writeBody(stream, callback)
@@ -293,6 +299,7 @@ local HttpRequest = class.create(HttpMessage, function(httpRequest, super)
   function httpRequest:getLine()
     if self.line == '' then
       self.line = self:getMethod()..' '..self:getTarget()..' '..self:getVersion()
+      --self.line = table.concat({self:getMethod(), ' ', self:getTarget(), ' ', self:getVersion()})
     end
     return self.line
   end
@@ -367,6 +374,7 @@ local HttpResponse = class.create(HttpMessage, function(httpResponse, super)
   function httpResponse:getLine()
     if self.line == '' then
       self.line = self:getVersion()..' '..tostring(self:getStatusCode())..' '..self:getReasonPhrase()
+      --self.line = table.concat({self:getVersion(), ' ', self:getStatusCode(), ' ', self:getReasonPhrase()})
     end
     return self.line
   end

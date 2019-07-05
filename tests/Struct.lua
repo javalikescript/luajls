@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local Struct = require('jls.util.Struct')
 
-function test_something()
+function test_to_from()
   --lu.assertEquals(res, exp)
   --lu.assertIsNil(res)
   local struct = Struct:new({

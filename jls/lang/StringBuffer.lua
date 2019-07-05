@@ -10,19 +10,18 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   --- Creates a new StringBuffer.
   -- @tparam[opt] string value the initial value.
   -- @function StringBuffer:new
-  function stringBuffer:initialize(value)
+  function stringBuffer:initialize(...)
     self:clear()
-    self:append(value)
+    if ... then
+      self:append(...)
+    end
   end
 
   function stringBuffer:clone()
     return StringBuffer:new(self)
   end
 
-  --- Appends the string representation of the value to this buffer.
-  -- @param value the value to append.
-  -- @treturn jls.lang.StringBuffer this buffer.
-  function stringBuffer:append(value)
+  function stringBuffer:addPart(value, index)
     local valueType = type(value)
     local valueString
     if valueType == 'string' then
@@ -31,8 +30,14 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
       valueString = tostring(value)
     elseif valueType == 'table' then
       if StringBuffer:isInstance(value) then
-        for _, s in ipairs(value.values) do
-          table.insert(self.values, s)
+        if index then
+          for i = #value.values, 1, -1 do
+            table.insert(self.values, index, value.values[i])
+          end
+        else
+          for _, s in ipairs(value.values) do
+            table.insert(self.values, s)
+          end
         end
         self.len = self.len + value.len
         return self
@@ -40,11 +45,57 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
         valueString = value:toString()
       end
     end
-    if valueString ~= nil then
-      table.insert(self.values, valueString)
+    if valueString ~= nil and valueString ~= '' then
+      if index then
+        table.insert(self.values, index, valueString)
+      else
+        table.insert(self.values, valueString)
+      end
       self.len = self.len + string.len(valueString)
     end
     return self
+  end
+
+  --- Appends the string representation of the value to this buffer.
+  -- @param value the value to append.
+  -- @treturn jls.lang.StringBuffer this buffer.
+  function stringBuffer:append(value, ...)
+    self:addPart(value)
+    if ... then
+      for _, v in ipairs({...}) do
+        self:addPart(v)
+      end
+    end
+    return self
+  end
+
+  function stringBuffer:partAt(i)
+    if i >= 1 then
+      local ii = 1
+      for index, value in ipairs(self.values) do
+        local l = string.len(value)
+        local jj = ii + l
+        if jj > i then
+          return value, 1 + i - ii, l, index
+        end
+        ii = jj
+      end
+    end
+  end
+
+  function stringBuffer:byte(i)
+    local value, ii = self:partAt(i)
+    if value then
+      return string.byte(value, ii)
+    end
+  end
+
+  function stringBuffer:charAt(i)
+    local value, ii = self:partAt(i)
+    if value then
+      return string.sub(value, ii, ii)
+    end
+    return ''
   end
 
   function stringBuffer:cut(i)

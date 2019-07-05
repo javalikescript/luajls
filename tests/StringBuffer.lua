@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local StringBuffer = require("jls.lang.StringBuffer")
+local StringBuffer = require('jls.lang.StringBuffer')
 
 function assertEquals(value, expected)
   lu.assertEquals(value:clone():toString(), expected)
@@ -9,22 +9,40 @@ end
 
 function test_toString()
   local buffer = StringBuffer:new()
-  assertEquals(buffer, '')
-  buffer:append('Hello world !')
+  buffer:append('Hello'):append(' world !')
   assertEquals(buffer, 'Hello world !')
 end
 
 function test_intial_value()
-  local buffer = StringBuffer:new('Hello')
-  assertEquals(buffer, 'Hello')
-  buffer:append(' world !')
-  assertEquals(buffer, 'Hello world !')
+  assertEquals(StringBuffer:new(), '')
+  assertEquals(StringBuffer:new('Hi'), 'Hi')
+  assertEquals(StringBuffer:new('Hello', ' world !'), 'Hello world !')
 end
 
 function test_append()
+  assertEquals(StringBuffer:new():append('Hello'):append(' world !'), 'Hello world !')
+  assertEquals(StringBuffer:new('Hello'):append(' world !'), 'Hello world !')
+  assertEquals(StringBuffer:new():append('Hello', ' world !'), 'Hello world !')
+end
+
+function test_charAt()
   local buffer = StringBuffer:new()
-  buffer:append('Hello'):append(' world !')
-  assertEquals(buffer, 'Hello world !')
+  buffer:append('Hello'):append(' the'):append(' World !')
+  lu.assertEquals(buffer:charAt(0), '')
+  lu.assertEquals(buffer:charAt(1), 'H')
+  lu.assertEquals(buffer:charAt(7), 't')
+  lu.assertEquals(buffer:charAt(11), 'W')
+  lu.assertEquals(buffer:charAt(99), '')
+end
+
+function test_byte()
+  local buffer = StringBuffer:new()
+  buffer:append('Hello'):append(' the'):append(' World !')
+  lu.assertIsNil(buffer:byte(0))
+  lu.assertEquals(buffer:byte(1), 72)
+  lu.assertEquals(buffer:byte(7), 116)
+  lu.assertEquals(buffer:byte(11), 87)
+  lu.assertIsNil(buffer:byte(99))
 end
 
 function test_cut()

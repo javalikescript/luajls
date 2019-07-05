@@ -139,12 +139,20 @@ function test_mergeValuesByPath()
 end
 
 function test_stringify()
-  lu.assertEquals(tables.stringify({}), '{}')
   lu.assertEquals(tables.stringify(1), '1')
   lu.assertEquals(tables.stringify(1.2), '1.2')
   lu.assertEquals(tables.stringify(true), 'true')
   lu.assertEquals(tables.stringify("Hi"), '"Hi"')
-  --lu.assertEquals(tables.stringify({a = "Hi", b = 2}), '{a = "Hi", b = 2}')
+  lu.assertEquals(tables.stringify({}), '{}')
+  -- table map
+  lu.assertEquals(tables.stringify({a = "Hi"}), '{a="Hi",}')
+  lu.assertEquals(tables.stringify({["b"] = 2}), '{b=2,}')
+  lu.assertEquals(tables.stringify({["1"] = 2}), '{["1"]=2,}')
+  lu.assertEquals(tables.stringify({[5] = 2}), '{[5]=2,}')
+  lu.assertEquals(tables.stringify({c = false}), '{c=false,}')
+  lu.assertEquals(tables.stringify({["b "] = 2}), '{["b "]=2,}')
+  -- table list
+  lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
 end
 
 os.exit(lu.LuaUnit.run())
