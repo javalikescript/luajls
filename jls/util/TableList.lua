@@ -65,43 +65,60 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   -- @function TableList:new
   function tableList:initialize(...)
     if ... then
-      self:addValues(...)
+      self:add(...)
     end
   end
 
-  function tableList:add(value)
+  --- Adds a new element at the end of this list.
+  -- @param value The element to add at the end of this list.
+  -- @treturn jls.util.TableList this list.
+  function tableList:add(value, ...)
     if value == nil then
       error('Cannot add nil value')
     end
     table.insert(self, value)
-    return self
-  end
-
-  function tableList:addValues(...)
-    return self:addAll({...})
-  end
-
-  function tableList:addAll(values)
-    for _, value in ipairs(values) do
-      self:add(value)
+    if ... then
+      self:addAll({...})
     end
     return self
   end
 
+  function tableList:addAll(values)
+    for _, value in ipairs(values) do
+      table.insert(self, value)
+    end
+    return self
+  end
+
+  --- Removes the element at the specified index.
+  -- @tparam integer index The index of the element to remove.
+  -- @return The value of the removed element.
   function tableList:remove(index)
     return table.remove(self, index)
   end
 
-  --- Removes the specifed value from this list.
+  --- Removes the first specified value from this list.
   -- The matching values are found using equality (==)
   -- @param value The value to remove from the list.
   -- @treturn boolean true if a value has been removed.
+  -- @function tableList:removeFirst
   tableList.removeFirst = removeFirst
 
+  --- Removes the last specified value from this list.
+  -- @param value The value to remove from the list.
+  -- @treturn boolean true if a value has been removed.
+  -- @function tableList:removeLast
   tableList.removeLast = removeLast
 
+  --- Removes the specified value from this list.
+  -- @param value The value to remove from the list.
+  -- @function tableList:removeAll
   tableList.removeAll = removeAll
 
+  --- Inserts a new element to this list at the specified index.
+  -- @tparam integer index The index where to insert the element.
+  -- @param value The element to insert to this list.
+  -- @treturn jls.util.TableList this list.
   function tableList:insert(index, value)
     if value == nil then
       error('Cannot add nil value')
@@ -113,6 +130,8 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return self
   end
 
+  --- Returns the size of this list.
+  -- @treturn integer the size of this list.
   function tableList:size()
     return #self
   end
@@ -191,15 +210,24 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
 
   TableList.lastIndexOf = lastIndexOf
 
-  --- Removes the specifed value from the specified list.
-  -- The matching values are found using equality (==)
+  --- Removes the first specified value from the specified list.
   -- @tparam table list The list from which to remove the value.
   -- @param value The value to remove from the list.
   -- @treturn boolean true if a value has been removed.
+  -- @function TableList.removeFirst
   TableList.removeFirst = removeFirst
 
+  --- Removes the last specified value from the specified list.
+  -- @tparam table list The list from which to remove the value.
+  -- @param value The value to remove from the list.
+  -- @treturn boolean true if a value has been removed.
+  -- @function TableList.removeLast
   TableList.removeLast = removeLast
 
+  --- Removes the specified value from the specified list.
+  -- @tparam table list The list from which to remove the value.
+  -- @param value The value to remove from the list.
+  -- @function TableList.removeAll
   TableList.removeAll = removeAll
 
   TableList.irpairs = irpairs
@@ -234,6 +262,8 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   -- tostring() is used to get the string of a value.
   -- @tparam table list The list of values to concatenate.
   -- @tparam[opt] string sep An optional separator to add between values.
+  -- @tparam[opt] integer i The index of the first value, default is 1.
+  -- @tparam[opt] integer j The index of the last value, default is #list.
   -- @treturn string a string with all values joined.
   function TableList.concat(list, sep, i, j)
     local l = {}

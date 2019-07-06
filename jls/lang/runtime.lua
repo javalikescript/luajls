@@ -10,6 +10,7 @@ local runtime = {}
 -- If undefined, the new process inherits the environment of the parent process.
 -- @param dir The working directory of the subprocess, or undefined
 -- if the subprocess should inherit the working directory of the current process.
+-- @treturn jls.lang.ProcessHandle a handle of the new process
 function runtime.exec(command, env, dir)
   if type(command) == 'string' then
     command = {command}

@@ -1,4 +1,4 @@
---- Provide integer helper functions.
+-- Provide integer helper functions.
 -- @module jls.util.integers
 
 local integers = {}

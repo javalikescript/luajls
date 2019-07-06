@@ -64,7 +64,6 @@ return require('jls.lang.class').create(function(processBuilder)
   --- Starts this ProcessBuilder.
   -- @treturn jls.lang.ProcessHandle a handle of the new process
   function processBuilder:start(onexit)
-    --self.cmd[1] = Path.asPathName(self.cmd[1])
     local pid = processLib.spawn(self, onexit)
     if pid then
       return ProcessHandle:new(pid)

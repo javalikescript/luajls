@@ -1,4 +1,4 @@
---- Provide performance measurement functions.
+-- Provide performance measurement functions.
 -- @module jls.util.profiler
 
 local logger = require('jls.lang.logger')

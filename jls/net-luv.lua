@@ -1,7 +1,7 @@
 --[[--
 Network module.
 
-The network operation are only provided as asynchronous operations and thus
+The network operations are only provided as asynchronous operations and thus
 should be used together with an @{jls.lang.event|event} loop.
 
 @module jls.net

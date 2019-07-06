@@ -159,8 +159,11 @@ return require('jls.lang.class').create(function(url, _, URL)
     return t
   end
 
-  -- scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+  --- Returns the URL corresponding to the specified string.
+  -- @tparam string url The string to parse.
+  -- @treturn jls.net.URL the URL corresponding to the string.
   function URL.parse(url)
+    -- scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
     local scheme, specificPart = string.match(url, '^([%w][%w%+%.%-]*):(.*)$')
     scheme = string.lower(scheme)
     if scheme == 'http' or scheme == 'https' or scheme == 'ws' or scheme == 'wss' then
