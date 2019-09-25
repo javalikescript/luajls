@@ -200,7 +200,7 @@ end
 function httpHandler.file(httpExchange)
   local response = httpExchange:getResponse()
   local context = httpExchange:getContext()
-  local rootFile = context:getAttribute('rootFile') or File:new('.')
+  local rootFile = context:getAttribute('rootFile')
   if not rootFile then
     rootFile = File:new(context:getAttribute('rootPath') or '.')
     context:setAttribute('rootFile', rootFile)
@@ -239,7 +239,7 @@ local function handleGetFile(httpExchange, file)
   setMessageBodyFile(response, file)
 end
 
-local function handleGetDirectory(httpExchange, file)
+local function handleGetDirectory(httpExchange, file, showParent)
   local response = httpExchange:getResponse()
   local filenames = file:list()
   local body = ''
@@ -258,6 +258,9 @@ local function handleGetDirectory(httpExchange, file)
     body = json.encode(dir)
     response:setContentType(HTTP_CONTENT_TYPES.json)
   else
+    if showParent then
+      body = '<a href="..">..</a><br/>\n'
+    end
     for i, filename in ipairs(filenames) do
       local f = File:new(file, filename)
       if f:isDirectory() then
@@ -276,7 +279,7 @@ end
 function httpHandler.files(httpExchange)
   local request = httpExchange:getRequest()
   local context = httpExchange:getContext()
-  local rootFile = context:getAttribute('rootFile') or File:new('.')
+  local rootFile = context:getAttribute('rootFile')
   if not rootFile then
     rootFile = File:new(context:getAttribute('rootPath') or '.')
     context:setAttribute('rootFile', rootFile)
@@ -292,7 +295,7 @@ function httpHandler.files(httpExchange)
     if file:isFile() then
       handleGetFile(httpExchange, file)
     elseif file:isDirectory() then
-      handleGetDirectory(httpExchange, file)
+      handleGetDirectory(httpExchange, file, true)
     else
       httpHandler.notFound(httpExchange)
     end
