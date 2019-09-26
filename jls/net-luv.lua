@@ -321,6 +321,7 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
     end
     local cb, d = Promise.ensureCallback(callback)
     local server = self
+    -- FIXME getaddrinfo does not have a port argument
     luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, res)
       if err then
         if logger:isLoggable(logger.FINE) then
@@ -334,7 +335,7 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
       end
       local ai = res[1]
       local bindErr
-      server.tcp, bindErr = server:bindThenListen(ai.addr, ai.port, backlog)
+      server.tcp, bindErr = server:bindThenListen(ai.addr, ai.port or port, backlog)
       if bindErr then
         if logger:isLoggable(logger.FINE) then
           logger:fine('tcpServer:bind() bindThenListen() in error, '..tostring(bindErr))
@@ -352,7 +353,7 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
           end
         end
         if ai2 then
-          server.tcp2, bindErr = server:bindThenListen(ai2.addr, ai2.port, backlog)
+          server.tcp2, bindErr = server:bindThenListen(ai2.addr, ai2.port or port, backlog)
           if bindErr then
             if logger:isLoggable(logger.FINE) then
               logger:warn('tcpServer:bind() second bindThenListen() in error, '..tostring(bindErr))
