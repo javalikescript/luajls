@@ -31,6 +31,12 @@ function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as func
   return self.scheduler:schedule(callback, false, delayMs) -- as opaque id
 end
 
+--- Unregisters a timer.
+-- @param timer the timer as returned by the setTimeout or setInterval method.
+function event:clearTimeout(timer)
+  self.scheduler:unschedule(timer)
+end
+
 --[[--
 Registers a timer which executes a function repeatedly with a fixed time delay between each execution.
 @tparam function callback A function that is executed repeatedly.

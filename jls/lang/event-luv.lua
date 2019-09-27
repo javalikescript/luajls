@@ -22,6 +22,11 @@ return require('jls.lang.class').create(function(event)
     return timer -- as opaque id
   end
   
+  function event:clearTimeout(timer)
+    timer:stop()
+    timer:close()
+  end
+  
   function event:setInterval(callback, delayMs) -- TODO Use extra arguments as function arguments
     local timer = luvLib.new_timer()
     timer:start(delayMs, delayMs, function ()
