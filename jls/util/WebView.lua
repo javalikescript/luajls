@@ -67,7 +67,7 @@ WebView:new():open('https://www.lua.org/')
       async:send(nil, true, webviewLib.lighten(webview)) -- the webview is closed
       luvLib.sleep(10)
       if logger then logger:fine('webView:open() thread looping') end
-      while not webviewLib.loop(wv, true) do end
+      webviewLib.loop(webview, true, true)
       if logger then logger:fine('webView:open() thread loop ended') end
       async:send() -- the webview is closed
       if logger then logger:fine('webView:open() thread async sent') end
@@ -98,6 +98,16 @@ WebView:new():open('https://www.lua.org/')
     end
     if self._webview then
       webviewLib.eval(self._webview, js, true)
+    end
+  end
+
+  --- Terminates the webview.
+  function webView:terminate()
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webView:terminate()')
+    end
+    if self._webview then
+      webviewLib.terminate(self._webview)
     end
   end
 
