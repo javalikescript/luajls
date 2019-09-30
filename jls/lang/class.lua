@@ -45,7 +45,11 @@ local function changeClass(instance, class)
 end
 
 local function makeInstance(class, instance)
+  if instance == nil then
+    instance = {}
+  end
   setmetatable(instance, class.metatable)
+  return instance
 end
 
 --[[--
@@ -80,8 +84,7 @@ local carCopy = car:clone()
 local function cloneInstance(instance)
   local class = getClass(instance)
   if class then
-    local newInstance = {}
-    makeInstance(class, newInstance)
+    local newInstance = makeInstance(class)
     for k, v in pairs(instance) do
       newInstance[k] = v
     end
@@ -111,9 +114,7 @@ local car = Vehicle:new('blue')
 car:getColor() -- Returns 'blue'
 ]]
 local function newInstance(class, ...)
-  local newInstance = {}
-  --local s = tostring(newInstance) -- "table: 00000000"
-  makeInstance(class, newInstance)
+  local newInstance = makeInstance(class)
   newInstance:initialize(...)
   return newInstance
 end
