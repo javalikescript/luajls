@@ -34,11 +34,11 @@ return class.create(function(webView)
   end
 
   --- Processes the webview event loop.
-  -- @tparam[opt] boolean blocking true to blockt.
-  -- @tparam[opt] boolean wait true to wait the webview to terminate.
-  function webView:loop(blocking, wait)
+  -- This function will block.
+  -- @tparam[opt] string mode the loop mode, default, once or nowait.
+  function webView:loop(mode)
     if self._webview then
-      local r = webviewLib.loop(self._webview, blocking, wait)
+      local r = webviewLib.loop(self._webview, mode)
       if r ~= 0 then
         webViewExited(self)
       end
@@ -46,7 +46,7 @@ return class.create(function(webView)
     end
   end
 
-  --- Registers a function that could be called from the web page.
+  --- Registers the specified function to be called from the web page.
   -- The JavaScript syntax is window.external.invoke("string value");
   -- @tparam function cb The callback to register.
   function webView:callback(cb)
@@ -58,7 +58,7 @@ return class.create(function(webView)
     end
   end
 
-  --- Evaluates the JavaScript code in the web page.
+  --- Evaluates the specified JavaScript code in the web page.
   -- @tparam string js The JavaScript code to evaluate.
   function webView:eval(js)
     if logger:isLoggable(logger.FINE) then
@@ -66,6 +66,28 @@ return class.create(function(webView)
     end
     if self._webview then
       webviewLib.eval(self._webview, js, true)
+    end
+  end
+
+  --- Sets the webview fullscreen.
+  -- @tparam boolean fullscreen true to switch the webview to fullscreen.
+  function webView:fullscreen(fullscreen)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webView:fullscreen()')
+    end
+    if self._webview then
+      webviewLib.fullscreen(self._webview, fullscreen)
+    end
+  end
+
+  --- Sets the webview title.
+  -- @tparam string title The webview title to set.
+  function webView:title(title)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webView:title('..tostring(title)..')')
+    end
+    if self._webview then
+      webviewLib.title(self._webview, title)
     end
   end
 
@@ -80,6 +102,7 @@ return class.create(function(webView)
   end
 
   --- Tells wether or not the webview is terminated.
+  -- @treturn boolean true if the webview is alive.
   function webView:isAlive()
     return self._webview ~= nil
   end
@@ -90,11 +113,33 @@ return class.create(function(webView)
     return self._exitPromise
   end
 
+  -- Runs the specified function in a new thread.
+  -- The function will be called with a light webview and the arguments specified after the thread function.
+  -- The additional arguments passed to the thread function can only be of types string, number and boolean
+  -- The function has its own Lua state, nothing is shared.
+  -- @tparam function threadFn the thread function to run.
+  -- @usage webview:thread(function(w, a, b, c)
+  --   local WebView = require('jls.util.WebView')
+  --   local webview = WebView.fromThread(w)
+  -- end, a, b, c)
+  function webView:thread(threadFn, ...)
+    return luvLib.new_thread(threadFn, webviewLib.lighten(self._webview), ...)
+  end
+
 end, function(WebView)
+
+  -- Returns a webview from the specified thread light webview.
+  -- @param w the thread light webview.
+  -- @treturn jls.util.WebView a webview.
+  function WebView.fromThread(w)
+    local webview = class.makeInstance(WebView)
+    webViewInit(webview, w)
+    return webview
+  end
 
   --[[--
 Opens the specified URL in a new window.
-@function WebView.open
+This function will block.
 @tparam string url the URL of the resource to be viewed.
 @tparam[opt] string title the title of the window.
 @tparam[opt] number width the width of the opened window.
@@ -105,26 +150,32 @@ local WebView = require('jls.util.WebView')
 WebView.open('https://www.lua.org/')
 ]]
   function WebView.open(url, title, width, height, resizable)
-    WebView:new(url, title, width, height, resizable):loop(true, true)
+    WebView:new(url, title, width, height, resizable):loop()
+  end
+
+  local defaultWebview
+  function WebView.default(webview)
+    if webview then
+      defaultWebview = webview
+    else
+      return defaultWebview
+    end
   end
 
   --[[--
 Opens the specified URL in a new window using a dedicated thread.
-@function WebView.open
+Opening a webview in a dedicated thread may not be supported on all platform.
 @tparam string url the URL of the resource to be viewed.
 @tparam[opt] string title the title of the window.
 @tparam[opt] number width the width of the opened window.
 @tparam[opt] number height the height of the opened window.
 @tparam[opt] boolean resizable true if the opened window could be resized.
 @treturn jls.lang.Promise a promise that resolves once the webview is available.
-@usage
-local WebView = require('jls.util.WebView')
-WebView.open('https://www.lua.org/')
 ]]
   function WebView.openInThread(url, title, width, height, resizable)
     local openPromise, resolveOpen, rejectOpen = Promise.createWithCallbacks()
-    local thread, webview
-    local async = luvLib.new_async(function(err, w)
+    local async, thread, webview
+    async = luvLib.new_async(function(err, w)
       logger:fine('webView:open() async received')
       if w then
         --webview = WebView:new(w)
@@ -137,9 +188,10 @@ WebView.open('https://www.lua.org/')
       end
       thread:join()
       logger:fine('webView:open() thread joined')
-      luvLib.sleep(100)
+      --luvLib.sleep(100)
       webViewExited(webview, err)
       logger:fine('webView:open() wait resolved')
+      async:close()
     end)
     thread = luvLib.new_thread(function(async, logLevel, url, title, width, height, resizable)
       local logger
@@ -150,15 +202,13 @@ WebView.open('https://www.lua.org/')
       local luvLib = require('luv')
       local w = webviewLib.new(url, title, width, height, resizable)
       if logger then logger:fine('webView:open() webview created') end
-      async:send(nil, webviewLib.lighten(w)) -- the webview is closed
-      luvLib.sleep(10)
+      async:send(nil, webviewLib.lighten(w)) -- the webview is available
       if logger then logger:fine('webView:open() thread looping') end
-      webviewLib.loop(w, true, true)
+      webviewLib.loop(w)
       if logger then logger:fine('webView:open() thread loop ended') end
       async:send() -- the webview is closed
       if logger then logger:fine('webView:open() thread async sent') end
-      luvLib.sleep(100)
-      async:close()
+      --luvLib.sleep(100)
       if logger then logger:fine('webView:open() thread async closed') end
     end, async, logger:isLoggable(logger.FINE) and logger:getLevel(), url, title, width, height, resizable)
     return openPromise
