@@ -66,8 +66,18 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     TableList.removeFirst(self.schedules, schedule)
   end
 
+  function coroutineScheduler:countSchedules()
+    local count = 0
+    for _, schedule in ipairs(self.schedules) do
+      if not schedule.daemon then
+        count = count + 1
+      end
+    end
+    return count
+  end
+
   function coroutineScheduler:hasSchedule()
-    return #self.schedules > 0
+    return self:countSchedules() > 0
   end
 
   --- Stops this scheduler from running.

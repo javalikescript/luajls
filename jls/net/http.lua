@@ -534,7 +534,7 @@ local function readBody(message, tcpClient, buffer, callback)
     stream = streams.BufferedStreamHandler:new(stream, -1)
   end
   local partHandler = streams.BufferedStreamHandler:new(stream, l, bsh)
-  if buffer then
+  if buffer and #buffer > 0 then
     partHandler:onData(buffer)
   end
   tcpClient:readStart(partHandler)

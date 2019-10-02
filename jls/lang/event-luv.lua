@@ -46,6 +46,14 @@ return require('jls.lang.class').create(function(event)
     timer:close()
   end
   
+  function event:daemon(timer, daemon)
+    if daemon then
+      luvLib.unref(timer)
+    else
+      luvLib.ref(timer)
+    end
+  end
+
   function event:loop()
     luvLib.run()
   end

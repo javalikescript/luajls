@@ -19,6 +19,27 @@ local opensslLib = require('openssl')
 
 local TEST_PORT = 3002
 
+function loop(onTimeout, timeout)
+  local timeoutReached = false
+  if not timeout then
+    timeout = 5000
+  end
+  local timer = event:setTimeout(function()
+    timeoutReached = true
+    if type(onTimeout) == 'function' then
+      onTimeout()
+    end
+    --event:stop()
+  end, timeout)
+  event:daemon(timer, true)
+  event:loop()
+  if timeoutReached then
+    lu.assertFalse(timeoutReached, 'timeout reached ('..tostring(timeout)..')')
+  else
+    event:clearTimeout(timer)
+  end
+end
+
 local function createHttpsClient(headers)
   headers = headers or {}
   local client = http.Client:new({
@@ -128,7 +149,10 @@ function test_HttpsClientServer()
       server:close()
     end)
   end)
-  event:loop()
+  loop(function()
+    client:close()
+    server:close()
+  end)
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
@@ -137,6 +161,7 @@ function test_HttpsClientServer()
 end
 
 function test_HttpsServerClients()
+  local server
   local count = 0
   createHttpsServer(function(httpExchange)
     local response = httpExchange:getResponse()
@@ -144,6 +169,7 @@ function test_HttpsServerClients()
     response:setBody('<p>Hello.</p>')
     count = count + 1
   end):next(function(s)
+    server = s
     sendReceiveClose(createHttpsClient())
     sendReceiveClose(createHttpsClient()):next(function()
       sendReceiveClose(createHttpsClient()):next(function()
@@ -152,11 +178,14 @@ function test_HttpsServerClients()
       end)
     end)
   end)
-  event:loop()
+  loop(function()
+    server:close()
+  end)
   lu.assertEquals(count, 3)
 end
 
 function test_HttpsServerClientsKeepAlive()
+  local server, client
   local count = 0
   createHttpsServer(function(httpExchange)
     local response = httpExchange:getResponse()
@@ -164,6 +193,7 @@ function test_HttpsServerClientsKeepAlive()
     response:setBody('<p>Hello.</p>')
     count = count + 1
   end):next(function(s)
+    server = s
     client = createHttpsClient({Connection = 'keep-alive'})
     connectSendReceive(client):next(function()
       logger:fine('send receive completed for first request')
@@ -174,7 +204,10 @@ function test_HttpsServerClientsKeepAlive()
       end)
     end)
   end)
-  event:loop()
+  loop(function()
+    client:close()
+    server:close()
+  end)
   lu.assertEquals(count, 2)
 end
 
@@ -238,8 +271,10 @@ function test_HttpsClientServerConnectionCloseAfterHandshake()
       logger:info('server closed')
     end)
   end)
-  --event:runOnce()
-  event:loop()
+  loop(function()
+    client:close()
+    server:close()
+  end)
 end
 
 function test_HttpsClientServerConnectionResetAfterHandshake()
@@ -262,7 +297,10 @@ function test_HttpsClientServerConnectionResetAfterHandshake()
       logger:info('an error occurred, '..tostring(err))
     end)
   end)
-  event:loop()
+  loop(function()
+    client:close()
+    server:close()
+  end)
 end
 
 checkCertificateAndPrivateKey()

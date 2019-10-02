@@ -87,6 +87,15 @@ function event:clearInterval(timer)
   self.scheduler:unschedule(timer)
 end
 
+-- Sets the timer daemon flag.
+-- @param timer the timer as returned by the setTimeout or setInterval method.
+-- @tparam boolean daemon true to indicate this timer is a daemon.
+function event:daemon(timer, daemon)
+  if type(timer) == 'table' and type(timer.daemon) == 'boolean' then
+    timer.daemon = daemon
+  end
+end
+
 --- Runs the event loop until there is no more registered event.
 function event:loop()
   self.scheduler:run()
