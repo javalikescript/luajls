@@ -19,9 +19,10 @@ function loop(onTimeout, timeout)
   local timer = event:setTimeout(function()
     timeoutReached = true
     if type(onTimeout) == 'function' then
-      onTimeout()
+      if not pcall(onTimeout) then
+        event:stop()
+      end
     end
-    --event:stop()
   end, timeout)
   event:daemon(timer, true)
   event:loop()

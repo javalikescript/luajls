@@ -4,7 +4,8 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
-local http = require('jls.net.http')
+local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpClient = require('jls.net.http.HttpClient')
 local base64 = require('jls.util.base64')
 local md = require('jls.util.MessageDigest'):new('sha1')
 
@@ -299,12 +300,12 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
   function webSocket:open()
     -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
     local key = base64.encode(randomChars(16))
-    local client = http.Client:new({
+    local client = HttpClient:new({
       url = self.url,
       method = 'GET',
       headers = {
-        [http.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
-        [http.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
+        [HttpMessage.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
+        [HttpMessage.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
         [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
         [CONST.HEADER_SEC_WEBSOCKET_KEY] = key,
         [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols
@@ -313,7 +314,7 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
     return client:connect():next(function()
       return client:sendReceive()
     end):next(function(response)
-      if response:getStatusCode() == http.CONST.HTTP_SWITCHING_PROTOCOLS then
+      if response:getStatusCode() == HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
         -- TODO Check accept key
         self.tcp = client.tcpClient
       else
@@ -342,8 +343,8 @@ local function upgradeHandler(httpExchange)
           logger:fine(tostring(name)..': "'..tostring(value)..'")')
     end
   end
-  local headerConnection = string.lower(request:getHeader(http.CONST.HEADER_CONNECTION) or '')
-  local headerUpgrade = string.lower(request:getHeader(http.CONST.HEADER_UPGRADE) or '')
+  local headerConnection = string.lower(request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) or '')
+  local headerUpgrade = string.lower(request:getHeader(HttpMessage.CONST.HEADER_UPGRADE) or '')
   if string.find(headerConnection, string.lower(CONST.CONNECTION_UPGRADE)) and headerUpgrade == string.lower(CONST.UPGRADE_WEBSOCKET) then
       local headerSecWebSocketKey = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_KEY)
       local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
@@ -351,12 +352,12 @@ local function upgradeHandler(httpExchange)
           local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
           local accept = context:getAttribute('accept')
           if type(accept) == 'function' and not accept(headerSecWebSocketProtocol, request) then
-            response:setStatusCode(http.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
+            response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
             response:setBody('<p>Upgrade rejected.</p>')
           else
-            response:setStatusCode(http.CONST.HTTP_SWITCHING_PROTOCOLS, 'Switching Protocols')
-            response:setHeader(http.CONST.HEADER_CONNECTION, CONST.CONNECTION_UPGRADE)
-            response:setHeader(http.CONST.HEADER_UPGRADE, CONST.UPGRADE_WEBSOCKET)
+            response:setStatusCode(HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS, 'Switching Protocols')
+            response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, CONST.CONNECTION_UPGRADE)
+            response:setHeader(HttpMessage.CONST.HEADER_UPGRADE, CONST.UPGRADE_WEBSOCKET)
             response:setHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT, hashWebSocketKey(headerSecWebSocketKey))
             local protocol = context:getAttribute('protocol')
             if protocol then
@@ -374,11 +375,11 @@ local function upgradeHandler(httpExchange)
             end
           end
         else
-          response:setStatusCode(http.CONST.HTTP_BAD_REQUEST, 'Bad Request')
+          response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
           response:setBody('<p>Missing or invalid WebSocket headers.</p>')
       end
   else
-      response:setStatusCode(http.CONST.HTTP_BAD_REQUEST, 'Bad Request')
+      response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
       response:setBody('<p>Missing or invalid connection headers.</p>')
   end
 end

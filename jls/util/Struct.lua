@@ -1,4 +1,4 @@
---- Provide Struct class.
+--- This class enables to deal with composite data type.
 -- @module jls.util.Struct
 
 local logger = require('jls.lang.logger')

@@ -27,9 +27,10 @@ function loop(onTimeout, timeout)
   local timer = event:setTimeout(function()
     timeoutReached = true
     if type(onTimeout) == 'function' then
-      onTimeout()
+      if not pcall(onTimeout) then
+        event:stop()
+      end
     end
-    --event:stop()
   end, timeout)
   event:daemon(timer, true)
   event:loop()
@@ -42,12 +43,14 @@ end
 
 local function createHttpsClient(headers)
   headers = headers or {}
+  logger:fine('createHttpsClient()')
   local client = http.Client:new({
     url = 'https://127.0.0.1:'..tostring(TEST_PORT)..'/',
     method = 'GET',
     checkHost = false,
     headers = headers
   })
+  logger:fine('createHttpsClient() done')
   return client
 end
 
@@ -212,11 +215,11 @@ function test_HttpsServerClientsKeepAlive()
 end
 
 local function resetConnection(tcp, close, shutdown)
-  if netLuv.TcpClient:isInstance(tcp) then
+  if netLuv and luaSocketLib and netLuv.TcpClient:isInstance(tcp) then
     local fd = tcp.tcp:fileno()
     tcp = luaSocketLib.tcp()  
     tcp:setfd(fd)
-  elseif netSocket.TcpClient:isInstance(tcp) then
+  elseif netSocket and netSocket.TcpClient:isInstance(tcp) then
     tcp = tcp.tcp
   end
   local lingerOption = tcp:getoption('linger')
@@ -231,9 +234,9 @@ local function resetConnection(tcp, close, shutdown)
 end
 
 local function shutdownConnection(tcp, close)
-  if netLuv.TcpClient:isInstance(tcp) then
+  if netLuv and netLuv.TcpClient:isInstance(tcp) then
     tcp.tcp:shutdown()
-  elseif netSocket.TcpClient:isInstance(tcp) then
+  elseif netSocket and netSocket.TcpClient:isInstance(tcp) then
     tcp.tcp:shutdown('both')
   end
   if close then

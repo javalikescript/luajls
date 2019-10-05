@@ -17,6 +17,24 @@ local function tryRequire(name)
   return nil
 end
 
+local NOT_LOADED = {}
+
+--- Returns a funtion that will try to require the specified Lua module only once.
+-- @tparam string name the name of the module to load
+-- @treturn funtion a function that will return the specified module or nil if an error occured
+local function singleRequirer(name)
+  local module = NOT_LOADED
+  return function()
+    if module == NOT_LOADED then
+      module = tryRequire('jls.net.secure')
+      if logger:isLoggable(logger.DEBUG) then
+        logger:debug('singleRequirer() fails to load module "'..name..'"')
+      end
+    end
+    return module
+  end
+end
+
 -- The JLS_REQUIRES environment variable enables to pre load native/non jls modules
 -- that can be used in case of multiple implementations
 local jlsRequires = os.getenv('JLS_REQUIRES')
@@ -104,6 +122,7 @@ end
 return {
   requireOne = requireOne,
   tryRequire = tryRequire,
+  singleRequirer = singleRequirer,
   unload = unload,
   unloadAll = unloadAll
 }

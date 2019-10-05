@@ -1,7 +1,7 @@
 file = "jls"
 project = "JLS"
-title = "JLS 0.2"
-description = "JLS"
+title = "Lua JLS 0.2"
+description = "Lua JLS"
 full_description = "The jls Lua libraries provide abstraction interfaces for general-purpose scripting"
 --no_summary = true
 --no_space_before_args = true 
