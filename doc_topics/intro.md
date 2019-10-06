@@ -18,11 +18,11 @@ The following packages are available.
 * _jls.io_
 File system manipulation, file channel, pipe, serial
 * _jls.lang_
-Base classes including class definition, module loading, logging, event loop, promises, process
+Base modules including class definition, module loading, logging, event loop, promises, process
 * _jls.net_
-Network classes including TCP and UDP socket, HTTP, MQTT WebSocket client and server
+Network modules including TCP and UDP socket, HTTP, MQTT WebSocket client and server
 * _jls.util_
-Utility classes for date and time, JSON format, structs, deflate, zip file and WebView
+Utility modules for date and time, JSON format, structs, deflate, zip file and WebView
 
 
 ## Name Convention
