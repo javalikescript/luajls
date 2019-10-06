@@ -254,6 +254,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     HEADER_COOKIE = 'Cookie',
     HEADER_SERVER = 'Server',
     HEADER_CACHE_CONTROL = 'Cache-Control',
+    HEADER_CONTENT_DISPOSITION = 'Content-Disposition',
     HEADER_CONTENT_LENGTH = 'Content-Length',
     HEADER_CONTENT_TYPE = 'Content-Type',
     HEADER_TRANSFER_ENCODING = 'Transfer-Encoding'
