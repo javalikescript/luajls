@@ -316,7 +316,7 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
     end):next(function(response)
       if response:getStatusCode() == HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
         -- TODO Check accept key
-        self.tcp = client.tcpClient
+        self.tcp = client:getTcpClient()
       else
         client:close()
       end

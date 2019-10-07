@@ -215,6 +215,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     
     HTTP_INTERNAL_SERVER_ERROR = 500,
   
+    -- method names are case sensitive
     METHOD_GET = 'GET',
     METHOD_HEAD = 'HEAD',
     METHOD_POST = 'POST',
@@ -250,6 +251,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     HEADER_KEEP_ALIVE = 'Keep-Alive',
     HEADER_PROXY_CONNECTION = 'Proxy-Connection',
     HEADER_CONNECTION = 'Connection',
+    HEADER_LOCATION = 'Location',
     HEADER_UPGRADE = 'Upgrade',
     HEADER_COOKIE = 'Cookie',
     HEADER_SERVER = 'Server',

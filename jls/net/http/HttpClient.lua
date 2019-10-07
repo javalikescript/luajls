@@ -46,6 +46,7 @@ return require('jls.lang.class').create(function(httpClient)
     local method = options.method or 'GET'
     local request = HttpRequest:new()
     self.isSecure = false
+    self.maxRedirectCount = 0
     self.request = request
     if type(options.headers) == 'table' then
       request:setHeaders(options.headers)
@@ -63,17 +64,27 @@ return require('jls.lang.class').create(function(httpClient)
     if type(options.port) == 'number' then
       self.port = options.port
     end
-    if type(options.body) == 'string' then
-      request:setContentLength(#options.body)
+    if type(options.followRedirect) == 'boolean' then
+      self.maxRedirectCount = 3
+    end
+    if type(options.maxRedirectCount) == 'number' then
+      self.maxRedirectCount = options.maxRedirectCount
+    end
+    if options.body then
+      if type(options.body) == 'string' then
+        request:setContentLength(#options.body)
+      end
       request:setBody(options.body)
     end
     if self.host then
       request:setHeader(HttpMessage.CONST.HEADER_HOST, self.host)
     end
     -- add accept headers
-    if options.tcpClient then
-      self.tcpClient = options.tcpClient
-    elseif self.isSecure and getSecure() then
+    self:initializeTcpClient()
+  end
+
+  function httpClient:initializeTcpClient()
+    if self.isSecure and getSecure() then
       self.tcpClient = getSecure().TcpClient:new()
       --self.tcpClient.sslCheckHost = options.checkHost == true
     else
@@ -81,8 +92,17 @@ return require('jls.lang.class').create(function(httpClient)
     end
   end
 
+  function httpClient:getTcpClient()
+    return self.tcpClient
+  end
+
   function httpClient:setUrl(url)
-    logger:finer('httpClient:setUrl('..tostring(url)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('httpClient:setUrl('..tostring(url)..')')
+    end
+    if self.tcpClient then
+      error('already initialized')
+    end
     local u = URL:new(url)
     local target = u:getFile()
     self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
@@ -92,29 +112,24 @@ return require('jls.lang.class').create(function(httpClient)
   end
 
   --- Connects this HTTP client.
-  -- @return true in case of success
-  function httpClient:connect(callback)
+  -- @treturn jls.lang.Promise a promise that resolves once this client is connected.
+  function httpClient:connect()
     logger:finer('httpClient:connect()')
-    return self.tcpClient:connect(self.host or 'localhost', self.port or 80, callback)
+    return self.tcpClient:connect(self.host or 'localhost', self.port or 80):next(function()
+      return self
+    end)
   end
 
   --- Closes this HTTP client.
-  -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
-  function httpClient:close(callback)
-    return self.tcpClient:close(callback)
+  function httpClient:close()
+    local tcpClient = self.tcpClient
+    self.tcpClient = nil
+    return tcpClient:close()
   end
 
-  --- Returns the HTTP message request.
-  -- @return the HTTP message request.
   function httpClient:getRequest()
     return self.request
-  end
-
-  --- Returns the HTTP message response.
-  -- @return the HTTP message response.
-  function httpClient:getResponse()
-    return self.response
   end
 
   --[[
@@ -143,33 +158,56 @@ return require('jls.lang.class').create(function(httpClient)
     connection.
   ]]--
 
+  local function sendRequest(tcpClient, request)
+    logger:finer('sendRequest()')
+    return request:writeHeaders(tcpClient):next(function()
+      logger:finer('sendRequest() writeHeaders() done')
+      return request:writeBody(tcpClient)
+    end)
+  end
+
+  local function receiveResponse(tcpClient, buffer)
+    logger:finer('receiveResponse()')
+    local response = HttpResponse:new()
+    local hsh = HeaderStreamHandler:new(response)
+    return hsh:read(tcpClient):next(function(buffer)
+      logger:fine('receiveResponse() header done')
+      return readBody(response, tcpClient, buffer)
+    end):next(function(remainingBuffer)
+      logger:fine('receiveResponse() body done')
+      return response
+    end)
+  end
+
   --- Sends the request then receives the response.
-  -- @return a promise that resolves once the response is received.
+  -- @treturn jls.lang.Promise a promise that resolves to the @{HttpResponse} received.
   function httpClient:sendReceive()
     logger:finer('httpClient:sendReceive()')
     local promise, resolve, reject = Promise.createWithCallbacks()
-    local client = self
-    local response = HttpResponse:new()
-    self.request:writeHeaders(client.tcpClient):next(function()
-      logger:finer('httpClient:sendReceive() writeHeaders() done')
-      return client.request:writeBody(client.tcpClient)
-    end):next(function()
-      logger:finer('httpClient:sendReceive() writeBody() done')
-      local hsh = HeaderStreamHandler:new(response)
-      return hsh:read(client.tcpClient)
-    end):next(function(buffer)
-      logger:fine('httpClient:sendReceive() header done')
-      return readBody(response, client.tcpClient, buffer)
-    end):next(function()
-      logger:fine('httpClient:sendReceive() body done')
-      -- TODO We may want to handle redirections, status code 3xx
-      resolve(response)
-    end, function(err)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpClient:sendReceive() error "'..tostring(err)..'"')
+    sendRequest(self.tcpClient, self.request):next(function()
+      logger:finer('httpClient:sendReceive() send completed')
+      return receiveResponse(self.tcpClient, buffer)
+    end):next(function(response)
+      logger:fine('httpClient:sendReceive() receive completed')
+      if self.maxRedirectCount > 0 and (response:getStatusCode() // 100) == 3 then
+        local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
+        if location then
+          if logger:isLoggable(logger.FINE) then
+            logger:fine('httpClient:sendReceive() redirected #'..tostring(self.maxRedirectCount)..' to "'..tostring(location)..'"')
+          end
+          self.maxRedirectCount = self.maxRedirectCount - 1
+          return self:close():next(function()
+            self:setUrl(location)
+            self:initializeTcpClient()
+            return self:connect()
+          end):next(function()
+            return self:sendReceive()
+          end):next(resolve)
+        end
       end
-      reject(err or 'Unknown error')
-    end)
+      resolve(response)
+    end):catch(reject)
     return promise
   end
+
 end)

@@ -109,7 +109,7 @@ local function createHttpClient(headers)
   return client
 end
 
-local function createHttpServer(handler)
+local function createHttpServer(handler, keep)
   if not handler then
     handler = http.notFoundHandler
   end
@@ -119,14 +119,16 @@ local function createHttpServer(handler)
     server.t_requestCount = server.t_requestCount + 1
     server.t_request = httpExchange:getRequest()
     logger:finer('http server handle #'..tostring(server.t_requestCount))
-    local super = httpExchange.close
-    function httpExchange.close()
-      logger:finer('http exchange closed')
-      local keepAlive = httpExchange:getResponse():getHeader('Connection') == 'keep-alive'
-      super(httpExchange)
-      if not keepAlive then
-        logger:finer('http server closing')
-        server:close()
+    if not keep then
+      local super = httpExchange.close
+      function httpExchange.close()
+        logger:finer('http exchange closed')
+        local keepAlive = httpExchange:getResponse():getHeader('Connection') == 'keep-alive'
+        super(httpExchange)
+        if not keepAlive then
+          logger:finer('http server closing')
+          server:close()
+        end
       end
     end
     return handler(httpExchange)
@@ -371,6 +373,114 @@ function test_HttpClientServer()
   lu.assertEquals(client.t_response:getBody(), body)
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
+end
+
+local function createHttpServerRedirect(body, newPath, oldPath, veryOldPath)
+  return createHttpServer(function(httpExchange)
+    local target = httpExchange:getRequest():getTarget()
+    local response = httpExchange:getResponse()
+    if target == newPath then
+      response:setStatusCode(200, 'Ok')
+      response:setBody(body)
+    elseif target == oldPath then
+      response:setHeader('Location', 'http://127.0.0.1:'..tostring(TEST_PORT)..newPath)
+      response:setStatusCode(302, 'Found')
+    elseif veryOldPath and target == veryOldPath then
+      response:setHeader('Location', 'http://127.0.0.1:'..tostring(TEST_PORT)..oldPath)
+      response:setStatusCode(302, 'Found')
+    else
+      response:setStatusCode(404, 'Not Found')
+      response:setBody('<p>The resource "'..target..'" is not available.</p>')
+    end
+  end, true)
+end
+
+function test_HttpClientServer_redirect_none()
+  local body = '<p>Hello.</p>'
+  local server, client
+  createHttpServerRedirect(body, '/newLocation', '/'):next(function(s)
+    server = s
+    client = createHttpClient()
+    sendReceiveClose(client):next(function()
+      server:close()
+    end)
+  end)
+  loop(function()
+    client:close()
+    server:close()
+  end)
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getStatusCode(), 302)
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_requestCount, 1)
+  lu.assertEquals(server.t_request:getMethod(), 'GET')
+end
+
+function test_HttpClientServer_redirect()
+  local body = '<p>Hello.</p>'
+  local server, client
+  createHttpServerRedirect(body, '/newLocation', '/'):next(function(s)
+    server = s
+    client = createHttpClient()
+    client.maxRedirectCount = 1
+    sendReceiveClose(client):next(function()
+      server:close()
+    end)
+  end)
+  loop(function()
+    client:close()
+    server:close()
+  end)
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getStatusCode(), 200)
+  lu.assertEquals(client.t_response:getBody(), body)
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_requestCount, 2)
+  lu.assertEquals(server.t_request:getMethod(), 'GET')
+end
+
+function test_HttpClientServer_redirect_2()
+  local body = '<p>Hello.</p>'
+  local server, client
+  createHttpServerRedirect(body, '/newerLocation', '/newLocation', '/'):next(function(s)
+    server = s
+    client = createHttpClient()
+    client.maxRedirectCount = 5
+    sendReceiveClose(client):next(function()
+      server:close()
+    end)
+  end)
+  loop(function()
+    client:close()
+    server:close()
+  end)
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getStatusCode(), 200)
+  lu.assertEquals(client.t_response:getBody(), body)
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_requestCount, 3)
+  lu.assertEquals(server.t_request:getMethod(), 'GET')
+end
+
+function test_HttpClientServer_redirect_too_much()
+  local body = '<p>Hello.</p>'
+  local server, client
+  createHttpServerRedirect(body, '/newerLocation', '/newLocation', '/'):next(function(s)
+    server = s
+    client = createHttpClient()
+    client.maxRedirectCount = 1
+    sendReceiveClose(client):next(function()
+      server:close()
+    end)
+  end)
+  loop(function()
+    client:close()
+    server:close()
+  end)
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getStatusCode(), 302)
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_requestCount, 2)
 end
 
 function test_HttpServer_keep_alive()
