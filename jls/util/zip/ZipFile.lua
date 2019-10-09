@@ -439,8 +439,6 @@ return class.create(function(zipFile, _, ZipFile)
       self:readRawContent(entry, callback)
     elseif entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED then
       local inflater = Inflater:new(-15)
-      local cb = callback
-      callback = 
       self:readRawContent(entry, function(data, err)
         if err then
           callback(nil, err)
