@@ -9,7 +9,6 @@ Streams classes are mainly used by @{jls.net|network} protocols TCP and UDP.
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
---local Promise = require('jls.lang.Promise')
 
 --- A StreamHandler class.
 -- This class could be inherited to process a data stream.
@@ -23,7 +22,7 @@ local StreamHandler = class.create(function(streamHandler)
 
   --- The specified data is available for this stream.
   -- @param data the new data to process, nil to indicate the end of the stream.
-  -- @treturn boolean false or nil to indicate that this handler has finish to process the stream.
+  -- @treturn boolean false to indicate that this handler has finish to process the stream.
   function streamHandler:onData(data)
   end
 
@@ -42,7 +41,7 @@ local StreamHandler = class.create(function(streamHandler)
       if err then
         sh:onError(err)
       else
-        sh:onData(data)
+        return sh:onData(data)
       end
     end
   end
@@ -59,7 +58,7 @@ local CallbackStreamHandler = class.create(StreamHandler, function(callbackStrea
     self.cb = cb
   end
   function callbackStreamHandler:onData(data)
-    self.cb(nil, data)
+    return self.cb(nil, data)
   end
   function callbackStreamHandler:onError(err)
     self.cb(err or 'Unspecified error')
@@ -69,38 +68,141 @@ local CallbackStreamHandler = class.create(StreamHandler, function(callbackStrea
   end
 end)
 
---- A BufferedStreamHandler class.
--- This class allows to buffer a stream and to call a sub handler depending on specified limit or pattern.
--- @type BufferedStreamHandler
-local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStreamHandler, super, BufferedStreamHandler)
 
-  --- Creates a buffered @{StreamHandler} with the limit and/or pattern.
-  -- The data will be pass to the wrapped handler depending on the limit and the pattern.
+--- A BufferedStreamHandler class.
+-- This class allows to buffer the stream to pass to the wrapped handler.
+-- @type BufferedStreamHandler
+local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStreamHandler, super)
+
+  local StringBuffer = require('jls.lang.StringBuffer')
+
+  --- Creates a buffered @{StreamHandler}.
+  -- The data will be pass to the wrapped handler once.
   -- @tparam StreamHandler handler the handler to wrap
-  -- @tparam number limit the max size to buffer waiting for a pattern
-  -- @tparam[opt] string pattern the pattern to use to split the buffered data to the wrapped handler
-  -- @tparam[opt] string buffer the buffer to start with
+  -- @tparam[opt] boolean noData true to indicate that the wrapped handler does not need the buffered data
   -- @function BufferedStreamHandler:new
-  function bufferedStreamHandler:initialize(handler, limit, pattern, buffer)
+  function bufferedStreamHandler:initialize(handler, noData)
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('bufferedStreamHandler:initialize()')
+    end
+    super.initialize(self)
+    self.handler = handler
+    self.noData = noData or false
+    self.buffer = StringBuffer:new()
+  end
+
+  function bufferedStreamHandler:getStringBuffer()
+    return self.buffer
+  end
+
+  function bufferedStreamHandler:getBuffer()
+    return self.buffer:toString()
+  end
+
+  function bufferedStreamHandler:onData(data)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('bufferedStreamHandler:onData(#'..tostring(data and #data)..')')
+    end
+    if data then
+      self.buffer:append(data)
+    else
+      if not self.noData and self.buffer:length() > 0 then
+        self.handler:onData(self.buffer:toString())
+      end
+      self.handler:onData(nil)
+      return false
+    end
+    return true
+  end
+
+  function bufferedStreamHandler:onError(err)
+    self.handler:onError(err)
+  end
+
+end)
+
+--- A LimitedStreamHandler class.
+-- This class allows to limit the stream to pass to the wrapped handler to a specified size.
+-- @type LimitedStreamHandler
+local LimitedStreamHandler = class.create(StreamHandler, function(limitedStreamHandler, super)
+
+  --- Creates a @{StreamHandler} with a limited size.
+  -- The data will be pass to the wrapped handler up to the limit.
+  -- @tparam StreamHandler handler the handler to wrap
+  -- @tparam[opt] number limit the max size to handle
+  -- @function LimitedStreamHandler:new
+  function limitedStreamHandler:initialize(handler, limit)
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('limitedStreamHandler:initialize(?, '..tostring(limit)..')')
+    end
     super.initialize(self)
     self.handler = handler
     self.limit = limit
+    self.length = 0
+  end
+
+  function limitedStreamHandler:getBuffer()
+    return self.buffer
+  end
+
+  function limitedStreamHandler:onData(data)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('limitedStreamHandler:onData(#'..tostring(data and #data)..') '..tostring(self.length)..'/'..tostring(self.limit))
+    end
+    if data then
+      local length = string.len(data)
+      self.length = self.length + length
+      if self.length < self.limit then
+        return self.handler:onData(data)
+      end
+      local part = data
+      if self.length > self.limit then
+        local partLength = length - (self.length - self.limit)
+        self.buffer = string.sub(data, partLength + 1)
+        part = string.sub(data, 1, partLength)
+      end
+      self.handler:onData(part)
+      self.handler:onData(nil)
+      return false
+    end
+    -- propagate EOF
+    self.handler:onData(nil)
+    return false
+  end
+
+  function limitedStreamHandler:onError(err)
+    self.handler:onError(err)
+  end
+
+end)
+
+--- A ChunkedStreamHandler class.
+-- This class allows to buffer a stream and to call a sub handler depending on specified limit or pattern.
+-- @type ChunkedStreamHandler
+local ChunkedStreamHandler = class.create(StreamHandler, function(chunkedStreamHandler, super, ChunkedStreamHandler)
+
+  --- Creates a buffered @{StreamHandler} using the pattern and/or limit.
+  -- The data will be pass to the wrapped handler depending on the limit and the pattern.
+  -- @tparam StreamHandler handler the handler to wrap
+  -- @tparam[opt] string pattern the pattern to use to split the buffered data to the wrapped handler
+  -- @tparam[opt] number limit the max size to buffer waiting for a pattern
+  -- @function ChunkedStreamHandler:new
+  function chunkedStreamHandler:initialize(handler, pattern, limit)
+    super.initialize(self)
+    self.handler = handler
+    self.limit = limit or -1
     if type(pattern) == 'string' then
-      self.findCut = BufferedStreamHandler.createPatternFinder(pattern)
+      self.findCut = ChunkedStreamHandler.createPatternFinder(pattern)
     elseif type(pattern) == 'function' then
       self.findCut = pattern
     end
     self.length = 0
-    if buffer then
-      self.buffer = buffer
-      self.length = string.len(buffer)
-    end
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('bufferedStreamHandler:initialize(?, '..tostring(limit)..', ?, #'..tostring(self.length)..')')
+      logger:finest('chunkedStreamHandler:initialize(?, '..tostring(limit)..', ?)')
     end
   end
 
-  function bufferedStreamHandler:crunch(lastIndex, nextIndex)
+  function chunkedStreamHandler:crunch(lastIndex, nextIndex)
     if not nextIndex then
       nextIndex = lastIndex + 1
     end
@@ -120,16 +222,16 @@ local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStrea
     return self.handler:onData(buffer)
   end
 
-  function bufferedStreamHandler:getBuffer()
+  function chunkedStreamHandler:getBuffer()
     return self.buffer
   end
 
-  function bufferedStreamHandler:onData(data)
+  function chunkedStreamHandler:onData(data)
     if logger:isLoggable(logger.FINER) then
       if logger:isLoggable(logger.FINEST) then
-        logger:finest('bufferedStreamHandler:onData("'..tostring(data)..'")')
+        logger:finest('chunkedStreamHandler:onData("'..tostring(data)..'")')
       else
-        logger:finer('bufferedStreamHandler:onData(#'..tostring(data and #data)..')')
+        logger:finer('chunkedStreamHandler:onData(#'..tostring(data and #data)..')')
       end
     end
     if data then
@@ -146,14 +248,14 @@ local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStrea
           if not lastIndex then
             break
           end
-          if not self:crunch(lastIndex, nextIndex) then
+          if self:crunch(lastIndex, nextIndex) == false then
             return false
           end
         end
       end
       if self.limit > 0 and self.length >= self.limit then
         while self.length >= self.limit do
-          if not self:crunch(self.limit) then
+          if self:crunch(self.limit) == false then
             return false
           end
         end
@@ -173,11 +275,11 @@ local BufferedStreamHandler = class.create(StreamHandler, function(bufferedStrea
     return true
   end
 
-  function bufferedStreamHandler:onError(err)
+  function chunkedStreamHandler:onError(err)
     self.handler:onError(err)
   end
 
-  function BufferedStreamHandler.createPatternFinder(pattern)
+  function ChunkedStreamHandler.createPatternFinder(pattern)
     return function(self, buffer)
       local ib, ie = string.find(buffer, pattern, 1, true)
       if ib then
@@ -215,6 +317,8 @@ return {
   StreamHandler = StreamHandler,
   CallbackStreamHandler = CallbackStreamHandler,
   BufferedStreamHandler = BufferedStreamHandler,
+  LimitedStreamHandler = LimitedStreamHandler,
+  ChunkedStreamHandler = ChunkedStreamHandler,
   ensureCallback = ensureCallback,
   ensureStreamHandler = ensureStreamHandler
 }

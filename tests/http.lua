@@ -311,7 +311,7 @@ function test_HttpClient_chunked_empty_body()
 end
 
 function test_HttpClient_chunked_with_body()
-  local body = 'Hello       world             !'
+  local body = 'Hello-------world-------------!'
   local server = createTcpServer(createHttpRawResponseChunked(body))
   local client = createHttpClient()
   sendReceiveClose(client)

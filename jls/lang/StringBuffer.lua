@@ -182,6 +182,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   function stringBuffer:clear()
     self.len = 0
     self.values = {}
+    return self
   end
 
   function stringBuffer:concat()

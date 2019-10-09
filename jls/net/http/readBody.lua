@@ -52,88 +52,104 @@ end
 local function readBody(message, tcpClient, buffer, callback)
   local cb, promise = Promise.ensureCallback(callback)
   logger:fine('readBody()')
-  local bsh = nil
+  local chunkFinder = nil
   local transferEncoding = message:getHeader(HttpMessage.CONST.HEADER_TRANSFER_ENCODING)
   if transferEncoding then
     if transferEncoding == 'chunked' then
-      bsh = createChunkFinder()
+      chunkFinder = createChunkFinder()
     else
       cb('Unsupported transfer encoding "'..transferEncoding..'"')
       return promise
     end
   end
-  local l = message:getContentLength()
+  local length = message:getContentLength()
   if logger:isLoggable(logger.FINE) then
-    logger:fine('readBody() content length is '..tostring(l))
+    logger:fine('readBody() content length is '..tostring(length))
   end
-  if l and l <= 0 then
+  if length and length <= 0 then
     message:setBody('')
     cb(nil, buffer) -- empty body
     return promise
   end
   -- TODO Overwrite HttpMessage:writeBody() to pipe body
-  if l and buffer then
+  if length and buffer then
     local bufferLength = #buffer
     if logger:isLoggable(logger.FINE) then
       logger:fine('readBody() remaining buffer #'..tostring(bufferLength))
     end
-    if bufferLength >= l then
+    if bufferLength >= length then
       local remainingBuffer = nil
-      if bufferLength > l then
-        logger:warn('readBody() remaining buffer too big '..tostring(bufferLength)..' > '..tostring(l))
-        remainingBuffer = string.sub(buffer, l + 1)
-        buffer = string.sub(buffer, 1, l)
+      if bufferLength > length then
+        logger:warn('readBody() remaining buffer too big '..tostring(bufferLength)..' > '..tostring(length))
+        remainingBuffer = string.sub(buffer, length + 1)
+        buffer = string.sub(buffer, 1, length)
       end
       message:setBody(buffer)
       cb(nil, remainingBuffer)
       return promise
     end
   end
-  if not l then
+  if not length then
     -- request without content length nor transfer encoding does not have a body
     if HttpRequest:isInstance(message) then
       cb(nil, buffer) -- no body
       return promise
     end
-    l = -1
+    length = -1
     if logger:isLoggable(logger.FINE) then
       logger:fine('readBody() connection is '..tostring(message:getHeader(HttpMessage.CONST.HEADER_CONNECTION)))
     end
-    if message:getHeader(HttpMessage.CONST.HEADER_CONNECTION) ~= HttpMessage.CONST.CONNECTION_CLOSE and not bsh then
+    if message:getHeader(HttpMessage.CONST.HEADER_CONNECTION) ~= HttpMessage.CONST.CONNECTION_CLOSE and not chunkFinder then
       cb('Content length value, chunked transfer encoding or connection close expected')
       return promise
     end
   end
+  local readState = 0
   -- after that we know that we have something to read from the client
-  local stream = streams.StreamHandler:new()
-  function stream:onData(data)
-    tcpClient:readStop()
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('readBody() stream:onData('..tostring(data)..')')
+  local readStream = streams.CallbackStreamHandler:new(function(err, data)
+    if readState == 1 then
+      tcpClient:readStop()
     end
-    if data then
+    readState = 3
+    if err then
       if logger:isLoggable(logger.FINE) then
-        logger:fine('readBody() stream:onData(#'..tostring(#data)..')')
+        logger:fine('readBody() stream error is "'..tostring(err)..'"')
       end
-      message:setBody(data)
+    else
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('readBody() stream data is "'..tostring(data)..'"')
+      end
+      if data then
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('readBody() stream data length is '..tostring(#data))
+        end
+        message:setBody(data)
+      end
     end
-    cb() -- TODO is there a remaining buffer
-  end
-  function stream:onError(err)
-    tcpClient:readStop()
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('readBody() stream:onError('..tostring(err)..')')
+    cb(err) -- TODO is there a remaining buffer
+  end)
+  local stream = streams.CallbackStreamHandler:new(function(err, data)
+    if err then
+      readStream:onError(err)
+    else
+      message:readBody(data)
+      if not data then
+        return readStream:onData(data)
+      end
     end
-    cb(err or 'Unknown error')
+  end)
+  if chunkFinder then
+    stream = streams.ChunkedStreamHandler:new(stream, chunkFinder)
+  elseif length > 0 then
+    stream = streams.LimitedStreamHandler:new(stream, length)
   end
-  if bsh then
-    stream = streams.BufferedStreamHandler:new(stream, -1)
-  end
-  local partHandler = streams.BufferedStreamHandler:new(stream, l, bsh)
   if buffer and #buffer > 0 then
-    partHandler:onData(buffer)
+    stream:onData(buffer)
   end
-  tcpClient:readStart(partHandler)
+  if readState == 0 then
+    readState = 1
+    tcpClient:readStart(stream)
+  end
   return promise
 end
 

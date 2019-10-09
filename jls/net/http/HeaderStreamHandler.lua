@@ -68,7 +68,7 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
     end
     return Promise:new(function(resolve, reject)
       local c
-      local partHandler = streams.BufferedStreamHandler:new(self, self.maxLineLength, '\r\n')
+      local partHandler = streams.ChunkedStreamHandler:new(self, '\r\n', self.maxLineLength)
       function self:onCompleted(err)
         if logger:isLoggable(logger.FINE) then
           logger:fine('headerStreamHandler:read() onCompleted('..tostring(err)..')')

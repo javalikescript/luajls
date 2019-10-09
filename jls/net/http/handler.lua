@@ -300,7 +300,7 @@ function httpHandler.files(httpExchange)
       httpHandler.notFound(httpExchange)
     end
   elseif method == HTTP_CONST.METHOD_PUT then
-    if request:getBody() then
+    if request:hasBody() then
       file:write(request:getBody()) -- TODO Handle errors
     end
     httpHandler.ok(httpExchange)
@@ -333,7 +333,7 @@ function httpHandler.webdav(httpExchange)
       httpHandler.notFound(httpExchange)
     end
   elseif method == HTTP_CONST.METHOD_PUT then
-    if request:getBody() then
+    if request:hasBody() then
       file:write(request:getBody()) -- TODO Handle errors
     end
     httpHandler.ok(httpExchange)
@@ -419,7 +419,9 @@ function httpHandler.redirect(httpExchange)
     logger:debug('redirect client status code is '..tostring(subResponse:getStatusCode()))
     response:setStatusCode(subResponse:getStatusCode())
     response:setHeaders(subResponse:getHeaders())
-    response:setBody(subResponse:getBody())
+    if subResponse:hasBody() then
+      response:setBody(subResponse:getBody())
+    end
     client:close()
   end, function(err)
     logger:debug('redirect error: '..tostring(err))
@@ -542,7 +544,7 @@ function httpHandler.table(httpExchange)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('httpHandler.table(), request body: "'..request:getBody()..'"')
     end
-    if request:getBody() then
+    if request:hasBody() then
       local rt = json.decode(request:getBody())
       if type(rt) == 'table' and rt.value then
         if method == HTTP_CONST.METHOD_PUT then

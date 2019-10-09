@@ -17,6 +17,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     self.line = ''
     self.headers = {}
     self.version = HttpMessage.CONST.VERSION_1_1
+    self.bodyBuffer = StringBuffer:new()
   end
 
   function httpMessage:getLine()
@@ -127,16 +128,28 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     self:setHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH, value)
   end
 
-  function httpMessage:getBody()
-    return self.body
+  function httpMessage:hasBody()
+    return self.bodyBuffer:length() > 0
   end
+
+  function httpMessage:getBody()
+    return self.bodyBuffer:toString()
+  end  
 
   function httpMessage:setBody(value)
     if value == nil or type(value) == 'string' then
-      self.body = value
+      self.bodyBuffer:clear()
+      self.bodyBuffer:append(value)
+    elseif StringBuffer:isInstance(value) then
+      self.bodyBuffer = value
     elseif logger:isLoggable(logger.FINER) then
       logger:finer('httpMessage:setBody('..tostring(value)..') Invalid value')
     end
+  end
+
+  -- Could be overriden to read the body, for example to store the content in a file
+  function httpMessage:readBody(value)
+    self.bodyBuffer:append(value)
   end
 
   function httpMessage:writeHeaders(stream, callback)
@@ -149,16 +162,18 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     return stream:write(buffer:toString(), callback)
   end
 
+  -- Could be overriden to write the body, for example to get the content from a file
   function httpMessage:writeBody(stream, callback)
-    if self.body then
+    if self:hasBody() then
+      local body = self:getBody()
       if logger:isLoggable(logger.FINER) then
         if logger:isLoggable(logger.FINEST) then
-          logger:finest('httpMessage:writeBody() "'..tostring(self.body)..'"')
+          logger:finest('httpMessage:writeBody() "'..tostring(body)..'"')
         else
-          logger:finer('httpMessage:writeBody() #'..tostring(#self.body))
+          logger:finer('httpMessage:writeBody() #'..tostring(#body))
         end
       end
-      return stream:write(self.body, callback)
+      return stream:write(body, callback)
     end
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpMessage:writeBody() empty body')
