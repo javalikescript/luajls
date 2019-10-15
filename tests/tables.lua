@@ -155,4 +155,17 @@ function test_stringify()
   lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
 end
 
+function sort(t)
+  table.sort(t)
+  return t
+end
+
+function test_keys()
+  lu.assertEquals(sort(tables.keys({a = true, b = 'A value', c = 1})), {'a', 'b', 'c'})
+end
+
+function test_values()
+  lu.assertEquals(sort(tables.values({a = 1, b = 2, c = 3})), {1, 2, 3})
+end
+
 os.exit(lu.LuaUnit.run())

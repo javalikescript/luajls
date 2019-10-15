@@ -26,6 +26,20 @@ function strings.split(value, pattern, plain)
   return list
 end
 
+--- Returns a list of strings cut at each length.
+-- @tparam string value The string to split.
+-- @treturn table a list of strings cut at each pattern.
+function strings.cuts(value, ...)
+  local lengthList = {...}
+  local list = {}
+  local index = 1
+  for _, length in ipairs(lengthList) do
+    table.insert(list, string.sub(value, index, index + length - 1))
+    index = index + length
+  end
+  return list
+end
+
 --[[
 function strings.compareToIgnoreCase(s1, s2) end
 function strings.equalsIgnoreCase(s1, s2) end

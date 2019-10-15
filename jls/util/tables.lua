@@ -453,5 +453,21 @@ function tables.getArgument(t, name, defaultValue)
   return value
 end
 
+function tables.keys(t)
+  local list = {}
+  for key in pairs(t) do
+    table.insert(list, key)
+  end
+  return list
+end
+
+function tables.values(t)
+  local list = {}
+  for _, value in pairs(t) do
+    table.insert(list, value)
+  end
+  return list
+end
+
 
 return tables
