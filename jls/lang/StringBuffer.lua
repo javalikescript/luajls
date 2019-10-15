@@ -120,7 +120,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   -- @tparam number i the index of the first byte to remove, inclusive.
   -- @tparam[opt] number j the index of the last byte to remove, exclusive.
   -- @treturn jls.lang.StringBuffer this buffer.
-  function stringBuffer:delete(i, j)
+  function stringBuffer:delete(i, j, b)
     local _, ii = self:cut(i)
     local jj
     if j then
@@ -135,11 +135,16 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
       local l = 0
       for k = jj - 1, ii, -1 do
         local s = table.remove(self.values, k)
-        l = l + string.len(s)
+        local sl = string.len(s)
+        l = l + sl
+        if b then
+          table.insert(b.values, 1, s)
+          b.len = b.len + sl
+        end
       end
       self.len = self.len - l
     end
-    return self, ii
+    return self, ii, b
   end
 
   --- Inserts a string to this string buffer at the specified position.
