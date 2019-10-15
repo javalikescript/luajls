@@ -547,4 +547,3 @@ return class.create(function(zipFile, _, ZipFile)
     zFile:close()
   end
 end)
-
