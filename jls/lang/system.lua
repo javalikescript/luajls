@@ -7,6 +7,7 @@ local loader = require('jls.lang.loader')
 local logger = require('jls.lang.logger')
 local runtime = require('jls.lang.runtime')
 
+-- TODO Lazy load this optional dependency
 local luaSocketLib = loader.tryRequire('socket.core')
 
 local system = {}
@@ -31,23 +32,35 @@ end
 -- @return The current time in milliseconds.
 -- @function system.currentTimeMillis
 if luaSocketLib then
-  system.currentTimeMillis = function ()
+  function system.currentTimeMillis()
     return math.floor(luaSocketLib.gettime() * 1000)
   end
 else
-  system.currentTimeMillis = function ()
+  function system.currentTimeMillis()
     return os.time() * 1000
   end
 end
 
 --- Causes the program to sleep.
 -- @param millis The length of time to sleep in milliseconds.
-function system.sleep(millis)
-  if logger:isLoggable(logger.DEBUG) then
-    logger:debug('system.sleep('..tostring(millis)..')')
+-- @function system.sleep
+if luaSocketLib then
+  function system.sleep(millis)
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('system.sleep('..tostring(millis)..')')
+    end
+    luaSocketLib.sleep(millis / 1000)
+    -- luvLib.sleep(millis)
   end
-  luaSocketLib.sleep(millis / 1000)
-  -- luvLib.sleep(millis)
+else
+  local os_time = os.time
+  function system.sleep(millis)
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('system.sleep('..tostring(millis)..')')
+    end
+    local t = os_time() + (millis / 1000)
+    while os_time() < t do end
+  end
 end
 
 --- Terminates the program and returns a value to the OS.

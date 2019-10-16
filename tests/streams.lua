@@ -2,20 +2,85 @@ local lu = require('luaunit')
 
 local streams = require('jls.io.streams')
 
-function test_callback()
-  local dataCaptured, errCaptured
-  local bsh = streams.CallbackStreamHandler:new(function(err, data)
-    dataCaptured = data
-    errCaptured = err
+function assertStreamHandling(s, t)
+  lu.assertIsNil(t.dataCaptured)
+  lu.assertIsNil(t.errCaptured)
+  s:onData('Hello')
+  lu.assertEquals(t.dataCaptured, 'Hello')
+  lu.assertIsNil(t.errCaptured)
+  s:onError('Ooops')
+  lu.assertIsNil(t.dataCaptured)
+  lu.assertEquals(t.errCaptured, 'Ooops')
+end
+
+function cleanCaptureStreamHandler(cs)
+  cs._captured = {data_list = {}, error_list = {}}
+  return cs
+end
+
+function createCaptureStreamHandler()
+  return cleanCaptureStreamHandler(streams.StreamHandler:new(function(self, data)
+    table.insert(self._captured.data_list, data ~= nil and data)
+  end, function(self, err)
+    table.insert(self._captured.error_list, err ~= nil and err)
+  end))
+end
+
+function test_streamHandler()
+  local t = {}
+  local s = streams.StreamHandler:new(function(_, data)
+    t.dataCaptured = data
+    t.errCaptured = nil
+  end, function(_, err)
+    t.dataCaptured = nil
+    t.errCaptured = err
   end)
-  lu.assertIsNil(dataCaptured)
-  lu.assertIsNil(errCaptured)
-  bsh:onData('Hello')
-  lu.assertEquals(dataCaptured, 'Hello')
-  lu.assertIsNil(errCaptured)
-  bsh:onError('Ooops')
-  lu.assertIsNil(dataCaptured)
-  lu.assertEquals(errCaptured, 'Ooops')
+  assertStreamHandling(s, t)
+end
+
+function test_callback()
+  local t = {}
+  local s = streams.CallbackStreamHandler:new(function(err, data)
+    t.dataCaptured = data
+    t.errCaptured = err
+  end)
+  assertStreamHandling(s, t)
+end
+
+function test_buffered()
+  local cs = createCaptureStreamHandler()
+  local s = streams.BufferedStreamHandler:new(cs)
+  lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
+  s:onData('Hello')
+  lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
+  s:onData(' world !')
+  lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
+  s:onData()
+  lu.assertEquals(cs._captured, {data_list = {'Hello world !', false}, error_list = {}})
+end
+
+function test_limited()
+  local cs = createCaptureStreamHandler()
+  local s = streams.LimitedStreamHandler:new(cs, 10)
+  lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
+  s:onData('Hello')
+  lu.assertEquals(cs._captured, {data_list = {'Hello'}, error_list = {}})
+  s:onData(' world !')
+  lu.assertEquals(cs._captured, {data_list = {'Hello', ' worl', false}, error_list = {}})
+end
+
+function test_chunked()
+  local cs = createCaptureStreamHandler()
+  local s = streams.ChunkedStreamHandler:new(cs, '\n')
+  lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
+  s:onData('Hello')
+  lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
+  s:onData(' world !\n')
+  lu.assertEquals(cs._captured, {data_list = {'Hello world !'}, error_list = {}})
+  s:onData('Hi\nBonjour\n')
+  lu.assertEquals(cs._captured, {data_list = {'Hello world !', 'Hi', 'Bonjour'}, error_list = {}})
+  s:onData()
+  lu.assertEquals(cs._captured, {data_list = {'Hello world !', 'Hi', 'Bonjour', false}, error_list = {}})
 end
 
 os.exit(lu.LuaUnit.run())
