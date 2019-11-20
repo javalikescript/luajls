@@ -46,6 +46,8 @@ local function hashWebSocketKey(key)
   return base64.encode(md:digest(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
 end
 
+--math.randomseed(os.time())
+
 local function randomChars(len)
   local buffer = ''
   for i = 1, len do
@@ -304,11 +306,12 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
       url = self.url,
       method = 'GET',
       headers = {
+        [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
         [HttpMessage.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
         [HttpMessage.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
         [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
         [CONST.HEADER_SEC_WEBSOCKET_KEY] = key,
-        [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols
+        [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
       }
     })
     return client:connect():next(function()

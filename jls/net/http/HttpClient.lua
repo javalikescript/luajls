@@ -3,7 +3,6 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local Promise = require('jls.lang.Promise')
 local net = require('jls.net')
 local URL = require('jls.net.URL')
 local HttpMessage = require('jls.net.http.HttpMessage')
@@ -82,7 +81,11 @@ return require('jls.lang.class').create(function(httpClient)
       request:setBody(options.body)
     end
     if self.host then
-      request:setHeader(HttpMessage.CONST.HEADER_HOST, self.host)
+      local hostHeader = self.host
+      if self.port then
+        hostHeader = hostHeader..':'..tostring(self.port)
+      end
+      request:setHeader(HttpMessage.CONST.HEADER_HOST, hostHeader)
     end
     -- add accept headers
     self:initializeTcpClient()

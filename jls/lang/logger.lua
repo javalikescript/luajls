@@ -15,8 +15,6 @@ end
 @pragma nostrip
 ]]
 
-local class = require('jls.lang.class')
-
 --- The available log levels.
 -- The level fields are also provided as shortcut to the default implementation.
 -- @table LEVEL
@@ -49,7 +47,7 @@ end
 --- A Logger class.
 -- A Logger object is used to log messages for a specific system or application component.
 -- @type Logger
-local Logger = class.create(function(logger)
+local Logger = require('jls.lang.class').create(function(logger)
 
   -- shortcuts
   local ERROR = LEVEL.ERROR

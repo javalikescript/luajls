@@ -17,14 +17,13 @@ end
 
 local fs = require('jls.io.fs')
 
-local class = require('jls.lang.class')
 local Path = require('jls.io.Path')
 --local logger = require('jls.lang.logger')
 
 --- A File class.
 -- A File instance represents a file or a directory.
 -- @type File
-return class.create(Path, function(file, _, File)
+return require('jls.lang.class').create(Path, function(file, _, File)
   --- Creates a new File with the specified name.
   -- See @{Path}
   -- @function File:new
