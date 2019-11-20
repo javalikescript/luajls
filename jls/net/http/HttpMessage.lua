@@ -213,6 +213,10 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     return value, t
   end
 
+  function HttpMessage.equalsIgnoreCase(a, b)
+    return a == b or (type(a) == 'string' and type(b) == 'string' and string.lower(a) == string.lower(b))
+  end
+
   HttpMessage.CONST = {
 
     HTTP_CONTINUE = 100,

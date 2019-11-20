@@ -91,15 +91,16 @@ local function readBody(message, tcpClient, buffer, callback)
   end
   if not length then
     -- request without content length nor transfer encoding does not have a body
-    if HttpRequest:isInstance(message) then
+    local connection = message:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+    if HttpRequest:isInstance(message) or HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.HEADER_UPGRADE) then
       cb(nil, buffer) -- no body
       return promise
     end
     length = -1
     if logger:isLoggable(logger.FINE) then
-      logger:fine('readBody() connection is '..tostring(message:getHeader(HttpMessage.CONST.HEADER_CONNECTION)))
+      logger:fine('readBody() connection is '..tostring(connection))
     end
-    if message:getHeader(HttpMessage.CONST.HEADER_CONNECTION) ~= HttpMessage.CONST.CONNECTION_CLOSE and not chunkFinder then
+    if not HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
       cb('Content length value, chunked transfer encoding or connection close expected')
       return promise
     end

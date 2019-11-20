@@ -318,13 +318,18 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
       return client:sendReceive()
     end):next(function(response)
       if response:getStatusCode() == HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('webSocket:open() Switching protocols')
+        end
         -- TODO Check accept key
         self.tcp = client:getTcpClient()
       else
         client:close()
+        logger:warn('webSocket:open() bad status code '..tostring(response:getStatusCode()))
       end
     end, function(err)
       client:close()
+      logger:warn('webSocket:open() error '..tostring(err))
     end)
   end
 
