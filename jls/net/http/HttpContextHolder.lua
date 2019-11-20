@@ -12,7 +12,7 @@ return require('jls.lang.class').create(function(httpContextHolder)
   -- @function HttpContextHolder:new
   function httpContextHolder:initialize()
     self.contexts = {}
-    self.notFoundContext = HttpContext:new(notFoundHandler)
+    self.notFoundContext = HttpContext:new(HttpContext.notFoundHandler)
   end
 
   --- Creates a context in this server with the specified path and using the specified handler.
