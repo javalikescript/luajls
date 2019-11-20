@@ -83,4 +83,23 @@ function test_chunked()
   lu.assertEquals(cs._captured, {data_list = {'Hello world !', 'Hi', 'Bonjour', false}, error_list = {}})
 end
 
+function test_multiple()
+  local cs1 = createCaptureStreamHandler()
+  local cs2 = createCaptureStreamHandler()
+  local s = streams.StreamHandler.multiple(cs1, cs2)
+  lu.assertEquals(cs1._captured, {data_list = {}, error_list = {}})
+  lu.assertEquals(cs2._captured, {data_list = {}, error_list = {}})
+  s:onData('Hello')
+  cs1:onData(' the')
+  s:onData(' world !')
+  s:onData()
+  lu.assertEquals(cs1._captured, {data_list = {'Hello', ' the', ' world !', false}, error_list = {}})
+  lu.assertEquals(cs2._captured, {data_list = {'Hello', ' world !', false}, error_list = {}})
+  cleanCaptureStreamHandler(cs1)
+  cleanCaptureStreamHandler(cs2)
+  s:onError('Ouch')
+  lu.assertEquals(cs1._captured, {data_list = {}, error_list = {'Ouch'}})
+  lu.assertEquals(cs2._captured, {data_list = {}, error_list = {'Ouch'}})
+end
+
 os.exit(lu.LuaUnit.run())

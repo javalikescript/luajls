@@ -2,10 +2,12 @@
 -- @module jls.io.streams.StreamHandler
 -- @pragma nostrip
 
+local class = require('jls.lang.class')
+
 --- A StreamHandler class.
 -- This class could be inherited to process a data stream.
 -- @type StreamHandler
-return require('jls.lang.class').create(function(streamHandler)
+local StreamHandler = class.create(function(streamHandler)
 
   --- Creates a stream handler.
   -- @function StreamHandler:new
@@ -43,29 +45,104 @@ return require('jls.lang.class').create(function(streamHandler)
       end
     end
   end
-end, function(StreamHandler)
+end)
 
-  --- Returns a callback function.
-  -- @param cb a callback function or a StreamHandler.
-  -- @return a callback function.
-  function StreamHandler.ensureCallback(cb)
-    if type(cb) == 'function' then
-      return cb
-    elseif StreamHandler:isInstance(cb) then
-      return cb:toCallback()
-    else
-      error('Invalid argument')
+-- This class allows to stream to two streams.
+-- @type BiStreamHandler
+local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, super)
+
+  -- Creates a @{StreamHandler} with two streams.
+  -- @function BiStreamHandler:new
+  function biStreamHandler:initialize(firstStream, secondStream)
+    super.initialize(self)
+    self.firstStream = firstStream
+    self.secondStream = secondStream
+  end
+
+  function biStreamHandler:onData(data)
+    local r
+    if self.firstStream:onData(data) == false then
+      r = false
+    end
+    if self.secondStream:onData(data) == false then
+      r = false
+    end
+    return r
+  end
+
+  function biStreamHandler:onError(err)
+    self.firstStream:onError(err)
+    self.secondStream:onError(err)
+  end
+
+end)
+
+-- This class allows to stream to multiple streams.
+-- @type MultipleStreamHandler
+local MultipleStreamHandler = class.create(StreamHandler, function(multipleStreamHandler, super)
+
+  -- Creates a @{StreamHandler} with multiple streams.
+  -- @function MultipleStreamHandler:new
+  function multipleStreamHandler:initialize(...)
+    super.initialize(self)
+    self.streams = {...}
+  end
+
+  function multipleStreamHandler:onData(data)
+    local r
+    for _, stream in ipairs(self.streams) do
+      if stream:onData(data) == false then
+        r = false
+      end
+    end
+    return r
+  end
+
+  function multipleStreamHandler:onError(err)
+    for _, stream in ipairs(self.streams) do
+      stream:onError(err)
     end
   end
 
-  StreamHandler.std = StreamHandler:new(function(_, data)
-    if data then
-      io.stdout:write(data)
-    end
-  end, function(_, err)
-    io.stderr:write(err)
-  end)
-
-  StreamHandler.null = StreamHandler:new()
-
 end)
+
+--- Returns a callback function.
+-- @param cb a callback function or a StreamHandler.
+-- @treturn function a callback function.
+function StreamHandler.ensureCallback(cb)
+  if type(cb) == 'function' then
+    return cb
+  elseif StreamHandler:isInstance(cb) then
+    return cb:toCallback()
+  else
+    error('Invalid argument')
+  end
+end
+
+function StreamHandler.bi(...)
+  return BiStreamHandler:new(...)
+end
+
+function StreamHandler.multiple(...)
+  local firstStream, secondStream, thirdStream = ...
+  if thirdStream then
+    return MultipleStreamHandler:new(...)
+  elseif secondStream then
+    return BiStreamHandler:new(firstStream, secondStream)
+  end
+  return firstStream
+end
+
+--- The standard stream writing data to standard output and error to standard error.
+StreamHandler.std = StreamHandler:new(function(_, data)
+  if data then
+    io.stdout:write(data)
+  end
+end, function(_, err)
+  io.stderr:write(err)
+end)
+
+--- The null stream.
+StreamHandler.null = StreamHandler:new()
+
+return StreamHandler
