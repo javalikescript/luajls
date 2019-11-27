@@ -272,8 +272,11 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     if type(file) == 'string' then
       file = File:new(file)
     end
+    -- TODO use async and window buffer
     local content = self:readAll()
-    return file:write(content)
+    if content then
+      file:write(content)
+    end
   end
 
   function File.asFile(file)

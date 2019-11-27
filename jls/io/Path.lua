@@ -164,8 +164,12 @@ end, function(Path)
   function Path.normalizePath(path)
     if type(path) == 'string' then
       -- clean extra slashes
-      path = string.gsub(path, '[/\\]%.[/\\]', '')
+      -- TODO find a better way to clean extra slashes, if possible in a single pass
+      path = string.gsub(path, '[/\\]%.([/\\])', '%1')
       path = string.gsub(path, '[^/\\]+[/\\]%.%.[/\\]', '')
+      path = string.gsub(path, '[/\\][^/\\]+[/\\]%.%.$', '')
+      path = string.gsub(path, '[/\\]%.$', '')
+      path = string.gsub(path, '^%.[/\\]', '')
     end
     return path
   end
