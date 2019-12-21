@@ -168,4 +168,13 @@ function test_values()
   lu.assertEquals(sort(tables.values({a = 1, b = 2, c = 3})), {1, 2, 3})
 end
 
+function test_createArgumentTable()
+  local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
+  local t = tables.createArgumentTable(arguments)
+  lu.assertEquals(tables.getArgument(t, '-x'), 'y')
+  lu.assertEquals(tables.getArgument(t, '-u'), 'v')
+  lu.assertNil(tables.getArgument(t, '-t'))
+  lu.assertNotNil(tables.getArgument(t, '-h'))
+end
+
 os.exit(lu.LuaUnit.run())

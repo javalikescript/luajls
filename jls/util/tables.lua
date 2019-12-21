@@ -414,6 +414,8 @@ end
 
 -- Command line argument parsing
 
+local EMPTY_ARGUMENT = {}
+
 -- Returns a table containing an entry for each argument name.
 -- An entry contains a string or a list of string.
 -- An argument name starts with a comma ('-').
@@ -426,12 +428,12 @@ function tables.createArgumentTable(arguments)
   for _, argument in ipairs(arguments) do
     if string.find(argument, '^-') then
       name = argument
+      t[name] = EMPTY_ARGUMENT
     else
       local value = t[name]
-      local et = type(value)
-      if et == 'nil' then
+      if value == EMPTY_ARGUMENT then
         t[name] = argument
-      elseif et == 'table' then
+      elseif type(value) == 'table' then
         table.insert(value, argument)
       else
         t[name] = {value, argument}
@@ -446,8 +448,9 @@ function tables.getArgument(t, name, defaultValue)
   local value = t[name]
   if value == nil then
     return defaultValue
-  end
-  if type(value) == 'table' then
+  elseif value == EMPTY_ARGUMENT then
+    return true
+  elseif type(value) == 'table' then
     return value[1]
   end
   return value
