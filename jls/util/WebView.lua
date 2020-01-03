@@ -113,33 +113,10 @@ return class.create(function(webView)
     return self._exitPromise
   end
 
-  -- Runs the specified function in a new thread.
-  -- The function will be called with a light webview and the arguments specified after the thread function.
-  -- The additional arguments passed to the thread function can only be of types string, number and boolean
-  -- The function has its own Lua state, nothing is shared.
-  -- @tparam function threadFn the thread function to run.
-  -- @usage webview:thread(function(w, a, b, c)
-  --   local WebView = require('jls.util.WebView')
-  --   local webview = WebView.fromThread(w)
-  -- end, a, b, c)
-  function webView:thread(threadFn, ...)
-    return luvLib.new_thread(threadFn, webviewLib.lighten(self._webview), ...)
-  end
-
 end, function(WebView)
 
-  -- Returns a webview from the specified thread light webview.
-  -- @param w the thread light webview.
-  -- @treturn jls.util.WebView a webview.
-  function WebView.fromThread(w)
-    local webview = class.makeInstance(WebView)
-    webViewInit(webview, w)
-    return webview
-  end
-
   --[[--
-Opens the specified URL in a new window.
-This function will block.
+Opens the specified URL in a new window and returns when the window has been closed.
 @tparam string url the URL of the resource to be viewed.
 @tparam[opt] string title the title of the window.
 @tparam[opt] number width the width of the opened window.
@@ -147,23 +124,14 @@ This function will block.
 @tparam[opt] boolean resizable true if the opened window could be resized.
 @usage
 local WebView = require('jls.util.WebView')
-WebView.open('https://www.lua.org/')
+WebView.openSync('https://www.lua.org/')
 ]]
-  function WebView.open(url, title, width, height, resizable)
+  function WebView.openSync(url, title, width, height, resizable)
     WebView:new(url, title, width, height, resizable):loop()
   end
 
-  local defaultWebview
-  function WebView.default(webview)
-    if webview then
-      defaultWebview = webview
-    else
-      return defaultWebview
-    end
-  end
-
   --[[--
-Opens the specified URL in a new window using a dedicated thread.
+Opens the specified URL in a new window.
 Opening a webview in a dedicated thread may not be supported on all platform.
 @tparam string url the URL of the resource to be viewed.
 @tparam[opt] string title the title of the window.
@@ -172,15 +140,14 @@ Opening a webview in a dedicated thread may not be supported on all platform.
 @tparam[opt] boolean resizable true if the opened window could be resized.
 @treturn jls.lang.Promise a promise that resolves once the webview is available.
 ]]
-  function WebView.openInThread(url, title, width, height, resizable)
+  function WebView.open(url, title, width, height, resizable)
     local openPromise, resolveOpen, rejectOpen = Promise.createWithCallbacks()
     local async, thread, webview
     async = luvLib.new_async(function(err, w)
       logger:fine('webView:open() async received')
       if w then
-        --webview = WebView:new(w)
         webview = class.makeInstance(WebView)
-        webViewInit(webview, w)
+        webViewInit(webview, webviewLib.fromstring(w))
         resolveOpen(webview)
         logger:fine('webView:open() open resolved')
         resolveOpen = nil
@@ -202,7 +169,7 @@ Opening a webview in a dedicated thread may not be supported on all platform.
       local luvLib = require('luv')
       local w = webviewLib.new(url, title, width, height, resizable)
       if logger then logger:fine('webView:open() webview created') end
-      async:send(nil, webviewLib.lighten(w)) -- the webview is available
+      async:send(nil, webviewLib.asstring(w)) -- the webview is available
       if logger then logger:fine('webView:open() thread looping') end
       webviewLib.loop(w)
       if logger then logger:fine('webView:open() thread loop ended') end
