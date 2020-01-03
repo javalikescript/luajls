@@ -12,6 +12,17 @@ if arg then
 end
 
 return {
+  execute = function(command, cb)
+    local status, kind, code = os.execute(command)
+    if status then
+      cb()
+    else
+      cb({
+        code = math.floor(code),
+        kind = kind
+      })
+    end
+  end,
   exePath = function()
     return exePath
   end,

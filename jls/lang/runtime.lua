@@ -1,10 +1,13 @@
 --- The Runtime module provides interaction with the underlying OS.
 -- @module jls.lang.runtime
 
+local processLib = require('jls.lang.process')
+local Promise = require('jls.lang.Promise')
+
 local runtime = {}
 
 --- Executes the specified command and arguments in a separate process with the specified environment and working directory.
--- @param pathOrArgs Array of strings specifying the command-line arguments.
+-- @param command Array of strings specifying the command-line arguments.
 -- The first argument is the name of the executable file.
 -- @param env Array of key=values specifying the environment strings.
 -- If undefined, the new process inherits the environment of the parent process.
@@ -14,7 +17,7 @@ local runtime = {}
 function runtime.exec(command, env, dir)
   if type(command) == 'string' then
     command = {command}
-  elseif #command < 1 then
+  elseif type(command) ~= 'table' or #command < 1 then
     error('Missing command arguments')
   end
   local pb = require('jls.lang.ProcessBuilder'):new(command)
@@ -25,6 +28,16 @@ function runtime.exec(command, env, dir)
     pb:directory(dir) -- FIXME dir is a file
   end
   return pb:start()
+end
+
+--- Executes the specified command line in a separate thread.
+-- @tparam string command The command-line to execute.
+-- @tparam[opt] function callback an optional callback function to use in place of promise.
+-- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
+function runtime.execute(command, callback)
+  local cb, d = Promise.ensureCallback(callback)
+  processLib.execute(command, cb)
+  return d
 end
 
 --- Terminates the program and returns a value to the OS.

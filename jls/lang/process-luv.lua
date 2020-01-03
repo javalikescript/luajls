@@ -9,6 +9,26 @@ local function listCopy(l)
 end
 
 return {
+  execute = function(command, cb)
+    -- Windows uses 32-bit unsigned integers as exit codes
+    -- windows system function does not return the exit code but the errno
+    local async
+    async = luvLib.new_async(function(status, kind, code)
+      if status then
+        cb()
+      else
+        cb({
+          code = math.floor(code),
+          kind = kind
+        })
+      end
+      async:close()
+    end)
+    luvLib.new_thread(function(async, command)
+      local status, kind, code = os.execute(command)
+      async:send(status, kind, code)
+    end, async, command)
+  end,
   exePath = luvLib.exepath,
   kill = function(pid, sig)
     return luvLib.kill(pid, sig or 'sigint')
