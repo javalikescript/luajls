@@ -116,6 +116,12 @@ function httpHandler.badRequest(httpExchange)
   response:setBody('<p>Sorry something seems to be wrong in your request.</p>')
 end
 
+function httpHandler.forbidden(httpExchange)
+  local response = httpExchange:getResponse()
+  response:setStatusCode(HTTP_CONST.HTTP_FORBIDDEN, 'Forbidden')
+  response:setBody('<p>The server cannot process your request.</p>')
+end
+
 function httpHandler.ok(httpExchange, body, contentType)
   local response = httpExchange:getResponse()
   response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
@@ -196,6 +202,12 @@ local function setMessageBodyFile(response, file, size)
   -- end
 end
 
+local function isValidSubPath(path)
+  -- Checks whether it starts, ends or contains /../
+  return not (string.find(path, '/../', 1, true) or string.match(path, '^%.%./') or string.match(path, '/%.%.$') or string.find(path, '\\', 1, true))
+  --return not string.find(path, '..', 1, true)
+end
+
 --- Basic file handler
 function httpHandler.file(httpExchange)
   local response = httpExchange:getResponse()
@@ -206,6 +218,10 @@ function httpHandler.file(httpExchange)
     context:setAttribute('rootFile', rootFile)
   end
   local path = httpExchange:getRequestArguments()
+  if not isValidSubPath(path) then
+    httpHandler.forbidden(httpExchange)
+    return
+  end
   path = string.gsub(path, '/$', '')
   if path == '' then
     path = context:getAttribute('defaultFile') or 'index.html'
@@ -287,8 +303,13 @@ function httpHandler.files(httpExchange)
   local method = string.upper(request:getMethod())
   --local path = httpExchange:getRequest():getTarget()
   local path = httpExchange:getRequestArguments()
-  path = string.gsub(path, '/$', '')
-  local file = File:new(rootFile, path)
+  local isDirectoryPath = string.sub(path, -1) == '/'
+  local filePath = isDirectoryPath and string.sub(path, 1, -2) or path
+  if filePath == '' or not isValidSubPath(path) then
+    httpHandler.forbidden(httpExchange)
+    return
+  end
+  local file = File:new(rootFile, filePath)
   -- TODO Handle HEAD as a GET without body
   -- TODO Handle PATCH, MOVE
   if method == HTTP_CONST.METHOD_GET then
@@ -299,16 +320,27 @@ function httpHandler.files(httpExchange)
     else
       httpHandler.notFound(httpExchange)
     end
-  elseif method == HTTP_CONST.METHOD_PUT then
-    if request:hasBody() then
+  elseif method == HTTP_CONST.METHOD_POST then
+    if file:isFile() then
+      file:write(request:getBody()) -- TODO Handle errors
+      httpHandler.ok(httpExchange)
+    else
+      httpHandler.forbidden(httpExchange)
+    end
+  elseif method == HTTP_CONST.METHOD_PUT and context:getAttribute('allowCreate') == true then
+    if isDirectoryPath then
+      file:mkdirs() -- TODO Handle errors
+    else
       file:write(request:getBody()) -- TODO Handle errors
     end
     httpHandler.ok(httpExchange)
-  elseif method == HTTP_CONST.METHOD_DELETE then
+  elseif method == HTTP_CONST.METHOD_DELETE and context:getAttribute('allowDelete') == true then
     if file:isFile() then
-      file:delete() -- TODO Check
-      httpHandler.ok(httpExchange)
+      file:delete() -- TODO Handle errors
+    elseif file:isDirectory() then
+      file:deleteRecursive() -- TODO Handle errors
     end
+    httpHandler.ok(httpExchange)
   else
     httpHandler.methodNotAllowed(httpExchange)
   end
