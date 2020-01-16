@@ -60,6 +60,16 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     end
   end
 
+  local function removeIf(list, ifFn, removedList)
+    for i, v in irpairs(list) do
+      if ifFn(v, list) then
+        table.remove(list, i)
+        if removedList then
+          table.insert(removedList, v)
+        end
+      end
+    end
+  end
 
   --- Creates a new TableList.
   -- @function TableList:new
@@ -181,14 +191,16 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return self:remove()
   end
 
-  function tableList:filter(filterFn)
+  function tableList:filter(filterFn, unfilteredList)
     local filtered = TableList:new()
     for i, v in ipairs(self) do
       if filterFn(v, i, self) then
         filtered:add(v)
+      elseif unfilteredList then
+        unfilteredList:add(v)
       end
     end
-    return filtered
+    return filtered, unfilteredList
   end
   
   function tableList:iterator()
@@ -229,6 +241,8 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   -- @param value The value to remove from the list.
   -- @function TableList.removeAll
   TableList.removeAll = removeAll
+
+  TableList.removeIf = removeIf
 
   TableList.irpairs = irpairs
   
