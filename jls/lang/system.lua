@@ -7,8 +7,7 @@ local loader = require('jls.lang.loader')
 local logger = require('jls.lang.logger')
 local runtime = require('jls.lang.runtime')
 
--- TODO Lazy load this optional dependency
-local luaSocketLib = loader.tryRequire('socket.core')
+local sysLib = require('jls.lang.sys')
 
 local system = {}
 
@@ -24,56 +23,29 @@ system.output = io.output()
 --- Returns the current time in seconds.
 -- The time is given as the number of seconds since the Epoch, 1970-01-01 00:00:00 +0000 (UTC). 
 -- @return the current time in seconds.
-function system.currentTime()
-  return os.time()
-end
+-- @function system.currentTime
+system.currentTime = os.time
 
 --- Returns the current time in milliseconds.
 -- @return The current time in milliseconds.
 -- @function system.currentTimeMillis
-if luaSocketLib then
-  function system.currentTimeMillis()
-    return math.floor(luaSocketLib.gettime() * 1000)
-  end
-else
-  function system.currentTimeMillis()
-    return os.time() * 1000
-  end
-end
+system.currentTimeMillis = sysLib.timems
 
 --- Causes the program to sleep.
 -- @param millis The length of time to sleep in milliseconds.
 -- @function system.sleep
-if luaSocketLib then
-  function system.sleep(millis)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('system.sleep('..tostring(millis)..')')
-    end
-    luaSocketLib.sleep(millis / 1000)
-    -- luvLib.sleep(millis)
-  end
-else
-  local os_time = os.time
-  function system.sleep(millis)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('system.sleep('..tostring(millis)..')')
-    end
-    local t = os_time() + (millis / 1000)
-    while os_time() < t do end
-  end
-end
+system.sleep = sysLib.sleep
 
 --- Terminates the program and returns a value to the OS.
--- @function system.exit
 -- @param code The exit code to return to the OS.
+-- @function system.exit
 system.exit = runtime.exit
 
 --- Gets a specific environnement property.
 -- @param name The name of the property to get.
 -- @return The environnement property.
-function system.getenv(name)
-  return os.getenv(name)
-end
+-- @function system.getenv
+system.getenv = os.getenv
 
 local isWindowsOS = false
 if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
