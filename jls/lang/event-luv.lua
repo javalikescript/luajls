@@ -54,8 +54,19 @@ return require('jls.lang.class').create(function(event)
     end
   end
 
-  function event:loop()
-    luvLib.run()
+  function event:loop(mode)
+    -- returns true if uv_stop() was called and there are still active handles or requests, false otherwise
+    -- may returns nil then an error message in case of libuv returning <0
+    local ret, err = luvLib.run(mode)
+    if ret then
+      if logger:isLoggable(logger.WARN) then
+        logger:warn('event:loop('..tostring(mode)..') return '..tostring(ret))
+      end
+    elseif ret == nil then
+      if logger:isLoggable(logger.WARN) then
+        logger:warn('event:loop('..tostring(mode)..') in error "'..tostring(err)..'"')
+      end
+    end
   end
   
   function event:stop()
@@ -67,7 +78,8 @@ return require('jls.lang.class').create(function(event)
   end
   
   function event:runOnce()
-    luvLib.run('once')
+    self:loop('once')
+    --luvLib.run('once')
   end
   
   function event:close()

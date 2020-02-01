@@ -86,7 +86,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
         cb(err)
       else
         if data and #data == 0 then
-          cb(nil, nil)
+          cb()
         else
           cb(nil, data)
         end

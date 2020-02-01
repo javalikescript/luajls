@@ -8,10 +8,15 @@ local function listCopy(l)
   return nl
 end
 
-return {
-  execute = function(command, cb)
-    -- Windows uses 32-bit unsigned integers as exit codes
-    -- windows system function does not return the exit code but the errno
+local executeWork
+local workCbMap
+local workNextId
+local workMaxId = 10000
+
+local executeAsync
+
+if os.getenv('JLS_EXECUTE_THREAD') then
+  executeAsync = function(command, cb)
     local async
     async = luvLib.new_async(function(status, kind, code)
       if status then
@@ -28,8 +33,47 @@ return {
       local status, kind, code = os.execute(command)
       async:send(status, kind, code)
     end, async, command)
-  end,
+  end
+else
+  executeAsync = function(command, cb)
+    if not executeWork then
+      workCbMap = {}
+      workNextId = 1
+      executeWork = luvLib.new_work(function(id, command)
+        local status, kind, code = os.execute(command)
+        -- Windows uses 32-bit unsigned integers as exit codes
+        -- windows system function does not return the exit code but the errno
+        return id, status, kind, code
+      end, function(id, status, kind, code)
+        local workCb = workCbMap[id]
+        if workCb then
+          workCbMap[id] = nil
+          if status then
+            workCb()
+          else
+            workCb({
+              code = math.floor(code),
+              kind = kind
+            })
+          end
+        end
+      end)
+    end
+    for i = 1, workMaxId do
+      workNextId = (workNextId + 1) % workMaxId
+      if not workCbMap[workNextId] then
+        break
+      end
+    end
+    workCbMap[workNextId] = cb
+    executeWork:queue(workNextId, command)
+  end
+end
+
+
+return {
   exePath = luvLib.exepath,
+  execute = executeAsync,
   kill = function(pid, sig)
     return luvLib.kill(pid, sig or 'sigint')
   end,

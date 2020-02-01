@@ -166,34 +166,37 @@ local function setMessageBodyFile(response, file, size)
       logger:fine('setMessageBodyFile() "'..file:getPath()..'" => response:writeBody()')
     end
     local cb, promise = Promise.ensureCallback(callback)
-    local fd = FileDescriptor.openSync(file) -- TODO Handle error
-    local writeCallback
-    writeCallback = function(err)
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('setMessageBodyFile() "'..file:getPath()..'" => writeCallback('..tostring(err)..')')
-      end
-      if err then
-        fd:closeSync()
-        cb(err)
-      else
-        fd:read(size, nil, function(err, buffer)
-          if err then
-            fd:closeSync()
-            cb(err)
-          end
-          if buffer then
-            if logger:isLoggable(logger.FINER) then
-              logger:finer('setMessageBodyFile() "'..file:getPath()..'" => read #'..tostring(#buffer))
+    local fd, err = FileDescriptor.openSync(file) -- TODO Handle error
+    if fd then
+      local writeCallback
+      writeCallback = function(err)
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('setMessageBodyFile() "'..file:getPath()..'" => writeCallback('..tostring(err)..')')
+        end
+        if err then
+          fd:closeSync()
+          cb(err)
+        else
+          fd:read(size, nil, function(err, buffer)
+            if err then
+              fd:closeSync()
+              cb(err)
+            elseif buffer then
+              if logger:isLoggable(logger.FINER) then
+                logger:finer('setMessageBodyFile() "'..file:getPath()..'" => read #'..tostring(#buffer))
+              end
+              stream:write(buffer, writeCallback)
+            else
+              fd:closeSync()
+              cb()
             end
-            stream:write(buffer, writeCallback)
-          else
-            fd:closeSync()
-            cb()
-          end
-        end)
+          end)
+        end
       end
+      writeCallback()
+    else
+      cb(err or 'Unable to open file "'..file:getPath()..'"')
     end
-    writeCallback()
     return promise
   end
   -- local body = file:readAll()

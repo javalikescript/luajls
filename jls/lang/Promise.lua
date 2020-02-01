@@ -9,9 +9,20 @@ local REJECTED = 2
 
 local NO_VALUE = {}
 
-local applyPromise
+local applyPromiseHandler
 
-local function applyPromiseHandler(promise, handler)
+local function applyPromise(promise, result, state)
+  if promise._state == PENDING then -- only one resolution is allowed
+    promise._state = state
+    promise._result = result
+    for _, handler in ipairs(promise._handlers) do
+      applyPromiseHandler(promise, handler)
+    end
+    promise._handlers = nil -- cleaning handlers
+  end
+end
+
+applyPromiseHandler = function(promise, handler)
   local status, result = true, NO_VALUE
   if promise._state == FULFILLED then
     if type(handler.onFulfilled) == 'function' then
@@ -24,45 +35,32 @@ local function applyPromiseHandler(promise, handler)
   else
     error('Invalid promise state ('..tostring(promise._state)..')')
   end
-  if result == NO_VALUE then
-    -- If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1
-    -- If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1
-    applyPromise(handler.promise, promise._result, promise._state)
-  elseif result == promise then
-    applyPromise(handler.promise, 'Invalid promise result', REJECTED)
-  --elseif Promise:isInstance(result) then
-  elseif type(result) == 'table' and type(result.next) == 'function' then
-    -- we may want to detect cycle in the thenable chain
-    -- TODO: If calling then throws an exception e,
-    -- If resolvePromise or rejectPromise have been called, ignore it.
-    -- Otherwise, reject promise with e as the reason.
-    result:next(function(value)
-      applyPromise(handler.promise, value, FULFILLED)
-    end, function(reason)
-      applyPromise(handler.promise, reason, REJECTED)
-    end)
-  else
-    -- If either onFulfilled or onRejected returns a value then run the Promise Resolution Procedure
-    -- Note: the value could be nil even if it is not specified
-    if status then
-      applyPromise(handler.promise, result, FULFILLED)
+  if status then
+    if result == NO_VALUE then
+      -- If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1
+      -- If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1
+      applyPromise(handler.promise, promise._result, promise._state)
+    elseif result == promise then
+      applyPromise(handler.promise, 'Invalid promise result', REJECTED)
+    elseif type(result) == 'table' and type(result.next) == 'function' then
+      -- we may want to detect cycle in the thenable chain
+      -- TODO: If calling then throws an exception e,
+      -- If resolvePromise or rejectPromise have been called, ignore it.
+      -- Otherwise, reject promise with e as the reason.
+      result:next(function(value)
+        applyPromise(handler.promise, value, FULFILLED)
+      end, function(reason)
+        applyPromise(handler.promise, reason, REJECTED)
+      end)
     else
-      -- If either onFulfilled or onRejected throws an exception e, promise2 must be rejected with e as the reason.
-      applyPromise(handler.promise, result, REJECTED)
+      -- If either onFulfilled or onRejected returns a value then run the Promise Resolution Procedure
+      -- Note: the value could be nil even if it is not specified
+      applyPromise(handler.promise, result, FULFILLED)
     end
+  else
+    -- If either onFulfilled or onRejected throws an exception e, promise2 must be rejected with e as the reason.
+    applyPromise(handler.promise, result, REJECTED)
   end
-end
-
-applyPromise = function(promise, result, state)
-  if promise._state ~= PENDING then
-    return -- only one resolution is allowed
-  end
-  promise._state = state
-  promise._result = result
-  for _, handler in ipairs(promise._handlers) do
-    applyPromiseHandler(promise, handler)
-  end
-  promise._handlers = nil -- cleaning handlers
 end
 
 local function asCallback(promise)

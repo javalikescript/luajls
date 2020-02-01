@@ -93,7 +93,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
         if c then
           logger:fine('httpServer:onAccept() keeping client alive')
           exchange:close()
-          return server:onAccept(c, remainingBuffer)
+          return server:onAccept(c, remainingBuffer) -- tail call
         end
       end
       exchange:close()
