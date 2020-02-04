@@ -1,17 +1,22 @@
 luajls is a standard library for [Lua](https://www.lua.org/)
 
 The library provides an abstract interface to the underlying operating system, such as file system and network.
-The jls Lua library includes a set of Lua modules providing an API to abstract the host platform.
+The jls Lua library includes a set of jls Lua modules providing an API to abstract the host platform.
+The jls Lua library also provides interface for general purpose libraries such as SSL, JSON, ZIP, JPEG.
 The main targeted OSes are Linux and Windows.
 
 It provides:
-* language basics such as class definition, module loading, logging, promises
+* language basics such as class definition, module loading, logging, promise, process
 * file system manipulation, input/output, file and networking access, serial communication
-* utility modules for date and time, JSON format, structs, deflate, zip file and WebView
+* utility modules for date and time, JSON format, deflate, ZIP file and WebView
 
-The only required dependency is Lua 5.3.
-Other dependencies are Lua native modules such as lfs, luasocket, luv, lua-openssl, lua-cjson.
+The only required dependency is Lua 5.3
+Optional dependencies are Lua modules such as luafilesystem, luasocket, luv, lua-openssl, lua-cjson.
+By example, the file system manipulation requires one of the luafilesystem or the luv dependent module.
 All the dependencies are available in the [Lua C libraries repository](https://github.com/javalikescript/luaclibs).
+
+As luajls is composed of Lua modules, you need to adapt the environment variables LUA_PATH and LUA_CPATH to include the luajls home directory.
+Additionally you have to adapt the environment variable LD_LIBRARY_PATH to include the luajls home directory when using a Lua C module requiring a shared library such as openssl.
 
 ```lua
 local event = require('jls.lang.event')
