@@ -1,12 +1,8 @@
---- This class enables to deal with composite data type.
--- @module jls.util.Struct
+-- TODO Remove this class as it can be replaced by string.pack, string.packsize, and string.unpack
 
 local logger = require('jls.lang.logger')
 local integers = require('jls.util.integers')
 
---- The Struct class.
--- The Struct provides a way to C like structure.
--- @type Struct
 return require('jls.lang.class').create(function(struct)
 
   local TYPE_ID = {
@@ -33,7 +29,7 @@ return require('jls.lang.class').create(function(struct)
     UnsignedLong = 8
   }
 
-  --- Creates a new Struct.
+  -- Creates a new Struct.
   -- @function Struct:new
   -- @tparam table structDef the structure definition as field-type key-value pairs
   -- @tparam string byteOrder bigEndian or littleEndian
@@ -63,7 +59,7 @@ return require('jls.lang.class').create(function(struct)
     self:setOrder(byteOrder)
   end
 
-  --- Sets the byte order.
+  -- Sets the byte order.
   -- @tparam string byteOrder bigEndian or littleEndian
   function struct:setOrder(byteOrder)
     local byteOrderType = type(byteOrder)
@@ -80,13 +76,13 @@ return require('jls.lang.class').create(function(struct)
     return self
   end
 
-  --- Returns the size of this Struct that is the total size of its fields.
+  -- Returns the size of this Struct that is the total size of its fields.
   -- @treturn number the size of this Struct.
   function struct:getSize()
     return self.size
   end
 
-  --- Decodes the specifed byte array as a string.
+  -- Decodes the specifed byte array as a string.
   -- @tparam string s the value to decode as a string
   -- @treturn table the decoded values.
   function struct:fromString(s)
@@ -115,7 +111,7 @@ return require('jls.lang.class').create(function(struct)
     return t
   end
 
-  --- Encodes the specifed values provided as a table.
+  -- Encodes the specifed values provided as a table.
   -- @tparam string t the values to encode as a table
   -- @treturn string the encoded values as a string.
   function struct:toString(t)

@@ -2,13 +2,15 @@
 -- @module jls.util.zip.gzip
 
 local logger = require('jls.lang.logger')
-local integers = require('jls.util.integers')
 local StringBuffer = require('jls.lang.StringBuffer')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 local CallbackStreamHandler = require('jls.io.streams.CallbackStreamHandler')
 local Crc32 = require('jls.util.md.Crc32')
+
+-- TODO replace by string.pack, string.packsize, and string.unpack
+local integers = require('jls.util.integers')
 
 -- see https://tools.ietf.org/html/rfc1952
 

@@ -39,7 +39,9 @@ else
     if not executeWork then
       workCbMap = {}
       workNextId = 1
+      -- libuv has 4 worker thread by default
       executeWork = luvLib.new_work(function(id, command)
+        -- if command is not returning we will block a worker thread
         local status, kind, code = os.execute(command)
         -- Windows uses 32-bit unsigned integers as exit codes
         -- windows system function does not return the exit code but the errno

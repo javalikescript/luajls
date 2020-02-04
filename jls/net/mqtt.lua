@@ -8,8 +8,11 @@ local system = require('jls.lang.system')
 local net = require('jls.net')
 local Promise = require('jls.lang.Promise')
 local streams = require('jls.io.streams')
-local integers = require('jls.util.integers')
 local hex = require('jls.util.hex')
+
+-- TODO replace by string.pack, string.packsize, and string.unpack
+local integers = require('jls.util.integers')
+
 
 --[[
   mosquitto -v

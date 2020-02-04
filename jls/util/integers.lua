@@ -1,5 +1,4 @@
--- Provide integer helper functions.
--- @module jls.util.integers
+-- TODO Remove this class as it can be replaced by string.pack, string.packsize, and string.unpack
 
 local integers = {}
 

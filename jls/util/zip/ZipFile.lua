@@ -4,13 +4,15 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
-local Struct = require('jls.util.Struct')
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
+
+-- TODO Replace Struct by string.pack, string.packsize, and string.unpack
+local Struct = require('jls.util.Struct')
 
 
 local ZipEntry = class.create(function(zipEntry)
