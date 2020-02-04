@@ -253,4 +253,70 @@ function test_then_chained()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
+function test_all_resolved()
+  local deferred1, promise1 = deferPromise()
+  local deferred2, promise2 = deferPromise()
+  local promise = Promise.all({promise1, promise2})
+  local resolution = false
+  promise:next(function(value)
+    resolution = value
+  end)
+  lu.assertFalse(resolution)
+  deferred2.resolve('Success 2')
+  lu.assertFalse(resolution)
+  deferred1.resolve('Success 1')
+  lu.assertEquals(resolution, {'Success 1', 'Success 2'})
+end
+
+function test_all_rejected()
+  local deferred1, promise1 = deferPromise()
+  local deferred2, promise2 = deferPromise()
+  local deferred3, promise3 = deferPromise()
+  local promise = Promise.all({promise1, promise2, promise3})
+  local resolution = false
+  promise:next(nil, function(value)
+    resolution = value
+  end)
+  lu.assertFalse(resolution)
+  deferred2.resolve('Success 2')
+  lu.assertFalse(resolution)
+  deferred1.reject('Error 1')
+  lu.assertEquals(resolution, 'Error 1')
+end
+
+function test_all_empty()
+  local promise = Promise.all({})
+  local resolution = false
+  promise:next(function(value)
+    resolution = value
+  end)
+  lu.assertEquals(resolution, {})
+end
+
+function test_race_resolved()
+  local deferred1, promise1 = deferPromise()
+  local deferred2, promise2 = deferPromise()
+  local promise = Promise.race({promise1, promise2})
+  local resolution = false
+  promise:next(function(value)
+    resolution = value
+  end)
+  lu.assertFalse(resolution)
+  deferred2.resolve('Success 2')
+  lu.assertEquals(resolution, 'Success 2')
+end
+
+function test_race_rejected()
+  local deferred1, promise1 = deferPromise()
+  local deferred2, promise2 = deferPromise()
+  local promise = Promise.race({promise1, promise2})
+  local resolution = false
+  promise:next(nil, function(value)
+    resolution = value
+  end)
+  lu.assertFalse(resolution)
+  deferred2.reject('Error 2')
+  lu.assertEquals(resolution, 'Error 2')
+end
+
 os.exit(lu.LuaUnit.run())

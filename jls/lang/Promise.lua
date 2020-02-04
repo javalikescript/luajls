@@ -184,9 +184,30 @@ end
 -- iterable argument have fulfilled or rejects as soon as one of the
 -- promises in the iterable argument rejects.
 -- 
--- @param promises The promises.
+-- @tparam table promises The promises list.
 -- @return A promise.
-function Promise.all(promises) end
+function Promise.all(promises)
+  local count = #promises
+  local values = {}
+  local promise, resolve, reject = Promise.createWithCallbacks()
+  if count > 0 then
+    local function resolveAt(index)
+      return function(value)
+        values[index] = value
+        count = count - 1
+        if count == 0 then
+          resolve(values)
+        end
+      end
+    end
+    for i, p in ipairs(promises) do
+      p:next(resolveAt(i), reject)
+    end
+  else
+    resolve(values)
+  end
+  return promise
+end
 
 --- Returns a promise that fulfills or rejects as soon as one of the
 -- promises in the iterable fulfills or rejects, with the value or reason
@@ -194,7 +215,13 @@ function Promise.all(promises) end
 -- 
 -- @param promises The promises.
 -- @return A promise.
-function Promise.race(promises) end
+function Promise.race(promises)
+  local promise, resolve, reject = Promise.createWithCallbacks()
+  for _, p in ipairs(promises) do
+    p:next(resolve, reject)
+  end
+  return promise
+end
 
 --- Returns a Promise object that is rejected with the given reason.
 -- 
