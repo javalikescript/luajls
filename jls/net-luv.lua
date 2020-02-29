@@ -39,6 +39,16 @@ if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll
   isWindowsOS = true
 end
 
+if not isWindowsOS and not os.getenv('JLS_DO_NOT_IGNORE_SIGPIPE') then
+  -- lua socket core installs a handler to ignore sigpipe in order to avoid crash
+  -- signal(SIGPIPE, SIG_IGN);
+  if pcall(require, 'socket.core') then
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('net-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
+    end
+  end
+end
+
 local socketToString = function(client)
   local t = client:getpeername()
   return tostring(t.ip)..':'..tostring(t.port)
