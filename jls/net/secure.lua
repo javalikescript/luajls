@@ -469,30 +469,48 @@ local function createPrivateKey()
   return opensslLib.pkey.new()
 end
 
+local function addName(names, options, name, key)
+  if options[name] then
+    table.insert(names, {[key or name] = options[name]})
+  end
+  return names
+end
+
 local function createCertificate(options)
   -- see https://en.wikipedia.org/wiki/X.509
   -- https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
   -- Country Name (C), State or Province (S), Locality or City (L), Organization (O), Organizational Unit (OU)
   options = options or {}
-  local cadn = opensslLib.x509.name.new({
-    {commonName = options.commonName or 'LHA'},
-    {C = 'ZZ'},
-    {O = 'LHA'}
-  })
+  local names = {
+    {CN = options.commonName or 'JLS'},
+    {C = options.countryName or 'ZZ'},
+    {O = options.organizationName or 'JLS'}
+  }
+  addName(names, options, 'localityName', 'L')
+  addName(names, options, 'stateOrProvinceName', 'ST')
+  addName(names, options, 'organizationalUnitName', 'OU')
+  local cadn = opensslLib.x509.name.new(names)
   local pkey = options.privateKey or createPrivateKey()
   local req = opensslLib.x509.req.new(cadn, pkey)
   local cacert = opensslLib.x509.new(1, req)
-  local duration = options.duration or (3600 * 24 * 365)
+  local duration = options.duration or (3600 * 24 * (365 + 31)) -- one year
   local time = os.time()
   cacert:validat(time, time + duration)
-  cacert:sign(pkey, cacert) --self sign
+  cacert:sign(pkey, cacert) -- self sign
   return cacert, pkey
+end
+
+local function readCertificate(data)
+  local cert = opensslLib.x509.read(data)
+  -- cert:validat([time]) => validity, notbefore, notafter
+  return cert
 end
 
 
 return {
   createPrivateKey = createPrivateKey,
   createCertificate = createCertificate,
+  readCertificate = readCertificate,
   Context = SecureContext,
   TcpServer = SecureTcpServer,
   TcpClient = SecureTcpClient
