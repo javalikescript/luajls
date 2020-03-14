@@ -2,9 +2,11 @@
 -- @module jls.io.streams.CallbackStreamHandler
 -- @pragma nostrip
 
+local StreamHandler = require('jls.io.streams.StreamHandler')
+
 --- This class allows to wrap a callback function into a stream.
 -- @type CallbackStreamHandler
-return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'), function(callbackStreamHandler)
+return require('jls.lang.class').create(StreamHandler, function(callbackStreamHandler)
 
   --- Creates a @{StreamHandler} based on a callback.
   -- @tparam function cb the callback
