@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local File = require('jls.io.File')
 
-local TEST_PATH = 'tests'
+local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
 
 function test_exists()

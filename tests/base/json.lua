@@ -18,8 +18,10 @@ function test_encode()
 end
 
 function test_decode_encode()
-  local s = '["Hello world !",123,1.23,true,null]'
-  lu.assertEquals(json.encode(json.decode(s)), s)
+  -- leading null values are not supported by dkjson
+  local s = '["Hello world !",123,1.23,true,null,false]'
+  local ds = json.decode(s)
+  lu.assertEquals(json.encode(ds), s)
 end
 
 function test_encode_decode()
