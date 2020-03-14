@@ -38,7 +38,7 @@ end, function(CallbackStreamHandler)
     elseif StreamHandler:isInstance(sh) then
       return sh
     else
-      error('Invalid argument')
+      error('Invalid argument (type is '..type(sh)..')')
     end
   end
 

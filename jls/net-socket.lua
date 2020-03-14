@@ -13,11 +13,12 @@ local streams = require('jls.io.streams')
 
 
 local socketToString = function(client)
-  local ip, port = client:getpeername()
+  --local ip, port = client:getpeername()
+  local _, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
   return tostring(ip)..':'..tostring(port)
 end
 
---local BUFFER_SIZE = 2048
+local BUFFER_SIZE = 2048
 
 local MODE_RECV = 1
 local MODE_SEND = 2
@@ -153,7 +154,7 @@ local Selector = class.create(function(selector)
           logger:debug('selector:select() accepting')
           context.streamHandler()
         else
-          local size = context.streamHandler.bufferSize
+          local size = context.streamHandler.bufferSize or BUFFER_SIZE
           logger:debug('selector:select() receiving '..tostring(size)..' on '..socketToString(socket))
           local content, recvErr, partial = socket:receive(size)
           if content then
@@ -482,7 +483,7 @@ local UdpSocket = class.create(function(udpSocket)
     return self.nds:setoption('ip-drop-membership', {multiaddr = mcastaddr, interface = ifaddr})
   end
 
-  function udpSocket:receiveStart(stream)
+  function udpSocket:receiveStart(cb)
     logger:debug('udpSocket:receiveStart(?)')
     local stream = streams.ensureStreamHandler(cb)
     if self.nds then

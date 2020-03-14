@@ -2,8 +2,17 @@
 SETLOCAL
 
 SET VERBOSE=no
-IF _%1==_-v SET VERBOSE=yes
+SET JLS_REQUIRES=
 
+:args
+IF _%1==_ GOTO :main
+SET ARG=%1
+SHIFT
+IF %ARG%==-v SET VERBOSE=yes
+IF %ARG%==socket SET JLS_REQUIRES=socket,lfs,jls.lang.process-,jls.lang.event-
+GOTO :args
+
+:main
 SET JLS_LOGGER_LEVEL=
 SET LUA=lua53
 WHERE /Q %LUA%
