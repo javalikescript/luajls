@@ -35,12 +35,13 @@ local function singleRequirer(name)
   end
 end
 
+local BASE_REQUIRE = require
+
 -- The JLS_REQUIRES environment variable enables to pre load native/non jls modules
 -- that can be used in case of multiple implementations
 local jlsRequires = os.getenv('JLS_REQUIRES')
-local jlsObviates = {}
 if jlsRequires then
-  local baseRequire = require
+  local jlsObviates = {}
   local isDebugLoggable = logger:isLoggable(logger.DEBUG)
   require = function(name)
     if isDebugLoggable then
@@ -49,13 +50,13 @@ if jlsRequires then
     if jlsObviates[name] then
       error('The module "'..tostring(name)..'" is deactivated via JLS_REQUIRES')
     end
-    return baseRequire(name)
+    return BASE_REQUIRE(name)
   end
-  local packageReentrancyKey = '__JLS_REQUIRES'
-  if package.loaded[packageReentrancyKey] then
+  local reentrancyKey = '__JLS_LOADER_REENTRANCY'
+  if package.loaded[reentrancyKey] then
     error('Reentrancy detected')
   end
-  package.loaded[packageReentrancyKey] = true
+  package.loaded[reentrancyKey] = true
   if isDebugLoggable then
     logger:debug('loads modules from JLS_REQUIRES: "'..jlsRequires..'"')
   end
@@ -64,36 +65,25 @@ if jlsRequires then
     if nname then
       jlsObviates[nname] = true
       if isDebugLoggable then
-        logger:debug('not require module "'..nname..'"')
+        logger:debug('obviated module "'..nname..'"')
       end
     else
-      local mname = string.match(name, '(.+)%-[^%-]*$')
       if isDebugLoggable then
         logger:debug('preload required module "'..name..'"')
       end
       local mod = tryRequire(name)
-      if mod then
-        if isDebugLoggable then
-          logger:debug('required module "'..name..'" loaded')
-        end
-        if mname then
-          package.loaded[mname] = mod
-          if isDebugLoggable then
-            logger:debug('module "'..mname..'" installed')
-          end
-        end
-      else
-        if isDebugLoggable then
-          logger:debug('required module "'..name..'" not loaded')
-        end
+      if not mod then
+        logger:warn('Fail to load required module "'..name..'"')
       end
     end
   end
-  if not string.find(jlsRequires, '!', 1, true) then
-    require = baseRequire
+  if next(jlsObviates) == nil then
+    require = BASE_REQUIRE
   end
-  package.loaded[packageReentrancyKey] = nil
+  package.loaded[reentrancyKey] = nil
   jlsRequires = nil
+  reentrancyKey = nil
+  isDebugLoggable = nil
 end
 
 --[[--
@@ -122,19 +112,13 @@ local function requireOne(...)
   local names = {}
   for _, name in ipairs(arg) do
     local sname = string.match(name, '%-([^%-]+)$')
-    if sname then
-      if not jlsObviates[sname] then
-        if package.loaded[sname] then
-          local mod = tryRequire(name)
-          if mod then
-            if logger:isLoggable(logger.DEBUG) then
-              logger:debug('requireOne() loads module "'..name..'" because "'..sname..'" is already loaded')
-            end
-            return mod
-          end
-        else
-          table.insert(names, name)
+    if sname and package.loaded[sname] then
+      local mod = tryRequire(name)
+      if mod then
+        if logger:isLoggable(logger.DEBUG) then
+          logger:debug('requireOne() loads module "'..name..'" because "'..sname..'" is already loaded')
         end
+        return mod
       end
     else
       table.insert(names, name)
@@ -176,6 +160,7 @@ local function unloadAll(pattern)
 end
 
 return {
+  BASE_REQUIRE = BASE_REQUIRE,
   requireOne = requireOne,
   tryRequire = tryRequire,
   singleRequirer = singleRequirer,
