@@ -9,7 +9,8 @@ IF _%1==_ GOTO :main
 SET ARG=%1
 SHIFT
 IF %ARG%==-v SET VERBOSE=yes
-IF %ARG%==socket SET JLS_REQUIRES=socket,lfs,jls.lang.process-,jls.lang.event-
+IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs
+IF %ARG%==socket SET JLS_REQUIRES=!luv
 GOTO :args
 
 :main
