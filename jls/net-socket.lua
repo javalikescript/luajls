@@ -3,19 +3,23 @@ local luaSocketLib = require('socket')
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local event = require('jls.lang.event-') -- socket only work with scheduler based event
-if event ~= require('jls.lang.event') then
-  error('Conflicting event libraries')
-end
+local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local TableList = require('jls.util.TableList')
 local streams = require('jls.io.streams')
 
+-- this module only work with scheduler based event
+if event ~= require('jls.lang.event-') then
+ error('Conflicting event libraries')
+end
 
 local socketToString = function(client)
   --local ip, port = client:getpeername()
-  local _, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
-  return tostring(ip)..':'..tostring(port)
+  local status, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
+  if status and ip then
+    return tostring(ip)..':'..tostring(port)
+  end
+  return string.gsub(tostring(client), '%s+', '')
 end
 
 local BUFFER_SIZE = 2048
@@ -281,12 +285,15 @@ local TcpClient = class.create(Tcp, function(tcpClient)
 
   function tcpClient:connect(addr, port, callback)
     if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpClient:connect('..tostring(addr)..', '..tostring(port)..', ...)')
+      logger:debug('tcpClient:connect('..tostring(addr)..', '..tostring(port)..')')
     end
     local tcp, err = luaSocketLib.connect(addr, port)
     self.tcp = tcp
     local cb, d = Promise.ensureCallback(callback)
     if err then
+      if logger:isLoggable(logger.DEBUG) then
+        logger:debug('tcpClient:connect('..tostring(addr)..', '..tostring(port)..') error => "'..tostring(err)..'"')
+      end
       cb(err)
     else
       cb(nil, self)
