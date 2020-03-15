@@ -142,9 +142,11 @@ local function createHttpServer(handler, keep)
 end
 
 local function sendReceiveClose(client)
+  logger:finer('sendReceiveClose()')
   return client:connect():next(function()
     return client:sendReceive()
   end):next(function(response)
+    logger:finer('sendReceiveClose(), response is '..tostring(response))
     client.t_response = response
     client:close()
   end, function(err)
@@ -237,6 +239,16 @@ function test_HttpClient_no_header()
   end)
   lu.assertNotIsNil(client.t_err)
   -- response:getHeaders()
+end
+
+function test_separator()
+  logger:fine('------------------------------------------------------------')
+  --[[
+    ..\env_dist.bat
+    set JLS_LOGGER_LEVEL=all
+    SET JLS_REQUIRES=!luv
+    lua tests\full\http.lua -v test_HttpClient_content_length_empty_body test_separator test_HttpClient_content_length_with_body
+  ]]
 end
 
 function test_HttpClient_content_length_empty_body()

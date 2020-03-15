@@ -135,7 +135,9 @@ local Selector = class.create(function(selector)
   end
   
   function selector:select(timeout)
-    logger:debug('selector:select('..tostring(timeout)..'s)')
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('selector:select('..tostring(timeout)..'s) recvt: '..tostring(#self.recvt)..' sendt: '..tostring(#self.sendt))
+    end
     local selectionTime = system.currentTime()
     local canrecvt, cansendt, selectErr = luaSocketLib.select(self.recvt, self.sendt, timeout)
     if selectErr then
@@ -355,9 +357,9 @@ local TcpServer = class.create(Tcp, function(tcpServer)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('tcpServer:bind('..tostring(addr)..', '..tostring(port)..')')
     end
-    --if addr == '0.0.0.0' or addr == '::' then
-    --  addr = '*'
-    --end
+    if addr == '0.0.0.0' or addr == '::' then
+      addr = '*'
+    end
     local cb, d = Promise.ensureCallback(callback)
     local tcp, err = luaSocketLib.bind(addr, port, backlog)
     if err then

@@ -69,6 +69,9 @@ function event:setTask(callback)
       local status, err = pcall(callback)
       if status then
         if not err then
+          if logger:isLoggable(logger.DEBUG) then
+            logger:debug('event:setTask() callback ends returning '..tostring(err))
+          end
           break
         end
       else
