@@ -73,9 +73,10 @@ local function createTcpClient(requestData)
   local client = net.TcpClient:new()
   local receivedCount = 0
   return client:connect('127.0.0.1', TEST_PORT):next(function()
+    logger:finer('tcp client connected')
     client:readStart(streams.CallbackStreamHandler:new(function(err, data)
       if err then
-        logger:warn('tcp client error '..tostring(err))
+        logger:warn('tcp client stream error '..tostring(err))
         client.t_error = err
         client:close()
       elseif data then
@@ -96,6 +97,8 @@ local function createTcpClient(requestData)
       client:write(requestData)
     end
     return client
+  end, function(err)
+    logger:warn('tcp client connect error '..tostring(err))
   end)
 end
 
@@ -341,8 +344,10 @@ end
 function test_HttpServer_simple_get()
   local server, client
   createHttpServer():next(function(s)
+    logger:fine('http server created')
     server = s
     client = createTcpClient(createHttpRawRequest())
+    logger:fine('tcp client created')
   end)
   loop(function()
     client:close()
