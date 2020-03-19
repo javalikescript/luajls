@@ -145,8 +145,20 @@ local Logger = require('jls.lang.class').create(function(logger)
     end
   end
 
+  function logger:logTraceback(level, message)
+    if level >= self.level then
+      print(debug.traceback(message, 2))
+    end
+  end
+
   function logger:dump(value, name, depth)
     self:logTable(DEBUG, value, name, depth)
+  end
+
+  function logger:traceback(message)
+    if DEBUG >= self.level then
+      print(debug.traceback(message, 2))
+    end
   end
 
   --- Logs the specified message with the ERROR level.

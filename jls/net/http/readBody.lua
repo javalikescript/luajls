@@ -98,7 +98,7 @@ local function readBody(message, tcpClient, buffer, callback)
     end
     length = -1
     if logger:isLoggable(logger.FINE) then
-      logger:fine('readBody() connection is '..tostring(connection))
+      logger:fine('readBody() connection: '..tostring(connection))
     end
     if not HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
       cb('Content length value, chunked transfer encoding or connection close expected')

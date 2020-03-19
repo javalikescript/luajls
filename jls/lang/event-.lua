@@ -63,14 +63,22 @@ function event:setInterval(callback, delayMs) -- TODO Use extra arguments as fun
   end, false, delayMs) -- as opaque id
 end
 
+function event:hasTask()
+  return self.task ~= nil
+end
+
 function event:setTask(callback)
+  if self.task then
+    error('Conflicting event tasks')
+  end
+  self.task = true
   return self.scheduler:schedule(function()
     while true do
       local status, err = pcall(callback)
       if status then
         if not err then
           if logger:isLoggable(logger.DEBUG) then
-            logger:debug('event:setTask() callback ends returning '..tostring(err))
+            logger:debug('event:setTask() callback ends')
           end
           break
         end
@@ -81,6 +89,7 @@ function event:setTask(callback)
       end
       coroutine.yield(-1)
     end
+    self.task = nil
   end, false) -- as opaque id
 end
 
