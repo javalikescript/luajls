@@ -8,8 +8,8 @@ local secure = require('jls.net.secure')
 local Promise = require('jls.lang.Promise')
 
 local loader = require('jls.lang.loader')
-local netLuv = loader.tryRequire('jls.net-luv')
-local netSocket = loader.tryRequire('jls.net-socket')
+local netLuv = loader.getRequired('jls.net-luv')
+local netSocket = loader.getRequired('jls.net-socket')
 local luaSocketLib = loader.tryRequire('socket')
 
 local File = require('jls.io.File')
@@ -214,6 +214,10 @@ function test_HttpsServerClientsKeepAlive()
   lu.assertEquals(count, 2)
 end
 
+local function canResetConnection()
+  return netSocket or netLuv and luaSocketLib
+end
+
 local function resetConnection(tcp, close, shutdown)
   if netLuv and luaSocketLib and netLuv.TcpClient:isInstance(tcp) then
     local fd = tcp.tcp:fileno()
@@ -221,6 +225,8 @@ local function resetConnection(tcp, close, shutdown)
     tcp:setfd(fd)
   elseif netSocket and netSocket.TcpClient:isInstance(tcp) then
     tcp = tcp.tcp
+  else
+    error('illegal state')
   end
   local lingerOption = tcp:getoption('linger')
   logger:fine('linger: '..tostring(lingerOption.on)..', '..tostring(lingerOption.timeout))
@@ -281,6 +287,10 @@ function test_HttpsClientServerConnectionCloseAfterHandshake()
 end
 
 function test_HttpsClientServerConnectionResetAfterHandshake()
+  if not canResetConnection() then
+    logger:warn('skip test_HttpsClientServerConnectionResetAfterHandshake')
+    return
+  end
   local server, client
   createHttpsServer(function(httpExchange)
     local response = httpExchange:getResponse()

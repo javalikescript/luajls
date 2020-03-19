@@ -15,6 +15,13 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
     if logger:isLoggable(logger.FINEST) then
       logger:finest('headerStreamHandler:onData("'..tostring(line)..'")')
     end
+    if not self.onCompleted then
+      if logger:isLoggable(logger.WARN) then
+        logger:warn('HeaderStreamHandler receive data after read completed')
+        logger:traceback()
+      end
+      error('Data after read completed')
+    end
     if not line then
       if self.firstLine then
         self:onError('No header')
@@ -28,9 +35,7 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
     if l >= self.maxLineLength then
       self:onError('Too long header line (max is '..tostring(self.maxLineLength)..')')
     elseif l == 0 then
-      if self.onCompleted then
-        self:onCompleted()
-      end
+      self:onCompleted()
     else
       if self.firstLine then
         self.message:setLine(line)
@@ -55,7 +60,8 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
     if self.onCompleted then
       self:onCompleted(err or 'Unknown error')
     else
-      logger:warn('HeaderStreamHandler completed in error, due to '..tostring(err))
+      logger:warn('HeaderStreamHandler in error, due to '..tostring(err))
+      error('Error after read completed')
     end
   end
 
@@ -64,7 +70,7 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
       logger:fine('headerStreamHandler:read(?, #'..tostring(buffer and #buffer)..')')
     end
     if self.onCompleted then
-      error('read in progress')
+      error('Read in progress')
     end
     return Promise:new(function(resolve, reject)
       local c
@@ -73,10 +79,10 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
         if logger:isLoggable(logger.FINE) then
           logger:fine('headerStreamHandler:read() onCompleted('..tostring(err)..')')
         end
+        self.onCompleted = nil
         if c then
           c:readStop()
         end
-        self.onCompleted = nil
         if err then
           reject(err)
         else

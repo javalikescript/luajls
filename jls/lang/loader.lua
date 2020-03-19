@@ -17,6 +17,13 @@ local function tryRequire(name)
   return nil
 end
 
+--- Returns the specified Lua module if already loaded.
+-- @tparam string name the name of the module to load
+-- @return the already loaded module or nil if none
+local function getRequired(name)
+  return package.loaded[name]
+end
+
 local NOT_LOADED = {}
 
 --- Returns a funtion that will try to require the specified Lua module only once.
@@ -163,6 +170,7 @@ return {
   BASE_REQUIRE = BASE_REQUIRE,
   requireOne = requireOne,
   tryRequire = tryRequire,
+  getRequired = getRequired,
   singleRequirer = singleRequirer,
   unload = unload,
   unloadAll = unloadAll

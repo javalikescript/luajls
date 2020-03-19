@@ -35,14 +35,6 @@ local Selector = class.create(function(selector)
     self.sendt = {}
   end
   
-  function selector:getMode(socket)
-    local context = self.contt[socket]
-    if context then
-      return context.mode
-    end
-    return 0
-  end
-  
   function selector:register(socket, mode, streamHandler, writeData, writeCallback, ip, port)
     local context = self.contt[socket]
     local computedMode = 0
@@ -81,6 +73,7 @@ local Selector = class.create(function(selector)
     mode = mode or computedMode
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('selector:register('..socketToString(socket)..', '..tostring(context.mode)..'=>'..tostring(mode)..')')
+      --logger:traceback()
     end
     if mode == context.mode then
       return
@@ -109,19 +102,38 @@ local Selector = class.create(function(selector)
         table.insert(self.sendt, socket)
       end
       context.mode = mode
+      if not event:hasTask() then
+        event:setTask(function()
+          self:select(15)
+          return not self:isEmpty()
+        end)
+      end
     else
       self.contt[socket] = nil
     end
     return
   end
   
-  function selector:unregister(socket)
-    TableList.removeFirst(self.recvt, socket)
-    TableList.removeFirst(self.sendt, socket)
-    self.contt[socket] = nil
+  function selector:unregister(socket, mode)
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('selector:unregister('..socketToString(socket)..', '..tostring(mode)..')')
+    end
+    if mode then
+      local context = self.contt[socket]
+      if context then
+        self:register(socket, context.mode & (0xf ~ mode))
+      end
+    else
+      TableList.removeFirst(self.recvt, socket)
+      TableList.removeFirst(self.sendt, socket)
+      self.contt[socket] = nil
+    end
   end
   
   function selector:unregisterAndClose(socket)
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('selector:unregisterAndClose('..socketToString(socket)..')')
+    end
     self:unregister(socket)
     socket:close()
   end
@@ -130,6 +142,12 @@ local Selector = class.create(function(selector)
     local count = #self.recvt + #self.sendt
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('selector:isEmpty() => '..tostring(count == 0)..' ('..tostring(count)..')')
+      for i, socket in ipairs(self.recvt) do
+        logger:debug(' recvt['..tostring(i)..'] '..socketToString(socket))
+      end
+      for i, socket in ipairs(self.sendt) do
+        logger:debug(' sendt['..tostring(i)..'] '..socketToString(socket))
+      end
     end
     return count == 0
   end
@@ -171,12 +189,14 @@ local Selector = class.create(function(selector)
             end
             if partial and #partial > 0 then
               context.streamHandler:onData(partial)
-            end
-            if recvErr == 'closed' then
-              context.streamHandler:onData(nil)
-              self:unregisterAndClose(socket)
-            elseif recvErr ~= 'timeout' then
-              context.streamHandler:onError(recvErr)
+            else
+              if recvErr == 'closed' then
+                self:unregisterAndClose(socket)
+                -- the connection was closed before the transmission was completed
+                context.streamHandler:onData(nil)
+              elseif recvErr ~= 'timeout' then
+                context.streamHandler:onError(recvErr)
+              end
             end
           end
         end
@@ -204,6 +224,8 @@ local Selector = class.create(function(selector)
             wf.position = ierr
             if sendErr == 'closed' then
               self:unregisterAndClose(socket)
+              -- the connection was closed before the transmission was completed
+              wf.callback('closed')
             elseif sendErr ~= 'timeout' then
               wf.callback(sendErr)
             end
@@ -211,8 +233,7 @@ local Selector = class.create(function(selector)
             table.remove(context.writet, 1)
             wf.callback()
             if #context.writet == 0 then
-              local newMode = context.mode & MODE_RECV
-              self:register(socket, newMode)
+              self:unregister(socket, MODE_SEND)
             end
           end
         else
@@ -221,6 +242,8 @@ local Selector = class.create(function(selector)
             wf.position = ierr
             if sendErr == 'closed' then
               self:unregisterAndClose(socket)
+              -- the connection was closed before the transmission was completed
+              wf.callback('closed')
             elseif sendErr ~= 'timeout' then
               wf.callback(sendErr) -- TODO discard all write futures
             end
@@ -231,8 +254,7 @@ local Selector = class.create(function(selector)
             table.remove(context.writet, 1)
             wf.callback()
             if #context.writet == 0 then
-              local newMode = context.mode & MODE_RECV
-              self:register(socket, newMode)
+              self:unregister(socket, MODE_SEND)
             end
           end
         end
@@ -274,8 +296,9 @@ local Tcp = class.create(function(tcp)
   
   function tcp:close(callback)
     logger:debug('tcp:close()')
-    self.selector:register(self.tcp, 0)
-    self.tcp:close()
+    local tcp = self.tcp
+    self.tcp = nil
+    self.selector:unregisterAndClose(tcp)
     local cb, d = Promise.ensureCallback(callback)
     cb()
     return d
@@ -330,8 +353,7 @@ local TcpClient = class.create(Tcp, function(tcpClient)
   function tcpClient:readStop()
     logger:debug('tcpClient:readStop()')
     if self.tcp then
-      local newMode = self.selector:getMode(self.tcp) & MODE_SEND
-      self.selector:register(self.tcp, newMode)
+      self.selector:unregister(self.tcp, Selector.MODE_RECV)
     end
     return self
   end
@@ -351,7 +373,7 @@ local TcpClient = class.create(Tcp, function(tcpClient)
 end)
 
 
-local TcpServer = class.create(Tcp, function(tcpServer)
+local TcpServer = class.create(Tcp, function(tcpServer, super)
 
   function tcpServer:bind(addr, port, backlog, callback)
     if logger:isLoggable(logger.DEBUG) then
@@ -397,6 +419,12 @@ local TcpServer = class.create(Tcp, function(tcpServer)
   function tcpServer:onAccept(client)
     client:close()
   end
+
+  function tcpServer:close(callback)
+    logger:debug('tcpServer:close()')
+    super.close(self, callback)
+  end
+
 end)
 
 -- User Datagram Protocol
@@ -505,8 +533,7 @@ local UdpSocket = class.create(function(udpSocket)
   function udpSocket:receiveStop()
     logger:debug('udpSocket:receiveStop()')
     if self.nds then
-      local newMode = self.selector:getMode(self.nds) & MODE_SEND
-      self.selector:register(self.nds, newMode)
+      self.selector:unregister(self.nds, Selector.MODE_RECV)
     end
   end
 
@@ -534,12 +561,6 @@ local UdpSocket = class.create(function(udpSocket)
     return d
   end
 end)
-
-event:setTask(function()
-  defaultSelector:select(15)
-  return not defaultSelector:isEmpty()
-end)
-
 
 local function getAddressInfo(node, port, callback)
   local cb, d = Promise.ensureCallback(callback)
