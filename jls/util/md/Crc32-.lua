@@ -60,13 +60,9 @@ return require('jls.lang.class').create(function(crc32)
     return self.value ~ MAX
   end
 
-  function crc32:digest(m)
-    return compute(m)
-  end
-
 end, function(Crc32)
 
-  function Crc32.digest(m)
+  function Crc32:digest(m)
     return compute(m) ~ MAX
   end
 

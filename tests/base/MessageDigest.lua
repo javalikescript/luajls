@@ -31,4 +31,9 @@ function test_md5_updates()
   lu.assertEquals(hex.encode(md:finish()), 'e4d909c290d0fb1ca068ffaddf22cbd0')
 end
 
+function test_sha1_digest()
+  local md = MessageDigest:new('sha1')
+  lu.assertEquals(hex.encode(md:digest('The quick brown fox jumps over the lazy dog')), '2fd4e1c67a2d28fced849ee1bb76e7391b93eb12')
+end
+
 os.exit(lu.LuaUnit.run())

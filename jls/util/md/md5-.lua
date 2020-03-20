@@ -173,7 +173,7 @@ local function transform(A,B,C,D,X)
          bit_and(C+c,0xFFFFFFFF),bit_and(D+d,0xFFFFFFFF)
 end
 
-return require('jls.lang.class').create(function(md5, _, Md5)
+return require('jls.lang.class').create(function(md5)
 
   function md5:initialize()
     self.a = CONSTS[65]
@@ -212,7 +212,10 @@ return require('jls.lang.class').create(function(md5, _, Md5)
     return lei2str(self.a) .. lei2str(self.b) .. lei2str(self.c) .. lei2str(self.d)
   end
 
-  function md5:digest(m)
+end, function(Md5)
+
+  function Md5:digest(m)
     return Md5:new():update(m):final()
   end
+
 end)
