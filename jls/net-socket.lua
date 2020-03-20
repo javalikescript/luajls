@@ -436,6 +436,7 @@ local UdpSocket = class.create(function(udpSocket)
     self.selector = selector or defaultSelector
   end
 
+  local luaSocketLib_udp4 = luaSocketLib.udp4 and luaSocketLib.udp4 or luaSocketLib.udp
 
   function udpSocket:bind(addr, port, options)
     if logger:isLoggable(logger.DEBUG) then
@@ -445,7 +446,7 @@ local UdpSocket = class.create(function(udpSocket)
       if string.find(addr, ':') then
         self.nds = luaSocketLib.udp6()
       else
-        self.nds = luaSocketLib.udp4()
+        self.nds = luaSocketLib_udp4()
       end
     end
     if options and options.reuseaddr ~= nil then
