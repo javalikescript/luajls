@@ -149,6 +149,7 @@ function promise:done(onFulfilled)
 end
 
 function promise:finally(onFinally)
+  -- TODO onFinally shall not receive any argument
   return self:next(onFinally, onFinally)
 end
 

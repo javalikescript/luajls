@@ -1,6 +1,7 @@
 @ECHO OFF
 SETLOCAL
 
+SET ALL=no
 SET VERBOSE=no
 SET JLS_REQUIRES=
 
@@ -9,8 +10,10 @@ IF _%1==_ GOTO :main
 SET ARG=%1
 SHIFT
 IF %ARG%==-v SET VERBOSE=yes
+IF %ARG%==-a SET ALL=yes
 IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs
 IF %ARG%==socket SET JLS_REQUIRES=!luv
+IF %ARG%==nossl SET JLS_REQUIRES=!openssl
 GOTO :args
 
 :main
@@ -24,21 +27,21 @@ IF %VERBOSE%==yes (
   ECHO   LUA_CPATH=%LUA_CPATH%
 )
 
-CALL :runall
+IF %ALL%==yes GOTO :runall
+
+CALL :runtests
 GOTO :eof
-
-SET JLS_REQUIRES=socket,lfs
-CALL :runall
-
-SET JLS_REQUIRES=luv
-CALL :runall
-
-SET JLS_REQUIRES=
-
-GOTO :eof
-
 
 :runall
+SET JLS_REQUIRES=!socket,!lfs
+CALL :runtests
+SET JLS_REQUIRES=!luv
+CALL :runtests
+SET JLS_REQUIRES=
+CALL :runtests
+GOTO :eof
+
+:runtests
 IF %VERBOSE%==yes ECHO JLS_REQUIRES=%JLS_REQUIRES%
 SET TESTCOUNT=0
 SET ERRORCOUNT=0

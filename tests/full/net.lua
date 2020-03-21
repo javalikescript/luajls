@@ -4,6 +4,8 @@ local event = require('jls.lang.event')
 local net = require('jls.net')
 local streams = require('jls.io.streams')
 
+local logger = require('jls.lang.logger')
+
 local TEST_PORT = 3002
 
 function loop(onTimeout, timeout)
@@ -70,16 +72,19 @@ function test_UdpSocket()
   local sender = net.UdpSocket:new()
   receiver:bind('0.0.0.0', port, {reuseaddr = true})
   receiver:joinGroup(host, '0.0.0.0')
-  local stream = streams.StreamHandler:new()
-  function stream:onData(data)
-    if data then
+  receiver:receiveStart(streams.CallbackStreamHandler:new(function(err, data)
+    if err then
+      logger:warn('receive error: "'..tostring(err)..'"')
+    elseif data then
+      logger:fine('received data: "'..tostring(data)..'"')
       receivedData = data
     end
     receiver:receiveStop()
     receiver:close()
-  end
-  receiver:receiveStart(stream)
-  sender:send('Hello', host, port):next(function(err)
+  end))
+  sender:send('Hello', host, port):finally(function(value)
+    logger:warn('send value: "'..tostring(value)..'"')
+    logger:fine('closing sender')
     sender:close()
   end)
   loop(function()

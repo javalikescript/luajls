@@ -275,13 +275,13 @@ Selector.MODE_RECV = MODE_RECV
 Selector.MODE_SEND = MODE_SEND
 Selector.MODE_DUAL = MODE_RECV | MODE_SEND
 
-local defaultSelector = Selector:new()
+local DEFAULT_SELECTOR = Selector:new()
 
 
 local Tcp = class.create(function(tcp)
   function tcp:initialize(tcp, selector)
     self.tcp = tcp
-    self.selector = selector or defaultSelector
+    self.selector = selector or DEFAULT_SELECTOR
   end
   
   function tcp:getLocalName()
@@ -360,14 +360,12 @@ local TcpClient = class.create(Tcp, function(tcpClient)
 
   function tcpClient:setTcpNoDelay(on)
     logger:debug('tcpClient:setTcpNoDelay('..tostring(on)..')')
-    self.tcp:setoption('tcp-nodelay', on)
-    return self
+    return self.tcp:setoption('tcp-nodelay', on)
   end
 
   function tcpClient:setKeepAlive(on, delay)
     logger:debug('tcpClient:setKeepAlive('..tostring(on)..', '..tostring(delay)..')')
-    self.tcp:setoption('keepalive', on)
-    return self
+    return self.tcp:setoption('keepalive', on)
   end
 
 end)
@@ -433,25 +431,31 @@ local UdpSocket = class.create(function(udpSocket)
 
   function udpSocket:initialize(nds, selector)
     self.nds = nds
-    self.selector = selector or defaultSelector
+    self.selector = selector or DEFAULT_SELECTOR
   end
 
   local luaSocketLib_udp4 = luaSocketLib.udp4 and luaSocketLib.udp4 or luaSocketLib.udp
 
-  function udpSocket:bind(addr, port, options)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
-    end
-    if not self.nds then
-      if string.find(addr, ':') then
+  function udpSocket:create(addr, options)
+    if self.nds == nil then
+      if addr and string.find(addr, ':') or options and options.ipv6only == true then
         self.nds = luaSocketLib.udp6()
       else
         self.nds = luaSocketLib_udp4()
       end
     end
+  end
+
+  function udpSocket:bind(addr, port, options)
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('udpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
+    end
+    self:create(addr, options)
     if options and options.reuseaddr ~= nil then
-      self.nds:setoption('reuseaddr', options.reuseaddr)
-      --self.nds:setoption('reuseport', true)
+      local status, err = self.nds:setoption('reuseaddr', options.reuseaddr)
+      if not status then
+        error('Error while enabling reuse address '..tostring(err))
+      end
     end
     return self.nds:setsockname(addr, port)
   end
@@ -543,6 +547,7 @@ local UdpSocket = class.create(function(udpSocket)
       logger:debug('udpSocket:send('..tostring(string.len(data))..')')
     end
     local cb, d = Promise.ensureCallback(callback)
+    self:create(addr)
     if self.nds then
       self.selector:register(self.nds, nil, nil, data, cb, addr, port)
     else
@@ -556,7 +561,7 @@ local UdpSocket = class.create(function(udpSocket)
     local cb, d = Promise.ensureCallback(callback)
     if self.nds then
       self.nds:close()
-      self.nds = nil
+      self.nds = false
     end
     cb()
     return d
