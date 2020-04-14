@@ -2,6 +2,7 @@
 -- @module jls.net.http.HttpContextHolder
 -- @pragma nostrip
 
+local logger = require('jls.lang.logger')
 local HttpContext = require('jls.net.http.HttpContext')
 
 --- A class that holds HTTP contexts.
@@ -68,13 +69,17 @@ return require('jls.lang.class').create(function(httpContextHolder)
   ]]
 
   function httpContextHolder:getHttpContext(path)
-    local context, maxLen = self.notFoundContext, 0
+    local context, contextPath, maxLen = self.notFoundContext, '', 0
     for p, c in pairs(self.contexts) do
       local pLen = string.len(p)
       if pLen > maxLen and string.find(path, '^'..p..'$') then
         maxLen = pLen
         context = c
+        contextPath = p
       end
+    end
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('httpContextHolder:getHttpContext("'..path..'") => "'..contextPath..'"')
     end
     return context
   end

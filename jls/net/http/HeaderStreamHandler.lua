@@ -16,11 +16,14 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
       logger:finest('headerStreamHandler:onData("'..tostring(line)..'")')
     end
     if not self.onCompleted then
-      if logger:isLoggable(logger.WARN) then
-        logger:warn('HeaderStreamHandler receive data after read completed')
-        logger:traceback()
+      if line then
+        if logger:isLoggable(logger.WARN) then
+          logger:warn('HeaderStreamHandler received data after read completed')
+          logger:traceback()
+        end
+        --error('Data after read completed')
       end
-      error('Data after read completed')
+      return false
     end
     if not line then
       if self.firstLine then

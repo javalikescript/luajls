@@ -40,13 +40,12 @@ end)
 event:loop()
 ```
 
-[LuaRocks](https://luarocks.org/) installation on Linux
+[LuaRocks](https://luarocks.org/) installation on Linux with libuv and openssl
 ```sh
-sudo apt install luarocks lua5.3 lua5.3-dev libz-dev
-luarocks install luajls --local
+sudo apt install luarocks lua5.3 lua5.3-dev libz-dev cmake libssl-dev
+luarocks install luajls-luv --local
 ```
 
 See the [web site](http://javalikescript.free.fr/lua/) and the [API documentation](http://javalikescript.free.fr/lua/docs/).
 
-Download [binary](http://javalikescript.free.fr/lua/download/) or access the [source code](https://github.com/javalikescript/luajls).
-
+Download [binaries](http://javalikescript.free.fr/lua/download.php) or access the [source code](https://github.com/javalikescript/luajls).
