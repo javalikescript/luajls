@@ -11,7 +11,16 @@ local File = require('jls.io.File')
 local streams = require('jls.io.streams')
 
 
+local function getLuaOpensslVersion()
+  return string.gsub(opensslLib.version(), '(%d+)', function(n) return string.sub('000'..n, -3); end)
+end
+
 local BUFFER_SIZE = 8192
+
+local DEFAULT_PROTOCOL = 'TLS'
+if getLuaOpensslVersion() < '000.007.006' then
+  DEFAULT_PROTOCOL = 'TLSv1_2'
+end
 
 local DEFAULT_CIPHERS = 'ECDHE-RSA-AES128-SHA256:AES128-GCM-SHA256:' .. -- TLS 1.2
                         'RC4:HIGH:!MD5:!aNULL:!EDH'                     -- TLS 1.0
@@ -26,7 +35,7 @@ local SecureContext = class.create(function(secureContext)
     if type(options) ~= 'table' then
       options = {}
     end
-    self.sslContext = opensslLib.ssl.ctx_new(options.protocol or 'TLSv1_2', options.ciphers or DEFAULT_CIPHERS)
+    self.sslContext = opensslLib.ssl.ctx_new(options.protocol or DEFAULT_PROTOCOL, options.ciphers or DEFAULT_CIPHERS)
     --self.sslContext:mode(true, 'release_buffers')
     --self.sslContext:options(opensslLib.ssl.no_sslv2 | opensslLib.ssl.no_sslv3 | opensslLib.ssl.no_compression)
     
