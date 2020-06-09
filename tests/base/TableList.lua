@@ -103,6 +103,14 @@ function test_indexOf()
   lu.assertIsNil(list:indexOf('4'))
 end
 
+function test_contains()
+  local list = TableList:new('1', '2', '3', '2')
+  lu.assertIsTrue(list:contains('1'), 1)
+  lu.assertIsTrue(list:contains('2'), 2)
+  lu.assertIsTrue(list:contains('3'), 3)
+  lu.assertIsFalse(list:contains('4'))
+end
+
 function test_lastIndexOf()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertIs(list:lastIndexOf('1'), 1)

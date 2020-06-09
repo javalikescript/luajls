@@ -21,6 +21,10 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
     return StringBuffer:new(self)
   end
 
+  function stringBuffer:getParts()
+    return self.values
+  end
+
   function stringBuffer:addPart(value, index)
     local valueType = type(value)
     local valueString

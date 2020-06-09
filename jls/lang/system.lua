@@ -9,6 +9,13 @@ local runtime = require('jls.lang.runtime')
 
 local sysLib = require('jls.lang.sys')
 
+local isWindowsOS = false
+if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
+  isWindowsOS = true
+end
+
+local win32Lib = isWindowsOS and loader.tryRequire('win32')
+
 local system = {}
 
 --- The standard input file handle.
@@ -47,12 +54,15 @@ system.exit = runtime.exit
 -- @function system.getenv
 system.getenv = os.getenv
 
-local isWindowsOS = false
-if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
-  isWindowsOS = true
-end
 function system.isWindows()
   return isWindowsOS
+end
+
+function system.getArguments()
+  if win32Lib then
+    return win32Lib.GetCommandLineArguments()
+  end
+  return arg
 end
 
 function system.getLibraryExtension()

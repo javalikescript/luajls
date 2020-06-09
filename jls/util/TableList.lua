@@ -26,6 +26,11 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     end
   end
 
+  local function contains(list, value)
+    local index = indexOf(list, value)
+    return index ~= nil and index > 0
+  end
+
   local function lastIndexOf(list, value)
     for i, v in irpairs(list) do
       if v == value then
@@ -209,15 +214,15 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
 
   tableList.reverseIterator = irpairs
 
-  function tableList:contains(value)
-    return self:indexOf(value) > 0
-  end
+  tableList.contains = contains
 
   tableList.indexOf = indexOf
 
   tableList.lastIndexOf = lastIndexOf
 
   
+  TableList.contains = contains
+
   TableList.indexOf = indexOf
 
   TableList.lastIndexOf = lastIndexOf

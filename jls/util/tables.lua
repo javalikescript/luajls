@@ -226,13 +226,15 @@ function tables.patch(oldTable, diff)
   return newTable
 end
 
-local function getPathKey(path)
+local DEFAULT_PATH_SEPARATOR = '/'
+
+local function getPathKey(path, separator)
   local key, remainingPath
   local s = 1
-  local p = string.find(path, '/', s, true)
+  local p = string.find(path, separator, s, true)
   if p == 1 then
     s = 2
-    p = string.find(path, '/', s, true)
+    p = string.find(path, separator, s, true)
   end
   if p then
     key = string.sub(path, s, p - 1)
@@ -242,10 +244,20 @@ local function getPathKey(path)
   else
     key = path
   end
-  -- local key, remainingPath = string.match(path, '^/?([^/]+)/(.*)$')
-  -- if not key then
-  --   key = path
-  -- end
+  local ekey = string.match(key, '^%[(.*)%]$')
+  if ekey then
+    local skey = string.match(ekey, '^"(.*)"$')
+    if skey then
+      return skey, remainingPath
+    end
+    if ekey == 'true' or ekey == 'false' then
+      return ekey == 'true', remainingPath
+    end
+    local n = tonumber(ekey)
+    if n then
+      return n, remainingPath
+    end
+  end
   local index = tonumber(key)
   if index then
     return index, remainingPath
@@ -260,8 +272,8 @@ end
 -- @tparam string path the path to look in the table.
 -- @param defaultValue the default value to return if there is no value for the path.
 -- @return the value
-function tables.getPath(t, path, defaultValue)
-  local key, remainingPath = getPathKey(path)
+function tables.getPath(t, path, defaultValue, separator)
+  local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
   local value
   if key == '' then
     value = t
@@ -285,8 +297,8 @@ end
 -- @tparam string path the path to set in the table.
 -- @param value the value to set.
 -- @return the previous value.
-function tables.setPath(t, path, value)
-  local key, remainingPath = getPathKey(path)
+function tables.setPath(t, path, value, separator)
+  local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
   local v = t[key]
   if remainingPath and remainingPath ~= '' then
     if type(v) ~= 'table' then
@@ -300,8 +312,8 @@ function tables.setPath(t, path, value)
   return v
 end
 
-function tables.mergePath(t, path, value, keep)
-  local key, remainingPath = getPathKey(path)
+function tables.mergePath(t, path, value, keep, separator)
+  local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
   local v = t[key]
   if remainingPath and remainingPath ~= '' then
     if type(v) ~= 'table' then
@@ -323,8 +335,8 @@ end
 -- @tparam table t a table.
 -- @tparam string path the path to remove in the table.
 -- @return the removed value.
-function tables.removePath(t, path)
-  local key, remainingPath = getPathKey(path)
+function tables.removePath(t, path, separator)
+  local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
   local value = t[key]
   if remainingPath then
     if type(value) == 'table' then
@@ -342,7 +354,7 @@ end
 
 local function mapValuesByPath(t, paths, path)
   for k, v in pairs(t) do
-    local p = path..'/'..tostring(k)
+    local p = path..DEFAULT_PATH_SEPARATOR..tostring(k)
     if type(v) == 'table' then
       mapValuesByPath(v, paths, p)
     else
@@ -368,7 +380,7 @@ local EMPTY_TABLE = {}
 
 local function mergeValuesByPath(oldTable, newTable, paths, path)
   for k, oldValue in pairs(oldTable) do
-    local p = path..'/'..tostring(k)
+    local p = path..DEFAULT_PATH_SEPARATOR..tostring(k)
     local oldType = type(oldValue)
     local newValue = newTable[k]
     if newValue == nil then
@@ -396,7 +408,7 @@ local function mergeValuesByPath(oldTable, newTable, paths, path)
   end
   for k, newValue in pairs(newTable) do
     if oldTable[k] == nil then
-      local p = path..'/'..tostring(k)
+      local p = path..DEFAULT_PATH_SEPARATOR..tostring(k)
       if type(newValue) == 'table' then
         mergeValuesByPath(EMPTY_TABLE, newValue, paths, p)
       else
