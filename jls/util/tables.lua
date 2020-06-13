@@ -271,6 +271,7 @@ end
 -- @tparam table t a table.
 -- @tparam string path the path to look in the table.
 -- @param defaultValue the default value to return if there is no value for the path.
+-- @tparam[opt] string separator the path separator, default is /.
 -- @return the value
 function tables.getPath(t, path, defaultValue, separator)
   local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
@@ -296,6 +297,7 @@ end
 -- @tparam table t a table.
 -- @tparam string path the path to set in the table.
 -- @param value the value to set.
+-- @tparam[opt] string separator the path separator, default is /.
 -- @return the previous value.
 function tables.setPath(t, path, value, separator)
   local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
@@ -334,6 +336,7 @@ end
 --- Removes the value at the specified path in the specified table.
 -- @tparam table t a table.
 -- @tparam string path the path to remove in the table.
+-- @tparam[opt] string separator the path separator, default is /.
 -- @return the removed value.
 function tables.removePath(t, path, separator)
   local key, remainingPath = getPathKey(path, separator or DEFAULT_PATH_SEPARATOR)
