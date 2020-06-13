@@ -28,7 +28,7 @@ end, 1000)
 ]]
 function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as function arguments
   delayMs = delayMs or 0
-  return self.scheduler:schedule(callback, false, delayMs) -- as opaque id
+  return self.scheduler:schedule(callback, false, delayMs) -- as opaque timer id
 end
 
 --- Unregisters a timer.
@@ -54,27 +54,37 @@ function event:setInterval(callback, delayMs) -- TODO Use extra arguments as fun
     while true do
       local status, err = pcall(callback)
       if not status then
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('event:setInterval() callback on error "'..err..'"')
+        if logger:isLoggable(logger.WARN) then
+          logger:warn('event:setInterval() callback on error "'..err..'"')
         end
       end
       coroutine.yield(delayMs)
     end
-  end, false, delayMs) -- as opaque id
+  end, false, delayMs) -- as opaque timer id
 end
 
-function event:hasTask()
-  return self.task ~= nil
+--- Unregisters a timer.
+-- @param timer the timer as returned by the setTimeout or setInterval method.
+function event:clearInterval(timer)
+  self.scheduler:unschedule(timer)
 end
 
-function event:setTask(callback)
-  if self.task then
-    error('Conflicting event tasks')
-  end
-  self.task = true
-  return self.scheduler:schedule(function()
+-- Returns true if the specified timer id is still registered.
+-- @param timer the timer as returned by the setTimeout or setInterval method.
+-- @treturn boolean true if the specified timer id is still registered.
+function event:hasTimer(timer)
+  return self.scheduler:isScheduled(timer)
+end
+
+-- Registers a timer which executes a function until completion.
+-- @tparam function callback A function that is executed repeatedly.
+-- @tparam number delayMs The time, in milliseconds, the timer should wait between to execution.
+-- @return An opaque value identifying the timer that can be used to cancel it.
+function event:setTask(callback, delayMs)
+  local taskSchedule
+  taskSchedule = self.scheduler:schedule(function()
     while true do
-      local status, err = pcall(callback)
+      local status, err = pcall(callback, delayMs and delayMs < 0 and self.scheduler:getWaitTime(taskSchedule) or nil)
       if status then
         if not err then
           if logger:isLoggable(logger.DEBUG) then
@@ -83,18 +93,16 @@ function event:setTask(callback)
           break
         end
       else
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('event:setTask() callback on error "'..err..'"')
+        if logger:isLoggable(logger.WARN) then
+          logger:warn('event:setTask() callback on error "'..err..'"')
         end
       end
-      coroutine.yield(-1)
+      coroutine.yield(delayMs or 0)
     end
-    self.task = nil
-  end, false) -- as opaque id
+  end, false)
+  return taskSchedule -- as opaque timer id
 end
 
---- Unregisters a timer.
--- @param timer the timer as returned by the setTimeout or setInterval method.
 function event:clearInterval(timer)
   self.scheduler:unschedule(timer)
 end

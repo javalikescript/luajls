@@ -33,6 +33,9 @@ local Selector = class.create(function(selector)
     self.contt = {}
     self.recvt = {}
     self.sendt = {}
+    self.eventTask = nil
+    self.minSelectTimeout = 0.5
+    self.maxSelectTimeout = 15
   end
   
   function selector:register(socket, mode, streamHandler, writeData, writeCallback, ip, port)
@@ -102,11 +105,15 @@ local Selector = class.create(function(selector)
         table.insert(self.sendt, socket)
       end
       context.mode = mode
-      if not event:hasTask() then
-        event:setTask(function()
-          self:select(15)
+      if self.eventTask and not event:hasTimer(self.eventTask) then
+        self.eventTask = event:setTask(function(timeoutMs)
+          local timeoutSec = self.maxSelectTimeout
+          if timeoutMs and timeoutMs > 0 then
+            timeoutSec = math.max(math.min(timeoutMs / 1000, self.maxSelectTimeout), self.minSelectTimeout)
+          end
+          self:select(timeoutSec)
           return not self:isEmpty()
-        end)
+        end, -1)
       end
     else
       self.contt[socket] = nil

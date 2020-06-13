@@ -56,6 +56,7 @@ end
 Returns the class of the specified instance.
 @param instance The instance to get the class from.
 @return the class of the specified class or nil if there is no such class.
+@function getClass
 @usage
 local Vehicle = require('jls.lang.class').create()
 local car = Vehicle:new()
@@ -76,6 +77,7 @@ Returns a copy of the specified instance.
 This method performs a shallow copy, field-by-field copy, not a deep copy.
 @param instance the instance to clone.
 @return a copy of the specified instance, or nil if the instance has no class.
+@function cloneInstance
 @usage
 local Vehicle = require('jls.lang.class').create()
 local car = Vehicle:new()
@@ -101,6 +103,7 @@ Creates a new instance of the specified class.
 @param class the class to instantiate.
 @param ... parameters passed to the initialize method.
 @return a new instance
+@function newInstance
 @usage
 local Vehicle = require('jls.lang.class').create(function(vehicle)
   function vehicle:initialize(color)
@@ -124,6 +127,7 @@ Indicates whether or not the specified subclass is the same or a sub class of th
 @param class The class to check with.
 @param subclass The class to be checked.
 @return true if the subclass is the same or a sub class of the class, false otherwise.
+@function isAssignableFrom
 @usage
 local class = require('jls.lang.class')
 local Vehicle = class.create()
@@ -145,6 +149,7 @@ Indicates whether or not the specified instance is an instance of the specified 
 @param class The class to check with.
 @param instance The instance to be check.
 @return true if the instance is an instance of the class, false otherwise.
+@function isInstance
 @usage
 local Vehicle = require('jls.lang.class').create()
 local car = Vehicle:new()

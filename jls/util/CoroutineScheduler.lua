@@ -76,6 +76,10 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     return count
   end
 
+  function coroutineScheduler:isScheduled(schedule)
+    TableList.contains(self.schedules, schedule)
+  end
+
   function coroutineScheduler:hasSchedule()
     return self:countSchedules() > 0
   end
@@ -87,6 +91,30 @@ return require('jls.lang.class').create(function(coroutineScheduler)
 
   function coroutineScheduler:onError(resumeResult)
     logger:warn('Scheduled coroutine failed due to "'..tostring(resumeResult)..'"')
+  end
+
+  function coroutineScheduler:getWaitTime(excludedSchedule)
+    local nextTime = math.maxinteger
+    for _, schedule in ipairs(self.schedules) do
+      if schedule ~= excludedSchedule then
+        if schedule.at < nextTime then
+          nextTime = schedule.at
+        end
+      end
+    end
+    local waitTimeMillis = 0
+    if nextTime >= 0 then
+      if nextTime == math.maxinteger then
+        waitTimeMillis = math.maxinteger
+      else
+        local currentTime = system.currentTimeMillis()
+        waitTimeMillis = nextTime - currentTime
+        if waitTimeMillis < 0 then
+          waitTimeMillis = 0
+        end
+      end
+    end
+    return waitTimeMillis
   end
 
   function coroutineScheduler:runOnce()
