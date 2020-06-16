@@ -1,8 +1,8 @@
 --- The Runtime module provides interaction with the underlying OS.
 -- @module jls.lang.runtime
 
-local processLib = require('jls.lang.process')
 local Promise = require('jls.lang.Promise')
+local Thread = require('jls.lang.loader').tryRequire('jls.lang.Thread')
 
 local runtime = {}
 
@@ -30,6 +30,20 @@ function runtime.exec(command, env, dir)
   return pb:start()
 end
 
+local function applyExecuteResults(cb, status, kind, code)
+  -- Windows uses 32-bit unsigned integers as exit codes
+  -- windows system function does not return the exit code but the errno
+  --print('execute()', status, kind, code)
+  if status then
+    cb()
+  else
+    cb({
+      code = math.floor(code),
+      kind = kind
+    })
+  end
+end
+
 --- Executes the specified command line in a separate thread.
 -- The callback will be in error if the process exit code is not zero.
 -- The error is a table with a code and a kind fields.
@@ -38,7 +52,17 @@ end
 -- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
 function runtime.execute(command, callback)
   local cb, d = Promise.ensureCallback(callback)
-  processLib.execute(command, cb)
+  if Thread then
+    Thread:new(function(command)
+      return os.execute(command)
+    end):start(command):ended():next(function(value)
+      applyExecuteResults(cb, Thread.unpack(value))
+    end, function(reason)
+      cb(reason)
+    end)
+  else
+    applyExecuteResults(cb, os.execute(command))
+  end
   return d
 end
 

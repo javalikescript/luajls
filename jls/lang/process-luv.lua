@@ -8,74 +8,8 @@ local function listCopy(l)
   return nl
 end
 
-local executeWork
-local workCbMap
-local workNextId
-local workMaxId = 10000
-
-local executeAsync
-
-if os.getenv('JLS_EXECUTE_THREAD') then
-  executeAsync = function(command, cb)
-    local async
-    async = luvLib.new_async(function(status, kind, code)
-      if status then
-        cb()
-      else
-        cb({
-          code = math.floor(code),
-          kind = kind
-        })
-      end
-      async:close()
-    end)
-    luvLib.new_thread(function(async, command)
-      local status, kind, code = os.execute(command)
-      async:send(status, kind, code)
-    end, async, command)
-  end
-else
-  executeAsync = function(command, cb)
-    if not executeWork then
-      workCbMap = {}
-      workNextId = 1
-      -- libuv has 4 worker thread by default
-      executeWork = luvLib.new_work(function(id, command)
-        -- if command is not returning we will block a worker thread
-        local status, kind, code = os.execute(command)
-        -- Windows uses 32-bit unsigned integers as exit codes
-        -- windows system function does not return the exit code but the errno
-        return id, status, kind, code
-      end, function(id, status, kind, code)
-        local workCb = workCbMap[id]
-        if workCb then
-          workCbMap[id] = nil
-          if status then
-            workCb()
-          else
-            workCb({
-              code = math.floor(code),
-              kind = kind
-            })
-          end
-        end
-      end)
-    end
-    for i = 1, workMaxId do
-      workNextId = (workNextId + 1) % workMaxId
-      if not workCbMap[workNextId] then
-        break
-      end
-    end
-    workCbMap[workNextId] = cb
-    executeWork:queue(workNextId, command)
-  end
-end
-
-
 return {
   exePath = luvLib.exepath,
-  execute = executeAsync,
   kill = function(pid, sig)
     return luvLib.kill(pid, sig or 'sigint')
   end,

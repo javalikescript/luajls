@@ -5,7 +5,6 @@
 
 local loader = require('jls.lang.loader')
 local logger = require('jls.lang.logger')
-local runtime = require('jls.lang.runtime')
 
 local sysLib = require('jls.lang.sys')
 
@@ -45,8 +44,9 @@ system.sleep = sysLib.sleep
 
 --- Terminates the program and returns a value to the OS.
 -- @param code The exit code to return to the OS.
--- @function system.exit
-system.exit = runtime.exit
+function system.exit(code)
+  return os.exit(code, true)
+end
 
 --- Gets a specific environnement property.
 -- @param name The name of the property to get.
@@ -73,7 +73,8 @@ function system.getLibraryExtension()
 end
 
 --- Runs the garbage collector. 
--- @function system.gc
-system.gc = runtime.gc
+function system.gc()
+  collectgarbage('collect')
+end
 
 return system

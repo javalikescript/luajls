@@ -65,7 +65,7 @@ return require('jls.lang.class').create(function(processBuilder)
   -- @treturn jls.lang.ProcessHandle a handle of the new process
   function processBuilder:start(onexit)
     local pid = processLib.spawn(self, onexit)
-    if pid then
+    if pid and pid > 0 then
       return ProcessHandle:new(pid)
     end
     return nil

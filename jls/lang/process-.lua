@@ -12,29 +12,18 @@ if arg then
 end
 
 return {
-  execute = function(command, cb)
-    local status, kind, code = os.execute(command)
-    if status then
-      cb()
-    else
-      cb({
-        code = math.floor(code),
-        kind = kind
-      })
-    end
-  end,
   exePath = function()
     return exePath
   end,
   kill = function(pid)
     error('not available')
   end,
-  spawn = function(pb)
-    local line = ''
-    for _, a in ipairs(pb.cmd) do
-      line = line..' '..a
+  spawn = function(pb, onexit)
+    local line = table.concat(pb.cmd, ' ')
+    local status, kind, code = os.execute(line) -- will block
+    if type(onexit) == 'function' then
+      onexit(code or 0)
     end
-    os.execute(line) -- will block
     return -1
   end
 }

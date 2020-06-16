@@ -4,9 +4,13 @@ local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local streams = require('jls.io.streams')
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
-local Pipe = require('jls.io.Pipe')
+local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
 
 function test_pipe()
+  --lu.runOnlyIf(Pipe)
+  if not Pipe then
+    lu.success()
+  end
   local text = 'Hello world!'
   local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'print("'..text..'")'})
   --pb:environment({'A_KEY=VALUE A', 'B_KEY=VALUE B'})
@@ -28,6 +32,9 @@ function test_pipe()
 end
 
 function test_env()
+  if not Pipe then
+    lu.success()
+  end
   local text = 'Hello world!'
   local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'print(os.getenv("A_KEY"))'})
   pb:environment({'A_KEY='..text, 'B_KEY=VALUE B'})
@@ -56,7 +63,9 @@ function test_exitCode()
   end)
   event:loop()
   lu.assertEquals(exitCode, code)
-  lu.assertEquals(ph:isAlive(), false)
+  if ph then
+    lu.assertEquals(ph:isAlive(), false)
+  end
 end
 
 os.exit(lu.LuaUnit.run())
