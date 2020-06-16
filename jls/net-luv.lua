@@ -69,7 +69,11 @@ local Tcp = class.create(function(tcp)
   -- @treturn string the local name of this TCP socket.
   function tcp:getLocalName()
     --logger:finer('tcp:getLocalName()')
-    return self.tcp:getsockname()
+    local addr = self.tcp:getsockname()
+    if addr then
+      return addr.ip, addr.port, addr.family
+    end
+    return nil
   end
   
   --- Returns the remote name of this TCP socket.
