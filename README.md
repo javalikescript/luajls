@@ -10,7 +10,7 @@ The main targeted OSes are Linux and Windows.
 ## What are the features?
 
 luajls provides:
-* language basics such as class definition, module loading, logging, promise, event loop, process
+* language basics such as class definition, module loading, logging, promise, event loop, thread, process
 * file system manipulation, input/output, file and networking access, serial communication
 * utility modules for date and time, JSON format, deflate, ZIP file, scheduling and WebView
 
