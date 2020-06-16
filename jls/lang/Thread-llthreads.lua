@@ -56,8 +56,9 @@ return require('jls.lang.class').create(function(thread)
               return true
             end
             local results = table.pack(self.t:join())
-            local ok = table.remove(results, 1)
-            local err = table.remove(results, 1)
+            local ok = results[1]
+            local err = results[2]
+            results = table.pack(select(3, table.unpack(results)))
             self.t = nil
             self._endPromise = nil
             if ok then
@@ -93,6 +94,15 @@ return require('jls.lang.class').create(function(thread)
       self.t:join()
       self.t = nil
     end
+  end
+
+end, function(Thread)
+
+  function Thread.unpack(value)
+    if type(value) == 'table' then
+      return table.unpack(value)
+    end
+    return value
   end
 
 end)

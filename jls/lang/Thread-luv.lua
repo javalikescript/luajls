@@ -68,11 +68,11 @@ return require('jls.lang.class').create(function(thread)
       local fn = load(chunk, nil, 'b')
       local async = (...)
       local results = table.pack(pcall(fn, select(2, ...)))
-      local status = table.remove(results, 1)
+      local status = results[1]
       if status then
-        async:send(nil, table.unpack(results))
+        async:send(nil, select(2, table.unpack(results)))
       else
-        async:send(results[1] or 'Error in thread')
+        async:send(results[2] or 'Error in thread')
       end
     ]]
     --logger:finest('code: [['..code..']]')
@@ -104,6 +104,17 @@ return require('jls.lang.class').create(function(thread)
       self.t = nil
       self._endPromise = nil
     end
+  end
+
+end, function(Thread)
+
+  --- Returns the results of the terminated thread.
+  -- @param value the resolved value of the thread end promise.
+  function Thread.unpack(value)
+    if type(value) == 'table' then
+      return table.unpack(value)
+    end
+    return value
   end
 
 end)
