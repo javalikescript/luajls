@@ -11,6 +11,7 @@ SET ARG=%1
 SHIFT
 IF %ARG%==-v SET VERBOSE=yes
 IF %ARG%==-a SET ALL=yes
+IF %ARG%==all SET ALL=yes
 IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs
 IF %ARG%==socket SET JLS_REQUIRES=!luv
 IF %ARG%==nossl SET JLS_REQUIRES=!openssl
