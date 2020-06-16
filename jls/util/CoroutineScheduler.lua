@@ -77,7 +77,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   end
 
   function coroutineScheduler:isScheduled(schedule)
-    TableList.contains(self.schedules, schedule)
+    return TableList.contains(self.schedules, schedule)
   end
 
   function coroutineScheduler:hasSchedule()

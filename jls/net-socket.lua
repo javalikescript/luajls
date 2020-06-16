@@ -105,7 +105,7 @@ local Selector = class.create(function(selector)
         table.insert(self.sendt, socket)
       end
       context.mode = mode
-      if self.eventTask and not event:hasTimer(self.eventTask) then
+      if not self.eventTask or not event:hasTimer(self.eventTask) then
         self.eventTask = event:setTask(function(timeoutMs)
           local timeoutSec = self.maxSelectTimeout
           if timeoutMs and timeoutMs > 0 then

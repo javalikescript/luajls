@@ -3,8 +3,8 @@
 -- @module jls.lang.event
 -- @pragma nostrip
 
-local CoroutineScheduler = require('jls.util.CoroutineScheduler')
 local logger = require('jls.lang.logger')
+local CoroutineScheduler = require('jls.util.CoroutineScheduler')
 
 --- An Event class.
 -- @type Event
@@ -81,6 +81,9 @@ end
 -- @tparam number delayMs The time, in milliseconds, the timer should wait between to execution.
 -- @return An opaque value identifying the timer that can be used to cancel it.
 function event:setTask(callback, delayMs)
+  if logger:isLoggable(logger.DEBUG) then
+    logger:debug('event:setTask('..tostring(callback)..', '..tostring(delayMs)..')')
+  end
   local taskSchedule
   taskSchedule = self.scheduler:schedule(function()
     while true do
