@@ -116,7 +116,7 @@ Opening a webview in a dedicated thread may not be supported on all platform.
 @tparam[opt] number width the width of the opened window.
 @tparam[opt] number height the height of the opened window.
 @tparam[opt] boolean resizable true if the opened window could be resized.
-@treturn jls.lang.Promise a promise that resolves once the webview is closed.
+@treturn jls.lang.Thread the webview started thread.
 @treturn jls.util.WebView the created webview.
 ]]
   function WebView.open(url, title, width, height, resizable)
@@ -127,7 +127,7 @@ Opening a webview in a dedicated thread may not be supported on all platform.
       local w = webviewLib.fromstring(ws)
       webviewLib.init(w)
       webviewLib.loop(w)
-    end):start(webviewLib.asstring(webview._webview)):ended(), webview
+    end):start(webviewLib.asstring(webview._webview)), webview
   end
 
 end)
