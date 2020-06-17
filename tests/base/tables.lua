@@ -138,11 +138,16 @@ function test_mergeValuesByPath()
   lu.assertEquals(tables.mergeValuesByPath({a = {b = 'A', c = 'C'}}, {a = {b = 'B', d = 'D'}}), {['/a/b'] = {old = 'A', new = 'B'}, ['/a/c'] = {old = 'C'}, ['/a/d'] = {new = 'D'}})
 end
 
+function test_parse()
+  lu.assertEquals(tables.parse('{a="Hi",}'), {a = "Hi"})
+end
+
 function test_stringify()
   lu.assertEquals(tables.stringify(1), '1')
   lu.assertEquals(tables.stringify(1.2), '1.2')
   lu.assertEquals(tables.stringify(true), 'true')
   lu.assertEquals(tables.stringify("Hi"), '"Hi"')
+  lu.assertEquals(tables.stringify("\0\1"), '"\\0\\1"')
   lu.assertEquals(tables.stringify({}), '{}')
   -- table map
   lu.assertEquals(tables.stringify({a = "Hi"}), '{a="Hi",}')

@@ -11,7 +11,7 @@ local tables = {}
 -- @treturn table a table corresponding to the specifed text.
 function tables.parse(text)
   -- TODO parse the text 
-  local f, err = load('return '..text)
+  local f, err = load('return '..text, nil, 't')
   if f then
     return f()
   end
@@ -59,7 +59,7 @@ function tables.stringify(value, space)
       sb:append('}')
     else
       if valueType == 'string' then
-        sb:append('"'..string.gsub(value, '([\\"])', '\\%1')..'"')
+        sb:append(string.format('%q', value))
       elseif valueType == 'number' or valueType == 'boolean' then
         sb:append(tostring(value))
       else
