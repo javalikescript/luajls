@@ -3,8 +3,7 @@ local llthreadsLib = require('llthreads')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local event = require('jls.lang.event')
-local CODEC_MODULE_NAME = 'jls.util.base64'
-local codec = require(CODEC_MODULE_NAME)
+local tables = require("jls.util.tables")
 
 -- this module only work with scheduler based event
 if event ~= require('jls.lang.event-') then
@@ -29,17 +28,21 @@ return require('jls.lang.class').create(function(thread)
   end
 
   function thread:start(...)
+    if self.t then
+      return self
+    end
     local chunk = string.dump(self.fn)
-    local ec = codec.encode(chunk)
-    local code = "local chunk = require('"..CODEC_MODULE_NAME.."').decode('"..ec.."');"..
+    local code = "local chunk = "..string.format('%q', chunk)..
     [[
       local fn = load(chunk, nil, 'b')
-      local results = table.pack(pcall(fn, ...))
-      local status = table.remove(results, 1)
+      local status, value = pcall(fn, ...)
       if status then
-        return nil, table.unpack(results)
+        if type(value) == 'table' then
+          return 'table', require("jls.util.tables").stringify(value)
+        end
+        return nil, value
       end
-      return results[1] or 'Error in thread'
+      return 'error', value
     ]]
     --logger:finest('code: [['..code..']]')
     self.t = llthreadsLib.new(code, ...)
@@ -55,23 +58,16 @@ return require('jls.lang.class').create(function(thread)
             if self.t:alive() then
               return true
             end
-            local results = table.pack(self.t:join())
-            local ok = results[1]
-            local err = results[2]
-            results = table.pack(select(3, table.unpack(results)))
+            local ok, valueType, value = self.t:join()
             self.t = nil
             self._endPromise = nil
             if ok then
-              if err then
-                reject(err)
+              if valueType == 'error' then
+                reject(value or 'Unknown error')
+              elseif valueType == 'table' then
+                resolve(tables.parse(value))
               else
-                if #results <= 0 then
-                  resolve()
-                elseif #results == 1 then
-                  resolve(results[1])
-                else
-                  resolve(results)
-                end
+                resolve(value)
               end
             else
               reject('Not able to join properly')
@@ -94,15 +90,6 @@ return require('jls.lang.class').create(function(thread)
       self.t:join()
       self.t = nil
     end
-  end
-
-end, function(Thread)
-
-  function Thread.unpack(value)
-    if type(value) == 'table' then
-      return table.unpack(value)
-    end
-    return value
   end
 
 end)
