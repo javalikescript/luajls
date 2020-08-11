@@ -1,18 +1,18 @@
 ## What is luajls?
 
-luajls aims to be a standard library for stand-alone [Lua](https://www.lua.org/) applications.
+luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.org/) applications.
 
-The library provides an abstract interface to the underlying operating system, such as file system and network access.
-The jls Lua library is composed of a set of jls Lua modules.
-The jls Lua library also provides interface for general purpose libraries such as JSON, ZIP, SSL.
-The main targeted OSes are Linux and Windows.
+The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access. The modules support asynchronous I/O based on event loops.
+
+The main targeted operating systems are Linux and Windows.
 
 ## What are the features?
 
 luajls provides:
-* language basics such as class definition, module loading, logging, promise, event loop, thread, process
-* file system manipulation, input/output, file and networking access, serial communication
-* utility modules for date and time, JSON format, deflate, ZIP file, scheduling and WebView
+* language basics such as class definition, module loading, logging, promise, event loop, threads, processes
+* file system manipulation, I/O, file and networking access, serial communication, streams
+* HTTP client and server, MQTT, web socket with support for secured communication using SSL
+* utility modules for date and time, JSON format, deflate, ZIP file, scheduling and web view
 
 ## What does it look like?
 
@@ -42,17 +42,17 @@ event:loop()
 
 ## How to install and use it?
 
-The only required dependency is Lua 5.3.
-Optional dependencies are Lua modules such as luafilesystem, luasocket, luv, lua-openssl, lua-cjson.
+The only required dependency is Lua 5.4.
+Optional dependencies are C-based or plain Lua modules such as luafilesystem, luasocket, luv, lua-openssl, lua-cjson.
 By example, the file system manipulation requires one of the luafilesystem or the luv dependent module.
-All the dependencies are available in the [Lua C libraries repository](https://github.com/javalikescript/luaclibs).
+
+Lua, luajls and all the dependencies are available in the [Lua C libraries repository](https://github.com/javalikescript/luaclibs).
 
 As luajls is composed of Lua modules, you need to adapt the environment variables LUA_PATH and LUA_CPATH to include the luajls home directory.
-Additionally you have to adapt the environment variable LD_LIBRARY_PATH to include the luajls home directory when using a Lua C module requiring a shared library such as openssl.
 
 ### LuaRocks
 
-luajls can be installed with [LuaRocks](https://luarocks.org/), depending on your needs you could pick one of the following module:
+luajls, with Lua 5.3, can be installed with [LuaRocks](https://luarocks.org/), depending on your needs you could pick one of the following module:
 * [luajls](https://luarocks.org/modules/javalikescript/luajls) module is only composed of Lua module.
 * [luajls-lfs](https://luarocks.org/modules/javalikescript/luajls-lfs) module adds C module dependencies, mainly luafilesystem and luasocket.
   Prerequisites on Linux
