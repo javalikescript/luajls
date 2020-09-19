@@ -202,7 +202,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
   -- @treturn string the header start value.
   -- @treturn table a table containing the header parameters as key, value.
   function HttpMessage.parseHeaderValueAsTable(value)
-    local value, params = HttpMessage.parseHeaderValue(value, asTable)
+    local value, params = HttpMessage.parseHeaderValue(value)
     local t = {}
     for _, param in ipairs(params) do
       local k, v = string.match(param, '^([^=]+)%s*=%s*(.*)$')

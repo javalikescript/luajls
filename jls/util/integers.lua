@@ -138,7 +138,7 @@ function littleEndian.toUInt16(s, o)
   return (b2 << 8) | b1
 end
 
-function littleEndian.toInt16(s)
+function littleEndian.toInt16(s, o)
   return integers.sign(littleEndian.toUInt16(s, o), 16)
 end
 

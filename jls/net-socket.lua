@@ -228,7 +228,6 @@ local Selector = class.create(function(selector)
             _, sendErr = socket:send(wf.buffer)
           end
           if sendErr then
-            wf.position = ierr
             if sendErr == 'closed' then
               self:unregisterAndClose(socket)
               -- the connection was closed before the transmission was completed
@@ -511,9 +510,9 @@ local UdpSocket = class.create(function(udpSocket)
     return self.nds:setoption('ip-multicast-ttl', value)
   end
 
-  function udpSocket:setInterface(ifaddr)
+  function udpSocket:setInterface(value)
     if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setInterface('..tostring(ifaddr)..')')
+      logger:debug('udpSocket:setInterface('..tostring(value)..')')
     end
     return self.nds:setoption('ip-multicast-if', value)
   end

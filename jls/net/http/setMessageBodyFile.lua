@@ -42,7 +42,7 @@ local function setMessageBodyFile(response, file, size)
       end
       writeCallback()
     else
-      cb(err or 'Unable to open file "'..file:getPath()..'"')
+      cb(err or ('Unable to open file "'..file:getPath()..'"'))
     end
     return promise
   end

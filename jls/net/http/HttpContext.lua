@@ -39,7 +39,6 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
       httpExchange:handleRequest(self):next(function()
         return httpExchange:handleRequest(context)
       end)
-    return result
     end)
   end
 

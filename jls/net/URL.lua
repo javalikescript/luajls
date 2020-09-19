@@ -207,7 +207,7 @@ return require('jls.lang.class').create(function(url, _, URL)
   end
 
   function URL.format(t)
-    if scheme == 'http' or scheme == 'https' then
+    if t.scheme == 'http' or t.scheme == 'https' then
       return formatHttp(t)
     end
     return formatCommon(t)

@@ -9,7 +9,7 @@ local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 -- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
 -- @function zip
 local function zip(httpExchange)
-  local request = httpExchange:getRequest()
+  local response = httpExchange:getResponse()
   local context = httpExchange:getContext()
   local zipFile = context:getAttribute('zipFile')
   if not zipFile then
@@ -17,7 +17,7 @@ local function zip(httpExchange)
     return
   end
   local path = httpExchange:getRequestArguments()
-  local entry = zipFile:getEntry(filename)
+  local entry = zipFile:getEntry(path)
   if entry then
     local content = zipFile:getContent(entry)
     response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')

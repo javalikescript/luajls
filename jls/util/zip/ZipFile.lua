@@ -271,13 +271,13 @@ return class.create(function(zipFile, _, ZipFile)
           end
         end
         local rawFileHeader = ZipFile.STRUCT.FileHeader:toString(fileHeader)
-        fd:writeSync(rawFileHeader)
-        fd:writeSync(name)
+        self.fd:writeSync(rawFileHeader)
+        self.fd:writeSync(name)
         if extra and #extra > 0 then
-          fd:writeSync(extra)
+          self.fd:writeSync(extra)
         end
         if comment and #comment > 0 then
-          fd:writeSync(comment)
+          self.fd:writeSync(comment)
         end
       end
       local rawEOCDR = ZipFile.STRUCT.EndOfCentralDirectoryRecord:toString({
@@ -285,7 +285,7 @@ return class.create(function(zipFile, _, ZipFile)
         entryCount = #self.entries,
         offset = self.offset
       })
-      fd:writeSync(rawEOCDR)
+      self.fd:writeSync(rawEOCDR)
     end
     if self.fd then
       self.fd:closeSync()
@@ -338,12 +338,12 @@ return class.create(function(zipFile, _, ZipFile)
     entry:setOffset(self.offset)
     entry:setLocalFileHeader(localFileHeader)
     local rawLocalFileHeader = ZipFile.STRUCT.LocalFileHeader:toString(localFileHeader)
-    fd:writeSync(name)
+    self.fd:writeSync(name)
     if extra and #extra > 0 then
-      fd:writeSync(extra)
+      self.fd:writeSync(extra)
     end
     if uncompressedSize > 0 then
-      fd:writeSync(rawContent)
+      self.fd:writeSync(rawContent)
     end
     self.offset = self.offset + ZipFile.STRUCT.LocalFileHeader:getSize() + #name + #extra + #rawContent
     table.insert(self.entries, entry)
