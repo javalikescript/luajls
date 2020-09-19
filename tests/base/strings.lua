@@ -14,4 +14,35 @@ function test_cuts()
   lu.assertEquals(strings.cuts('abc', 2, 2, 3), {'ab', 'c', ''})
 end
 
+function test_hash()
+  lu.assertEquals(strings.hash(''), 0)
+  lu.assertEquals(strings.hash('\0\0'), 0)
+  lu.assertEquals(strings.hash('\1'), 1)
+  lu.assertEquals(strings.hash('\1\1'), 32)
+  lu.assertEquals(strings.hash('Hi'), 2337)
+  lu.assertEquals(strings.hash('Hello'), 69609650)
+  lu.assertEquals(strings.hash('A long long long sentence'), -1198834433238344152)
+end
+
+function test_padLeft()
+  lu.assertEquals(strings.padLeft('Hello', 2), 'lo')
+  lu.assertEquals(strings.padLeft('Hi', 6), '    Hi')
+  lu.assertEquals(strings.padLeft('Hi', 6, '-'), '----Hi')
+end
+
+function test_formatInteger()
+  lu.assertEquals(strings.formatInteger(0), '')
+  lu.assertEquals(strings.formatInteger(-9), '-9')
+  lu.assertEquals(strings.formatInteger(9), '9')
+  lu.assertEquals(strings.formatInteger(10), '10')
+  lu.assertEquals(strings.formatInteger(10, 10), '10')
+  lu.assertEquals(strings.formatInteger(9, 16), '9')
+  lu.assertEquals(strings.formatInteger(10, 16), 'A')
+  lu.assertEquals(strings.formatInteger(69609650, 10), '69609650')
+  lu.assertEquals(strings.formatInteger(69609650, 16), '42628B2')
+  lu.assertEquals(strings.formatInteger(69609650, 64), '49YYn')
+  lu.assertEquals(strings.formatInteger(10, 16, 4), '000A')
+  lu.assertEquals(strings.formatInteger(-10, 16, 4), '-00A')
+end
+
 os.exit(lu.LuaUnit.run())

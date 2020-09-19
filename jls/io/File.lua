@@ -193,6 +193,26 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     return self:delete()
   end
 
+  function file:forEachFile(fn, recursive)
+    if not self:isDirectory() then
+      return
+    end
+    for filename in fs.dir(self.npath) do
+      if filename ~= '.' and filename ~= '..' then
+        local f = File:new(self.path, filename)
+        local r
+        if recursive and f:isDirectory() then
+          r = f:forEachFile(fn, recursive)
+        else
+          r = fn(self, f)
+        end
+        if r then
+          return r
+        end
+      end
+    end
+  end
+
   --- Returns an array of strings naming the file system entries in the directory represented by this file.
   -- @treturn table An array of strings naming the file system entries.
   function file:list()

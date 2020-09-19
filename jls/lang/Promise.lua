@@ -164,6 +164,19 @@ function Promise.createWithCallback()
   return promise, asCallback(promise)
 end
 
+function Promise.createWeakWithCallback(prepare)
+  local p = Promise:new()
+  function p:next(onFulfilled, onRejected)
+    self.next = nil -- remove overrided next function to only call prepare once
+    if type(prepare) == 'function' then
+      prepare(asCallback(self))
+    end
+    prepare = nil
+    return self:next(onFulfilled, onRejected)
+  end  
+  return p
+end
+
 function Promise.createWithCallbacks()
   local promise = Promise:new()
   return promise, asCallbacks(promise)
