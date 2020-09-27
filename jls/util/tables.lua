@@ -495,5 +495,13 @@ function tables.values(t)
   return list
 end
 
+function tables.size(t)
+  local size = 0
+  for _ in pairs(t) do
+    size = size + 1
+  end
+  return size
+end
+
 
 return tables

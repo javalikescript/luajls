@@ -65,10 +65,9 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   end
 
   function httpExchange:prepareResponse(response)
-    local body = response:getBody()
     if not response:getContentLength() then
-      if type(body) == 'string' then
-        response:setContentLength(string.len(body))
+      if response:hasBody() then
+        response:setContentLength(response:getBodyLength())
       else
         response:setContentLength(0)
       end

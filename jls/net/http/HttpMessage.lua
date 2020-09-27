@@ -132,9 +132,13 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     return self.bodyBuffer:length() > 0
   end
 
+  function httpMessage:getBodyLength()
+    return self.bodyBuffer:length()
+  end
+
   function httpMessage:getBody()
     return self.bodyBuffer:toString()
-  end  
+  end
 
   function httpMessage:setBody(value)
     if value == nil or type(value) == 'string' then
