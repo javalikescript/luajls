@@ -300,6 +300,10 @@ local Tcp = class.create(function(tcp)
     return self.tcp:getPeerName()
   end
   
+  function tcp:isClosed()
+    return not self.tcp
+  end
+
   function tcp:close(callback)
     logger:debug('tcp:close()')
     local tcp = self.tcp

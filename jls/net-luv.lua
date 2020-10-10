@@ -85,10 +85,10 @@ local Tcp = class.create(function(tcp)
   
   --- Tells whether or not this TCP socket is closed.
   -- @treturn boolean true if the TCP socket is closed.
-  function tcp:closed()
+  function tcp:isClosed()
     return not self.tcp
   end
-  
+
   --- Closes this TCP socket.
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the socket is closed.
@@ -334,7 +334,6 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
       logger:finer('tcpServer:bind('..tostring(node)..', '..tostring(port)..')')
     end
     local cb, d = Promise.ensureCallback(callback)
-    local server = self
     -- FIXME getaddrinfo does not have a port argument
     luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, res)
       if err then
@@ -349,7 +348,7 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
       end
       local ai = res[1]
       local bindErr
-      server.tcp, bindErr = server:bindThenListen(ai.addr, ai.port or port, backlog)
+      self.tcp, bindErr = self:bindThenListen(ai.addr, ai.port or port, backlog)
       if bindErr then
         if logger:isLoggable(logger.FINE) then
           logger:fine('tcpServer:bind() bindThenListen() in error, '..tostring(bindErr))
@@ -367,13 +366,13 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
           end
         end
         if ai2 then
-          server.tcp2, bindErr = server:bindThenListen(ai2.addr, ai2.port or port, backlog)
+          self.tcp2, bindErr = self:bindThenListen(ai2.addr, ai2.port or port, backlog)
           if bindErr then
             if logger:isLoggable(logger.FINE) then
               logger:warn('tcpServer:bind() second bindThenListen() in error, '..tostring(bindErr))
             end
-            server.tcp:close()
-            server.tcp = nil
+            self.tcp:close()
+            self.tcp = nil
             return cb(bindErr)
           end
         end
