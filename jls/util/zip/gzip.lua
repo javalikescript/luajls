@@ -9,9 +9,6 @@ local StreamHandler = require('jls.io.streams.StreamHandler')
 local CallbackStreamHandler = require('jls.io.streams.CallbackStreamHandler')
 local Crc32 = require('jls.util.md.Crc32')
 
--- TODO replace by string.pack, string.packsize, and string.unpack
-local integers = require('jls.util.integers')
-
 -- see https://tools.ietf.org/html/rfc1952
 
 local gzip = {}
@@ -52,18 +49,16 @@ function gzip.formatHeader(header)
     end
   end
   local buffer = StringBuffer:new()
-  buffer:append(string.char(31, 139, compressionMethod, flags))
-  buffer:append(integers.le.fromUInt32(mtime))
-  buffer:append(string.char(extraFlags, os))
+  buffer:append(string.pack('<BBBBI4BB', 0x1f, 0x8b, compressionMethod, flags, mtime, extraFlags, os))
   if extra then
-    buffer:append(integers.le.fromUInt16(#extra))
+    buffer:append(string.pack('<I2', #extra))
     buffer:append(extra)
   end
   if name then
     buffer:append(name)
     buffer:append('\0')
   end
-  if name then
+  if comment then
     buffer:append(comment)
     buffer:append('\0')
   end
@@ -75,19 +70,17 @@ function gzip.parseHeader(data)
   if size < 10 then
     return
   end
-  local id1, id2, compressionMethod, flags = string.byte(data, 1, 4)
-  if id1 ~= 31 or id2 ~= 139 then
-    return nil, 'Invalid magic identification bytes'
+  local id1, id2, compressionMethod, flags, mtime, extraFlags, os = string.unpack('<BBBBI4BB', data)
+  if id1 ~= 0x1f or id2 ~= 0x8b then
+    return nil, nil, 'Invalid magic identification bytes'
   end
-  local mtime = integers.le.toUInt32(data, 5)
-  local extraFlags, os = string.byte(data, 9, 10)
   local name, comment, extra
   local offset = 11
   if flags & FLAGS.EXTRA ~= 0 then
     if size < 12 then
       return
     end
-    local extraSize = integers.le.toUInt16(data, 11)
+    local extraSize = string.unpack('<I2', data, 11)
     offset = 13 + extraSize
     if size < offset then
       return
@@ -116,8 +109,7 @@ function gzip.parseHeader(data)
     name = name,
     comment = comment,
     extra = extra,
-    size = offset - 1
-  }
+  }, offset - 1
 end
 
 
@@ -136,7 +128,7 @@ function gzip.compressStream(stream, header, compressionLevel)
       size = size + #data
       cb(nil, deflater:deflate(data))
     else
-      cb(nil, deflater:finish()..integers.le.fromUInt32(crc:final())..integers.le.fromUInt32(size))
+      cb(nil, deflater:finish()..string.pack('<I4I4', crc:final(), size))
       cb(nil, nil)
     end
   end)
@@ -180,8 +172,7 @@ function gzip.decompressStream(stream, onHeader)
         if data then
           buffer = data
         else
-          local crcFooter = integers.le.toUInt32(footer)
-          local sizeFooter = integers.le.toUInt32(footer, 5)
+          local crcFooter, sizeFooter = string.unpack('<I4I4', footer)
           if logger:isLoggable(logger.FINER) then
             logger:finer('decompressStream() CRC '..tostring(crc:final())..'/'..tostring(crcFooter)..', size '..tostring(size)..' expected '..tostring(sizeFooter))
           end
@@ -198,9 +189,9 @@ function gzip.decompressStream(stream, onHeader)
         end
       end
     else
-      local err
+      local err, headerSize
       buffer = buffer..data
-      header, err = gzip.parseHeader(buffer)
+      header, headerSize, err = gzip.parseHeader(buffer)
       if err then
         return cb(err)
       end
@@ -208,7 +199,7 @@ function gzip.decompressStream(stream, onHeader)
         if type(onHeader) == 'function' then
           onHeader(header)
         end
-        buffer = string.sub(buffer, header.size + 1)
+        buffer = string.sub(buffer, headerSize + 1)
       else
         return
       end
