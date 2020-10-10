@@ -111,15 +111,20 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   --- Sets the last modified time of the file entry represented by this file.
   -- @tparam number time the last modified time or nil to set the current time.
   function file:setLastModified(time)
-    local mTimeInSec = time/ 1000
-    local aTimeInSec = mTimeInSec
+    if type(time) == 'number' then
+      time = time // 1000
+    else
+      time = os.time()
+    end
+    local modificationTimeInSec = time
+    local accessTimeInSec = time
     --[[
     local st = fs.stat(self.npath)
     if st ~= nil then
-      aTimeInSec = st.access
+      accessTimeInSec = st.access
     end
     ]]
-    return fs.utime(self.npath, aTimeInSec, mTimeInSec)
+    return fs.utime(self.npath, accessTimeInSec, modificationTimeInSec)
   end
 
   --- Creates the directory named by this file entry.
