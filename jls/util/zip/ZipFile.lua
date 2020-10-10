@@ -11,9 +11,157 @@ local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
 
+-- ----------------------------------------------------------------------
 -- TODO Replace Struct by string.pack, string.packsize, and string.unpack
-local Struct = require('jls.util.Struct')
+-- ----------------------------------------------------------------------
+local Struct = require('jls.lang.class').create(function(struct)
 
+  local TYPE_ID = {
+    Char = 100,
+    SignedByte = 101,
+    UnsignedByte = 102,
+    SignedShort = 201,
+    UnsignedShort = 202,
+    SignedInt = 401,
+    UnsignedInt = 402,
+    SignedLong = 801,
+    UnsignedLong = 802
+  }
+
+  local TYPE_SIZE = {
+    Char = 1,
+    SignedByte = 1,
+    UnsignedByte = 1,
+    SignedShort = 2,
+    UnsignedShort = 2,
+    SignedInt = 4,
+    UnsignedInt = 4,
+    SignedLong = 8,
+    UnsignedLong = 8
+  }
+
+  -- Creates a new Struct.
+  -- @function Struct:new
+  -- @tparam table structDef the structure definition as field-type key-value pairs
+  -- @tparam string byteOrder bigEndian or littleEndian
+  -- @return a new Struct
+  function struct:initialize(structDef, byteOrder)
+    self.struct = {}
+    self.byteOrder = '>'
+    self:setOrder(byteOrder)
+    local position = 0
+    for i, def in ipairs(structDef) do
+      local id = TYPE_ID[def.type]
+      if not id then
+        error('Invalid Struct definition type "'..tostring(def.type)..'" at index '..tostring(i))
+      end
+      local length = def.length or 1
+      local size = TYPE_SIZE[def.type] * length
+      table.insert(self.struct, {
+        id = id,
+        length = length,
+        name = def.name,
+        position = position,
+        size = size,
+        type = def.type
+      })
+      position = position + size
+    end
+    local format = self:getOrder()
+    for _, def in ipairs(self.struct) do
+      local f
+      if def.id == TYPE_ID.Char then
+        f = 'c'..tostring(def.length)
+      elseif def.id == TYPE_ID.SignedByte then
+        f = 'i1'
+      elseif def.id == TYPE_ID.UnsignedByte then
+        f = 'I1'
+      elseif def.id == TYPE_ID.SignedShort then
+        f = 'i2'
+      elseif def.id == TYPE_ID.UnsignedShort then
+        f = 'I2'
+      elseif def.id == TYPE_ID.SignedInt then
+        f = 'i4'
+      elseif def.id == TYPE_ID.UnsignedInt then
+        f = 'I4'
+      end
+      format = format..f
+    end
+    self.format = format;
+    self.size = string.packsize(self.format);
+    if self.size ~= position then
+      error('Internal size error ('..tostring(self.size)..'~='..tostring(position)..')')
+    end
+  end
+
+  function struct:getOrder()
+    return self.byteOrder
+  end
+
+  -- Sets the byte order.
+  -- @tparam string byteOrder bigEndian or littleEndian
+  function struct:setOrder(byteOrder)
+    local bo = '='
+    if type(byteOrder) == 'string' then
+      bo = string.lower(string.sub(byteOrder, 1, 1))
+      if bo == 'b' then
+        bo = '>'
+      elseif bo == 'l' then
+        bo = '<'
+      end
+    end
+    self.byteOrder = bo
+    return self
+  end
+
+  -- Returns the size of this Struct that is the total size of its fields.
+  -- @treturn number the size of this Struct.
+  function struct:getSize()
+    return self.size
+  end
+
+  function struct:getPackFormat()
+    return self.format
+  end
+
+  -- Decodes the specifed byte array as a string.
+  -- @tparam string s the value to decode as a string
+  -- @treturn table the decoded values.
+  function struct:fromString(s)
+    local t = {}
+    local values = table.pack(string.unpack(self:getPackFormat(), s))
+    for i, def in ipairs(self.struct) do
+      t[def.name] = values[i]
+    end
+    return t
+  end
+
+  -- Encodes the specifed values provided as a table.
+  -- @tparam string t the values to encode as a table
+  -- @treturn string the encoded values as a string.
+  function struct:toString(t, strict)
+    local values = {}
+    for i, def in ipairs(self.struct) do
+      local value = t[def.name]
+      if not value then
+        if strict then
+          error('Missing value for field "'..tostring(def.name)..'" at index '..tostring(i))
+        end
+        if def.id == TYPE_ID.Char then
+          value = ''
+        else
+          value = 0
+        end
+      end
+      table.insert(values, value)
+    end
+    return string.pack(self:getPackFormat(), table.unpack(values))
+  end
+
+end)
+-- ----------------------------------------------------------------------
+-- End of Struct class
+-- ----------------------------------------------------------------------
 
 local ZipEntry = class.create(function(zipEntry)
 
@@ -38,11 +186,11 @@ local ZipEntry = class.create(function(zipEntry)
       -- MS DOS Date & Time
       -- bits: day(1 - 31), month(1 - 12), years(from 1980): 5, 4, 7 - second, minute, hour: 5, 6, 5
       local year = 1980 + ((fileHeader.lastModFileDate >> 9) & 0x007f)
-      local month = ((fileHeader.lastModFileDate >> 5) & 0x000f) - 1
+      local month = (fileHeader.lastModFileDate >> 5) & 0x000f
       local day = fileHeader.lastModFileDate & 0x001f
       local hour = (fileHeader.lastModFileTime >> 11) & 0x001f
       local min = (fileHeader.lastModFileTime >> 5) & 0x003f
-      local sec = fileHeader.lastModFileTime & 0x001f
+      local sec = (fileHeader.lastModFileTime & 0x001f) * 2
       self.datetime = LocalDateTime:new(year, month, day, hour, min, sec)
     end
   end
@@ -101,6 +249,8 @@ end)
 --- The ZipFile class.
 -- A ZipFile instance represents a ZIP file.
 return class.create(function(zipFile, _, ZipFile)
+
+  ZipFile._Struct = Struct
 
   ZipFile.ZipEntry = ZipEntry
 
@@ -303,8 +453,8 @@ return class.create(function(zipFile, _, ZipFile)
   function zipFile:addFile(file, name, comment, extra)
     local f = File.asFile(file)
     local date = Date:new(f:lastModified())
-    local lastModFileDate = (date:getYear() - 1980) << 9 + (date:getMonth()) << 5 + date:getDay()
-    local lastModFileTime = date:getHours() << 11 + date:getMinutes() << 5 + date:getSeconds()
+    local lastModFileDate = (math.max(date:getYear() - 1980, 0) << 9) | ((date:getMonth()) << 5) | date:getDay()
+    local lastModFileTime = (date:getHours() << 11) | (date:getMinutes() << 5) | (date:getSeconds() // 2)
     name = name or f:getName()
     local entry = ZipEntry:new(name, comment, extra)
     local rawContent
@@ -326,6 +476,7 @@ return class.create(function(zipFile, _, ZipFile)
     extra = extra or ''
     local localFileHeader = {
       signature = ZipFile.CONSTANT.LOCAL_FILE_HEADER_SIGNATURE,
+      --versionNeeded = 0, -- TODO Check
       compressionMethod = method,
       lastModFileTime = lastModFileTime,
       lastModFileDate = lastModFileDate,
@@ -338,6 +489,7 @@ return class.create(function(zipFile, _, ZipFile)
     entry:setOffset(self.offset)
     entry:setLocalFileHeader(localFileHeader)
     local rawLocalFileHeader = ZipFile.STRUCT.LocalFileHeader:toString(localFileHeader)
+    self.fd:writeSync(rawLocalFileHeader)
     self.fd:writeSync(name)
     if extra and #extra > 0 then
       self.fd:writeSync(extra)
@@ -513,11 +665,9 @@ return class.create(function(zipFile, _, ZipFile)
           if content then
             entryFile:write(content)
           end
-          --[[
           local dt = entry:getDatetime()
           local date = Date.fromLocalDateTime(dt)
           entryFile:setLastModified(date:getTime())
-          ]]
         end
       else
         logger:info('skipping entry "'..entry:getName()..'"')
@@ -537,15 +687,15 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  function ZipFile.zipTo(file, directoryOrfiles, path)
-    if class.isInstanceOf(directoryOrfiles, File) then
-      if directoryOrfiles:isDirectory() then
-        return ZipFile.zipTo(file, directoryOrfiles:listFiles())
+  function ZipFile.zipTo(file, directoryOrFiles, path)
+    if File:isInstance(directoryOrFiles) then
+      if directoryOrFiles:isDirectory() then
+        return ZipFile.zipTo(file, directoryOrFiles:listFiles())
       end
-      return ZipFile.zipTo(file, {directoryOrfiles})
+      return ZipFile.zipTo(file, {directoryOrFiles})
     end
     local zFile = ZipFile:new(file)
-    addFiles(zFile, path or '', directoryOrfiles)
+    addFiles(zFile, path or '', directoryOrFiles)
     zFile:close()
   end
 end)
