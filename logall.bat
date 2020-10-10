@@ -1,1 +1,0 @@
-set JLS_LOGGER_LEVEL=all
