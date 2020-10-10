@@ -36,7 +36,7 @@ local CRC32 = { [0] =
 
 local MAX = 0xFFFFFFFF
 
-function compute(s, crc)
+local function compute(s, crc)
   crc = crc or MAX
   for i = 1, #s do
     local b = string.byte(s, i)
