@@ -1,18 +1,13 @@
 --- This module provide classes to work with MQTT.
+-- Message Queuing Telemetry Transport
 -- see http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
 -- @module jls.net.mqtt
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
-local system = require('jls.lang.system')
 local net = require('jls.net')
-local Promise = require('jls.lang.Promise')
-local streams = require('jls.io.streams')
+local strings = require('jls.util.strings')
 local hex = require('jls.util.hex')
-
--- TODO replace by string.pack, string.packsize, and string.unpack
-local integers = require('jls.util.integers')
-
 
 --[[
   mosquitto -v
@@ -20,19 +15,31 @@ local integers = require('jls.util.integers')
   mosquitto_sub -t test
 ]]
 
---local function encodeByte(value) return integers.fromUInt8(value) end
---local function decodeByte(value, offset) return integers.toUInt8(value, offset) end
---local function encodeUInt16(value) return integers.be.fromUInt16(value) end
+local function encodeUInt16(i)
+  if i < 0 then
+    return 0
+  end
+  return string.char((i >> 8) & 0xff, i & 0xff)
+end
 
-local encodeByte = integers.fromUInt8
-local encodeBytes = string.char
-local encodeUInt16 = integers.be.fromUInt16
-local encodeUInt32 = integers.be.fromUInt32
+local function encodeUInt32(i)
+  if i < 0 then
+    return 0
+  end
+  return string.char((i >> 24) & 0xff, (i >> 16) & 0xff, (i >> 8) & 0xff, i & 0xff)
+end
 
-local decodeByte = integers.toUInt8
-local decodeBytes = string.byte
-local decodeUInt16 = integers.be.toUInt16
-local decodeUInt32 = integers.be.toUInt32
+local function decodeUInt16(s, o)
+  o = o or 1
+  local b1, b2 = string.byte(s, o, o + 1)
+  return (b1 << 8) | b2
+end
+
+local function decodeUInt32(s, o)
+  o = o or 1
+  local b1, b2, b3, b4 = string.byte(s, o, o + 3)
+  return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
+end
 
 local function encodeData(data)
   return encodeUInt16(#data)..data
@@ -66,25 +73,13 @@ local function decodeVariableByteInteger(s, offset)
   offset = offset or 1
   local i = 0
   for l = 0, 3 do
-    local b = decodeByte(s, offset + l)
-    i = (i << 7) | (b & 0x7f)
+    local b = string.byte(s, offset + l)
+    i = ((b & 0x7f) << (7 * l)) | i
     if (b & 0x80) ~= 0x80 then
       return i, offset + l + 1
     end
   end
   return nil
-end
-
-local function encodePacket(packetType, data, packetFlags)
-  if not packetFlags then
-    packetFlags = 0
-  end
-  local packetTypeAndFlags = ((packetType & 0xf) << 4) | (packetFlags & 0xf)
-  if data then
-    return encodeByte(packetTypeAndFlags)..encodeVariableByteInteger(#data)..data
-  else
-    return encodeByte(packetTypeAndFlags)
-  end
 end
 
 local CONTROL_PACKET_TYPE = {
@@ -163,14 +158,12 @@ local CONNECT_FLAGS = {
   CLEAN_START = 1 << 1,
 }
 
---local CLIENT_ID_CHARS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
-local CLIENT_ID_PREFIX = 'JLS'..hex.encode(encodeUInt32(system.currentTime()))
+local CLIENT_ID_PREFIX = 'JLS'..strings.formatInteger(require('jls.lang.system').currentTimeMillis(), 64)..'-'
 local CLIENT_ID_UID = 0
 
 local function nextClientId()
   CLIENT_ID_UID = CLIENT_ID_UID + 1
-  return CLIENT_ID_PREFIX..hex.encode(encodeUInt32(CLIENT_ID_UID))
+  return CLIENT_ID_PREFIX..strings.formatInteger(CLIENT_ID_UID, 64)
 end
 
 local PROTOCOL_NAME = 'MQTT'
@@ -249,7 +242,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
           if bufferLength < 2 then
             break
           end
-          local packetTypeAndFlags = decodeByte(buffer, 1)
+          local packetTypeAndFlags = string.byte(buffer, 1)
           local remainingLength, offset = decodeVariableByteInteger(buffer, 2)
           local packetLength = offset - 1 + remainingLength
           if bufferLength < packetLength then
@@ -269,7 +262,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
           buffer = remainingBuffer
         end
       else
-        self:onReadEnded(err)
+        self:onReadEnded()
       end
     end)
   end
@@ -282,7 +275,13 @@ local MqttClientBase = class.create(function(mqttClientBase)
   end
 
   function mqttClientBase:writePacket(packetType, data, packetFlags, callback)
-    local packet = encodePacket(packetType, data, packetFlags)
+    local packetTypeAndFlags = ((packetType & 0xf) << 4) | ((packetFlags or 0) & 0xf)
+    local packet
+    if data then
+      packet = string.char(packetTypeAndFlags)..encodeVariableByteInteger(#data)..data
+    else
+      packet = string.char(packetTypeAndFlags, 0)
+    end
     return self:write(packet, callback)
   end
 
@@ -355,7 +354,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
     return self.tcpClient:connect(addr or 'localhost', port or 1883):next(function()
       self:readStart()
       local connData = encodeData(PROTOCOL_NAME)..
-        encodeBytes(PROTOCOL_LEVEL, CONNECT_FLAGS.CLEAN_START)..
+        string.char(PROTOCOL_LEVEL, CONNECT_FLAGS.CLEAN_START)..
         encodeUInt16(self.keepAlive)..
         encodeData(self.clientId)
       -- TODO handle other payload fields: user, password
@@ -401,8 +400,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
       logger:finer('mqttClient:subscribe("'..tostring(topicName)..'", '..tostring(qos)..')')
     end
     local packetIdentifier = 0
-    local data = encodeUInt16(packetIdentifier)
-    data = data..encodeData(topicName)..encodeByte(qos or 0)
+    local data = encodeUInt16(packetIdentifier)..encodeData(topicName)..string.char(qos or 0)
     return self:writePacket(CONTROL_PACKET_TYPE.SUBSCRIBE, data, 2)
   end
 
@@ -464,8 +462,8 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
     if packetType == CONTROL_PACKET_TYPE.CONNECT then
       local protocolName
       protocolName, offset = decodeData(data, offset)
-      local protocolLevel = decodeByte(data, offset)
-      local connectFlags = decodeByte(data, offset + 1)
+      local protocolLevel = string.byte(data, offset)
+      local connectFlags = string.byte(data, offset + 1)
       self.keepAlive = decodeUInt16(data, offset + 2)
       if logger:isLoggable(logger.FINER) then
         logger:finer('connect protocol: "'..tostring(protocolName)..'", level: '..tostring(protocolLevel)..', flags: '..tostring(connectFlags)..', keep alive: '..tostring(self.keepAlive)..'')
@@ -481,7 +479,7 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
       if sessionPresent then
         acknowledgeFlags = acknowledgeFlags | 1
       end
-      self:writePacket(CONTROL_PACKET_TYPE.CONNACK, encodeBytes(acknowledgeFlags, REASON_CODE.SUCCESS))
+      self:writePacket(CONTROL_PACKET_TYPE.CONNACK, string.char(acknowledgeFlags, REASON_CODE.SUCCESS))
     elseif packetType == CONTROL_PACKET_TYPE.SUBSCRIBE then
       local offsetEnd = offset + len
       local packetIdentifier = decodeUInt16(data, offset)
@@ -490,10 +488,10 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
       local returnCodes = ''
       while offset < offsetEnd do
         topicName, offset = decodeData(data, offset)
-        local qos = decodeByte(data, offset)
+        local qos = string.byte(data, offset)
         offset = offset + 1
         self:onSubscribe(topicName, qos)
-        returnCodes = returnCodes..encodeByte(REASON_CODE.SUCCESS)
+        returnCodes = returnCodes..string.char(REASON_CODE.SUCCESS)
       end
       self:writePacket(CONTROL_PACKET_TYPE.SUBACK, encodeUInt16(packetIdentifier)..returnCodes)
     elseif packetType == CONTROL_PACKET_TYPE.DISCONNECT then
@@ -549,6 +547,10 @@ local MqttServer = class.create(function(mqttServer)
   -- @treturn jls.lang.Promise a promise that resolves once the server is closed.
   function mqttServer:close(callback)
     return self.tcpServer:close(callback)
+  end
+
+  function mqttServer:getTcpServer()
+    return self.tcpServer
   end
 
   function mqttServer:registerClient(client)
