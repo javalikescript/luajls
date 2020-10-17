@@ -7,7 +7,7 @@ local logger = require('jls.lang.logger')
 -- @tparam string name the name of the module to load
 -- @return the loaded module or nil if an error occured
 local function tryRequire(name)
-  local status, mod = pcall(function() return require(name) end)
+  local status, mod = pcall(require, name)
   if status then
     return mod
   end
@@ -144,6 +144,44 @@ local function requireOne(...)
   error('No suitable module found in "'..table.concat(arg, '", "')..'"')
 end
 
+--- Requires the Lua object specified by its path.
+-- @tparam string path the pathname of the module to load
+-- @tparam[opt] boolean try true to return nil in place of raising an error
+-- @return the loaded module
+local function requireByPath(path, try)
+  local status, modOrErr = pcall(require, path)
+  if status then
+    return modOrErr
+  end
+  local names = {}
+  local mod
+  while true do
+    table.insert(names, 1, (string.gsub(path, '^.*%.', '', 1)))
+    path = string.match(path, '^(.+)%.[^%.]+$')
+    if not path then
+      break
+    end
+    status, mod = pcall(require, path)
+    if status then
+      for _, name in ipairs(names) do
+        if type(mod) == 'table' then
+          mod = mod[name]
+        else
+          break
+        end
+      end
+      if mod then
+        return mod
+      end
+      break
+    end
+  end
+  if try then
+    return nil
+  end
+  error(modOrErr)
+end
+
 --- Unloads the specified Lua module.
 -- @tparam string name the name of the module to unload
 local function unload(name)
@@ -172,6 +210,7 @@ return {
   tryRequire = tryRequire,
   getRequired = getRequired,
   singleRequirer = singleRequirer,
+  requireByPath = requireByPath,
   unload = unload,
   unloadAll = unloadAll
 }

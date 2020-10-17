@@ -165,7 +165,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     end
     if st.mode == 'directory' then
       return fs.rmdir(self.npath)
-    elseif st.mode == 'file' then
+    else
       return os.remove(self.npath)
     end
     error('Cannot delete this file')

@@ -322,7 +322,7 @@ local TcpClient = class.create(Tcp, function(tcpClient)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('tcpClient:connect('..tostring(addr)..', '..tostring(port)..')')
     end
-    local tcp, err = luaSocketLib.connect(addr, port)
+    local tcp, err = luaSocketLib.connect(addr or '127.0.0.1', port)
     self.tcp = tcp
     local cb, d = Promise.ensureCallback(callback)
     if err then
@@ -387,7 +387,7 @@ local TcpServer = class.create(Tcp, function(tcpServer, super)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('tcpServer:bind('..tostring(addr)..', '..tostring(port)..')')
     end
-    if addr == '0.0.0.0' or addr == '::' then
+    if not addr or addr == '0.0.0.0' or addr == '::' then
       addr = '*'
     end
     local cb, d = Promise.ensureCallback(callback)

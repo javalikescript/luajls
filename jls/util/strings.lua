@@ -76,6 +76,7 @@ end
 
 -- The character order is respected to allow comparison
 -- The starting characters respect the hexadecimal notation
+-- The characters length is a power of two, convenient for binary data
 -- The characters are usable as file name or URL path
 -- URI Unreserved Characters = ALPHA / DIGIT / "-" / "." / "_" / "~"
 -- see https://tools.ietf.org/html/rfc3986#page-13

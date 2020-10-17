@@ -1,34 +1,13 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
 local net = require('jls.net')
 local streams = require('jls.io.streams')
+
+local loop = require('tests.loop')
 
 local logger = require('jls.lang.logger')
 
 local TEST_PORT = 3002
-
-function loop(onTimeout, timeout)
-  local timeoutReached = false
-  if not timeout then
-    timeout = 5000
-  end
-  local timer = event:setTimeout(function()
-    timeoutReached = true
-    if type(onTimeout) == 'function' then
-      if not pcall(onTimeout) then
-        event:stop()
-      end
-    end
-  end, timeout)
-  event:daemon(timer, true)
-  event:loop()
-  if timeoutReached then
-    lu.assertFalse(timeoutReached, 'timeout reached ('..tostring(timeout)..')')
-  else
-    event:clearTimeout(timer)
-  end
-end
 
 function test_TcpClient_TcpServer()
   local server = net.TcpServer:new()
