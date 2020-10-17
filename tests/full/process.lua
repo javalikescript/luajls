@@ -6,7 +6,7 @@ local streams = require('jls.io.streams')
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
 
-function test_pipe()
+function Test_pipe()
   --lu.runOnlyIf(Pipe)
   if not Pipe then
     lu.success()
@@ -14,7 +14,7 @@ function test_pipe()
   local text = 'Hello world!'
   local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'print("'..text..'")'})
   --pb:environment({'A_KEY=VALUE A', 'B_KEY=VALUE B'})
-  local p = Pipe.create()
+  local p = Pipe:new()
   pb:redirectOutput(p)
   local ph = pb:start()
   --print('pid', ph:getPid())
@@ -31,14 +31,14 @@ function test_pipe()
   lu.assertEquals(ph:isAlive(), false)
 end
 
-function test_env()
+function Test_env()
   if not Pipe then
     lu.success()
   end
   local text = 'Hello world!'
   local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'print(os.getenv("A_KEY"))'})
   pb:environment({'A_KEY='..text, 'B_KEY=VALUE B'})
-  local p = Pipe.create()
+  local p = Pipe:new()
   pb:redirectOutput(p)
   local ph = pb:start()
   local outputData
@@ -54,7 +54,7 @@ function test_env()
   lu.assertEquals(ph:isAlive(), false)
 end
 
-function test_exitCode()
+function Test_exitCode()
   local code = 11
   local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'os.exit('..tostring(code)..')'})
   local exitCode
