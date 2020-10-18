@@ -1,11 +1,11 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
 local runtime = require('jls.lang.runtime')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 
 local LUA_EXE_PATH = require('jls.lang.ProcessBuilder').getExecutablePath()
 
-function test_execute()
+function Test_execute()
   local exitCode = nil
   local line = table.concat({
     LUA_EXE_PATH,
@@ -17,11 +17,13 @@ function test_execute()
   end, function(err)
     exitCode = err and err.code
   end)
-  event:loop()
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(exitCode, 0)
 end
 
-function test_execute_with_exitCode()
+function Test_execute_with_exitCode()
   local code = 11
   local exitCode = nil
   local line = table.concat({
@@ -34,7 +36,9 @@ function test_execute_with_exitCode()
   end, function(err)
     exitCode = err and err.code
   end)
-  event:loop()
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(exitCode, code)
 end
 

@@ -1,7 +1,7 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
 local logger = require('jls.lang.logger')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 local smt = require('jls.util.smt')
 
 local function postReceive(payload, smtServer, smtClient, useTcp)
@@ -35,7 +35,12 @@ local function postReceive(payload, smtServer, smtClient, useTcp)
   end):catch(function(err)
     logger:warn(err)
   end)
-  event:loop()
+  if not loop(function()
+    smtClient:close()
+    smtServer:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(resultClient, payload)
   lu.assertEquals(resultServer, payload)
 end

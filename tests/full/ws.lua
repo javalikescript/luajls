@@ -1,12 +1,12 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 local http = require('jls.net.http')
 local ws = require('jls.net.http.ws')
 
 local TEST_PORT = 3002
 
-function test_send_receive()
+function Test_send_receive()
   local server = http.Server:new()
   local reply
   server:createContext('/ws/', ws.upgradeHandler, {open = function(webSocket)
@@ -28,7 +28,12 @@ function test_send_receive()
     webSocket:readStart()
     webSocket:sendTextMessage('Hello')
   end)
-  event:loop()
+  if not loop(function()
+    webSocket:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(reply, 'You said Hello')
 end
 

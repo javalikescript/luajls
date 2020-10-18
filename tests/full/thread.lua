@@ -1,10 +1,9 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
-local system = require('jls.lang.system')
 local Thread = require('jls.lang.Thread')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 
-function test_one_arg_one_result()
+function Test_one_arg_one_result()
   local result = nil
   Thread:new(function(value)
     return 'Hi '..tostring(value)
@@ -12,11 +11,13 @@ function test_one_arg_one_result()
     result = res
   end)
   lu.assertNil(result)
-  event:loop()
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(result, 'Hi John')
 end
 
-function test_two_args_table_result()
+function Test_two_args_table_result()
   local result = nil
   Thread:new(function(a, b)
     local sum = a + b
@@ -26,11 +27,13 @@ function test_two_args_table_result()
     result = res
   end)
   lu.assertNil(result)
-  event:loop()
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(result, {3, 'Sum is 3'})
 end
 
-function test_sleep()
+function Test_sleep()
   local called = false
   Thread:new(function()
     local system = require('jls.lang.system')
@@ -39,7 +42,9 @@ function test_sleep()
     called = true
   end)
   lu.assertFalse(called)
-  event:loop()
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
   lu.assertTrue(called)
 end
 

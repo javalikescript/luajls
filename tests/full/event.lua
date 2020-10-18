@@ -2,14 +2,7 @@ local lu = require('luaunit')
 
 local event = require('jls.lang.event')
 
-function loop(sec)
-  local endTime = os.time() + sec
-  while event:loopAlive() and os.time() < endTime do
-    event:runOnce()
-  end
-end
-
-function test_setTimeout()
+function Test_setTimeout()
   local called = false
   event:setTimeout(function()
     called = true
@@ -18,7 +11,7 @@ function test_setTimeout()
   lu.assertEquals(called, true)
 end
 
-function test_setTimeout_order()
+function Test_setTimeout_order()
   local value = 1
   event:setTimeout(function()
     value = value * 2
@@ -30,7 +23,7 @@ function test_setTimeout_order()
   lu.assertEquals(value, 4)
 end
 
-function test_setInterval()
+function Test_setInterval()
   local count = 0
   local eventId = event:setInterval(function()
     count = count + 1

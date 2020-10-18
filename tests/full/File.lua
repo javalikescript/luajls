@@ -5,7 +5,7 @@ local File = require('jls.io.File')
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
 
-function test_exists()
+function Test_exists()
     local f
     f = File:new('does_not_exist')
     lu.assertEquals(f:exists(), false)
@@ -13,7 +13,7 @@ function test_exists()
     lu.assertEquals(f:exists(), true)
 end
 
-function test_isFile()
+function Test_isFile()
     local f
     f = File:new('does_not_exist')
     lu.assertEquals(f:isFile(), false)
@@ -23,7 +23,7 @@ function test_isFile()
     lu.assertEquals(f:isFile(), true)
 end
 
-function test_isDirectory()
+function Test_isDirectory()
     local f
     f = File:new('does_not_exist')
     lu.assertEquals(f:isDirectory(), false)
@@ -31,7 +31,7 @@ function test_isDirectory()
     lu.assertEquals(f:isDirectory(), true)
 end
 
-function getTmpDir()
+local function getTmpDir()
     local tmpDir = File:new(TMP_PATH)
     if tmpDir:isDirectory() then
         if not tmpDir:deleteRecursive() then
@@ -41,7 +41,7 @@ function getTmpDir()
     return tmpDir
 end
 
-function getEmptyTmpDir()
+local function getEmptyTmpDir()
     local tmpDir = File:new(TMP_PATH)
     if tmpDir:isDirectory() then
         if not tmpDir:deleteAll() then
@@ -55,7 +55,7 @@ function getEmptyTmpDir()
     return tmpDir
 end
 
-function test_mkdirs()
+function Test_mkdirs()
     local tmpDir = getEmptyTmpDir()
     local f
     f = File:new(tmpDir, 'a/b')
@@ -64,7 +64,7 @@ function test_mkdirs()
     lu.assertEquals(f:isDirectory(), true)
 end
 
-function test_z_mkdir()
+function Test_z_mkdir()
     local f = getTmpDir()
     lu.assertEquals(f:isDirectory(), false)
     lu.assertEquals(f:mkdir(), true)

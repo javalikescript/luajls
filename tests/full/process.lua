@@ -1,10 +1,9 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
-local system = require('jls.lang.system')
 local streams = require('jls.io.streams')
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 
 function Test_pipe()
   --lu.runOnlyIf(Pipe)
@@ -26,7 +25,11 @@ function Test_pipe()
       p:close()
     end
   end))
-  event:loop()
+  if not loop(function()
+    p:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(outputData, text)
   lu.assertEquals(ph:isAlive(), false)
 end
@@ -49,7 +52,11 @@ function Test_env()
       p:close()
     end
   end))
-  event:loop()
+  if not loop(function()
+    p:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(outputData, text)
   lu.assertEquals(ph:isAlive(), false)
 end
@@ -61,7 +68,9 @@ function Test_exitCode()
   local ph = pb:start(function(c)
     exitCode = c
   end)
-  event:loop()
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(exitCode, code)
   if ph then
     lu.assertEquals(ph:isAlive(), false)

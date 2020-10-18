@@ -1,13 +1,11 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
-local net = require('jls.net')
+--local net = require('jls.net')
 local http = require('jls.net.http')
-local streams = require('jls.io.streams')
 local secure = require('jls.net.secure')
-local Promise = require('jls.lang.Promise')
 
 local loader = require('jls.lang.loader')
+local loop = loader.load('loop', 'tests', false, true)
 local netLuv = loader.getRequired('jls.net-luv')
 local netSocket = loader.getRequired('jls.net-socket')
 local luaSocketLib = loader.tryRequire('socket')
@@ -18,28 +16,6 @@ local logger = require('jls.lang.logger')
 local opensslLib = require('openssl')
 
 local TEST_PORT = 3002
-
-function loop(onTimeout, timeout)
-  local timeoutReached = false
-  if not timeout then
-    timeout = 5000
-  end
-  local timer = event:setTimeout(function()
-    timeoutReached = true
-    if type(onTimeout) == 'function' then
-      if not pcall(onTimeout) then
-        event:stop()
-      end
-    end
-  end, timeout)
-  event:daemon(timer, true)
-  event:loop()
-  if timeoutReached then
-    lu.assertFalse(timeoutReached, 'timeout reached ('..tostring(timeout)..')')
-  else
-    event:clearTimeout(timer)
-  end
-end
 
 local function createHttpsClient(headers)
   headers = headers or {}
@@ -124,7 +100,7 @@ local function connectSendReceive(client)
   end)
 end
 
-function test_encrypt_decrypt()
+function Test_encrypt_decrypt()
   local cacertFile = File:new(CACERT_PEM)
   local pkeyFile = File:new(PKEY_PEM)
   local pkey = opensslLib.pkey.read(pkeyFile:readAll(), true, 'pem')
@@ -137,7 +113,7 @@ function test_encrypt_decrypt()
   lu.assertEquals(d, text)
 end
 
-function test_HttpsClientServer()
+function Test_HttpsClientServer()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpsServer(function(httpExchange)
@@ -152,10 +128,12 @@ function test_HttpsClientServer()
       server:close()
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
@@ -163,7 +141,7 @@ function test_HttpsClientServer()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
-function test_HttpsServerClients()
+function Test_HttpsServerClients()
   local server
   local count = 0
   createHttpsServer(function(httpExchange)
@@ -181,13 +159,15 @@ function test_HttpsServerClients()
       end)
     end)
   end)
-  loop(function()
+  if not loop(function()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(count, 3)
 end
 
-function test_HttpsServerClientsKeepAlive()
+function Test_HttpsServerClientsKeepAlive()
   local server, client
   local count = 0
   createHttpsServer(function(httpExchange)
@@ -207,10 +187,12 @@ function test_HttpsServerClientsKeepAlive()
       end)
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(count, 2)
 end
 
@@ -261,7 +243,7 @@ local function createSecureTcpClient()
   return client
 end
 
-function test_HttpsClientServerConnectionCloseAfterHandshake()
+function Test_HttpsClientServerConnectionCloseAfterHandshake()
   local server, client
   createHttpsServer(function(httpExchange)
     local response = httpExchange:getResponse()
@@ -280,15 +262,17 @@ function test_HttpsClientServerConnectionCloseAfterHandshake()
       logger:info('server closed')
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
 end
 
-function test_HttpsClientServerConnectionResetAfterHandshake()
+function Test_HttpsClientServerConnectionResetAfterHandshake()
   if not canResetConnection() then
-    logger:warn('skip test_HttpsClientServerConnectionResetAfterHandshake')
+    logger:warn('skip Test_HttpsClientServerConnectionResetAfterHandshake')
     return
   end
   local server, client
@@ -310,10 +294,12 @@ function test_HttpsClientServerConnectionResetAfterHandshake()
       logger:info('an error occurred, '..tostring(err))
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
 end
 
 checkCertificateAndPrivateKey()

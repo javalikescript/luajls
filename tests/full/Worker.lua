@@ -1,9 +1,9 @@
 local lu = require('luaunit')
 
 local loader = require('jls.lang.loader')
-local event = require('jls.lang.event')
 local logger = require('jls.lang.logger')
 local Worker = require('jls.util.Worker')
+local loop = loader.load('loop', 'tests', false, true)
 
 local function assertPostReceive()
   local received = nil
@@ -25,7 +25,12 @@ local function assertPostReceive()
   logger:info('posting')
   w:postMessage('John')
   logger:info('looping')
-  event:loop()
+  if not loop(function()
+    w:close()
+    Worker.shutdown()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(received, 'Hi John')
 end
 

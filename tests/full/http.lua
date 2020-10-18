@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 local net = require('jls.net')
 local http = require('jls.net.http')
 local streams = require('jls.io.streams')
@@ -10,28 +10,6 @@ local TableList = require('jls.util.TableList')
 local logger = require('jls.lang.logger')
 
 local TEST_PORT = 3002
-
-function loop(onTimeout, timeout)
-  local timeoutReached = false
-  if not timeout then
-    timeout = 5000
-  end
-  local timer = event:setTimeout(function()
-    timeoutReached = true
-    if type(onTimeout) == 'function' then
-      if not pcall(onTimeout) then
-        event:stop()
-      end
-    end
-  end, timeout)
-  event:daemon(timer, true)
-  event:loop()
-  if timeoutReached then
-    lu.assertFalse(timeoutReached, 'timeout reached ('..tostring(timeout)..')')
-  else
-    event:clearTimeout(timer)
-  end
-end
 
 local function createTcpServer(onData)
   if type(onData) == 'string' then
@@ -228,46 +206,52 @@ local function createLongBody()
     ]]
 end
 
-function test_HttpClient_no_header()
+function Test_HttpClient_no_header()
   -- no headers (no connection close) means unknown body size so we expect an error
   local server = createTcpServer(createHttpRawResponse())
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertNotIsNil(client.t_err)
   -- response:getHeaders()
 end
 
-function test_HttpClient_content_length_empty_body()
+function Test_HttpClient_content_length_empty_body()
   local server = createTcpServer(createHttpRawResponseCL(''))
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
 end
 
-function test_HttpClient_content_length_with_body()
+function Test_HttpClient_content_length_with_body()
   local body = 'Hello world!'
   local server = createTcpServer(createHttpRawResponseCL(body))
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
 end
 
-function test_HttpClient_connection_close_empty_body()
+function Test_HttpClient_connection_close_empty_body()
   local server = createTcpServer(function(s, c)
     c:write(createHttpRawResponseCC('')):next(function()
       c:close()
@@ -276,15 +260,17 @@ function test_HttpClient_connection_close_empty_body()
   end)
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
 end
 
-function test_HttpClient_connection_close_with_body()
+function Test_HttpClient_connection_close_with_body()
   local body = 'Hello world!'
   local server = createTcpServer(function(s, c, d)
     c:write(createHttpRawResponseCC(body)):next(function()
@@ -294,56 +280,64 @@ function test_HttpClient_connection_close_with_body()
   end)
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
 end
 
-function test_HttpClient_chunked_empty_body()
+function Test_HttpClient_chunked_empty_body()
   local server = createTcpServer(createHttpRawResponseChunked(''))
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
 end
 
-function test_HttpClient_chunked_with_body()
+function Test_HttpClient_chunked_with_body()
   local body = 'Hello-------world-------------!'
   local server = createTcpServer(createHttpRawResponseChunked(body))
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
 end
 
-function test_HttpClient_long_body()
+function Test_HttpClient_long_body()
   local body = createLongBody()
   local server = createTcpServer(createHttpRawResponseCL(body))
   local client = createHttpClient()
   sendReceiveClose(client)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
 end
 
-function test_HttpServer_simple_get()
+function Test_HttpServer_simple_get()
   local server, client
   createHttpServer():next(function(s)
     logger:fine('http server created')
@@ -351,15 +345,17 @@ function test_HttpServer_simple_get()
     client = createTcpClient(createHttpRawRequest())
     logger:fine('tcp client created')
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
-function test_HttpClientServer()
+function Test_HttpClientServer()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpServer(function(httpExchange)
@@ -371,10 +367,12 @@ function test_HttpClientServer()
     client = createHttpClient()
     sendReceiveClose(client)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
@@ -402,7 +400,7 @@ local function createHttpServerRedirect(body, newPath, oldPath, veryOldPath)
   end, true)
 end
 
-function test_HttpClientServer_redirect_none()
+function Test_HttpClientServer_redirect_none()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpServerRedirect(body, '/newLocation', '/'):next(function(s)
@@ -412,10 +410,12 @@ function test_HttpClientServer_redirect_none()
       server:close()
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 302)
   lu.assertIsNil(server.t_err)
@@ -423,7 +423,7 @@ function test_HttpClientServer_redirect_none()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
-function test_HttpClientServer_redirect()
+function Test_HttpClientServer_redirect()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpServerRedirect(body, '/newLocation', '/'):next(function(s)
@@ -434,10 +434,12 @@ function test_HttpClientServer_redirect()
       server:close()
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
@@ -446,7 +448,7 @@ function test_HttpClientServer_redirect()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
-function test_HttpClientServer_redirect_2()
+function Test_HttpClientServer_redirect_2()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpServerRedirect(body, '/newerLocation', '/newLocation', '/'):next(function(s)
@@ -457,10 +459,12 @@ function test_HttpClientServer_redirect_2()
       server:close()
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 200)
   lu.assertEquals(client.t_response:getBody(), body)
@@ -469,7 +473,7 @@ function test_HttpClientServer_redirect_2()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
-function test_HttpClientServer_redirect_too_much()
+function Test_HttpClientServer_redirect_too_much()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpServerRedirect(body, '/newerLocation', '/newLocation', '/'):next(function(s)
@@ -480,17 +484,19 @@ function test_HttpClientServer_redirect_too_much()
       server:close()
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 302)
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_requestCount, 2)
 end
 
-function test_HttpServer_keep_alive()
+function Test_HttpServer_keep_alive()
   local req = createHttpRawRequest(nil, nil, createRawHeaders({Connection = 'keep-alive'}))
   local server, client
   createHttpServer():next(function(s)
@@ -508,10 +514,12 @@ function test_HttpServer_keep_alive()
     logger:fine('http second request write completed')
     --server:close()
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertNotIsNil(client)
   lu.assertNotIsNil(server)
   lu.assertIsNil(server.t_err)
@@ -522,7 +530,7 @@ function test_HttpServer_keep_alive()
   lu.assertEquals(#bodies, 3)
 end
 
-function test_HttpClientServer_keep_alive()
+function Test_HttpClientServer_keep_alive()
   local server, client
   local count = 0
   createHttpServer(function(httpExchange)
@@ -549,10 +557,12 @@ function test_HttpClientServer_keep_alive()
       s:close()
     end)
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(count, 2)
 end
 
@@ -564,7 +574,7 @@ end
   content-type: text/html; charset=UTF-8
   Keep-Alive: timeout=15, max=94
 ]]
-function test_HttpMessage_getHeaderValues()
+function Test_HttpMessage_getHeaderValues()
   local message = http.Message:new()
   message:setHeader('Accept', 'text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5')
   message:setHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8')
@@ -572,7 +582,7 @@ function test_HttpMessage_getHeaderValues()
   lu.assertEquals(message:getHeaderValues('Accept-Language'), {'en-US', 'en;q=0.9', 'fr;q=0.8'})
 end
 
-function test_HttpMessage_hasHeaderValue()
+function Test_HttpMessage_hasHeaderValue()
   local message = http.Message:new()
   message:setHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8')
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en'), true)
@@ -581,7 +591,7 @@ function test_HttpMessage_hasHeaderValue()
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en-GB'), false)
 end
 
-function test_HttpMessage_parseHeaderValue()
+function Test_HttpMessage_parseHeaderValue()
   lu.assertEquals(http.Message.parseHeaderValue('text/html'), 'text/html')
   lu.assertEquals(http.Message.parseHeaderValue('text/html;level=2;q=0.4'), 'text/html')
   lu.assertEquals(table.pack(http.Message.parseHeaderValue('text/html;level=2;q=0.4')), {'text/html', {'level=2', 'q=0.4'}, n = 2})

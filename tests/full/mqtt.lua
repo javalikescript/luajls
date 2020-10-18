@@ -1,10 +1,10 @@
 local lu = require('luaunit')
 
 local logger = require('jls.lang.logger')
-local event = require('jls.lang.event')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 local mqtt = require('jls.net.mqtt')
 
-function test_pubsub()
+function Test_pubsub()
   local hostname, port = 'localhost', 1883
   local topicName, payload = 'test', 'Hello world!'
   local topicNameReceived, payloadReceived
@@ -35,7 +35,12 @@ function test_pubsub()
     logger:info('mqttClientPub:close()')
     mqttClientPub:close()
   end)
-  event:loop()
+  if not loop(function()
+    mqttServer:close()
+    mqttClientPub:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(payloadReceived, payload)
 end
 

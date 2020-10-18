@@ -4,7 +4,7 @@ local form = require('jls.net.http.form')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 
-function test_create_parse_form()
+function Test_create_parse_form()
   local request = HttpRequest:new()
   local msg1 = HttpMessage:new()
   local msg2 = HttpMessage:new()

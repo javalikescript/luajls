@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local event = require('jls.lang.event')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 local logger = require('jls.lang.logger')
 local CallbackStreamHandler = require('jls.io.streams.CallbackStreamHandler')
 local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
@@ -43,7 +43,11 @@ function Test_default()
     end)
   end)
   logger:fine('looping')
-  event:loop()
+  if not loop(function()
+    p:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(received, 'John')
 end
 
