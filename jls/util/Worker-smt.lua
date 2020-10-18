@@ -106,7 +106,7 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
     local code = "local Worker = require('jls.util.Worker-smt');"..
       "local event = require('jls.lang.event');"..
       "Worker.WorkerServer.initializeWorkerThread(load("..string.format('%q', chunk)..", nil, 'b'), ...);"..
-      "event.loop()"
+      "event:loop()"
     local thread = Thread:new(load(code, nil, 't'))
     local workerId = tostring(thread)
     local promise, cb = Promise.createWithCallback()
