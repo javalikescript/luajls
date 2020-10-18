@@ -3,13 +3,13 @@ local lu = require('luaunit')
 local net = require('jls.net')
 local streams = require('jls.io.streams')
 
-local loop = require('tests.loop')
+local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 
 local logger = require('jls.lang.logger')
 
 local TEST_PORT = 3002
 
-function test_TcpClient_TcpServer()
+function Test_TcpClient_TcpServer()
   local server = net.TcpServer:new()
   assert(server:bind('0.0.0.0', TEST_PORT))
   function server:onAccept(client)
@@ -37,14 +37,16 @@ function test_TcpClient_TcpServer()
     client:readStart(stream)
     client:write('Hello')
   end)
-  loop(function()
+  if not loop(function()
     client:close()
     server:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(receivedData, 'Hello')
 end
 
-function test_UdpSocket()
+function Test_UdpSocket()
   local host, port = '225.0.0.37', 12345
   local receivedData
   local receiver = net.UdpSocket:new()
@@ -66,10 +68,12 @@ function test_UdpSocket()
     logger:fine('closing sender')
     sender:close()
   end)
-  loop(function()
+  if not loop(function()
     sender:close()
     receiver:close()
-  end)
+  end) then
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(receivedData, 'Hello')
 end
 

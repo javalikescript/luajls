@@ -2,16 +2,20 @@ local lu = require('luaunit')
 
 local loader = require('jls.lang.loader')
 
-local TEST_MODULE_PREFIX = 'tests'
-local TEST_MODULE_NAME = TEST_MODULE_PREFIX..'.mod_test'
-local TEST_2_MODULE_NAME = TEST_MODULE_PREFIX..'.mod_test_2'
-local UNKNOWN_MODULE_NAME = TEST_MODULE_PREFIX..'.not_mod_test'
+local TEST_MODULE_NAME = 'mod_test'
+local TEST_2_MODULE_NAME = 'mod_test_2'
+local UNKNOWN_MODULE_NAME = 'not_mod_test'
 
 TestLoader = {}
 
 function TestLoader:setUp()
+  loader.appendLuaPath('tests/?.lua')
   loader.unload(TEST_MODULE_NAME)
   loader.unload(TEST_2_MODULE_NAME)
+end
+
+function TestLoader:tearDown()
+  loader.resetLuaPath()
 end
 
 function TestLoader:test_tryRequire()

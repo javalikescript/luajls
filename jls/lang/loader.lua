@@ -183,6 +183,8 @@ local function requireByPath(path, try)
 end
 
 --- Unloads the specified Lua module.
+-- The module is removed from the loaded modules and will be loaded again on a require.
+-- This is not the opposite of the require and bad things could happen.
 -- @tparam string name the name of the module to unload
 local function unload(name)
   if logger:isLoggable(logger.DEBUG) then
@@ -204,13 +206,66 @@ local function unloadAll(pattern)
   end
 end
 
+-- Loads a module using a specific path.
+-- @tparam string name the name of the module to load
+local function load(name, path, try, asRequire)
+  if asRequire then
+    local m = package.loaded[name]
+    if m then
+      return m
+    end
+  end
+  local directorySeparator = string.sub(package.config, 1, 1)
+  local fullname = name
+  if path then
+    fullname = path..directorySeparator..name
+  end
+  local filename = string.gsub(fullname, '%.', directorySeparator)..'.lua'
+  local fn, err = loadfile(filename, 't')
+  if fn then
+    local status, modOrErr = pcall(fn)
+    if status and modOrErr ~= nil then
+      if asRequire then
+        package.loaded[name] = modOrErr
+      end
+      return modOrErr
+    end
+    err = modOrErr
+  end
+  if try then
+    return nil, err
+  end
+  error(err)
+end
+
+local function appendLuaPath(name)
+  if not string.find(package.path, name) then
+    package.path = package.path..';'..name
+  end
+end
+
+local BASE_LUA_PATH = package.path
+
+local function resetLuaPath()
+  package.path = BASE_LUA_PATH
+end
+
+
 return {
-  BASE_REQUIRE = BASE_REQUIRE,
+  getBaseRequire = function()
+    return BASE_REQUIRE
+  end,
+  getBaseLuaPath = function()
+    return BASE_LUA_PATH
+  end,
   requireOne = requireOne,
   tryRequire = tryRequire,
   getRequired = getRequired,
   singleRequirer = singleRequirer,
   requireByPath = requireByPath,
   unload = unload,
-  unloadAll = unloadAll
+  unloadAll = unloadAll,
+  load = load,
+  appendLuaPath = appendLuaPath,
+  resetLuaPath = resetLuaPath,
 }

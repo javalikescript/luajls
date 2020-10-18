@@ -6,7 +6,7 @@ return require('jls.lang.class').create(function(event)
   function event:onError(err)
     logger:warn('Event failed due to "'..tostring(err)..'"')
   end
-  
+
   function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as function arguments
     local timer = luvLib.new_timer()
     timer:start(delayMs, 0, function ()
@@ -21,12 +21,12 @@ return require('jls.lang.class').create(function(event)
     end)
     return timer -- as opaque id
   end
-  
+
   function event:clearTimeout(timer)
     timer:stop()
     timer:close()
   end
-  
+
   function event:setInterval(callback, delayMs) -- TODO Use extra arguments as function arguments
     local timer = luvLib.new_timer()
     timer:start(delayMs, delayMs, function ()
@@ -40,12 +40,12 @@ return require('jls.lang.class').create(function(event)
     end)
     return timer -- as opaque id
   end
-  
+
   function event:clearInterval(timer)
     timer:stop()
     timer:close()
   end
-  
+
   function event:daemon(timer, daemon)
     if daemon then
       luvLib.unref(timer)
@@ -68,21 +68,22 @@ return require('jls.lang.class').create(function(event)
       end
     end
   end
-  
+
   function event:stop()
     luvLib.stop()
   end
-  
+
   function event:loopAlive()
     return luvLib.loop_alive()
   end
-  
+
   function event:runOnce()
     self:loop('once')
     --luvLib.run('once')
   end
-  
+
   function event:close()
     --luvLib.loop_close() -- the loop will automatically be closed when it is garbage collected by Lua
   end
+
 end):new()
