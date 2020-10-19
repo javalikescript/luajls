@@ -1,9 +1,9 @@
 #!/bin/sh
 
 lua=lua
-if which lua5.3 >/dev/null
+if which lua5.4 >/dev/null
 then
-  lua=lua5.3
+  lua=lua5.4
 fi
 
 #export JLS_REQUIRES=!luv

@@ -120,7 +120,12 @@ local SmtClientBase = class.create(function(smtClientBase)
   end
 
   function smtClientBase:close(callback)
-    return self.stream:close(callback)
+    local stream = self.stream
+    if stream then
+      self.stream = nil
+      return stream:close(callback)
+    end
+    return Promise.resolve()
   end
 
 end)

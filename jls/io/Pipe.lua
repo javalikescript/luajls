@@ -11,6 +11,8 @@ local StreamHandler = require('jls.io.streams.StreamHandler')
 -- @type Pipe
 return require('jls.lang.class').create(function(pipe, _, Pipe)
 
+  --- Creates a new Pipe.
+  -- @function Pipe:new
   function pipe:initialize(fdOrIpc)
     if type(fdOrIpc) == 'userdata' then
       self.fd = fdOrIpc
@@ -123,13 +125,23 @@ return require('jls.lang.class').create(function(pipe, _, Pipe)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe is closed.
   function pipe:close(callback)
-    local cb, d = Promise.ensureCallback(callback)
-    luvLib.close(self.fd, cb)
-    return d
+    logger:finest('pipe:close()')
+    local fd = self.fd
+    if fd then
+      self.fd = nil
+      local cb, d = Promise.ensureCallback(callback)
+      luvLib.close(fd, cb)
+      return d
+    end
+    return Promise.resolve()
   end
 
   -- Shutdowns the outgoing (write) side of a duplex stream.
   function pipe:shutdown(callback)
+    logger:finest('pipe:shutdown()')
+    if not self.fd then
+      return Promise.resolve()
+    end
     local cb, d = Promise.ensureCallback(callback)
     luvLib.shutdown(self.fd, cb)
     return d
