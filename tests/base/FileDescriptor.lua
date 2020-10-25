@@ -19,7 +19,7 @@ local function assertFileContent(path, expectedContent)
     lu.assertEquals(fileContent, expectedContent)
 end
 
-function test_readSync_no_file()
+function Test_readSync_no_file()
     -- delete tmp file
     os.remove(TMP_FILENAME)
 
@@ -30,7 +30,7 @@ function test_readSync_no_file()
     lu.assertIsNil(fd)
 end
 
-function test_readSync()
+function Test_readSync()
     -- prepare tmp file with some content
     createFile(TMP_FILENAME, '12345678901234567890Some Content')
 
@@ -48,7 +48,7 @@ function test_readSync()
     os.remove(TMP_FILENAME)
 end
 
-function test_writeSync()
+function Test_writeSync()
     local err
     local fd = FileDescriptor.openSync(TMP_FILENAME, 'w')
     _, err = fd:writeSync('12345678901234567890')

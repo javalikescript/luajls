@@ -13,11 +13,11 @@ local HELLO_WORLD_DEFLATED = base64.decode('eJzzSM3JyVcozy/KSVEEAB0JBF4=')
 
 local VALUES = {'', 'a', 'ab', 'abc', HELLO_WORLD_INFLATED}
 
-function print_base64_deflated(s)
+local function print_base64_deflated(s)
   print('"'..s..'" => '..base64.encode(Deflater:new():deflate(s, 'finish')))
 end
 
-function print_base64_deflated_n(s, n)
+local function print_base64_deflated_n(s, n)
   local deflater = Deflater:new()
   local deflated = ''
   for i = 1, n do
@@ -27,7 +27,7 @@ function print_base64_deflated_n(s, n)
   print('"'..s..'" x '..tostring(n)..' => '..base64.encode(deflated))
 end
 
-function print_base64_deflated_l(l)
+local function print_base64_deflated_l(l)
   local deflater = Deflater:new()
   local deflated = ''
   for i, s in ipairs(l) do
@@ -45,11 +45,11 @@ print_base64_deflated(HELLO_WORLD_INFLATED)
 print_base64_deflated_n(SPACES_INFLATED, 100)
 ]]
 
-function test_deflate()
+function Test_deflate()
   lu.assertEquals(Deflater:new():deflate(HELLO_WORLD_INFLATED, 'finish'), HELLO_WORLD_DEFLATED)
 end
 
-function test_inflate()
+function Test_inflate()
   lu.assertEquals(Inflater:new():inflate(HELLO_WORLD_DEFLATED), HELLO_WORLD_INFLATED)
 end
 
@@ -65,16 +65,16 @@ local function assertDeflateInflateAll(values, compressionLevel, windowBits)
   end
 end
 
-function test_deflate_inflate()
+function Test_deflate_inflate()
   assertDeflateInflateAll(VALUES)
 end
 
-function test_deflate_inflate_compressionLevel()
+function Test_deflate_inflate_compressionLevel()
   assertDeflateInflateAll(VALUES, 1)
   assertDeflateInflateAll(VALUES, 9)
 end
 
-function test_deflate_inflate_windowBits()
+function Test_deflate_inflate_windowBits()
   assertDeflateInflateAll(VALUES, nil, -15)
 end
 

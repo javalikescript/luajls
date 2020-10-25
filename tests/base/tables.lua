@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local tables = require("jls.util.tables")
 
-function test_compare_flat()
+function Test_compare_flat()
   lu.assertEquals(tables.compare({}, {a = true}), {a = true})
   lu.assertEquals(tables.compare({a = false}, {a = true}), {a = true})
   lu.assertEquals(tables.compare({a = true}, {a = false}), {a = false})
@@ -11,43 +11,43 @@ function test_compare_flat()
   lu.assertEquals(tables.compare({a = true, b = 1, c = 'Hello'}, {a = true, c = 'Hello 2'}), {c = 'Hello 2', _deleted = {'b'}})
 end
 
-function test_compare_flat_no_diff()
+function Test_compare_flat_no_diff()
   lu.assertIsNil(tables.compare({a = true}, {a = true}))
   lu.assertIsNil(tables.compare({a = true, b = 1, c = 'Hello'}, {a = true, b = 1, c = 'Hello'}))
   lu.assertIsNil(tables.compare({a = true, b = 1, c = 'Hello'}, {a = true, c = 'Hello', b = 1}))
   lu.assertIsNil(tables.compare({}, {}))
 end
 
-function assertPatchCompare(ot, nt)
+local function assertPatchCompare(ot, nt)
   lu.assertEquals(tables.patch(ot, tables.compare(ot, nt)), nt)
 end
 
-function test_patch_flat()
+function Test_patch_flat()
   lu.assertEquals(tables.patch({}, {a = true}), {a = true})
   lu.assertEquals(tables.patch({a = true}, {}), {a = true})
   lu.assertEquals(tables.patch({a = false}, {}), {a = false})
   lu.assertEquals(tables.patch({a = true}, {_deleted = {'a'}}), {})
 end
 
-function test_patch_compare()
+function Test_patch_compare()
   assertPatchCompare({}, {a = true})
   assertPatchCompare({a = true}, {})
   assertPatchCompare({a = false}, {a = true})
 end
 
-function test_merge_flat()
+function Test_merge_flat()
   lu.assertEquals(tables.merge({}, {a = true}), {a = true})
   lu.assertEquals(tables.merge({a = true}, {}), {a = true})
   lu.assertEquals(tables.merge({a = true}, {b = true}), {a = true, b = true})
 end
 
-function test_merge_deep()
+function Test_merge_deep()
   lu.assertEquals(tables.merge({a = {a = true}}, {a = {b = true}}), {a = {a = true, b = true}})
   lu.assertEquals(tables.merge({a = true}, {a = {b = true}}), {a = {b = true}})
   lu.assertEquals(tables.merge({a = {a = true}}, {a = true}), {a = true})
 end
 
-function test_getPath_flat()
+function Test_getPath_flat()
   lu.assertEquals(tables.getPath({a = 'A value'}, '/'), {a = 'A value'})
   lu.assertEquals(tables.getPath({a = 'A value'}, 'a'), 'A value')
   lu.assertEquals(tables.getPath({a = 'A value'}, '/a'), 'A value')
@@ -55,76 +55,76 @@ function test_getPath_flat()
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a'), {b = 'A value'})
 end
 
-function test_getPath_tree()
+function Test_getPath_tree()
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/b'), 'A value')
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a/b'), 'A value')
 end
 
-function test_getPath_list()
+function Test_getPath_list()
   lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/2'), 'y')
 end
 
-function test_getPath_defaultValue()
+function Test_getPath_defaultValue()
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'c'), nil)
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/c'), nil)
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/b/c'), nil)
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/c', 'Another value'), 'Another value')
 end
 
-function assertSetPath(t, p, v, nt)
+local function assertSetPath(t, p, v, nt)
   tables.setPath(t, p, v)
   lu.assertEquals(t, nt)
 end
 
-function test_setPath_flat()
+function Test_setPath_flat()
   assertSetPath({a = 'A value'}, 'a', 'New value', {a = 'New value'})
   assertSetPath({a = 'A value'}, '/a', 'New value', {a = 'New value'})
   assertSetPath({a = 'A value'}, 'b', 'New value', {a = 'A value', b = 'New value'})
 end
 
-function test_setPath_tree()
+function Test_setPath_tree()
   assertSetPath({a = {b = 'A value'}}, 'a/b', 'New value', {a = {b = 'New value'}})
   assertSetPath({a = 'A value'}, 'a/b', 'New value', {a = {b = 'New value'}})
   assertSetPath({a = {b = 'A value'}}, 'a/c/d', 'New value', {a = {b = 'A value', c = {d = 'New value'}}})
 end
 
-function test_setPath_list()
+function Test_setPath_list()
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/2', 'New y', {a = {'x', 'New y', 'z'}})
 end
 
-function assertMergePath(t, p, v, nt)
+local function assertMergePath(t, p, v, nt)
   tables.mergePath(t, p, v)
   lu.assertEquals(t, nt)
 end
 
-function test_mergePath_flat()
+function Test_mergePath_flat()
   assertMergePath({a = {b = true}}, 'a', {c = true}, {a = {b = true, c = true}})
 end
 
-function assertRemovePath(t, p, nt)
+local function assertRemovePath(t, p, nt)
   tables.removePath(t, p)
   lu.assertEquals(t, nt)
 end
 
-function test_removePath_flat()
+function Test_removePath_flat()
   assertRemovePath({a = 'A value'}, 'a', {})
   assertRemovePath({a = 'A value', b = 'Another value'}, 'b', {a = 'A value'})
 end
 
-function test_removePath_tree()
+function Test_removePath_tree()
   assertRemovePath({a = {b = 'A value'}}, 'a/b', {a = {}})
 end
 
-function test_removePath_list()
+function Test_removePath_list()
   assertRemovePath({a = {'x', 'y', 'z'}}, 'a/2', {a = {'x', 'z'}})
 end
 
-function test_mapValuesByPath()
+function Test_mapValuesByPath()
   lu.assertEquals(tables.mapValuesByPath({a = {b = 'A value'}}), {['/a/b'] = 'A value'})
   lu.assertEquals(tables.mapValuesByPath({a = {b = 'A value', c = 1}, d = true}), {['/a/b'] = 'A value', ['/a/c'] = 1, ['/d'] = true})
 end
 
-function test_createArgumentTable()
+function Test_createArgumentTable()
   lu.assertEquals(tables.createArgumentTable({'test'}), {[''] = 'test'})
   lu.assertEquals(tables.createArgumentTable({'-f', 'file'}), {['-f'] = 'file'})
   lu.assertEquals(tables.createArgumentTable({'-f', 'file', '-d', 'dir'}), {['-d'] = 'dir', ['-f'] = 'file'})
@@ -132,17 +132,17 @@ function test_createArgumentTable()
   lu.assertEquals(tables.createArgumentTable({'-a', '1', '-a', '2'}), {['-a'] = {'1', '2'}})
 end
 
-function test_mergeValuesByPath()
+function Test_mergeValuesByPath()
   lu.assertEquals(tables.mergeValuesByPath({}, {a = {b = 'A value'}}), {['/a/b'] = {new = 'A value'}})
   lu.assertEquals(tables.mergeValuesByPath({a = {b = 'A value'}}, {}), {['/a/b'] = {old = 'A value'}})
   lu.assertEquals(tables.mergeValuesByPath({a = {b = 'A', c = 'C'}}, {a = {b = 'B', d = 'D'}}), {['/a/b'] = {old = 'A', new = 'B'}, ['/a/c'] = {old = 'C'}, ['/a/d'] = {new = 'D'}})
 end
 
-function test_parse()
+function Test_parse()
   lu.assertEquals(tables.parse('{a="Hi",}'), {a = "Hi"})
 end
 
-function test_stringify()
+function Test_stringify()
   lu.assertEquals(tables.stringify(1), '1')
   lu.assertEquals(tables.stringify(1.2), '1.2')
   lu.assertEquals(tables.stringify(true), 'true')
@@ -160,20 +160,20 @@ function test_stringify()
   lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
 end
 
-function sort(t)
+local function sort(t)
   table.sort(t)
   return t
 end
 
-function test_keys()
+function Test_keys()
   lu.assertEquals(sort(tables.keys({a = true, b = 'A value', c = 1})), {'a', 'b', 'c'})
 end
 
-function test_values()
+function Test_values()
   lu.assertEquals(sort(tables.values({a = 1, b = 2, c = 3})), {1, 2, 3})
 end
 
-function test_createArgumentTable()
+function Test_createArgumentTable()
   local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
   local t = tables.createArgumentTable(arguments)
   lu.assertEquals(tables.getArgument(t, '-x'), 'y')

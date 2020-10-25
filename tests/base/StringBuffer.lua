@@ -2,30 +2,30 @@ local lu = require('luaunit')
 
 local StringBuffer = require('jls.lang.StringBuffer')
 
-function assertEquals(value, expected)
+local function assertEquals(value, expected)
   lu.assertEquals(value:clone():toString(), expected)
   lu.assertEquals(value:length(), string.len(expected))
 end
 
-function test_toString()
+function Test_toString()
   local buffer = StringBuffer:new()
   buffer:append('Hello'):append(' world !')
   assertEquals(buffer, 'Hello world !')
 end
 
-function test_intial_value()
+function Test_intial_value()
   assertEquals(StringBuffer:new(), '')
   assertEquals(StringBuffer:new('Hi'), 'Hi')
   assertEquals(StringBuffer:new('Hello', ' world !'), 'Hello world !')
 end
 
-function test_append()
+function Test_append()
   assertEquals(StringBuffer:new():append('Hello'):append(' world !'), 'Hello world !')
   assertEquals(StringBuffer:new('Hello'):append(' world !'), 'Hello world !')
   assertEquals(StringBuffer:new():append('Hello', ' world !'), 'Hello world !')
 end
 
-function test_charAt()
+function Test_charAt()
   local buffer = StringBuffer:new()
   buffer:append('Hello'):append(' the'):append(' World !')
   lu.assertEquals(buffer:charAt(0), '')
@@ -35,7 +35,7 @@ function test_charAt()
   lu.assertEquals(buffer:charAt(99), '')
 end
 
-function test_byte()
+function Test_byte()
   local buffer = StringBuffer:new()
   buffer:append('Hello'):append(' the'):append(' World !')
   lu.assertIsNil(buffer:byte(0))
@@ -45,7 +45,7 @@ function test_byte()
   lu.assertIsNil(buffer:byte(99))
 end
 
-function test_cut()
+function Test_cut()
   local buffer = StringBuffer:new()
   buffer:append('Hello'):append(' the'):append(' World !')
   lu.assertEquals(buffer:length(), 17)
@@ -58,7 +58,7 @@ function test_cut()
   lu.assertEquals(table.concat(buffer:clone():cut(11).values, '-'), 'Hello- the- -World !')
 end
 
-function test_delete()
+function Test_delete()
   local buffer = StringBuffer:new()
   buffer:append('Hello the World !')
   assertEquals(buffer:clone():delete(1, 1), 'Hello the World !')
@@ -68,7 +68,7 @@ function test_delete()
   assertEquals(buffer:clone():delete(2, 10), 'H World !')
 end
 
-function test_delete_parts()
+function Test_delete_parts()
   local buffer = StringBuffer:new()
   buffer:append('Hello'):append(' the'):append(' World !')
   assertEquals(buffer:clone():delete(1, 1), 'Hello the World !')
@@ -78,7 +78,7 @@ function test_delete_parts()
   assertEquals(buffer:clone():delete(2, 10), 'H World !')
 end
 
-function test_replace()
+function Test_replace()
   local buffer = StringBuffer:new()
   buffer:append('Hello the World !')
   assertEquals(buffer:clone():replace(1, 1, '! '), '! Hello the World !')
@@ -89,7 +89,7 @@ function test_replace()
   assertEquals(buffer:clone():replace(2, 10, 'i'), 'Hi World !')
 end
 
-function test_replace_parts()
+function Test_replace_parts()
   local buffer = StringBuffer:new()
   buffer:append('Hello'):append(' the'):append(' World !')
   assertEquals(buffer:clone():replace(1, 1, '! '), '! Hello the World !')
@@ -100,7 +100,7 @@ function test_replace_parts()
   assertEquals(buffer:clone():replace(2, 10, 'i'), 'Hi World !')
 end
 
-function test_length()
+function Test_length()
   local buffer = StringBuffer:new()
   lu.assertEquals(buffer:length(), 0)
   buffer:append('Hello'):append(' world !')

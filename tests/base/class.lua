@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local class = require('jls.lang.class')
 
-function test_initialize()
+function Test_initialize()
     local initialized = false
     local selfInitialized = nil
     local initializationFirstArg = nil
@@ -20,7 +20,7 @@ function test_initialize()
     lu.assertEquals(anAccount.b, 123)
 end
 
-function test_getClass()
+function Test_getClass()
     local Account = class.create()
     local anAccount = Account:new()
     lu.assertEquals(anAccount:getClass(), Account)
@@ -29,7 +29,7 @@ function test_getClass()
     lu.assertEquals(class.getClass({}), nil)
 end
 
-function test_getSuperclass()
+function Test_getSuperclass()
     local Account = class.create()
     local LimitedAccount = class.create(Account)
     local anAccount = Account:new()
@@ -42,7 +42,7 @@ function test_getSuperclass()
     lu.assertEquals(aLimitedAccount:getClass().super, Account)
 end
 
-function test_super()
+function Test_super()
     local Account = class.create()
     function Account.prototype:initialize(a)
       self.a = a
@@ -60,7 +60,7 @@ function test_super()
     lu.assertEquals(aLimitedAccount.b, 123)
 end
 
-function test_isInstance()
+function Test_isInstance()
     local Car = class.create()
     local Account = class.create()
     local LimitedAccount = class.create(Account)
@@ -83,7 +83,7 @@ function test_isInstance()
 end
 
 --[[
-function test_toString()
+function Test_toString()
   local Vehicle = class.create()
   local Car = class.create(Vehicle)
   local aCar = Car:new()
@@ -92,7 +92,7 @@ function test_toString()
 end
 --]]
 
-function test_clone()
+function Test_clone()
   local Car = class.create()
   function Car.prototype:initialize(color)
     self.color = color
@@ -106,7 +106,7 @@ function test_clone()
   lu.assertEquals(aClonedCar:getColor(), 'blue')
 end
 
-function test_inheritance()
+function Test_inheritance()
     local Account = class.create()
     function Account.prototype:initialize(amount)
       self.amount = amount
@@ -142,7 +142,7 @@ function test_inheritance()
     lu.assertEquals(aLimitedAccount.amount, -177)
 end
 
-function test_define()
+function Test_define()
   local Account = class.create(function(pt)
     function pt:initialize(amount)
       self.amount = amount

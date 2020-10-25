@@ -68,14 +68,14 @@ local function donePromise(promise, f)
 end
 
 
-function test_executor()
+function Test_executor()
   local resultValue, resultReason
   local deferred, promise = deferPromise()
   lu.assertEquals(type(deferred.resolve), 'function')
   lu.assertEquals(type(deferred.reject), 'function')
 end
 
-function test_resolve()
+function Test_resolve()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -83,7 +83,7 @@ function test_resolve()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_resolve_multi_values()
+function Test_resolve_multi_values()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -91,14 +91,14 @@ function test_resolve_multi_values()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_resolve_nil()
+function Test_resolve_nil()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   deferred.resolve()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, nil)
 end
 
-function test_resolve_resolve()
+function Test_resolve_resolve()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -107,7 +107,7 @@ function test_resolve_resolve()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_resolve_reject()
+function Test_resolve_reject()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -116,7 +116,7 @@ function test_resolve_reject()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_reject()
+function Test_reject()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -124,7 +124,7 @@ function test_reject()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result, true)
 end
 
-function test_reject_nil()
+function Test_reject_nil()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -132,7 +132,7 @@ function test_reject_nil()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, nil, true)
 end
 
-function test_reject_resolve()
+function Test_reject_resolve()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -141,7 +141,7 @@ function test_reject_resolve()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result, true)
 end
 
-function test_reject_reject()
+function Test_reject_reject()
   local deferred, promise = deferPromise()
   local onFulfilledCalls, onRejectedCalls = nextPromise(promise)
   local result = {}
@@ -150,7 +150,7 @@ function test_reject_reject()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result, true)
 end
 
-function test_then_resolve_no_function()
+function Test_then_resolve_no_function()
   local deferred, promise = deferPromise()
   local np = promise:next()
   local onFulfilledCalls, onRejectedCalls = nextPromise(np)
@@ -159,7 +159,7 @@ function test_then_resolve_no_function()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_then_after_resolve_no_function()
+function Test_then_after_resolve_no_function()
   local deferred, promise = deferPromise()
   local result = {}
   deferred.resolve(result)
@@ -168,7 +168,7 @@ function test_then_after_resolve_no_function()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_then_reject_no_function()
+function Test_then_reject_no_function()
   local deferred, promise = deferPromise()
   local np = promise:next()
   local onFulfilledCalls, onRejectedCalls = nextPromise(np)
@@ -177,7 +177,7 @@ function test_then_reject_no_function()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result, true)
 end
 
-function test_then()
+function Test_then()
   local deferred, promise = deferPromise()
   local np = promise:next(function(value)
     return value + 1
@@ -187,7 +187,7 @@ function test_then()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, 2)
 end
 
-function test_done()
+function Test_done()
   local deferred, promise = deferPromise()
   local np = promise:done(function(value)
     return value + 1
@@ -197,7 +197,7 @@ function test_done()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, 2)
 end
 
-function test_then_error()
+function Test_then_error()
   local deferred, promise = deferPromise()
   local err = 'An error during onFulfilled'
   local np = promise:next(function(value)
@@ -208,7 +208,7 @@ function test_then_error()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, err, true)
 end
 
-function test_then_reject()
+function Test_then_reject()
   local deferred, promise = deferPromise()
   local np = promise:next(nil, function(value)
     return value + 1
@@ -218,7 +218,7 @@ function test_then_reject()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, 2)
 end
 
-function test_catch_reject()
+function Test_catch_reject()
   local deferred, promise = deferPromise()
   local np = promise:catch(function(value)
     return value + 1
@@ -228,7 +228,7 @@ function test_catch_reject()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, 2)
 end
 
-function test_multiple_then_no_function()
+function Test_multiple_then_no_function()
   local deferred, promise = deferPromise()
   local np = promise:next()
   local onFulfilledCalls, onRejectedCalls = nextPromise(np)
@@ -239,7 +239,7 @@ function test_multiple_then_no_function()
   assertThenResolution(onFulfilledCalls2, onRejectedCalls2, result)
 end
 
-function test_then_chained()
+function Test_then_chained()
   local deferred, promise = deferPromise()
   local deferred2, promise2 = deferPromise()
   local np = promise:next(function(value)
@@ -253,7 +253,7 @@ function test_then_chained()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, result)
 end
 
-function test_all_resolved()
+function Test_all_resolved()
   local deferred1, promise1 = deferPromise()
   local deferred2, promise2 = deferPromise()
   local promise = Promise.all({promise1, promise2})
@@ -268,7 +268,7 @@ function test_all_resolved()
   lu.assertEquals(resolution, {'Success 1', 'Success 2'})
 end
 
-function test_all_rejected()
+function Test_all_rejected()
   local deferred1, promise1 = deferPromise()
   local deferred2, promise2 = deferPromise()
   local deferred3, promise3 = deferPromise()
@@ -284,7 +284,7 @@ function test_all_rejected()
   lu.assertEquals(resolution, 'Error 1')
 end
 
-function test_all_empty()
+function Test_all_empty()
   local promise = Promise.all({})
   local resolution = false
   promise:next(function(value)
@@ -293,7 +293,7 @@ function test_all_empty()
   lu.assertEquals(resolution, {})
 end
 
-function test_race_resolved()
+function Test_race_resolved()
   local deferred1, promise1 = deferPromise()
   local deferred2, promise2 = deferPromise()
   local promise = Promise.race({promise1, promise2})
@@ -306,7 +306,7 @@ function test_race_resolved()
   lu.assertEquals(resolution, 'Success 2')
 end
 
-function test_race_rejected()
+function Test_race_rejected()
   local deferred1, promise1 = deferPromise()
   local deferred2, promise2 = deferPromise()
   local promise = Promise.race({promise1, promise2})

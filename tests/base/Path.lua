@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local Path = require('jls.io.Path')
 
-function test_new()
+function Test_new()
     local f
     f = Path:new('my_name')
     lu.assertEquals(f:getPathName(), 'my_name')
@@ -15,7 +15,7 @@ function test_new()
     lu.assertEquals(f:getPathName(), 'some_path')
 end
 
-function test_getPathName()
+function Test_getPathName()
     local f
     f = Path:new('my_name')
     lu.assertEquals(f:getPathName(), 'my_name')
@@ -28,11 +28,11 @@ function test_getPathName()
     lu.assertEquals(f:getPathName(), osPath)
 end
 
-function test_toString()
+function Test_toString()
     lu.assertEquals(Path:new('my_name'):toString(), 'my_name')
 end
 
-function test_getName()
+function Test_getName()
     local f
     f = Path:new('my_name')
     lu.assertEquals(f:getName(), 'my_name')
@@ -44,7 +44,7 @@ function test_getName()
     lu.assertEquals(f:getName(), 'my_name')
 end
 
-function test_getExtension()
+function Test_getExtension()
     local f
     f = Path:new('my_name')
     lu.assertEquals(f:getExtension(), nil)
@@ -60,7 +60,7 @@ function test_getExtension()
     lu.assertEquals(f:getExtension(), '')
 end
 
-function test_isAbsolute()
+function Test_isAbsolute()
     local f
     f = Path:new('my_name')
     lu.assertEquals(f:isAbsolute(), false)
@@ -74,7 +74,7 @@ local function assertParentEquals(f, p)
     lu.assertEquals(Path:new(f):getParent(), Path:new(p):getPathName())
 end
 
-function test_getParent()
+function Test_getParent()
     lu.assertEquals(Path:new('a'):getParent(), nil)
     lu.assertEquals(Path:new('a/b'):getParent(), 'a')
     assertParentEquals('a/b/c', 'a/b')
@@ -86,7 +86,7 @@ function test_getParent()
     assertParentEquals('C:\\a', 'C:\\')
 end
 
-function test_normalizePath()
+function Test_normalizePath()
     lu.assertEquals(Path.normalizePath('/a/.b'), '/a/.b')
     lu.assertEquals(Path.normalizePath('/.a/b'), '/.a/b')
     lu.assertEquals(Path.normalizePath('/a./b'), '/a./b')

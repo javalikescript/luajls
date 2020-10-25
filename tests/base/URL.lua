@@ -2,17 +2,17 @@ local lu = require('luaunit')
 
 local URL = require("jls.net.URL")
 
-function assertParsedURL(url, urlt)
+local function assertParsedURL(url, urlt)
     local t = URL.parse(url)
     lu.assertEquals(t, urlt)
 end
 
-function test_parse()
+function Test_parse()
     local t = URL.parse('http://www.host.name')
     lu.assertEquals(t.scheme, 'http')
 end
 
-function test_parse_common_http()
+function Test_parse_common_http()
     assertParsedURL('http://www.host.name', {
         scheme = 'http',
         host = 'www.host.name',
@@ -69,7 +69,7 @@ function test_parse_common_http()
     })
 end
 
-function test_parse_common_authentication()
+function Test_parse_common_authentication()
     assertParsedURL('http://nick@www.host.name', {
         scheme = 'http',
         user = 'nick',
@@ -87,7 +87,7 @@ function test_parse_common_authentication()
     })
 end
 
-function test_parse_http_query()
+function Test_parse_http_query()
     assertParsedURL('http://www.host.name/?aquery', {
         scheme = 'http',
         host = 'www.host.name',
@@ -104,7 +104,7 @@ function test_parse_http_query()
     })
 end
 
-function test_parse_http_fragment()
+function Test_parse_http_fragment()
     assertParsedURL('http://www.host.name/#afragment', {
         scheme = 'http',
         host = 'www.host.name',
@@ -121,7 +121,7 @@ function test_parse_http_fragment()
     })
 end
 
-function test_parse_http_query_fragment()
+function Test_parse_http_query_fragment()
     assertParsedURL('http://www.host.name/?aquery#afragment', {
         scheme = 'http',
         host = 'www.host.name',
@@ -140,7 +140,7 @@ function test_parse_http_query_fragment()
     })
 end
 
-function test_parse_https()
+function Test_parse_https()
     assertParsedURL('https://www.host.name/', {
         scheme = 'https',
         host = 'www.host.name',
@@ -155,14 +155,14 @@ function test_parse_https()
     })
 end
 
-function test_format()
+function Test_format()
     lu.assertEquals(URL.format({
         scheme = 'http',
         host = 'www.host.name'
     }), 'http://www.host.name')
 end
 
-function test_format_common_http()
+function Test_format_common_http()
     lu.assertEquals(URL.format({
         scheme = 'http',
         host = 'www.host.name',
@@ -178,7 +178,7 @@ function test_format_common_http()
     }), 'http://[::1]')
 end
 
-function test_format_common_authentication()
+function Test_format_common_authentication()
     lu.assertEquals(URL.format({
         scheme = 'http',
         user = 'nick',
@@ -192,12 +192,12 @@ function test_format_common_authentication()
     }), 'http://nick:changeit@www.host.name')
 end
 
-function test_getHost()
+function Test_getHost()
     local u = URL:new('http://www.host.name')
     lu.assertEquals(u:getHost(), 'www.host.name')
 end
 
-function test_getPath()
+function Test_getPath()
     lu.assertEquals(URL:new('http://hostname'):getPath(), '')
     lu.assertEquals(URL:new('http://hostname/'):getPath(), '/')
     lu.assertEquals(URL:new('http://hostname/some_path'):getPath(), '/some_path')
@@ -205,7 +205,7 @@ function test_getPath()
     lu.assertEquals(URL:new('http://hostname/some_path#some_fragment'):getPath(), '/some_path')
 end
 
-function test_getFile()
+function Test_getFile()
     lu.assertEquals(URL:new('http://hostname'):getFile(), '')
     lu.assertEquals(URL:new('http://hostname/'):getFile(), '/')
     lu.assertEquals(URL:new('http://hostname/some_path'):getFile(), '/some_path')
@@ -214,7 +214,7 @@ function test_getFile()
     lu.assertEquals(URL:new('http://hostname/?some_query'):getFile(), '/?some_query')
 end
 
-function test_getQuery()
+function Test_getQuery()
     lu.assertEquals(URL:new('http://hostname'):getQuery(), nil)
     lu.assertEquals(URL:new('http://hostname/some_path?some_query'):getQuery(), 'some_query')
     lu.assertEquals(URL:new('http://hostname/?some_query'):getQuery(), 'some_query')

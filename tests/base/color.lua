@@ -18,7 +18,7 @@ local function assertTripletEquals(actualA, actualB, actualC, expectedA, expecte
   lu.assertAlmostEquals(actualC, expectedC, ERROR_MARGIN, message)
 end
 
-function test_hsvToRgb()
+function Test_hsvToRgb()
   local function assertHsvToRgb(h, s, v, r, g, b)
     local ar, ag, ab = color.hsvToRgb(h, s, v)
     assertTripletEquals(ar, ag, ab, r, g, b, formatHsv(h, s, v)..' => '..formatRgb(r, g, b))
@@ -29,7 +29,7 @@ function test_hsvToRgb()
   assertHsvToRgb(0.5, 0.5, 1, 0.5, 1, 1)
 end
 
-function test_rgbToHsv()
+function Test_rgbToHsv()
   local function assertRgbToHsv(r, g, b, h, s, v)
     local ah, as, sv = color.rgbToHsv(r, g, b)
     assertTripletEquals(ah, as, sv, h, s, v, formatRgb(r, g, b)..' => '..formatHsv(h, s, v))
@@ -40,7 +40,7 @@ function test_rgbToHsv()
   assertRgbToHsv(0.5, 1, 1, 0.5, 0.5, 1)
 end
 
-function test_hsvToRgb_then_rgbToHsv()
+function Test_hsvToRgb_then_rgbToHsv()
   local function assertHsvToRgbThenRgbToHsv(h, s, v)
     local ah, as, sv = color.rgbToHsv(color.hsvToRgb(h, s, v))
     assertTripletEquals(ah, as, sv, h, s, v, formatHsv(h, s, v))
@@ -58,7 +58,7 @@ function test_hsvToRgb_then_rgbToHsv()
   end
 end
 
-function test_rgbToHsv_then_hsvToRgb()
+function Test_rgbToHsv_then_hsvToRgb()
   local function assertRgbToHsvThenHsvToRgb(r, g, b)
     local ar, ag, ab = color.hsvToRgb(color.rgbToHsv(r, g, b))
     assertTripletEquals(ar, ag, ab, r, g, b, formatRgb(r, g, b))

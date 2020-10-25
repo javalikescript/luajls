@@ -2,14 +2,14 @@ local lu = require('luaunit')
 
 local TableList = require('jls.util.TableList')
 
-function test_size()
+function Test_size()
   local list = TableList:new('1', '2')
   lu.assertEquals(list:size(), 2)
   list:add('3')
   lu.assertEquals(list:size(), 3)
 end
 
-function test_add()
+function Test_add()
   local e1 = {}
   local e2 = {}
   local list = TableList:new()
@@ -21,7 +21,7 @@ function test_add()
   lu.assertIs(list:get(2), e2)
 end
 
-function test_table()
+function Test_table()
   local e1 = {}
   local e2 = {}
   local list = TableList:new(e1, e2)
@@ -30,7 +30,7 @@ function test_table()
   lu.assertIs(list[2], e2)
 end
 
-function test_init()
+function Test_init()
   local e1 = {}
   local e2 = {}
   local list = TableList:new(e1, e2)
@@ -39,7 +39,7 @@ function test_init()
   lu.assertIs(list:get(2), e2)
 end
 
-function test_clone()
+function Test_clone()
   local list = TableList:new('1', '2', '3')
   lu.assertEquals(list, {'1', '2', '3'})
   local cl = list:clone()
@@ -53,7 +53,7 @@ function test_clone()
   lu.assertEquals(cl, {'1', '2', '3', '5'})
 end
 
-function test_remove()
+function Test_remove()
   local e1 = {}
   local e2 = {}
   local e3 = {}
@@ -68,14 +68,14 @@ function test_remove()
   lu.assertIs(list:get(2), e3)
 end
 
-function test_remove_2()
+function Test_remove_2()
   local list = TableList:new('1', '2', '3')
   lu.assertEquals(list, {'1', '2', '3'})
   lu.assertIs(list:remove(2), '2')
   lu.assertEquals(list, {'1', '3'})
 end
 
-function test_iterator()
+function Test_iterator()
   local list = TableList:new('1', '2', '3')
   local tl = {}
   for _, v in list:iterator() do
@@ -85,7 +85,7 @@ function test_iterator()
   lu.assertEquals(tl, {'1', '2', '3'})
 end
 
-function test_reverseIterator()
+function Test_reverseIterator()
   local list = TableList:new('1', '2', '3')
   local tl = {}
   for _, v in list:reverseIterator() do
@@ -95,7 +95,7 @@ function test_reverseIterator()
   lu.assertEquals(tl, {'3', '2', '1'})
 end
 
-function test_indexOf()
+function Test_indexOf()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertIs(list:indexOf('1'), 1)
   lu.assertIs(list:indexOf('2'), 2)
@@ -103,7 +103,7 @@ function test_indexOf()
   lu.assertIsNil(list:indexOf('4'))
 end
 
-function test_contains()
+function Test_contains()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertIsTrue(list:contains('1'), 1)
   lu.assertIsTrue(list:contains('2'), 2)
@@ -111,7 +111,7 @@ function test_contains()
   lu.assertIsFalse(list:contains('4'))
 end
 
-function test_lastIndexOf()
+function Test_lastIndexOf()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertIs(list:lastIndexOf('1'), 1)
   lu.assertIs(list:lastIndexOf('2'), 4)
@@ -119,7 +119,7 @@ function test_lastIndexOf()
   lu.assertIsNil(list:lastIndexOf('4'))
 end
 
-function test_removeFirst()
+function Test_removeFirst()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertEquals(list:size(), 4)
   lu.assertIsTrue(list:removeFirst('2'))
@@ -130,7 +130,7 @@ function test_removeFirst()
   lu.assertEquals(list, {'1', '3', '2'})
 end
 
-function test_removeLast()
+function Test_removeLast()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertEquals(list:size(), 4)
   lu.assertIsTrue(list:removeLast('2'))
@@ -141,7 +141,7 @@ function test_removeLast()
   lu.assertEquals(list, {'1', '2', '3'})
 end
 
-function test_removeAll()
+function Test_removeAll()
   local list = TableList:new('1', '2', '3', '2')
   lu.assertEquals(list:size(), 4)
   list:removeAll('2')
@@ -152,7 +152,7 @@ function test_removeAll()
   lu.assertEquals(list, {'1', '3'})
 end
 
-function test_concat()
+function Test_concat()
   lu.assertEquals(TableList.concat({}, ','), '')
   lu.assertEquals(TableList.concat({'a'}, ','), 'a')
   lu.assertEquals(TableList.concat({'a', 'b', 'c'}, ','), 'a,b,c')
