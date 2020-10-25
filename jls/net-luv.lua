@@ -80,7 +80,11 @@ local Tcp = class.create(function(tcp)
   -- @treturn string the remote name of this TCP socket.
   function tcp:getRemoteName()
     --logger:finer('tcp:getRemoteName()')
-    return self.tcp:getpeername()
+    local addr = self.tcp:getpeername()
+    if addr then
+      return addr.ip, addr.port, addr.family
+    end
+    return nil
   end
   
   --- Tells whether or not this TCP socket is closed.
