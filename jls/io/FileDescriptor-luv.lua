@@ -43,7 +43,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
     if data and #data == 0 then
       return nil, err
     end
-    return data
+    return data, err
   end
 
   function fileDescriptor:writeSync(data, offset)
