@@ -166,6 +166,7 @@ local Date = require('jls.lang.class').create(function(date)
       --   logger:finest(self.field)
       -- end
       -- os.time() may fail for date that cannot be represented
+      --local sec, err = pcall(os.time, self.field)
       self.time = os.time(self.field) * 1000 + self.field.ms
     end
     return self.time
@@ -266,8 +267,14 @@ function Date.timestamp(t, utc)
   return formatTime('%Y%m%d%H%M%S', t, utc)
 end
 
-function Date.fromISOString(s, utc)
-  local year, month, day, hour, min, sec, rs = string.match(s, '^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d)%:(%d%d)%:(%d%d)(.*)$')
+function Date.fromISOString(s, utc, lenient)
+  local pattern
+  if lenient then
+    pattern = '^(%d%d%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)(.*)$'
+  else
+    pattern = '^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d)%:(%d%d)%:(%d%d)(.*)$'
+  end
+  local year, month, day, hour, min, sec, rs = string.match(s, pattern)
   if not year then
     return nil
   end
