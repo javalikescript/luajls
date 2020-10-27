@@ -10,13 +10,25 @@ local class = require('jls.lang.class')
 local StreamHandler = class.create(function(streamHandler)
 
   --- Creates a stream handler.
+  -- The optional functions take two parameters, the stream and the data or the error
+  -- @tparam[opt] function onData a function to use when receiving data.
+  -- @tparam[opt] function onError a function to use in case of error.
   -- @function StreamHandler:new
-  function streamHandler:initialize(onData, onError)
-    if type(onData) == 'function' then
-      self.onData = onData
-    end
-    if type(onError) == 'function' then
-      self.onError = onError
+  function streamHandler:initialize(onData, onError, callback)
+    if type(callback) == 'function' then
+      function self:onData(data)
+        callback(nil, data)
+      end
+      function self:onError(err)
+        callback(err or '')
+      end
+    else
+      if type(onData) == 'function' then
+        self.onData = onData
+      end
+      if type(onError) == 'function' then
+        self.onError = onError
+      end
     end
   end
 
@@ -139,7 +151,7 @@ StreamHandler.std = StreamHandler:new(function(_, data)
     io.stdout:write(data)
   end
 end, function(_, err)
-  io.stderr:write(err)
+  io.stderr:write(err or 'Stream error')
 end)
 
 --- The null stream.

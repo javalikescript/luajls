@@ -1,8 +1,9 @@
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local streams = require('jls.io.streams')
+local StreamHandler = require('jls.io.streams.StreamHandler')
+local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 
-return require('jls.lang.class').create(streams.StreamHandler, function(headerStreamHandler, super)
+return require('jls.lang.class').create(StreamHandler, function(headerStreamHandler, super)
 
   function headerStreamHandler:initialize(message, size)
     super.initialize(self)
@@ -77,7 +78,7 @@ return require('jls.lang.class').create(streams.StreamHandler, function(headerSt
     end
     return Promise:new(function(resolve, reject)
       local c
-      local partHandler = streams.ChunkedStreamHandler:new(self, '\r\n', self.maxLineLength)
+      local partHandler = ChunkedStreamHandler:new(self, '\r\n', true, self.maxLineLength)
       function self:onCompleted(err)
         if logger:isLoggable(logger.FINE) then
           logger:fine('headerStreamHandler:read() onCompleted('..tostring(err)..')')

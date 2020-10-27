@@ -13,14 +13,15 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
   -- The data will be pass to the wrapped handler depending on the limit and the pattern.
   -- @tparam StreamHandler handler the handler to wrap
   -- @tparam[opt] string pattern the pattern to use to split the buffered data to the wrapped handler
+  -- @tparam[opt] boolean plain true to use the pattern as a plain string
   -- @tparam[opt] number limit the max size to buffer waiting for a pattern
   -- @function ChunkedStreamHandler:new
-  function chunkedStreamHandler:initialize(handler, pattern, limit)
+  function chunkedStreamHandler:initialize(handler, pattern, plain, limit)
     super.initialize(self)
     self.handler = handler
     self.limit = limit or -1
     if type(pattern) == 'string' then
-      self.findCut = ChunkedStreamHandler.createPatternFinder(pattern)
+      self.findCut = ChunkedStreamHandler.createPatternFinder(pattern, plain)
     elseif type(pattern) == 'function' then
       self.findCut = pattern
     end
@@ -47,6 +48,13 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
       return true
     end
     buffer = string.sub(buffer, 1, lastIndex)
+    if logger:isLoggable(logger.FINER) then
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('chunkedStreamHandler:crunch('..tostring(lastIndex)..', '..tostring(nextIndex)..') => "'..tostring(buffer)..'"')
+      else
+        logger:finer('chunkedStreamHandler:crunch('..tostring(lastIndex)..', '..tostring(nextIndex)..') => #'..tostring(buffer and #buffer))
+      end
+    end
     return self.handler:onData(buffer)
   end
 
@@ -107,9 +115,9 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
     self.handler:onError(err)
   end
 
-  function ChunkedStreamHandler.createPatternFinder(pattern)
+  function ChunkedStreamHandler.createPatternFinder(pattern, plain)
     return function(self, buffer)
-      local ib, ie = string.find(buffer, pattern, 1, true)
+      local ib, ie = string.find(buffer, pattern, 1, plain)
       if ib then
         return ib - 1, ie + 1
       end
