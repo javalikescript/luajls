@@ -60,6 +60,22 @@ function Test_getExtension()
     lu.assertEquals(f:getExtension(), '')
 end
 
+function Test_getBaseName()
+    local f
+    f = Path:new('my_name')
+    lu.assertEquals(f:getBaseName(), 'my_name')
+    f = Path:new('my_name.ext')
+    lu.assertEquals(f:getBaseName(), 'my_name')
+    f = Path:new('some_path/my_name')
+    lu.assertEquals(f:getBaseName(), 'my_name')
+    f = Path:new('some_path.ext/my_name')
+    lu.assertEquals(f:getBaseName(), 'my_name')
+    f = Path:new('my_name.ext.ext')
+    lu.assertEquals(f:getBaseName(), 'my_name.ext')
+    f = Path:new('my_name.')
+    lu.assertEquals(f:getBaseName(), 'my_name')
+end
+
 function Test_isAbsolute()
     local f
     f = Path:new('my_name')

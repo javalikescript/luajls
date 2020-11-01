@@ -62,6 +62,10 @@ return require('jls.lang.class').create(function(path, _, Path)
     return Path.extractExtension(self.npath)
   end
 
+  function path:getBaseName()
+    return Path.extractBaseName(self:getName())
+  end
+
   --- Returns the string representation of this Path.
   -- @treturn string the string representation of this Path.
   -- @usage
@@ -175,7 +179,11 @@ end, function(Path)
   end
 
   function Path.extractExtension(path)
-    return string.match(path, '%.([^/\\%.]*)$')
+    return string.match(path, '%.([^/\\%.]*)$') -- or ''
+  end
+
+  function Path.extractBaseName(path)
+    return string.match(path, '^(.+)%.[^%.]*$') or path
   end
 
   function Path.asPathName(path)
