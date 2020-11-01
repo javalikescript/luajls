@@ -459,12 +459,17 @@ function tables.createArgumentTable(arguments)
   return t
 end
 
-function tables.getArgument(t, name, defaultValue)
+function tables.getArgument(t, name, defaultValue, index, asString)
   local value = t[name]
   if value == nil then
     return defaultValue
+  elseif asString and type(value) == 'boolean' then
+    return tostring(value)
   elseif type(value) == 'table' then
-    return value[1]
+    return value[index or 1] or defaultValue
+  end
+  if index and index ~= 1 then
+    return defaultValue
   end
   return value
 end

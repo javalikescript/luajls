@@ -60,7 +60,22 @@ end
 
 function system.getArguments()
   if win32Lib then
-    return win32Lib.GetCommandLineArguments()
+    local args = table.pack(win32Lib.GetCommandLineArguments())
+    local scriptName = arg[0]
+    local scriptIndex = 0
+    for i, v in ipairs(args) do
+      if v == scriptName then
+        scriptIndex = i
+        break
+      end
+    end
+    -- Before running any code, lua collects all command-line arguments in a global table called arg.
+    -- The script name goes to index 0, the first argument after the script name goes to index 1, and so on.
+    local narg = {}
+    for i, v in ipairs(args) do
+      narg[i - scriptIndex] = v
+    end
+    return narg
   end
   return arg
 end
