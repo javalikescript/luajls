@@ -27,6 +27,9 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   --- Creates a new File with the specified name.
   -- See @{Path}
   -- @function File:new
+  -- @param[opt] parent The optional parent as a string, @{File} or @{Path}.
+  -- @tparam string path The name of the file.
+  -- @return a new File
   -- @usage
   --local workingDirectory = File:new('work')
   --local configurationPath = File:new(workingDirectory, 'configuration.json')
@@ -304,6 +307,9 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     end
   end
 
+  -- Returns a File.
+  -- @param file a file, a path or a string representing a path.
+  -- @treturn jls.io.File a file.
   function File.asFile(file)
     if File:isInstance(file) then
       return file

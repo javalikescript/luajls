@@ -5,7 +5,8 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
-local net = require('jls.net')
+local TcpClient = require('jls.net.TcpClient')
+local TcpServer = require('jls.net.TcpServer')
 local strings = require('jls.util.strings')
 local hex = require('jls.util.hex')
 
@@ -342,7 +343,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
     if type(options.keepAlive) == 'number' then
       self.keepAlive = options.keepAlive
     end
-    super.initialize(self, net.TcpClient:new())
+    super.initialize(self, TcpClient:new())
   end
 
   --- Connects this MQTT client.
@@ -524,7 +525,7 @@ local MqttServer = class.create(function(mqttServer)
   function mqttServer:initialize()
     logger:finer('mqttServer:initialize(...)')
     self.clients = {}
-    self.tcpServer = net.TcpServer:new()
+    self.tcpServer = TcpServer:new()
     local server = self
     function self.tcpServer:onAccept(tcpClient)
       local client = MqttClientServer:new(tcpClient, server)

@@ -38,6 +38,15 @@ function Test_streamHandler()
   assertStreamHandling(s, t)
 end
 
+function Test_streamHandler_callback()
+  local t = {}
+  local s = streams.StreamHandler:new(function(err, data)
+    t.dataCaptured = data
+    t.errCaptured = err
+  end)
+  assertStreamHandling(s, t)
+end
+
 function Test_callback()
   local t = {}
   local s = streams.CallbackStreamHandler:new(function(err, data)

@@ -4,7 +4,7 @@ Provide OS file descriptor abstraction.
 A FileDescriptor enables to manipulate files, reading from and writing to.
 
 The method are provided both as synchronous and asynchronous.
-The synchronous form is prefixed by "Sync".
+The synchronous form is suffixed by "Sync".
 The asynchronous form takes an optional callback as last argument,
 if omitted the method returns a @{jls.lang.Promise}.
 
@@ -37,6 +37,15 @@ local Path = require('jls.io.Path')
 return require('jls.lang.class').create(function(fileDescriptor)
 
   function fileDescriptor:initialize(fd)
+    if type(fd) == 'number' then
+      if fd == 0 then
+        fd = io.stdin
+      elseif fd == 1 then
+        fd = io.stdout
+      elseif fd == 2 then
+        fd = io.stderr
+      end
+    end
     self.fd = fd
   end
 
@@ -76,8 +85,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('fileDescriptor:writeSync("'..tostring(data)..'", '..tostring(offset)..')')
     end
-    offset = offset or -1
-    if offset >= 0 then
+    if offset and offset >= 0 then
       if logger:isLoggable(logger.DEBUG) then
         logger:debug('seek("set", '..tostring(offset)..')')
       end
@@ -106,7 +114,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
 
   --- Closes this file descriptor.
   -- @tparam[opt] function callback The optional callback.
-    function fileDescriptor:close(callback)
+  function fileDescriptor:close(callback)
     local cb, d = Promise.ensureCallback(callback)
     self:closeSync()
     cb()
@@ -115,7 +123,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
 
   --- Flushes all modified data of this file descriptor to the storage device.
   -- @tparam[opt] function callback The optional callback.
-    function fileDescriptor:flush(callback)
+  function fileDescriptor:flush(callback)
     local cb, d = Promise.ensureCallback(callback)
     self:flushSync()
     cb()
@@ -142,6 +150,10 @@ return require('jls.lang.class').create(function(fileDescriptor)
   --  end
   --end)
   function fileDescriptor:read(size, offset, callback)
+    if type(offset) == 'function' then
+      callback = offset
+      offset = nil
+    end
     local cb, d = Promise.ensureCallback(callback)
     local data = self:readSync(size, offset)
     cb(nil, data)
@@ -155,6 +167,10 @@ return require('jls.lang.class').create(function(fileDescriptor)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @return a promise that resolves once the data has been wrote.
   function fileDescriptor:write(data, offset, callback)
+    if type(offset) == 'function' then
+      callback = offset
+      offset = nil
+    end
     local cb, d = Promise.ensureCallback(callback)
     local _, err = self:writeSync(data, offset)
     cb(err)

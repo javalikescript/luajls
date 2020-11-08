@@ -1,6 +1,5 @@
 local lu = require('luaunit')
 
-local streams = require('jls.io.streams')
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
 local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
@@ -18,13 +17,13 @@ function Test_pipe()
   local ph = pb:start()
   --print('pid', ph:getPid())
   local outputData
-  p:readStart(streams.CallbackStreamHandler:new(function(err, data)
+  p:readStart(function(err, data)
     if data then
       outputData = string.gsub(data, '%s*$', '')
     else
       p:close()
     end
-  end))
+  end)
   if not loop(function()
     p:close()
   end) then
@@ -45,13 +44,13 @@ function Test_env()
   pb:redirectOutput(p)
   local ph = pb:start()
   local outputData
-  p:readStart(streams.CallbackStreamHandler:new(function(err, data)
+  p:readStart(function(err, data)
     if data then
       outputData = string.gsub(data, '%s*$', '')
     else
       p:close()
     end
-  end))
+  end)
   if not loop(function()
     p:close()
   end) then

@@ -1,6 +1,5 @@
 local lu = require('luaunit')
 
---local net = require('jls.net')
 local http = require('jls.net.http')
 local secure = require('jls.net.secure')
 

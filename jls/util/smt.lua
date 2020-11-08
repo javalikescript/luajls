@@ -308,8 +308,9 @@ local smt = {
 }
 
 
-local net = loader.tryRequire('jls.net')
-if net then
+local TcpClient = loader.tryRequire('jls.net.TcpClient')
+local TcpServer = loader.tryRequire('jls.net.TcpServer')
+if TcpClient and TcpServer then
   local DEFAULT_TCP_PORT = 3881
 
   smt.SmtTcpClient = class.create(SmtClient, function(smtTcpClient, super)
@@ -317,7 +318,7 @@ if net then
       if options and type(options.tcpPort) == 'number' then
         self.tcpPort = options.tcpPort
       end
-      super.initialize(self, net.TcpClient:new(), options)
+      super.initialize(self, TcpClient:new(), options)
     end
     function smtTcpClient:connect(addr, port)
       return self.stream:connect(addr, port or self.tcpPort or DEFAULT_TCP_PORT):next(function()
@@ -331,7 +332,7 @@ if net then
       if options and type(options.tcpPort) == 'number' then
         self.tcpPort = options.tcpPort
       end
-      super.initialize(self, net.TcpServer:new(), options)
+      super.initialize(self, TcpServer:new(), options)
     end
     function smtTcpServer:bind(addr, port)
       self.tcpPort = port or self.tcpPort or DEFAULT_TCP_PORT

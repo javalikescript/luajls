@@ -3,7 +3,7 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local net = require('jls.net')
+local TcpClient = require('jls.net.TcpClient')
 local URL = require('jls.net.URL')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
@@ -96,7 +96,7 @@ return require('jls.lang.class').create(function(httpClient)
       self.tcpClient = getSecure().TcpClient:new()
       --self.tcpClient.sslCheckHost = options.checkHost == true
     else
-      self.tcpClient = net.TcpClient:new()
+      self.tcpClient = TcpClient:new()
     end
   end
 

@@ -1,4 +1,5 @@
 --- This module contains helper functions to load Lua modules.
+-- The loader module is fully compatible with the Lua require function.
 -- @module jls.lang.loader
 
 local logger = require('jls.lang.logger')
@@ -6,6 +7,7 @@ local logger = require('jls.lang.logger')
 --- Requires the specified Lua module.
 -- @tparam string name the name of the module to load
 -- @return the loaded module or nil if an error occured
+-- @function tryRequire
 local function tryRequire(name)
   local status, mod = pcall(require, name)
   if status then
@@ -17,9 +19,27 @@ local function tryRequire(name)
   return nil
 end
 
+--- Requires the specified Lua modules.
+-- @tparam table names the list of the modules to load
+-- @tparam[opt] boolean try true to return nil in place of raising an error
+-- @return the loaded modules or nil values
+-- @function requireList
+local function requireList(names, try)
+  local modules = {}
+  for i, name in ipairs(names) do
+    if try then
+      modules[i] = tryRequire(name)
+    else
+      modules[i] = require(name)
+    end
+  end
+  return table.unpack(modules, 1, #names)
+end
+
 --- Returns the specified Lua module if already loaded.
 -- @tparam string name the name of the module to load
 -- @return the already loaded module or nil if none
+-- @function getRequired
 local function getRequired(name)
   return package.loaded[name]
 end
@@ -29,6 +49,7 @@ local NOT_LOADED = {}
 --- Returns a funtion that will try to require the specified Lua module only once.
 -- @tparam string name the name of the module to load
 -- @treturn funtion a function that will return the specified module or nil if an error occured
+-- @function singleRequirer
 local function singleRequirer(name)
   local module = NOT_LOADED
   return function()
@@ -39,6 +60,22 @@ local function singleRequirer(name)
       end
     end
     return module
+  end
+end
+
+--- Builds a function by requiring its dependencies on first call.
+-- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found.
+-- @treturn funtion the function returned by the providerFn parameter.
+-- @function lazyFunction
+local function lazyFunction(providerFn, ...)
+  local names = {...}
+  local fn
+  return function(...)
+    if not fn then
+      fn = providerFn(requireList(names, true))
+      names = nil
+    end
+    return fn(...)
   end
 end
 
@@ -100,6 +137,7 @@ the first module whose name ends by an already loaded module.
 If no module could be loaded then an error is raised.
 @param ... the ordered names of the module eligible to load
 @return the loaded module
+@function requireOne
 @usage
 return require('jls.lang.loader').requireOne('jls.net-luv', 'jls.net-socket')
 ]]
@@ -148,6 +186,7 @@ end
 -- @tparam string path the pathname of the module to load
 -- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @return the loaded module
+-- @function requireByPath
 local function requireByPath(path, try)
   local status, modOrErr = pcall(require, path)
   if status then
@@ -186,6 +225,7 @@ end
 -- The module is removed from the loaded modules and will be loaded again on a require.
 -- This is not the opposite of the require and bad things could happen.
 -- @tparam string name the name of the module to unload
+-- @function unload
 local function unload(name)
   if logger:isLoggable(logger.DEBUG) then
     logger:debug('unload("'..name..'")')
@@ -195,6 +235,7 @@ end
 
 --[[-- Unloads all the specified Lua modules.
 @tparam string pattern the pattern of the module names to unload
+@function unloadAll
 @usage
 require('jls.lang.loader').unloadAll('^jls%.')
 ]]
@@ -206,8 +247,13 @@ local function unloadAll(pattern)
   end
 end
 
--- Loads a module using a specific path.
+--- Loads a module using a specific path.
 -- @tparam string name the name of the module to load
+-- @tparam[opt] string path the path of the module to load
+-- @tparam[opt] boolean try true to return nil in place of raising an error
+-- @tparam[opt] boolean asRequire true to be compatible with require by using package.loaded
+-- @return the loaded module or nil if an error occured
+-- @function load
 local function load(name, path, try, asRequire)
   if asRequire then
     local m = package.loaded[name]
@@ -262,6 +308,8 @@ return {
   tryRequire = tryRequire,
   getRequired = getRequired,
   singleRequirer = singleRequirer,
+  requireList = requireList,
+  lazyFunction = lazyFunction,
   requireByPath = requireByPath,
   unload = unload,
   unloadAll = unloadAll,

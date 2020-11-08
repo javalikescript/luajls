@@ -1,4 +1,4 @@
--- Provide gzip utility.
+--- Provide gzip utility functions.
 -- @module jls.util.zip.gzip
 
 local logger = require('jls.lang.logger')
@@ -6,7 +6,6 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local StreamHandler = require('jls.io.streams.StreamHandler')
-local CallbackStreamHandler = require('jls.io.streams.CallbackStreamHandler')
 local Crc32 = require('jls.util.md.Crc32')
 
 -- see https://tools.ietf.org/html/rfc1952
@@ -113,13 +112,30 @@ function gzip.parseHeader(data)
 end
 
 
-function gzip.compressStream(stream, header, compressionLevel)
-  local cb = StreamHandler.ensureCallback(stream)
+--[[--
+Returns a @{jls.io.streams.StreamHandler} that will compress into the specified stream handler.
+
+See @{jls.util.zip.Deflater}
+
+@param sh the stream handler to call with the deflated data
+@tparam[opt] table header the gzip header table
+@tparam[opt] number compressionLevel the compression level
+@return the @{jls.io.streams.StreamHandler}
+
+@usage
+local gzip = require('jls.util.zip.gzip')
+local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
+
+local sh = gzip.compressStream(FileStreamHandler:new('test.txt.gz'))
+FileStreamHandler.readAllSync('test.txt', sh)
+]]
+function gzip.compressStream(sh, header, compressionLevel)
+  local cb = StreamHandler.ensureCallback(sh)
   cb(nil, gzip.formatHeader(header))
   local size = 0
   local crc = Crc32:new()
   local deflater = Deflater:new(compressionLevel, -15)
-  return CallbackStreamHandler:new(function(err, data)
+  return StreamHandler:new(function(err, data)
     if err then
       return cb(err)
     end
@@ -134,17 +150,33 @@ function gzip.compressStream(stream, header, compressionLevel)
   end)
 end
 
-function gzip.decompressStream(stream, onHeader)
+--[[--
+Returns a @{jls.io.streams.StreamHandler} that will decompress into the specified stream handler.
+
+See @{jls.util.zip.Inflater}
+
+@param sh the stream handler to call with the inflated data
+@tparam[opt] function onHeader a function that will be called with the header table
+@return the @{jls.io.streams.StreamHandler}
+
+@usage
+local gzip = require('jls.util.zip.gzip')
+local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
+
+local sh = gzip.decompressStream(FileStreamHandler:new('test.txt'))
+FileStreamHandler.readAllSync('test.txt.gz', sh)
+]]
+function gzip.decompressStream(sh, onHeader)
   if logger:isLoggable(logger.FINER) then
     logger:finer('decompressStream()')
   end
-  local cb = StreamHandler.ensureCallback(stream)
+  local cb = StreamHandler.ensureCallback(sh)
   local header, inflated
   local buffer = ''
   local size = 0
   local crc = Crc32:new()
   local inflater = Inflater:new(-15)
-  return CallbackStreamHandler:new(function(err, data)
+  return StreamHandler:new(function(err, data)
     if err then
       return cb(err)
     end
@@ -210,7 +242,7 @@ end
 function gzip.compressStreamRaw(stream, compressionLevel)
   local cb = StreamHandler.ensureCallback(stream)
   local deflater = Deflater:new(compressionLevel)
-  return CallbackStreamHandler:new(function(err, data)
+  return StreamHandler:new(function(err, data)
     if err then
       return cb(err)
     end
@@ -226,7 +258,7 @@ end
 function gzip.decompressStreamRaw(stream)
   local cb = StreamHandler.ensureCallback(stream)
   local inflater = Inflater:new() -- auto detect
-  return CallbackStreamHandler:new(function(err, data)
+  return StreamHandler:new(function(err, data)
     if err then
       return cb(err)
     end

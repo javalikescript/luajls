@@ -1,9 +1,12 @@
+--- Provide tar file utility.
+-- Tar files are archives that allow to store multiple files.
+-- @module jls.util.zip.tar
+
 local logger = require('jls.lang.logger')
 local strings = require('jls.util.strings')
 local File = require('jls.io.File')
-local FileWriter = require('jls.io.streams.FileWriter')
+local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local StreamHandler = require('jls.io.streams.StreamHandler')
-local CallbackStreamHandler = require('jls.io.streams.CallbackStreamHandler')
 local gzip = require('jls.lang.loader').tryRequire('jls.util.zip.gzip')
 
 -- see https://en.wikipedia.org/wiki/Tar_(computing)
@@ -62,7 +65,13 @@ end
 local function createExtractorStream(entryStreamFactory)
   local header, fullSize, stream
   local buffer = ''
-  return CallbackStreamHandler:new(function(err, data)
+  return StreamHandler:new(function(err, data)
+    if err then
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('error while extracting '..tostring(err))
+      end
+      return
+    end
     if data then
       buffer = buffer..data
     else
@@ -99,12 +108,27 @@ local function createExtractorStream(entryStreamFactory)
   end)
 end
 
-local function createDirectoryExtractorStream(directory)
+--[[--
+Returns a @{jls.io.streams.StreamHandler} that will extracts the tar content into the specified directory.
+
+@param directory the directory to extract to, as a @{jls.io.File} or a string directory name
+@tparam[opt] boolean decompress true to indicate that the stream is compressed using gzip
+@return the @{jls.io.streams.StreamHandler}
+@function extractStreamTo
+
+@usage
+local tar = require('jls.util.zip.tar')
+local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
+
+local sh = tar.extractStreamTo('.')
+FileStreamHandler.readAllSync('test.tar', sh)
+]]
+local function extractStreamTo(directory, decompress)
   local dir = File.asFile(directory)
   if not dir:isDirectory() then
     error('The specified directory is invalid')
   end
-  return createExtractorStream(function(header)
+  local sh = createExtractorStream(function(header)
     local entryFile = File:new(dir, header.name)
     local parent = entryFile:getParentFile()
     if parent and not parent:isDirectory() then
@@ -115,32 +139,45 @@ local function createDirectoryExtractorStream(directory)
     if logger:isLoggable(logger.FINE) then
       logger:fine('Extracting "'..header.name..'" into "'..entryFile:getPath()..'"')
     end
-    return FileWriter:new(entryFile, false, function(fw)
+    return FileStreamHandler:new(entryFile, false, function(fw)
       if header.mtime and header.mtime > 0 then
         fw:getFile():setLastModified(header.mtime * 1000)
       end
     end)
   end)
+  if decompress then
+    return gzip.decompressStream(sh)
+  end
+  return sh
 end
 
-local function extractTo(filename, directory)
-  local file = File.asFile(filename)
+--[[--
+Extracts the specified file into the specified directory.
+@param file the tar file to extract, as a @{jls.io.File} or a string file name
+@param directory the directory to extract to, as a @{jls.io.File} or a string directory name
+@function extractFileTo
+@usage
+local tar = require('jls.util.zip.tar')
+tar.extractFileTo('test.tar', '.')
+]]
+local function extractFileTo(file, directory)
+  file = File.asFile(file)
   if not file:exists() then
     error('The specified file is invalid')
   end
-  local dse = createDirectoryExtractorStream(directory)
+  local decompress = false
   if string.find(file:getName(), 'gz$') and gzip then
     logger:fine('Adding gzip stream decompression')
     -- we may look at magic gzip header bytes to activate decompression
-    dse = gzip.decompressStream(dse)
+    decompress = true
   end
-  FileWriter.streamFile(file, dse)
+  FileStreamHandler.readAllSync(file, extractStreamTo(directory, decompress))
 end
 
 return {
   FLAGS = FLAGS,
   parseHeader = parseHeader,
   createExtractorStream = createExtractorStream,
-  createDirectoryExtractorStream = createDirectoryExtractorStream,
-  extractTo = extractTo
+  extractStreamTo = extractStreamTo,
+  extractFileTo = extractFileTo
 }

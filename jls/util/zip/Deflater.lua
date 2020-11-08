@@ -12,9 +12,9 @@ return require('jls.lang.class').create(function(deflater)
   --[[
     If no compression_level is provided uses Z_DEFAULT_COMPRESSION (6),
     compression level is a number from 1-9 where zlib.BEST_SPEED is 1 and zlib.BEST_COMPRESSION is 9.
-    
     windowBits Default is 15, MAX_WBITS
   ]]
+
   --- Creates a new Deflater with the specified compression level and window bits.
   -- @function Deflater:new
   -- @tparam number compressionLevel the compression level from 1-9, from BEST_SPEED to BEST_COMPRESSION

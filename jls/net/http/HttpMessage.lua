@@ -206,7 +206,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
   -- @treturn string the header start value.
   -- @treturn table a table containing the header parameters as key, value.
   function HttpMessage.parseHeaderValueAsTable(value)
-    local value, params = HttpMessage.parseHeaderValue(value)
+    local startValue, params = HttpMessage.parseHeaderValue(value)
     local t = {}
     for _, param in ipairs(params) do
       local k, v = string.match(param, '^([^=]+)%s*=%s*(.*)$')
@@ -214,7 +214,7 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
         t[k] = v
       end
     end
-    return value, t
+    return startValue, t
   end
 
   function HttpMessage.equalsIgnoreCase(a, b)
@@ -225,9 +225,9 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
 
     HTTP_CONTINUE = 100,
     HTTP_SWITCHING_PROTOCOLS = 101,
-  
+
     HTTP_OK = 200,
-  
+
     HTTP_BAD_REQUEST = 400,
     HTTP_UNAUTHORIZED = 401,
     HTTP_FORBIDDEN = 403,
@@ -235,9 +235,9 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     HTTP_METHOD_NOT_ALLOWED = 405,
     HTTP_NOT_ACCEPTABLE = 406,
     HTTP_LENGTH_REQUIRED = 411,
-    
+
     HTTP_INTERNAL_SERVER_ERROR = 500,
-  
+
     -- method names are case sensitive
     METHOD_GET = 'GET',
     METHOD_HEAD = 'HEAD',
@@ -248,21 +248,21 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     METHOD_CONNECT = 'CONNECT',
     METHOD_PATCH = 'PATCH',
     METHOD_TRACE = 'TRACE',
-  
+
     VERSION_1_0 = 'HTTP/1.0',
     VERSION_1_1 = 'HTTP/1.1',
-  
+
     DEFAULT_SERVER = 'Lua jls',
     DEFAULT_USER_AGENT = 'Lua jls',
-  
+
     TRANSFER_ENCODING_CHUNKED = 'chunked',
     TRANSFER_ENCODING_COMPRESS = 'compress',
     TRANSFER_ENCODING_DEFLATE = 'deflate',
     TRANSFER_ENCODING_GZIP = 'gzip',
-  
+
     CONNECTION_CLOSE = 'close',
     CONNECTION_KEEP_ALIVE = 'keep-alive',
-  
+
     HEADER_HOST = 'Host',
     HEADER_USER_AGENT = 'User-Agent',
     HEADER_ACCEPT = 'Accept',

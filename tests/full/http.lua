@@ -1,9 +1,9 @@
 local lu = require('luaunit')
 
 local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
-local net = require('jls.net')
+local TcpClient = require('jls.net.TcpClient')
+local TcpServer = require('jls.net.TcpServer')
 local http = require('jls.net.http')
-local streams = require('jls.io.streams')
 local strings = require('jls.util.strings')
 local TableList = require('jls.util.TableList')
 
@@ -18,10 +18,10 @@ local function createTcpServer(onData)
       client:write(replyData)
     end
   end
-  local server = net.TcpServer:new()
+  local server = TcpServer:new()
   assert(server:bind('0.0.0.0', TEST_PORT))
   function server:onAccept(client)
-    client:readStart(streams.CallbackStreamHandler:new(function(err, data)
+    client:readStart(function(err, data)
       if type(onData) == 'function' then
         onData(server, client, data)
       end
@@ -42,17 +42,17 @@ local function createTcpServer(onData)
         client:close()
         server:close()
       end
-    end))
+    end)
   end
   return server
 end
 
 local function createTcpClient(requestData)
-  local client = net.TcpClient:new()
+  local client = TcpClient:new()
   local receivedCount = 0
   return client:connect('127.0.0.1', TEST_PORT):next(function()
     logger:finer('tcp client connected')
-    client:readStart(streams.CallbackStreamHandler:new(function(err, data)
+    client:readStart(function(err, data)
       if err then
         logger:warn('tcp client stream error '..tostring(err))
         client.t_error = err
@@ -70,7 +70,7 @@ local function createTcpClient(requestData)
         logger:finer('tcp client receives no data')
         client:close()
       end
-    end))
+    end)
     if requestData then
       client:write(requestData)
     end

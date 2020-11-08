@@ -1,11 +1,17 @@
--- Provide serial input/output communication.
--- @module jls.io.Serial
--- @pragma nostrip
+--[[
+Provide serial input/output communication.
 
-local logger = require('jls.lang.logger')
+Note: The only implementation is based on libuv
+
+@module jls.io.Serial
+@pragma nostrip
+]]
 
 local serialLib = require('serial')
 local luvLib = require('luv')
+
+local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 -- A Serial class.
 -- A Serial instance represents a serial device.
@@ -22,30 +28,34 @@ return require('jls.lang.class').create(function(serial)
   end
 
   function serial:readStart(stream)
-    logger:debug('serial:readStart()')
-    self.stream = stream;
-    local fileDesc = self.fileDesc
+    logger:finer('serial:readStart()')
+    self.streamCallback = StreamHandler.ensureCallback(stream)
     local waitAsync = luvLib.new_async(function(err)
-      while true do
-        local count = serialLib.available(fileDesc.fd)
-        if not count or count <= 0 then
-          break
+      if err then
+        if err == 'close' then
+          self.streamCallback()
+        else
+          logger:fine('Error while waiting serial data '..tostring(err))
+          self.streamCallback(err)
         end
-        local data = fileDesc:readSync(count)
-        stream:onData(data)
-        --stream:onError(err)
+      else
+        while true do
+          local count = serialLib.available(self.fileDesc.fd)
+          if not count or count <= 0 then
+            break
+          end
+          local data = self.fileDesc:readSync(count) -- should not block
+          self.streamCallback(nil, data)
+        end
       end
     end)
-    local waitThread = luvLib.new_thread(function(fd, async)
+    self.waitThread = luvLib.new_thread(function(fd, async)
       local serialLib = require('serial')
       while true do
         local status, err = serialLib.waitDataAvailable(fd, 5000) -- will block
         if not status then
-          -- TODO handle close
           if err ~= 'timeout' then
-            if err ~= 'close' then
-              print('Error while waiting serial data '..tostring(err))
-            end
+            async:send(err)
             break
           end
         else
@@ -53,11 +63,16 @@ return require('jls.lang.class').create(function(serial)
         end
       end
       async:close()
-    end, fileDesc.fd, waitAsync)
+    end, self.fileDesc.fd, waitAsync)
   end
 
   function serial:readStop()
-    logger:debug('serial:readStop()')
+    logger:finer('serial:readStop()')
+    if self.waitThread then
+      self.waitThread:join()
+      self.waitThread = nil
+      self.streamCallback = nil
+    end
   end
 
   function serial:write(data)

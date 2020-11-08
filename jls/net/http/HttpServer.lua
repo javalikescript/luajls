@@ -4,7 +4,7 @@
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local net = require('jls.net')
+local TcpServer = require('jls.net.TcpServer')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpExchange = require('jls.net.http.HttpExchange')
@@ -38,7 +38,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
   -- @return a new HTTP server
   function httpServer:initialize(tcp)
     super.initialize(self)
-    self.tcpServer = tcp or net.TcpServer:new()
+    self.tcpServer = tcp or TcpServer:new()
     local server = self
     function self.tcpServer:onAccept(client)
       server:onAccept(client)

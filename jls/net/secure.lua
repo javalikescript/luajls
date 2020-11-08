@@ -6,9 +6,10 @@ local opensslLib = require('openssl')
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local net = require('jls.net')
+local TcpClient = require('jls.net.TcpClient')
+local TcpServer = require('jls.net.TcpServer')
 local File = require('jls.io.File')
-local streams = require('jls.io.streams')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 
 local function getLuaOpensslVersion()
@@ -113,7 +114,7 @@ function SecureContext.setDefault(context)
 end
 
 
-local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, super, SecureTcpClient)
+local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super, SecureTcpClient)
 
   function secureTcpClient:sslInit(isServer, secureContext)
     if logger:isLoggable(logger.FINER) then
@@ -179,7 +180,7 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       local dh = secureClient:startHandshake()
       dh:next(function()
         if logger:isLoggable(logger.FINE) then
-          logger:fine('secureTcpClient:connect() handshake completed for '..net.socketToString(self.tcp))
+          logger:fine('secureTcpClient:connect() handshake completed for '..TcpClient.socketToString(self.tcp))
           if logger:isLoggable(logger.FINER) then
             logger:finer('getpeerverification() => '..tostring(secureClient.ssl:getpeerverification()))
             logger:finer('peerCert:subject() => '..tostring(secureClient.ssl:peer():subject():oneline()))
@@ -296,7 +297,7 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       logger:finer('secureTcpClient:startHandshake()')
     end
     local promise, resolutionCallback = Promise.createWithCallback()
-    local sslStream = streams.StreamHandler:new()
+    local sslStream = StreamHandler:new()
     local secureClient = self
     function sslStream:onData(cipherData)
       if logger:isLoggable(logger.FINE) then
@@ -338,7 +339,7 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
       logger:debug('fileno: '..tostring(tcp:fileno()))
       ]]
     end
-    local sslStream = streams.StreamHandler:new()
+    local sslStream = StreamHandler:new()
     local secureClient = self
     function sslStream:onData(cipherData)
       if logger:isLoggable(logger.FINER) then
@@ -438,7 +439,7 @@ local SecureTcpClient = class.create(net.TcpClient, function(secureTcpClient, su
   end
 end)
 
-local SecureTcpServer = class.create(net.TcpServer, function(secureTcpServer)
+local SecureTcpServer = class.create(TcpServer, function(secureTcpServer)
 
   function secureTcpServer:getSecureContext()
     if not self.secureContext then
@@ -456,13 +457,13 @@ local SecureTcpServer = class.create(net.TcpServer, function(secureTcpServer)
     local tcp = self:tcpAccept()
     if tcp then
       if logger:isLoggable(logger.FINER) then
-        logger:finer('secureTcpServer:handleAccept() accepting '..net.socketToString(tcp))
+        logger:finer('secureTcpServer:handleAccept() accepting '..TcpClient.socketToString(tcp))
       end
       local client = SecureTcpClient:new(tcp)
       client:sslInit(true, self:getSecureContext())
       local server = self
       client:startHandshake():next(function()
-        logger:finer('secureTcpServer:handleAccept() handshake completed for '..net.socketToString(tcp))
+        logger:finer('secureTcpServer:handleAccept() handshake completed for '..TcpClient.socketToString(tcp))
         server:onAccept(client)
       end, function(err)
         client:close()

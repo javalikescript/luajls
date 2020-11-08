@@ -1,6 +1,8 @@
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local streams = require('jls.io.streams')
+local StreamHandler = require('jls.io.streams.StreamHandler')
+local LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler')
+local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 
@@ -107,7 +109,7 @@ local function readBody(message, tcpClient, buffer, callback)
   end
   local readState = 0
   -- after that we know that we have something to read from the client
-  local readStream = streams.CallbackStreamHandler:new(function(err, data)
+  local readStream = StreamHandler:new(function(err, data)
     if readState == 1 then
       tcpClient:readStop()
     end
@@ -129,7 +131,7 @@ local function readBody(message, tcpClient, buffer, callback)
     end
     cb(err) -- TODO is there a remaining buffer
   end)
-  local stream = streams.CallbackStreamHandler:new(function(err, data)
+  local stream = StreamHandler:new(function(err, data)
     if err then
       readStream:onError(err)
     else
@@ -140,9 +142,9 @@ local function readBody(message, tcpClient, buffer, callback)
     end
   end)
   if chunkFinder then
-    stream = streams.ChunkedStreamHandler:new(stream, chunkFinder)
+    stream = ChunkedStreamHandler:new(stream, chunkFinder)
   elseif length > 0 then
-    stream = streams.LimitedStreamHandler:new(stream, length)
+    stream = LimitedStreamHandler:new(stream, length)
   end
   if buffer and #buffer > 0 then
     stream:onData(buffer)

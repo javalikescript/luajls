@@ -1,8 +1,17 @@
 --[[--
 Returns the default logger implementation.
 
-A Logger object is used to log messages for a specific system or application component.
-The JLS_LOGGER_LEVEL environment variable could be used to indicate the log level to use.
+A Logger object is used to record events during the execution of Lua modules.
+This default implementation provides a simple way for module owner to expose debugging information and for module user to access this information.
+This default implementation could be configured to redirect log messages to another logging facility.
+
+The default log level is warning.
+The default formatting consists in prefixing the message by the date time as ISO 8601 and the log level.
+The default writing consists in printing the log message to the standard error stream, adding a new line and flushing.
+
+The JLS\_LOGGER\_LEVEL environment variable could be used to indicate the log level to use.
+
+
 @usage
 local logger = require('jls.lang.logger')
 logger:info('Some usefull information message')
@@ -43,6 +52,24 @@ local function levelToString(value)
   end
   return ''
 end
+
+local LOG_FILE = io.stderr
+
+local LOG_EOL = '\n'
+if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
+  LOG_EOL = '\r\n'
+end
+
+local writeLog = function(text)
+  LOG_FILE:write(text)
+  LOG_FILE:write(LOG_EOL)
+  LOG_FILE:flush()
+end
+
+local formatLog = function(logger, level, message)
+  return os.date('%Y-%m-%dT%H:%M:%S', os.time())..' '..tostring(level)..' '..message
+end
+
 
 --- A Logger class.
 -- A Logger object is used to log messages for a specific system or application component.
@@ -132,22 +159,22 @@ local Logger = require('jls.lang.class').create(function(logger)
   function logger:log(level, message)
     if level >= self.level then
       if type(message) == 'string' then
-        print(os.date('%Y-%m-%dT%H:%M:%S', os.time())..' '..tostring(level)..' '..message)
+        writeLog(formatLog(self, level, message))
       else
-        dump(print, message, 'value')
+        dump(writeLog, message, 'value')
       end
     end
   end
 
   function logger:logTable(level, value, name, depth)
     if level >= self.level then
-      dump(print, value, name or 'value', depth, '', '  ', 0)
+      dump(writeLog, value, name or 'value', depth, '', '  ', 0)
     end
   end
 
   function logger:logTraceback(level, message)
     if level >= self.level then
-      print(debug.traceback(message, 2))
+      writeLog(debug.traceback(message, 2))
     end
   end
 
@@ -157,7 +184,7 @@ local Logger = require('jls.lang.class').create(function(logger)
 
   function logger:traceback(message)
     if DEBUG >= self.level then
-      print(debug.traceback(message, 2))
+      writeLog(debug.traceback(message, 2))
     end
   end
 
@@ -212,8 +239,24 @@ end)
 
 Logger.LEVEL = LEVEL
 
+Logger.EOL = LOG_EOL
+
 Logger.levelFromString = levelFromString
 Logger.levelToString = levelToString
+
+function Logger.getLogWriter()
+  return writeLog
+end
+function Logger.setLogWriter(logWriterFn)
+  writeLog = logWriterFn
+end
+
+function Logger.getLogFormatter()
+  return formatLog
+end
+function Logger.setLogFormatter(logFormatterFn)
+  formatLog = logFormatterFn
+end
 
 --- @section end
 

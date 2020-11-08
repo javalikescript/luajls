@@ -19,7 +19,7 @@ configurationPath:getParentPath():getName() -- returns 'work'
 return require('jls.lang.class').create(function(path, _, Path)
   --- Creates a new Path representing the specified pathname.
   -- @function Path:new
-  -- @param parent The optional parent as a string or a @{Path}.
+  -- @param[opt] parent The optional parent as a string or a @{Path}.
   -- @tparam string path The name of the path.
   -- @return a new Path
   -- @usage
@@ -140,20 +140,9 @@ return require('jls.lang.class').create(function(path, _, Path)
 
 end, function(Path)
 
-  local isWindowsOS = false
-  if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
-    isWindowsOS = true
-  end
-  
-  if isWindowsOS then
-    --- The Operating System (OS) specific separator, '/' on Unix and '\' on Windows.
-    -- @field Path.separator
-    Path.separator = '\\'
-    Path.lineSeparator = '\r\n'
-  else
-    Path.separator = '/'
-    Path.lineSeparator = '\n'
-  end
+  --- The Operating System (OS) specific separator, '/' on Unix and '\\' on Windows.
+  -- @field Path.separator
+  Path.separator = string.sub(package.config, 1, 1) or '/'
 
   function Path.cleanPath(path)
     if type(path) == 'string' then
@@ -190,7 +179,7 @@ end, function(Path)
     if type(path) == 'table' and type(path.getPathName) == 'function' then
       return path:getPathName()
     end
-    return path
+    return Path.cleanPath(path)
   end
 
 end)

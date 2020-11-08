@@ -1,5 +1,14 @@
---- Provide Pipe class.
--- @module jls.io.Pipe
+--[[--
+Provide Pipe class.
+
+The Pipe class provides inter-process stream communication.
+The Pipe class also provides named pipe.
+
+Note: The only implementation is based on libuv
+
+@module jls.io.Pipe
+@pragma nostrip
+]]
 
 local luvLib = require('luv')
 

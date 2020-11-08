@@ -60,4 +60,25 @@ function TestLoader:test_requireByPath()
   lu.assertIs(loader.requireByPath(TEST_MODULE_NAME), require(TEST_MODULE_NAME))
 end
 
+function TestLoader:test_lazyFunction()
+  lu.assertNil(loader.getRequired(TEST_MODULE_NAME))
+  local pfc, fc = 0, 0
+  local f = loader.lazyFunction(function(um, m)
+    pfc = pfc + 1
+    return function()
+      fc = fc + 1
+      return m
+    end
+  end, UNKNOWN_MODULE_NAME, TEST_MODULE_NAME)
+  local mr = require(TEST_MODULE_NAME)
+  lu.assertEquals(fc, 0)
+  lu.assertEquals(pfc, 0)
+  lu.assertIs(f(), mr)
+  lu.assertEquals(fc, 1)
+  lu.assertEquals(pfc, 1)
+  lu.assertIs(f(), mr)
+  lu.assertEquals(fc, 2)
+  lu.assertEquals(pfc, 1)
+end
+
 os.exit(lu.LuaUnit.run())

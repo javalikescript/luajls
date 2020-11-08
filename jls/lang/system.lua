@@ -1,30 +1,35 @@
 --- The System module provides access to data and operations of the underlying OS.
 -- Access to environnement variables and default standard file handles.
--- Operation such as the exit method, the garbage collection and the ability to load native library. 
+-- Operation such as the exit method, the garbage collection and the ability to load native library.
 -- @module jls.lang.system
 
-local loader = require('jls.lang.loader')
-local logger = require('jls.lang.logger')
-
 local sysLib = require('jls.lang.sys')
+local loader = require('jls.lang.loader')
+local FileDescriptor = loader.tryRequire('jls.io.FileDescriptor')
 
-local isWindowsOS = false
-if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
-  isWindowsOS = true
-end
+local isWindowsOS = string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll')
 
 local win32Lib = isWindowsOS and loader.tryRequire('win32')
 
 local system = {}
 
---- The standard input file handle.
--- @field input
-system.input = io.input()
+--- The Operating System (OS) line separator, '\\n' on Unix and '\\r\\n' on Windows.
+-- @field system.lineSeparator
+system.lineSeparator = isWindowsOS and '\r\n' or '\n'
 
---- The standard output file handle.
--- @field output
-system.output = io.output()
-
+if FileDescriptor then
+  --- The standard input stream file descriptor.
+  system.input = FileDescriptor:new(0)
+  --- The standard output stream file descriptor.
+  system.output = FileDescriptor:new(1)
+  --- The standard error stream file descriptor.
+  system.error = FileDescriptor:new(2)
+else
+  -- fallback to standard Lua files that provide a write function
+  system.input = io.stdin
+  system.output = io.stdout
+  system.error = io.stderr
+end
 
 --- Returns the current time in seconds.
 -- The time is given as the number of seconds since the Epoch, 1970-01-01 00:00:00 +0000 (UTC). 
@@ -58,6 +63,8 @@ function system.isWindows()
   return isWindowsOS
 end
 
+--- Returns the arguments used when calling the Lua standalone executable.
+-- @return The environnement property.
 function system.getArguments()
   if win32Lib then
     local args = table.pack(win32Lib.GetCommandLineArguments())
@@ -87,7 +94,7 @@ function system.getLibraryExtension()
   return '.so'
 end
 
---- Runs the garbage collector. 
+--- Runs the garbage collector.
 function system.gc()
   collectgarbage('collect')
 end

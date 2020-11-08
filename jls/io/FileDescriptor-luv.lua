@@ -79,8 +79,13 @@ return require('jls.lang.class').create(function(fileDescriptor)
   end
 
   function fileDescriptor:read(size, offset, callback)
+    if type(offset) == 'function' then
+      callback = offset
+      offset = -1
+    elseif type(offset) ~= 'number' then
+      offset = -1 -- use offset by default
+    end
     local cb, d = Promise.ensureCallback(callback)
-    offset = offset or -1 -- use offset by default
     luvLib.fs_read(self.fd, size, offset, function(err, data)
       if err then
         cb(err)
@@ -96,8 +101,13 @@ return require('jls.lang.class').create(function(fileDescriptor)
   end
 
   function fileDescriptor:write(data, offset, callback)
+    if type(offset) == 'function' then
+      callback = offset
+      offset = -1
+    elseif type(offset) ~= 'number' then
+      offset = -1 -- use offset by default
+    end
     local cb, d = Promise.ensureCallback(callback)
-    offset = offset or -1 -- use offset by default
     luvLib.fs_write(self.fd, data, offset, cb)
     return d
   end

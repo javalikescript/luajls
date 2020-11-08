@@ -1,21 +1,13 @@
---[[
-Provide stream helper classes and functions.
-
-Streams classes are mainly used by @{jls.net|network} protocols TCP and UDP.
-
-@module jls.io.streams
-@pragma nostrip
-]]
+-- For compatibility, to remove
 
 local StreamHandler = require('jls.io.streams.StreamHandler')
-local CallbackStreamHandler = require('jls.io.streams.CallbackStreamHandler')
 
 return {
   StreamHandler = StreamHandler,
-  CallbackStreamHandler = CallbackStreamHandler,
+  CallbackStreamHandler = StreamHandler.CallbackStreamHandler,
   BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler'),
   LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler'),
   ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler'),
   ensureCallback = StreamHandler.ensureCallback,
-  ensureStreamHandler = CallbackStreamHandler.ensureStreamHandler
+  ensureStreamHandler = StreamHandler.ensureStreamHandler
 }

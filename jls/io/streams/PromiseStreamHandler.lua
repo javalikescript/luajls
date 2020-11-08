@@ -25,7 +25,7 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
   function promiseStreamHandler:getPromise()
     return self.promise
   end
-    
+
   function promiseStreamHandler:onData(data)
     if not data then
       self.promiseCallback()

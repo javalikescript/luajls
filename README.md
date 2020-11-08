@@ -53,7 +53,7 @@ As luajls is composed of Lua modules, you need to adapt the environment variable
 ### LuaRocks
 
 luajls, with Lua 5.3, can be installed with [LuaRocks](https://luarocks.org/), depending on your needs you could pick one of the following module:
-* [luajls](https://luarocks.org/modules/javalikescript/luajls) module is only composed of Lua module.
+* [luajls](https://luarocks.org/modules/javalikescript/luajls) module is only composed of Lua modules.
 * [luajls-lfs](https://luarocks.org/modules/javalikescript/luajls-lfs) module adds C module dependencies, mainly luafilesystem and luasocket.
   Prerequisites on Linux
   `sudo apt install luarocks lua5.3 lua5.3-dev libz-dev`
