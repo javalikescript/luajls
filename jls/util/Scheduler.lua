@@ -7,7 +7,6 @@ local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local TableList = require('jls.util.TableList')
 local Date = require('jls.util.Date')
-local LocalDateTime = require('jls.util.LocalDateTime')
 
 
 --- The Schedule class.

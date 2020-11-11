@@ -7,6 +7,7 @@ local zLib = require('zlib')
 
 --- The Deflater class.
 -- A Deflater allows to compress data.
+-- @type Deflater
 return require('jls.lang.class').create(function(deflater)
 
   --[[

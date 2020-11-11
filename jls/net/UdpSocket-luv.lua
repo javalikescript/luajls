@@ -1,4 +1,4 @@
---- This class enables to manage UDP socket.
+--- Provide UDP socket.
 -- @module jls.net.UdpSocket
 
 local luvLib = require('luv')

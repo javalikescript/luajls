@@ -117,9 +117,9 @@ local car = Vehicle:new('blue')
 car:getColor() -- Returns 'blue'
 ]]
 local function newInstance(class, ...)
-  local newInstance = makeInstance(class)
-  newInstance:initialize(...)
-  return newInstance
+  local instance = makeInstance(class)
+  instance:initialize(...)
+  return instance
 end
 
 --[[--
@@ -217,7 +217,7 @@ The class is implemented using the specified functions by calling @{define}.
 The class has a @{newInstance|new} method to create new instance and a @{isInstance} method to check compatibility.
 @param[opt] super An optional base class to inherit from, could be the class name as a string
 @tparam[opt] function defineInstanceFn An optional function that will be called with the class prototype
-@tparam[opt] function defineClassFn An optional function that will be called with the class
+@tparam[optchain] function defineClassFn An optional function that will be called with the class
 @return a new class
 @function create
 @usage

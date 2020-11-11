@@ -25,8 +25,8 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   -- If the yield value is a coroutine then it is scheduled with this scheduler.
   -- When a scheduled coroutine dies it is removed from this scheduler
   -- @param cr The coroutine or function to add to this scheduler.
-  -- @param daemon true to indicate that the coroutine will not stop the scheduler from running
-  -- @param at An optional time for the first resume
+  -- @param[opt=false] daemon true to indicate that the coroutine will not stop the scheduler from running
+  -- @param[opt=0] at An optional time for the first resume
   -- @usage local scheduler = CoroutineScheduler:new()
   -- scheduler:schedule(function ()
   --   while true do
@@ -36,7 +36,6 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   -- end, true)
   -- scheduler:run()
   function coroutineScheduler:schedule(cr, daemon, at)
-    daemon = daemon or false
     local crType = type(cr)
     if crType == 'function' then
       cr = coroutine.create(cr)
@@ -56,7 +55,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     local schedule = {
       at = at,
       cr = cr,
-      daemon = daemon
+      daemon = daemon or false
     }
     table.insert(self.schedules, schedule)
     return schedule

@@ -9,7 +9,7 @@ return require('jls.lang.class').create(function(event)
 
   function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as function arguments
     local timer = luvLib.new_timer()
-    timer:start(delayMs, 0, function ()
+    timer:start(delayMs or 0, 0, function ()
       timer:close()
       --local status, err = pcall(callback)
       local status, err = xpcall(callback, debug.traceback)

@@ -46,6 +46,7 @@ end
 
 --- Encodes the specified value.
 -- @tparam string value the value to encode as a string.
+-- @tparam[opt=false] boolean lc true to encode using lowercases.
 -- @treturn string the encoded value as an hexadecimal string.
 function hex.encode(value, lc)
   local r = ''

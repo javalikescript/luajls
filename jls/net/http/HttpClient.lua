@@ -1,4 +1,4 @@
---- An HTTP client implementation that enable to send @{HttpRequest} and receive @{HttpResponse}.
+--- An HTTP client implementation that enable to send @{jls.net.http.HttpRequest|request} and receive @{jls.net.http.HttpResponse|response}.
 -- @module jls.net.http.HttpClient
 -- @pragma nostrip
 
@@ -38,6 +38,15 @@ return require('jls.lang.class').create(function(httpClient)
   --- Creates a new HTTP client.
   -- @function HttpClient:new
   -- @tparam table options A table describing the client options.
+  -- @tparam string options.url The request URL.
+  -- @tparam[opt] string options.host The request hostname.
+  -- @tparam[opt] number options.port The request port number.
+  -- @tparam[opt] string options.target The request target path.
+  -- @tparam[opt] string options.method The HTTP method, default is GET.
+  -- @tparam[opt] table options.headers The HTTP request headers.
+  -- @tparam[opt] string options.body The HTTP request body, default is empty body.
+  -- @tparam[opt] boolean options.followRedirect true to follow redirections.
+  -- @tparam[opt] number options.maxRedirectCount The maximum of redirections, default is 3.
   -- @return a new HTTP client
   function httpClient:initialize(options)
     logger:finer('httpClient:initialize(...)')
@@ -63,7 +72,7 @@ return require('jls.lang.class').create(function(httpClient)
     if type(options.port) == 'number' then
       self.port = options.port
     end
-    if type(options.followRedirect) == 'boolean' then
+    if options.followRedirect == true then
       self.maxRedirectCount = 3
     end
     if type(options.maxRedirectCount) == 'number' then

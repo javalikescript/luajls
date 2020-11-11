@@ -1,5 +1,5 @@
 --[[--
-This class enables to manage TCP client.
+Provide TCP client socket class.
 
 The network operations are only provided as asynchronous operations and thus
 should be used together with an @{jls.lang.event|event} loop.

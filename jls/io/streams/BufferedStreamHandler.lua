@@ -1,4 +1,4 @@
---- Provide a simple buffered stream.
+--- Provide a simple buffered stream handler.
 -- @module jls.io.streams.BufferedStreamHandler
 -- @pragma nostrip
 

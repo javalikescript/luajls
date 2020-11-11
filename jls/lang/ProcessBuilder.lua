@@ -14,6 +14,7 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Creates a new ProcessBuilder.
   -- @function ProcessBuilder:new
+  -- @tparam string ... Process executable path and arguments
   -- @return a new ProcessBuilder
   -- @usage
   --local pb = ProcessBuilder:new('ls', '-ltr')
@@ -21,20 +22,21 @@ return require('jls.lang.class').create(function(processBuilder)
   function processBuilder:initialize(...)
     self:command(...)
   end
-  
+
   function processBuilder:command(...)
-    local args = {...}
-    if #args == 0 then
+    local argCount = select('#', ...)
+    if argCount == 0 then
       return self.cmd
     end
-    if #args == 1 and type(args[1]) == 'table' then
+    local args = {...}
+    if argCount == 1 and type(args[1]) == 'table' then
       self.cmd = args[1]
     else
       self.cmd = args
     end
     return self
   end
-  
+
   function processBuilder:directory(dir)
     if dir then
       self.dir = dir
@@ -43,7 +45,7 @@ return require('jls.lang.class').create(function(processBuilder)
       return self.dir
     end
   end
-  
+
   function processBuilder:environment(env)
     if env then
       self.env = env
@@ -52,17 +54,18 @@ return require('jls.lang.class').create(function(processBuilder)
       return self.env
     end
   end
-  
+
   function processBuilder:redirectInput(fd)
     self.stdin = fd.fd
   end
-  
+
   function processBuilder:redirectOutput(fd)
     self.stdout = fd.fd
   end
-  
+
   --- Starts this ProcessBuilder.
-  -- @treturn jls.lang.ProcessHandle a handle of the new process
+  -- @tparam[opt] function onexit A function that will be called with the exit code when the process ended.
+  -- @treturn jls.lang.ProcessHandle A @{jls.lang.ProcessHandle|handle} of the new process
   function processBuilder:start(onexit)
     local pid = processLib.spawn(self, onexit)
     if pid and pid > 0 then
@@ -72,7 +75,7 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
 end, function(ProcessBuilder)
-  
+
   function ProcessBuilder.getExecutablePath()
     return processLib.exePath()
   end

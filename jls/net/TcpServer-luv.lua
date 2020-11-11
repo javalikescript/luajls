@@ -1,4 +1,4 @@
---- This class enables to manage TCP server.
+--- Provides TCP server socket class.
 -- @module jls.net.TcpServer
 
 local luvLib = require('luv')

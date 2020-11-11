@@ -1,5 +1,5 @@
 --[[--
-Provide Pipe class.
+Provide pipe and named pipe abstraction.
 
 The Pipe class provides inter-process stream communication.
 The Pipe class also provides named pipe.

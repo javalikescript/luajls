@@ -1,4 +1,4 @@
---- A promise represents the eventual result of an asynchronous operation.
+--- Represents the eventual result of an asynchronous operation.
 -- see https://promisesaplus.com/
 -- @module jls.lang.Promise
 -- @pragma nostrip

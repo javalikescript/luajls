@@ -1,4 +1,4 @@
---- The System module provides access to data and operations of the underlying OS.
+--- Provides access to data and operations of the underlying OS.
 -- Access to environnement variables and default standard file handles.
 -- Operation such as the exit method, the garbage collection and the ability to load native library.
 -- @module jls.lang.system

@@ -1,4 +1,4 @@
---- The Runtime module provides interaction with the underlying OS.
+--- Provides interaction with the underlying OS runtime.
 -- @module jls.lang.runtime
 
 local runtime = {}

@@ -1,15 +1,15 @@
---- This class provides a promise that resolves once the stream is closed.
+-- This class provides a promise that resolves once the stream is closed.
 -- @module jls.io.streams.PromiseStreamHandler
 -- @pragma nostrip
 
 local Promise = require('jls.lang.Promise')
 
---- A PromiseStreamHandler class.
+-- A PromiseStreamHandler class.
 -- This class provides a promise that resolves once the stream is closed.
 -- @type PromiseStreamHandler
 return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'), function(promiseStreamHandler, super)
 
-  --- Creates a @{StreamHandler} with a promise.
+  -- Creates a @{StreamHandler} with a promise.
   -- @function PromiseStreamHandler:new
   function promiseStreamHandler:initialize()
     super.initialize(self)
@@ -20,7 +20,7 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
     self.promise, self.promiseCallback = Promise.createWithCallback()
   end
 
-  --- Returns a Promise that resolves once the stream is closed.
+  -- Returns a Promise that resolves once the stream is closed.
   -- @treturn jls.lang.Promise a promise that resolves once the stream is closed.
   function promiseStreamHandler:getPromise()
     return self.promise

@@ -1,4 +1,4 @@
---- This class enables to manage TCP socket.
+--- TCP socket base class.
 -- @module jls.net.Tcp
 
 local logger = require('jls.lang.logger')

@@ -1,4 +1,4 @@
---- The URL class module.
+--- Represents an URL.
 -- @module jls.net.URL
 -- @pragma nostrip
 

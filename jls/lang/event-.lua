@@ -19,7 +19,7 @@ return require('jls.lang.class').create(function(event)
   --[[--
   Registers a timer which executes a function once after the timer expires.
   @tparam function callback A function that is executed once after the timer expires.
-  @tparam number delayMs The time, in milliseconds, the timer should wait before the specified function is executed.
+  @tparam[opt=0] number delayMs The time, in milliseconds, the timer should wait before the specified function is executed.
   @return An opaque value identifying the timer that can be used to cancel it.
   @usage
   event:setTimeout(function()
@@ -27,8 +27,7 @@ return require('jls.lang.class').create(function(event)
   end, 1000)
   ]]
   function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as function arguments
-    delayMs = delayMs or 0
-    return self.scheduler:schedule(callback, false, delayMs) -- as opaque timer id
+    return self.scheduler:schedule(callback, false, delayMs or 0) -- as opaque timer id
   end
 
   --- Unregisters a timer.
@@ -78,7 +77,7 @@ return require('jls.lang.class').create(function(event)
 
   -- Registers a timer which executes a function until completion.
   -- @tparam function callback A function that is executed repeatedly.
-  -- @tparam number delayMs The time, in milliseconds, the timer should wait between to execution.
+  -- @tparam[opt=0] number delayMs The time, in milliseconds, the timer should wait between to execution.
   -- @return An opaque value identifying the timer that can be used to cancel it.
   function event:setTask(callback, delayMs)
     if logger:isLoggable(logger.DEBUG) then
@@ -112,7 +111,7 @@ return require('jls.lang.class').create(function(event)
 
   -- Sets the timer daemon flag.
   -- @param timer the timer as returned by the setTimeout or setInterval method.
-  -- @tparam boolean daemon true to indicate this timer is a daemon.
+  -- @tparam[opt=false] boolean daemon true to indicate this timer is a daemon.
   function event:daemon(timer, daemon)
     if type(timer) == 'table' and type(timer.daemon) == 'boolean' then
       timer.daemon = daemon

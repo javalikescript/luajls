@@ -7,6 +7,7 @@ local zLib = require('zlib')
 
 --- The Inflater class.
 -- A Inflater allows to decompress data.
+-- @type Inflater
 return require('jls.lang.class').create(function(inflater)
 
   --[[

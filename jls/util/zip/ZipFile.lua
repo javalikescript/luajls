@@ -248,6 +248,7 @@ end)
 
 --- The ZipFile class.
 -- A ZipFile instance represents a ZIP file.
+-- @type ZipFile
 return class.create(function(zipFile, _, ZipFile)
 
   ZipFile._Struct = Struct
@@ -584,6 +585,7 @@ return class.create(function(zipFile, _, ZipFile)
 
   --- Returns the content of the specified entry.
   -- @param entry the entry
+  -- @tparam[opt] function callback an optional function that will be called with the content.
   -- @treturn string the entry content
   function zipFile:getContent(entry, callback)
     if not callback then
