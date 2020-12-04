@@ -57,10 +57,10 @@ return require('jls.lang.class').create(function(thread)
       async:close()
     end)
     -- check if the function has upvalues
-    if logger:isLoggable(logger.WARN) then
-      local name = debug and debug.getupvalue(self.fn, 1)
+    if logger:isLoggable(logger.FINE) then
+      local name = debug and debug.getupvalue(self.fn, 2)
       if name ~= nil then
-        logger:warn('Thread function upvalues ('..tostring(name)..', ...) will be nil')
+        logger:fine('Thread function upvalues ('..tostring(name)..', ...) will be nil')
       end
     end
     local chunk = string.dump(self.fn)
