@@ -1,4 +1,4 @@
---- A class that holds HTTP contexts.
+--- A class that holds @{jls.net.http.HttpContext|HTTP contexts}.
 -- @module jls.net.http.HttpContextHolder
 -- @pragma nostrip
 
@@ -16,20 +16,21 @@ return require('jls.lang.class').create(function(httpContextHolder)
     self.notFoundContext = HttpContext:new(HttpContext.notFoundHandler)
   end
 
-  --- Creates a context in this server with the specified path and using the specified handler.
+  --- Creates a @{jls.net.http.HttpContext|context} in this server with the specified path and using the specified handler.
   -- @tparam string path The path of the context.
   -- @tparam function handler The handler function
   --   the function takes one argument which is an @{HttpExchange}.
-  -- @param[opt] attributes The context attributes.
+  -- @tparam[opt] table attributes the optional context attributes
+  -- @tparam[opt] boolean headersHandler true to indicate that the handler is also used for headers
   -- @return the new context
-  function httpContextHolder:createContext(path, handler, attributes)
+  function httpContextHolder:createContext(path, handler, ...)
     if type(path) ~= 'string' or path == '' then
       error('Invalid context path')
     end
     if type(handler) ~= 'function' then
       error('Invalid context handler type '..type(handler))
     end
-    local context = HttpContext:new(handler, path, attributes)
+    local context = HttpContext:new(handler, path, ...)
     self.contexts[context:getPath()] = context
     return context
   end

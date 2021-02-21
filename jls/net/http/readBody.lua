@@ -69,7 +69,7 @@ local function readBody(message, tcpClient, buffer, callback)
     logger:fine('readBody() content length is '..tostring(length))
   end
   if length and length <= 0 then
-    message:setBody('')
+    message:readBody(nil)
     cb(nil, buffer) -- empty body
     return promise
   end
@@ -86,7 +86,8 @@ local function readBody(message, tcpClient, buffer, callback)
         remainingBuffer = string.sub(buffer, length + 1)
         buffer = string.sub(buffer, 1, length)
       end
-      message:setBody(buffer)
+      message:readBody(buffer)
+      message:readBody(nil)
       cb(nil, remainingBuffer)
       return promise
     end
@@ -117,16 +118,6 @@ local function readBody(message, tcpClient, buffer, callback)
     if err then
       if logger:isLoggable(logger.FINE) then
         logger:fine('readBody() stream error is "'..tostring(err)..'"')
-      end
-    else
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('readBody() stream data is "'..tostring(data)..'"')
-      end
-      if data then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('readBody() stream data length is '..tostring(#data))
-        end
-        message:setBody(data)
       end
     end
     cb(err) -- TODO is there a remaining buffer

@@ -63,9 +63,8 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
       exchange:setRequest(request)
-      if request then
-        keepAlive = request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) == HttpMessage.CONST.CONNECTION_KEEP_ALIVE
-      end
+      exchange:processRequestHeaders()
+      keepAlive = request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) == HttpMessage.CONST.CONNECTION_KEEP_ALIVE
       -- TODO limit request body
       return readBody(request, client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)

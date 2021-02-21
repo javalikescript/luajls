@@ -25,18 +25,30 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.context
   end
 
-  function httpExchange:setContext(value)
-    self.context = value
-  end
-
   --- Returns the HTTP request.
   -- @treturn HttpRequest the HTTP request.
   function httpExchange:getRequest()
     return self.request
   end
 
-  function httpExchange:setRequest(value)
-    self.request = value
+  function httpExchange:setRequest(request)
+    self.request = request
+  end
+
+  function httpExchange:processRequestHeaders()
+    local path = self.request:getTargetPath()
+    self.context = self.server:getHttpContext(path)
+    if self.context:isHeadersHandler() then
+      local status, result = pcall(function ()
+        local handler = self.context:getHandler()
+        return handler(self)
+      end)
+      if not status then
+        if logger:isLoggable(logger.WARN) then
+          logger:warn('HttpServer error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(result)..'"')
+        end
+      end
+    end
   end
 
   --- Returns the HTTP response.
@@ -45,8 +57,8 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.response
   end
 
-  function httpExchange:setResponse(value)
-    self.response = value
+  function httpExchange:setResponse(response)
+    self.response = response
   end
 
   --- Returns the captured values of the request target path using the context path.
@@ -59,6 +71,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   -- @treturn HttpResponse a new HTTP response.
   function httpExchange:createResponse()
     local response = HttpResponse:new()
+    -- SLA FIXME The connection is not always close
     response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
     response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
     return response
@@ -78,7 +91,6 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     if logger:isLoggable(logger.FINER) then
       logger:finer('HttpServer:handleRequest() "'..self:getRequest():getTarget()..'"')
     end
-    self:setContext(context)
     local status, result = pcall(function ()
       local handler = context:getHandler()
       return handler(self)
@@ -119,11 +131,11 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpExchange:processRequest()')
     end
-    local request = self:getRequest()
-    local path = request:getTargetPath()
-    local context = self.server:getHttpContext(path)
+    if self:getResponse() then
+      return Promise.resolve()
+    end
     self:setResponse(self:createResponse())
-    return self:handleRequest(context)
+    return self:handleRequest(self:getContext())
   end
 
   function httpExchange:removeClient()

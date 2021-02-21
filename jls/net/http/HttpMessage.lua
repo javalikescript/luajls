@@ -151,6 +151,27 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     end
   end
 
+  function httpMessage:setBodyStreamHandler(sh)
+    self.bodyBuffer = {
+      len = 0,
+      length = function(self)
+        return self.len
+      end,
+      append = function(self, value)
+        if value then
+          self.len = self.len + #value
+        end
+        sh:onData(value)
+      end,
+      clear = function(self)
+        error('Cannot clear a stream body')
+      end,
+      toString = function(self)
+        error('Cannot return string from a stream body')
+      end,
+    }
+  end
+
   -- Could be overriden to read the body, for example to store the content in a file
   function httpMessage:readBody(value)
     self.bodyBuffer:append(value)

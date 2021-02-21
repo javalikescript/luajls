@@ -7,7 +7,7 @@ The jls Lua library includes a set of jls Lua modules providing an API to abstra
 The jls Lua library also provides interface for general purpose libraries such as SSL, JSON, ZIP, JPEG.
 The main targeted OSes are Linux and Windows.
 
-The only required dependency is Lua 5.3
+The only required dependency is Lua 5.4
 Optional dependencies are Lua modules such as luafilesystem, luasocket, luv, lua-openssl, lua-cjson.
 By example, the file system manipulation requires one of the luafilesystem or the luv dependent module.
 
