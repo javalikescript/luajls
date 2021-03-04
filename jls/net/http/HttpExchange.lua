@@ -25,6 +25,10 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.context
   end
 
+  function httpExchange:setContext(value)
+    self.context = value
+  end
+
   --- Returns the HTTP request.
   -- @treturn HttpRequest the HTTP request.
   function httpExchange:getRequest()
