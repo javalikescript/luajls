@@ -65,9 +65,11 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   -- @treturn jls.lang.StringBuffer this buffer.
   function stringBuffer:append(value, ...)
     self:addPart(value)
-    if ... then
-      for _, v in ipairs({...}) do
-        self:addPart(v)
+    local l = select('#', ...)
+    if l > 0 then
+      local values = {...}
+      for i = 1, l do
+        self:addPart(values[i])
       end
     end
     return self

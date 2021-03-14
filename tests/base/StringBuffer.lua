@@ -23,6 +23,8 @@ function Test_append()
   assertEquals(StringBuffer:new():append('Hello'):append(' world !'), 'Hello world !')
   assertEquals(StringBuffer:new('Hello'):append(' world !'), 'Hello world !')
   assertEquals(StringBuffer:new():append('Hello', ' world !'), 'Hello world !')
+  assertEquals(StringBuffer:new():append('Hello'):append(nil):append(' world !'), 'Hello world !')
+  assertEquals(StringBuffer:new():append('Hello', nil, ' world !'), 'Hello world !')
 end
 
 function Test_charAt()
