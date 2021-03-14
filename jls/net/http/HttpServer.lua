@@ -53,8 +53,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
   ]]
   function httpServer:onAccept(client, buffer)
     logger:finer('httpServer:onAccept()')
-    local server = self
-    local exchange = HttpExchange:new(server, client)
+    local exchange = HttpExchange:new(self, client)
     local request = HttpRequest:new()
     local keepAlive = false
     local remainingBuffer = nil
@@ -86,13 +85,12 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
       return res
     end):next(function()
       logger:fine('httpServer:onAccept() response processed')
-      --local response = exchange:getResponse()
-      if keepAlive then
+      if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange:removeClient()
         if c then
           logger:fine('httpServer:onAccept() keeping client alive')
           exchange:close()
-          return server:onAccept(c, remainingBuffer) -- tail call
+          return self:onAccept(c, remainingBuffer) -- tail call
         end
       end
       exchange:close()
@@ -129,7 +127,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
 end, function(HttpServer)
 
   local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
-  
+
   function HttpServer.createSecure(secureContext)
     local secure = getSecure()
     if secure then
