@@ -62,6 +62,15 @@ function base.internalServerError(httpExchange)
   response:setBody('<p>Sorry something went wrong on our side.</p>')
 end
 
+--- Updates the response with the allowed methods.
+-- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
+function base.options(httpExchange, ...)
+  local response = httpExchange:getResponse()
+  response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
+  response:setHeader('Allow', table.concat({HTTP_CONST.METHOD_OPTIONS, ...}, ', '))
+  response:setBody('')
+end
+
 function base.methodAllowed(httpExchange, method)
   local httpRequest = httpExchange:getRequest()
   if type(method) == 'string' then

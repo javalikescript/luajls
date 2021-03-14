@@ -71,7 +71,7 @@ local function files(httpExchange)
   local path = httpExchange:getRequestArguments()
   local isDirectoryPath = string.sub(path, -1) == '/'
   local filePath = isDirectoryPath and string.sub(path, 1, -2) or path
-  if filePath == '' or not httpHandlerUtil.isValidSubPath(path) then
+  if filePath == '' and method ~= HTTP_CONST.METHOD_GET or not httpHandlerUtil.isValidSubPath(path) then
     if not httpExchange:getResponse() then
       request:setBodyStreamHandler(StreamHandler.null)
       httpExchange:setResponse(httpExchange:createResponse())
