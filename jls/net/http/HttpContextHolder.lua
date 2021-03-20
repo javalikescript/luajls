@@ -5,6 +5,10 @@
 local logger = require('jls.lang.logger')
 local HttpContext = require('jls.net.http.HttpContext')
 
+local function isHandler(handler)
+  return type(handler) == 'function'
+end
+
 --- A class that holds HTTP contexts.
 -- @type HttpContextHolder
 return require('jls.lang.class').create(function(httpContextHolder)
@@ -27,8 +31,8 @@ return require('jls.lang.class').create(function(httpContextHolder)
     if type(path) ~= 'string' or path == '' then
       error('Invalid context path')
     end
-    if type(handler) ~= 'function' then
-      error('Invalid context handler type '..type(handler))
+    if not isHandler(handler) then
+      error('Invalid context handler, type is '..type(handler))
     end
     local context = HttpContext:new(handler, path, ...)
     self.contexts[context:getPath()] = context

@@ -248,6 +248,11 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     HTTP_SWITCHING_PROTOCOLS = 101,
 
     HTTP_OK = 200,
+    HTTP_CREATED = 201,
+    HTTP_NO_CONTENT= 204,
+
+    HTTP_MOVED_PERMANENTLY = 301,
+    HTTP_FOUND = 302,
 
     HTTP_BAD_REQUEST = 400,
     HTTP_UNAUTHORIZED = 401,
@@ -255,7 +260,10 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     HTTP_NOT_FOUND = 404,
     HTTP_METHOD_NOT_ALLOWED = 405,
     HTTP_NOT_ACCEPTABLE = 406,
+    HTTP_CONFLICT = 409,
     HTTP_LENGTH_REQUIRED = 411,
+    HTTP_PRECONDITION_FAILED = 412,
+    HTTP_UNSUPPORTED_MEDIA_TYPE = 415,
 
     HTTP_INTERNAL_SERVER_ERROR = 500,
 
@@ -303,7 +311,8 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
     HEADER_CONTENT_DISPOSITION = 'Content-Disposition',
     HEADER_CONTENT_LENGTH = 'Content-Length',
     HEADER_CONTENT_TYPE = 'Content-Type',
-    HEADER_TRANSFER_ENCODING = 'Transfer-Encoding'
+    HEADER_TRANSFER_ENCODING = 'Transfer-Encoding',
+    HEADER_LAST_MODIFIED = 'Last-Modified',
   }
 
 end)

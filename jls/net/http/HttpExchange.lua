@@ -43,10 +43,9 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     local path = self.request:getTargetPath()
     self.context = self.server:getHttpContext(path)
     if self.context:isHeadersHandler() then
-      local status, result = pcall(function ()
-        local handler = self.context:getHandler()
-        return handler(self)
-      end)
+      local status, result = xpcall(function ()
+        return self.context:handleExchange(self)
+      end, debug.traceback)
       if not status then
         if logger:isLoggable(logger.WARN) then
           logger:warn('HttpServer error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(result)..'"')
@@ -68,7 +67,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   --- Returns the captured values of the request target path using the context path.
   -- @treturn string the first captured value, nil if there is no captured value.
   function httpExchange:getRequestArguments()
-    return select(3, string.find(self:getRequest():getTargetPath(), '^'..self:getContext():getPath()..'$'))
+    return self:getContext():getArguments(self:getRequest():getTargetPath())
   end
 
   --- Returns a new HTTP response.
@@ -95,10 +94,9 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     if logger:isLoggable(logger.FINER) then
       logger:finer('HttpServer:handleRequest() "'..self:getRequest():getTarget()..'"')
     end
-    local status, result = pcall(function ()
-      local handler = context:getHandler()
-      return handler(self)
-    end)
+    local status, result = xpcall(function ()
+      return context:handleExchange(self)
+    end, debug.traceback)
     if status then
       -- always return a promise
       if Promise:isInstance(result) then

@@ -38,8 +38,18 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.path
   end
 
+  --- Returns the captured values of the specified path.
+  -- @treturn string the first captured value, nil if there is no captured value.
+  function httpContext:getArguments(path)
+    return select(3, string.find(path, '^'..self.path..'$'))
+  end
+
   function httpContext:isHeadersHandler()
     return self.headersHandler == true
+  end
+
+  function httpContext:handleExchange(httpExchange)
+    return self.handler(httpExchange)
   end
 
   function httpContext:chainContext(context)

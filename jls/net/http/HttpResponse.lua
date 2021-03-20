@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 local HttpMessage = require('jls.net.http.HttpMessage')
+local Date = require('jls.util.Date')
 
 --- The HttpResponse class represents an HTTP response.
 -- The HttpResponse class inherits from @{HttpMessage}.
@@ -82,4 +83,15 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
     end
     self:setHeader(HttpMessage.CONST.HEADER_CACHE_CONTROL, value)
   end
+
+  function httpResponse:setLastModified(value)
+    -- All HTTP date/time stamps MUST be represented in Greenwich Mean Time (GMT)
+    if type(value) == 'number' then
+      value = Date:new(value):toRFC822String(true)
+    elseif Date:isInstance(value) then
+      value = value:toRFC822String(true)
+    end
+    self:setHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED, value)
+  end
+
 end)
