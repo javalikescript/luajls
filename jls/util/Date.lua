@@ -27,6 +27,7 @@ end
 
 --- The Date class.
 -- The Date provides a way to manipulate date and time.
+-- The Date represents the number of milliseconds since epoch, 1970-01-01T00:00:00 UTC.
 -- @type Date
 local Date = require('jls.lang.class').create(function(date)
 
@@ -183,9 +184,42 @@ local Date = require('jls.lang.class').create(function(date)
     return self
   end
 
+  function date:getUTCField()
+    if not self.time or not self.utcField then
+      self.utcField = os.date('!*t', self:getTime() // 1000)
+      self.utcField.ms = self.field.ms
+    end
+    return self.utcField
+  end
+
+  function date:getUTCYear()
+    return self:getUTCField().year
+  end
+
+  function date:getUTCMonth()
+    return self:getUTCField().month
+  end
+
+  function date:getUTCDay()
+    return self:getUTCField().day
+  end
+
+  function date:getUTCWeekDay()
+    return self:getUTCField().wday
+  end
+
+  function date:getUTCHours()
+    return self:getUTCField().hour
+  end
+
   -- Returns the offset in minutes of this local date from UTC
   function date:getTimezoneOffset()
     return computeTimezoneOffset(self.field, os.date('!*t', self:getTime() // 1000))
+  end
+
+  function date:getTimezoneOffsetHourMin()
+    local offset = self:getTimezoneOffset()
+    return offset // 60, math.abs(offset) % 60
   end
 
   --- Compares the specified date to this date.
@@ -209,10 +243,25 @@ local Date = require('jls.lang.class').create(function(date)
       return os.date('!%Y-%m-%dT%H:%M:%S', t)..string.format('.%03dZ', self.field.ms)
     end
     -- %z does not give the numeric timezone on windows
-    local offset = self:getTimezoneOffset()
-    local offsetHour = offset // 60
-    local offsetMin = math.abs(offset) % 60
+    local offsetHour, offsetMin = self:getTimezoneOffsetHourMin()
     return os.date('%Y-%m-%dT%H:%M:%S', t)..string.format('.%03d%+03d:%02d', self.field.ms, offsetHour, offsetMin)
+  end
+
+  local RFC822_DAYS = {'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'}
+  local RFC822_MONTHS = {'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'}
+
+  function date:toRFC822String(utc)
+    -- Sun, 06 Nov 1994 08:49:37 GMT -- os.date('%a, %d %b %y %T %z')
+    if utc then
+      local utcField = self:getUTCField()
+      return string.format('%s, %02d %s %02d %02d:%02d:%02d GMT',
+        RFC822_DAYS[utcField.wday], utcField.day, RFC822_MONTHS[utcField.month], utcField.year,
+        utcField.hour, utcField.min, utcField.sec)
+    end
+    local offsetHour, offsetMin = self:getTimezoneOffsetHourMin()
+    return string.format('%s, %02d %s %02d %02d:%02d:%02d %+03d%02d',
+      RFC822_DAYS[self.field.wday], self.field.day, RFC822_MONTHS[self.field.month], self.field.year,
+      self.field.hour, self.field.min, self.field.sec, offsetHour, offsetMin)
   end
 
   function date:toLocalDateTime()
@@ -267,7 +316,7 @@ function Date.timestamp(t, utc)
   return formatTime('%Y%m%d%H%M%S', t, utc)
 end
 
-function Date.fromISOString(s, utc, lenient)
+local function parseISOString(s, lenient)
   local pattern
   if lenient then
     pattern = '^(%d%d%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)(.*)$'
@@ -282,17 +331,15 @@ function Date.fromISOString(s, utc, lenient)
   if rs then
     ms = string.match(rs, '^%.(%d%d%d)Z?$')
   end
-  year = tonumber(year)
-  month = tonumber(month)
-  day = tonumber(day)
-  hour = tonumber(hour)
-  min = tonumber(min)
-  sec = tonumber(sec)
-  ms = tonumber(ms) or 0
+  return tonumber(year), tonumber(month), tonumber(day),
+    tonumber(hour), tonumber(min), tonumber(sec), tonumber(ms) or 0
+end
+
+function Date.fromISOString(s, utc, lenient)
   if utc then
-    return Date.UTC(year, month, day, hour, min, sec, ms)
+    return Date.UTC(parseISOString(s, lenient))
   end
-  return Date:new(year, month, day, hour, min, sec, ms):getTime()
+  return Date:new(parseISOString(s, lenient)):getTime()
 end
 
 function Date.fromTimestamp(s, utc)

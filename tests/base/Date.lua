@@ -28,6 +28,12 @@ function Test_fromISOString()
     lu.assertEquals(Date.fromISOString('2017-12-04T00:01:18', true), 1512345678000)
 end
 
+function Test_toRFC822String()
+    lu.assertEquals(Date:new(0):toRFC822String(true), 'Thu, 01 Jan 1970 00:00:00 GMT')
+    lu.assertEquals(Date:new(1512345678000):toRFC822String(true), 'Mon, 04 Dec 2017 00:01:18 GMT')
+    lu.assertEquals(string.sub(Date:new(2017, 12, 4, 15, 30, 18):toRFC822String(), 1, 25), 'Mon, 04 Dec 2017 15:30:18')
+end
+
 function Test_computeTimezoneOffset()
     lu.assertEquals(Date.computeTimezoneOffset({day = 1, hour = 0, min = 0}, {day = 1, hour = 0, min = 0}), 0)
     lu.assertEquals(Date.computeTimezoneOffset({day = 2, hour = 0, min = 0}, {day = 1, hour = 24, min = 0}), 0)
