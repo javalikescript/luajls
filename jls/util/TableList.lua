@@ -260,7 +260,10 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return string.find(value, '^[%a_][%a%d_]*$') and not indexOf(RESERVED_NAMES, value)
   end
   
-  function TableList.isList(t)
+  function TableList.isList(t, withHoles)
+    if type(t) ~= 'table' then
+      return false
+    end
     local count = 0
     local size = 0
     local min, max
@@ -277,7 +280,7 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
         count = count + 1
       end
     end
-    return count == 0 and min == 1 and max == size
+    return count == 0 and min == 1 and (max == size or withHoles)
   end
 
   --- Returns a string by concatenating all the values of the specified list.

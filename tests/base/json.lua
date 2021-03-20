@@ -31,7 +31,6 @@ function Test_encode_decode()
     aNumber = 1.23,
     aBoolean = true
   }
-  local s = '{"aString":"Hello world !","anInteger": 123,"aNumber": 1.23,"aBoolean": true,"aNull": null}'
   lu.assertEquals(json.decode(json.encode(t)), t)
 end
 
