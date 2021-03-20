@@ -1,4 +1,5 @@
 local json = require('jls.util.json')
+local Path = require('jls.io.Path')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
 local util = {}
@@ -88,6 +89,16 @@ function util.restPart(handlers, httpExchange, path)
     return names
   end
   return REST_NOT_FOUND
+end
+
+function util.guessContentType(path, def)
+  local extension
+  if type(path) == 'string' then
+    extension = Path.extractExtension(path)
+  else
+    extension = path:getExtension()
+  end
+  return HTTP_CONTENT_TYPES[extension] or def or HTTP_CONTENT_TYPES.bin
 end
 
 util.REST_NOT_FOUND = REST_NOT_FOUND

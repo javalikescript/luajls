@@ -34,8 +34,7 @@ local function file(httpExchange)
   end
   if file:isFile() then
     response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
-    local extension = file:getExtension()
-    response:setContentType(httpHandlerUtil.CONTENT_TYPES[extension] or httpHandlerUtil.CONTENT_TYPES.bin)
+    response:setContentType(httpHandlerUtil.guessContentType(file))
     response:setCacheControl(true)
     response:setContentLength(file:length())
     setMessageBodyFile(response, file)

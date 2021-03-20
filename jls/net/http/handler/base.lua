@@ -71,6 +71,12 @@ function base.options(httpExchange, ...)
   response:setBody('')
 end
 
+function base.response(httpExchange, statusCode, reasonPhrase, body)
+  local response = httpExchange:getResponse()
+  response:setStatusCode(statusCode or HTTP_CONST.HTTP_OK, reasonPhrase or 'OK')
+  response:setBody(body or '')
+end
+
 function base.methodAllowed(httpExchange, method)
   local httpRequest = httpExchange:getRequest()
   if type(method) == 'string' then
