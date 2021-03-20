@@ -26,7 +26,6 @@ function tables.stringify(value, space)
   local sb = StringBuffer:new()
   local indent = space or ''
   local newline = space and '\n' or ''
-  local err
   local function stringify(value, prefix)
     local valueType = type(value)
     if valueType == 'table' then
@@ -57,18 +56,16 @@ function tables.stringify(value, space)
         end
       end
       sb:append('}')
+    elseif valueType == 'string' then
+      sb:append(string.format('%q', value))
+    elseif valueType == 'number' or valueType == 'boolean' then
+      sb:append(tostring(value))
     else
-      if valueType == 'string' then
-        sb:append(string.format('%q', value))
-      elseif valueType == 'number' or valueType == 'boolean' then
-        sb:append(tostring(value))
-      else
-        err = 'Invalid type '..valueType
-      end
+      error('Invalid type '..valueType)
     end
   end
   stringify(value, '')
-  return sb:toString(), err
+  return sb:toString()
 end
 
 
