@@ -107,14 +107,9 @@ local Handler = class.create(function(handler)
       name = tag.name
     }
     if tag.attrs then
-      local attr
+      local attr = {}
       for k, v in pairs(tag.attrs) do
-        local uv = unescape(v)
-        if attr then
-          attr[k] = uv
-        else
-          attr = {[k] = uv}
-        end
+        attr[k] = unescape(v)
       end
       node.attr = attr
     end

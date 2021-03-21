@@ -220,4 +220,22 @@ function Test_getQuery()
     lu.assertEquals(URL:new('http://hostname/?some_query'):getQuery(), 'some_query')
 end
 
+function Test_encodeURI()
+    lu.assertEquals(URL.encodeURI('http://hostname/?a=b#c'), 'http://hostname/?a=b#c')
+end
+
+function Test_encodePercent()
+    lu.assertEquals(URL.encodePercent(''), '')
+    lu.assertEquals(URL.encodePercent('aA0'), 'aA0')
+    lu.assertEquals(URL.encodePercent('http://hostname/?a=b#c'), 'http%3A%2F%2Fhostname%2F%3Fa%3Db%23c')
+    lu.assertEquals(URL.encodePercent('\t\r\n'), '%09%0D%0A')
+end
+
+function Test_decodePercent()
+    lu.assertEquals(URL.decodePercent(''), '')
+    lu.assertEquals(URL.decodePercent('aA0'), 'aA0')
+    lu.assertEquals(URL.decodePercent('http%3A%2F%2Fhostname%2F%3Fa%3Db%23c'), 'http://hostname/?a=b#c')
+    lu.assertEquals(URL.decodePercent('%09%0D%0A'), '\t\r\n')
+end
+
 os.exit(lu.LuaUnit.run())

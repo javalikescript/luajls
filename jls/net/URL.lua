@@ -213,16 +213,32 @@ return require('jls.lang.class').create(function(url, _, URL)
     return formatCommon(t)
   end
 
-  function URL.encodePercent(value)
-    local r = ''
-    for i = 1, #value do
-      local b = string.byte(value, i)
-      if b < 48 or ((b > 57) and (b < 65)) or ((b > 90) and (b < 97)) or b > 122 then
-        r = r..string.format("%%%02X", b)
+  local function encodePercent(value, pattern)
+    return (string.gsub(value, pattern, function(c)
+      return string.format('%%%02X', string.byte(c))
+    end))
+  end
+
+  function URL.encodeURIComponent(value, all)
+    return encodePercent(value, "[^%a%d%-_%.!~%*'%(%)]")
+  end
+
+  function URL.encodeURI(value, all)
+    return encodePercent(value, "[^%a%d%-%._~;,/%?:@&=%+%$!%*'%(%)#]")
+  end
+
+  function URL.encodePercent(value, all)
+    return encodePercent(value, '[^%a%d%-%._~]')
+  end
+
+  function URL.decodePercent(value)
+    return (string.gsub(value, '%%(%x%x)', function(v)
+      local n = tonumber(v, 16)
+      if n < 256 then
+        return string.char(n)
       end
-      r = r..string.char(b)
-    end
-    return r
+      return ''
+    end))
   end
 
 end)

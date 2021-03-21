@@ -34,6 +34,10 @@ function Test_decode_encode_ns()
   checkEncodeDecode([[<n:a xmlns:n="my:"><n:b>text</n:b></n:a>]])
 end
 
+function Test_decode_encode_2()
+  checkEncodeDecode('<a><b c="c">A value</b></a>')
+end
+
 function Test_decode_encode_escaped()
   checkEncodeDecode([[<a><b c=" &apos;1 &amp; 1&#x0a;line" /><d>"2' &amp; 2</d></a>]])
 end
@@ -70,6 +74,11 @@ function Test_encode_decode()
   lu.assertEquals(xml.decode(xml.encode(t)), t)
 end
 
+function Test_decode()
+  lu.assertEquals(xml.decode('<a><b c="c">A value</b></a>'),
+    {name = 'a', {name = 'b', attr = {c = 'c'}, 'A value'}})
+end
+
 function Test_encode()
   lu.assertEquals(xml.encode(getSampleXmlTable()),
     '<people><person type="fiction"><name>Luigi</name></person></people>')
@@ -78,6 +87,11 @@ end
 function Test_encode_2()
   lu.assertEquals(xml.encode(getSampleXmlTable2()),
     '<people><person type="fiction"><name>Luigi</name></person><person type="real"><name>Mario</name></person></people>')
+end
+
+function Test_encode_3()
+  lu.assertEquals(xml.encode({name = 'a', {name = 'b', attr = {c = 'c'}, 'A value'}}),
+  '<a><b c="c">A value</b></a>')
 end
 
 function Test_encode_ns()
