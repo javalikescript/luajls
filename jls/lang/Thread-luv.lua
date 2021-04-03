@@ -63,8 +63,7 @@ return require('jls.lang.class').create(function(thread)
         logger:fine('Thread function upvalues ('..tostring(name)..', ...) will be nil')
       end
     end
-    local chunk = string.dump(self.fn)
-    local code = "local chunk = "..string.format('%q', chunk)..
+    local code = "local chunk = "..string.format('%q', string.dump(self.fn))..
     [[
       local fn = load(chunk, nil, 'b')
       local async = (...)
@@ -80,8 +79,8 @@ return require('jls.lang.class').create(function(thread)
       end
     ]]
     --logger:finest('code: [['..code..']]')
-    local fn = load(code, nil, 't')
-    self.t = luvLib.new_thread(fn, async, ...)
+    local chunk = string.dump(load(code, nil, 't'))
+    self.t = luvLib.new_thread(chunk, async, ...)
     self._endPromise = endPromise
     return self
   end
