@@ -1,5 +1,8 @@
 --- Provide XML codec.
--- The XML is represented as a table.
+-- The XML nodes are represented using table for elements and string for texts.
+-- The table is used as an array to store the XML node children.
+-- The table has the properties 'name' and optionally 'attr' to store
+-- the node name and the node attributes using a table with key value pairs.
 -- @module jls.util.xml
 
 local XmlParser = require('XmlParser') -- xml2lua parser

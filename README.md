@@ -12,7 +12,7 @@ luajls provides:
 * language basics such as class definition, module loading, logging, promise, event loop, threads, processes
 * file system manipulation, I/O, file and networking access, serial communication, streams
 * HTTP client and server, MQTT, web socket with support for secured communication using SSL
-* utility modules for date and time, JSON format, deflate, ZIP file, scheduling and web view
+* utility modules for date and time, JSON and XML format, deflate, ZIP file, scheduling and web view
 
 ## What does it look like?
 

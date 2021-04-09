@@ -6,7 +6,7 @@ then
   lua=lua5.4
 fi
 
-#export JLS_REQUIRES=!luv
+#export JLS_REQUIRES=\!luv,\!lfs,\!cjson,\!dkjson,\!socket
 
 $lua -v
 
