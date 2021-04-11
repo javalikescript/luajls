@@ -59,9 +59,15 @@ local function checkCertificateAndPrivateKey()
   end
 end
 
+local function notFoundHandler(httpExchange)
+  local response = httpExchange:getResponse()
+  response:setStatusCode(404, 'Not Found')
+  response:setBody('The resource "'..httpExchange:getRequest():getTarget()..'" is not available.')
+end
+
 local function createHttpsServer(handler)
   if not handler then
-    handler = http.notFoundHandler
+    handler = notFoundHandler
   end
   local tcp = secure.TcpServer:new()
   local secureContext = secure.Context:new({
@@ -70,7 +76,7 @@ local function createHttpsServer(handler)
   })
   tcp:setSecureContext(secureContext)
   local server = http.Server:new(tcp)
-  server:createContext('(.*)', function(httpExchange)
+  server:createContext('/.*', function(httpExchange)
     --print('createHttpsServer() handler')
     server.t_request = httpExchange:getRequest()
     return handler(httpExchange)

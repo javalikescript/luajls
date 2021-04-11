@@ -20,7 +20,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpMessage'), fun
   end
 
   function httpRequest:setMethod(value)
-    self.method = value
+    self.method = string.upper(value)
     self.line = ''
   end
 
@@ -44,9 +44,9 @@ return require('jls.lang.class').create(require('jls.net.http.HttpMessage'), fun
   function httpRequest:setLine(line)
     self.line = line
     -- see https://tools.ietf.org/html/rfc7230#section-3.1.1
-    local index, _, method, target, version = string.find(line, "(%S+)%s(%S+)%s(%S+)")
-    if index then
-      self.method = method
+    local method, target, version = string.match(line, "^(%S+)%s(%S+)%s(%S+)$")
+    if method then
+      self.method = string.upper(method)
       self.target = target
       self.version = version
     else

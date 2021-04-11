@@ -15,11 +15,6 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
   function httpResponse:initialize()
     super.initialize(self)
     self:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
-    --self:setBody('')
-    --self:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
-    --self:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
-    --self:setHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE, 'text/html; charset=utf-8')
-    --self:setHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH], '0')
   end
 
   function httpResponse:getStatusCode()

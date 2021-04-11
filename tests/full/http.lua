@@ -90,13 +90,19 @@ local function createHttpClient(headers)
   return client
 end
 
+local function notFoundHandler(httpExchange)
+  local response = httpExchange:getResponse()
+  response:setStatusCode(404, 'Not Found')
+  response:setBody('The resource "'..httpExchange:getRequest():getTarget()..'" is not available.')
+end
+
 local function createHttpServer(handler, keep)
   if not handler then
-    handler = http.notFoundHandler
+    handler = notFoundHandler
   end
   local server = http.Server:new()
   server.t_requestCount = 0
-  server:createContext('(.*)', function(httpExchange)
+  server:createContext('/.*', function(httpExchange)
     server.t_requestCount = server.t_requestCount + 1
     server.t_request = httpExchange:getRequest()
     logger:finer('http server handle #'..tostring(server.t_requestCount))
@@ -218,7 +224,6 @@ function Test_HttpClient_no_header()
     lu.fail('Timeout reached')
   end
   lu.assertNotIsNil(client.t_err)
-  -- response:getHeaders()
 end
 
 function Test_HttpClient_content_length_empty_body()
@@ -362,6 +367,7 @@ function Test_HttpClientServer()
     local response = httpExchange:getResponse()
     response:setStatusCode(200, 'Ok')
     response:setBody(body)
+    logger:fine('http server handler => Ok')
   end):next(function(s)
     server = s
     client = createHttpClient()
