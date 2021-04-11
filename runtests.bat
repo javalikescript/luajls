@@ -54,7 +54,7 @@ CALL :rundir full
 IF %ERRORCOUNT% NEQ 0 (
   ECHO %ERRORCOUNT%/%TESTCOUNT% files in error
 ) ELSE (
-  ECHO %TESTCOUNT% files pass
+  ECHO %TESTCOUNT% files passed
 )
 GOTO :eof
 

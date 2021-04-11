@@ -8,10 +8,10 @@ return require('jls.lang.class').create(function(attributes)
 
   --- Creates a new Attributes.
   -- @function Attributes:new
-  function attributes:initialize(attributes)
+  function attributes:initialize(attrs)
     self.attributes = {}
-    if attributes and type(attributes) == 'table' then
-      self:setAttributes(attributes)
+    if attrs and type(attrs) == 'table' then
+      self:setAttributes(attrs)
     end
   end
 
@@ -34,11 +34,15 @@ return require('jls.lang.class').create(function(attributes)
     return self.attributes
   end
 
-  function attributes:setAttributes(attributes)
-    for name, value in pairs(attributes) do
+  function attributes:setAttributes(attrs)
+    for name, value in pairs(attrs) do
       self:setAttribute(name, value)
     end
     return self
   end
-end)
 
+  function attributes:cleanAttributes()
+    self.attributes = {}
+  end
+
+end)

@@ -160,8 +160,8 @@ Returns a new promise and its associated callback.
 local promise, cb = Promise.createWithCallback()
 --]]
 function Promise.createWithCallback()
-  local promise = Promise:new()
-  return promise, asCallback(promise)
+  local p = Promise:new()
+  return p, asCallback(p)
 end
 
 function Promise.createWeakWithCallback(prepare)
@@ -178,20 +178,20 @@ function Promise.createWeakWithCallback(prepare)
 end
 
 function Promise.createWithCallbacks()
-  local promise = Promise:new()
-  return promise, asCallbacks(promise)
+  local p = Promise:new()
+  return p, asCallbacks(p)
 end
 
 function Promise.newCallback(executor)
-  local promise = Promise:new()
-  executor(asCallback(promise))
-  return promise
+  local p = Promise:new()
+  executor(asCallback(p))
+  return p
 end
 
 function Promise.newCallbacks(executor)
-  local promise = Promise:new()
-  executor(asCallbacks(promise))
-  return promise
+  local p = Promise:new()
+  executor(asCallbacks(p))
+  return p
 end
 
 --- Returns a promise that either fulfills when all of the promises in the
@@ -203,7 +203,7 @@ end
 function Promise.all(promises)
   local count = #promises
   local values = {}
-  local promise, resolve, reject = Promise.createWithCallbacks()
+  local ps, resolve, reject = Promise.createWithCallbacks()
   if count > 0 then
     local function resolveAt(index)
       return function(value)
@@ -220,7 +220,7 @@ function Promise.all(promises)
   else
     resolve(values)
   end
-  return promise
+  return ps
 end
 
 --- Returns a promise that fulfills or rejects as soon as one of the
@@ -230,11 +230,11 @@ end
 -- @param promises The promises.
 -- @return A promise.
 function Promise.race(promises)
-  local promise, resolve, reject = Promise.createWithCallbacks()
+  local ps, resolve, reject = Promise.createWithCallbacks()
   for _, p in ipairs(promises) do
     p:next(resolve, reject)
   end
-  return promise
+  return ps
 end
 
 --- Returns a Promise object that is rejected with the given reason.
@@ -273,8 +273,8 @@ function Promise.ensureCallback(callback)
   if type(callback) == 'function' then
     return callback
   end
-  local promise, resolutionCallback = Promise.createWithCallback()
-  return resolutionCallback, promise
+  local p, resolutionCallback = Promise.createWithCallback()
+  return resolutionCallback, p
 end
 
 end)
