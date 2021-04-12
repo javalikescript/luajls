@@ -7,10 +7,10 @@ local Promise = require('jls.lang.Promise')
 local TcpServer = require('jls.net.TcpServer')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
+local HttpResponse = require('jls.net.http.HttpResponse')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local readBody = require('jls.net.http.readBody')
-
 
 --[[-- An HTTP server.
 The HttpServer inherits from @{HttpContextHolder}.
@@ -57,24 +57,41 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
     local request = HttpRequest:new()
     local keepAlive = false
     local remainingBuffer = nil
+    local requestHeadersPromise = nil
     local hsh = HeaderStreamHandler:new(request)
     -- TODO limit headers
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
       exchange:setRequest(request)
-      exchange:processRequestHeaders()
+      exchange:setResponse(HttpResponse:new())
+      requestHeadersPromise = exchange:processRequestHeaders()
       keepAlive = request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) == HttpMessage.CONST.CONNECTION_KEEP_ALIVE
       -- TODO limit request body
       return readBody(request, client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
       logger:fine('httpServer:onAccept() body done')
+      exchange:notifyRequestBody()
       remainingBuffer = remainingBodyBuffer
-      return exchange:processRequest()
+      if requestHeadersPromise then
+        return requestHeadersPromise
+      end
     end):next(function()
       logger:fine('httpServer:onAccept() request processed')
-      if keepAlive and exchange:getResponse() then
-        exchange:getResponse():setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_KEEP_ALIVE)
+      local response = exchange:getResponse()
+      if not response then
+        return Promise.reject('No response to process')
       end
+      if keepAlive then
+        local connection = response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+        if not connection then
+          response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_KEEP_ALIVE)
+        elseif connection == HttpMessage.CONST.CONNECTION_CLOSE then
+          keepAlive = false
+        end
+      else
+        response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
+      end
+      response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
       local status, res = pcall(function ()
         return exchange:processResponse()
       end)

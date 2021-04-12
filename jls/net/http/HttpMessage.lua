@@ -9,13 +9,13 @@ local strings = require('jls.util.strings')
 
 --- The HttpMessage class represents the base class for request and response.
 -- @type HttpMessage
-return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
+return require('jls.lang.class').create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
 
   --- Creates a new Message.
   -- @function HttpMessage:new
   function httpMessage:initialize()
+    super.initialize(self)
     self.line = ''
-    self.headers = {}
     self.version = HttpMessage.CONST.VERSION_1_1
     self.bodyBuffer = StringBuffer:new()
   end
@@ -30,90 +30,6 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
 
   function httpMessage:getVersion()
     return self.version or HttpMessage.CONST.VERSION_1_0
-  end
-
-  --- Returns the header value for the specified name.
-  -- This is the raw value and may contains multiple entries.
-  -- @tparam string name the name of the header.
-  -- @treturn string the header value corresponding to the name.
-  function httpMessage:getHeader(name)
-    return self.headers[string.lower(name)]
-  end
-
-  function httpMessage:getHeaderValues(name)
-    --[[
-      see
-        https://www.iana.org/assignments/message-headers/message-headers.xhtml
-        https://tools.ietf.org/html/rfc7231#section-5.3.4
-        https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-    ]]
-    local rawValue = self:getHeader(name)
-    if rawValue then
-      return strings.split(rawValue, '%s*,%s*')
-    end
-  end
-
-  function httpMessage:setHeaderValues(name, values)
-    if type(values) == 'table' then
-      self:setHeader(name, table.concat(values, ', '))
-    end
-  end
-
-  function httpMessage:hasHeaderIgnoreCase(name, value)
-    return string.lower(self:getHeader(name)) == string.lower(value)
-  end
-
-  function httpMessage:hasHeaderValue(name, value)
-    local values = self:getHeaderValues(name)
-    if values then
-      for _, v in ipairs(values) do
-        local pv = HttpMessage.parseHeaderValue(v)
-        if pv == value then
-          return true
-        end
-      end
-    end
-    return false
-  end
-
-  function httpMessage:setHeader(name, value)
-    local valueType = type(value)
-    if valueType == 'string' or valueType == 'number' or valueType == 'boolean' then
-      self.headers[string.lower(name)] = tostring(value)
-    else
-      logger:fine('httpMessage:setHeader('..tostring(name)..', '..tostring(value)..') Invalid value will be ignored')
-    end
-  end
-
-  function httpMessage:parseHeaderLine(line)
-    local index, _, name, value = string.find(line, '^([^:]+):%s*(.*)%s*$')
-    if index then
-      self:setHeader(name, value)
-      return true
-    end
-    return false
-  end
-
-  function httpMessage:getHeaders()
-    return self.headers
-  end
-
-  function httpMessage:setHeaders(headers)
-    for name, value in pairs(headers) do
-      self:setHeader(name, value)
-    end
-  end
-
-  function httpMessage:appendHeaders(buffer)
-    for name, value in pairs(self:getHeaders()) do
-      -- TODO Capitalize names
-      buffer:append(name, ': ', tostring(value), '\r\n')
-    end
-    return buffer
-  end
-
-  function httpMessage:getRawHeaders()
-    return self:appendHeaders(StringBuffer:new()):toString()
   end
 
   function httpMessage:getContentLength()
@@ -209,37 +125,6 @@ return require('jls.lang.class').create(function(httpMessage, _, HttpMessage)
   end
 
   function httpMessage:close()
-  end
-
-  --- Returns the header start value and a table containing the header value parameters.
-  -- @tparam string value the header value to parse.
-  -- @treturn string the header start value.
-  -- @treturn table a table containing the header value parameters.
-  function HttpMessage.parseHeaderValue(value)
-    local params = strings.split(value, '%s*;%s*')
-    local value = table.remove(params, 1)
-    --return table.unpack(params)
-    return value, params
-  end
-
-  --- Returns the header start value and a table containing the header value parameters.
-  -- @tparam string value the header value to parse.
-  -- @treturn string the header start value.
-  -- @treturn table a table containing the header parameters as key, value.
-  function HttpMessage.parseHeaderValueAsTable(value)
-    local startValue, params = HttpMessage.parseHeaderValue(value)
-    local t = {}
-    for _, param in ipairs(params) do
-      local k, v = string.match(param, '^([^=]+)%s*=%s*(.*)$')
-      if k then
-        t[k] = v
-      end
-    end
-    return startValue, t
-  end
-
-  function HttpMessage.equalsIgnoreCase(a, b)
-    return a == b or (type(a) == 'string' and type(b) == 'string' and string.lower(a) == string.lower(b))
   end
 
   HttpMessage.CONST = {

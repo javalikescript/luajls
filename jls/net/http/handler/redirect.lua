@@ -7,7 +7,7 @@ local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local function messageToString(message)
   local buffer = StringBuffer:new()
   buffer:append(message:getLine(), '\n')
-  for name, value in pairs(message:getHeaders()) do
+  for name, value in pairs(message:getHeadersTable()) do
     buffer:append('  ', name, ': ', tostring(value), '\n')
   end
   buffer:append('\n', message:getBody(), '\n')
@@ -32,7 +32,7 @@ local function redirect(httpExchange)
   local client = HttpClient:new({
     url = url,
     method = request:getMethod(),
-    headers = request:getHeaders(),
+    headers = request:getHeadersTable(),
     body = request:hasBody() and request:getBody() or nil
   })
   if log and logger:isLoggable(logger.INFO) then
@@ -47,7 +47,7 @@ local function redirect(httpExchange)
       logger:fine('redirect client status code is '..tostring(subResponse:getStatusCode()))
     end
     response:setStatusCode(subResponse:getStatusCode())
-    response:setHeaders(subResponse:getHeaders())
+    response:setHeadersTable(subResponse:getHeadersTable())
     if subResponse:hasBody() then
       response:setBody(subResponse:getBody())
     end

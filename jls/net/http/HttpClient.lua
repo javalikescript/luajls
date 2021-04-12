@@ -57,7 +57,7 @@ return require('jls.lang.class').create(function(httpClient)
     self.maxRedirectCount = 0
     self.request = request
     if type(options.headers) == 'table' then
-      request:setHeaders(options.headers)
+      request:setHeadersTable(options.headers)
     end
     request:setMethod(method)
     if type(options.url) == 'string' then

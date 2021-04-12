@@ -347,7 +347,7 @@ local function upgradeHandler(httpExchange)
   local open = context:getAttribute('open')
   if logger:isLoggable(logger.FINE) then
     logger:fine('ws.upgradeHandler()')
-    for name, value in pairs(request:getHeaders()) do
+    for name, value in pairs(request:getHeadersTable()) do
           logger:fine(tostring(name)..': "'..tostring(value)..'")')
     end
   end

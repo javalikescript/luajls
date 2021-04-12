@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpHandler = require('jls.net.http.HttpHandler')
 
 --- The HttpContext class maps a path to a handler.
 -- The HttpContext is used by the @{HttpServer} through the @{HttpContextHolder}.
@@ -12,17 +13,15 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   --- Creates a new Context.
   -- The handler will be called when the request headers have been received if specified.
   -- The handler will be called when the body has been received if no response has been set.
+  -- @tparam string path the context path
   -- @tparam function handler the context handler
   --   the function takes one argument which is an @{HttpExchange}.
-  -- @tparam string path the context path
   -- @tparam[opt] table attributes the optional context attributes
-  -- @tparam[opt] boolean headersHandler true to indicate that the handler is also used for headers
   -- @function HttpContext:new
-  function httpContext:initialize(handler, path, attributes, headersHandler)
+  function httpContext:initialize(path, handler, attributes)
     super.initialize(self, attributes)
-    self.handler = handler
-    self.path = path or ''
-    self.headersHandler = headersHandler == true
+    self.path = path
+    self:setHandler(handler)
   end
 
   function httpContext:getHandler()
@@ -30,7 +29,13 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   end
 
   function httpContext:setHandler(handler)
-    self.handler = handler
+    if type(handler) == 'function' then
+      self.handler = HttpHandler.onBody(handler)
+    elseif HttpHandler:isInstance(handler) then
+      self.handler = handler
+    else
+      error('Invalid context handler, type is '..type(handler))
+    end
     return self
   end
 
@@ -44,31 +49,19 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return select(3, string.find(path, '^'..self.path..'$'))
   end
 
-  function httpContext:isHeadersHandler()
-    return self.headersHandler == true
-  end
-
   function httpContext:handleExchange(httpExchange)
-    return self.handler(httpExchange)
-  end
-
-  function httpContext:chainContext(context)
-    return HttpContext:new(function(httpExchange)
-      httpExchange:handleRequest(self):next(function()
-        return httpExchange:handleRequest(context)
-      end)
-    end)
+    return self.handler:handle(httpExchange)
   end
 
   function httpContext:copyContext()
-    return HttpContext:new(self:getHandler(), self:getPath(), self:getAttributes(), self:isHeadersHandler())
+    return HttpContext:new(self:getPath(), self:getHandler(), self:getAttributes())
   end
 
-  function HttpContext.notFoundHandler(httpExchange)
+  HttpContext.notFoundHandler = HttpHandler:new(function(httpExchange)
     local response = httpExchange:getResponse()
     response:setStatusCode(HttpMessage.CONST.HTTP_NOT_FOUND, 'Not Found')
     response:setBody('<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
-  end
+  end)
 
 end)
 

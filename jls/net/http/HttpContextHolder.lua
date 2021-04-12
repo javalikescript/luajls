@@ -5,10 +5,6 @@
 local logger = require('jls.lang.logger')
 local HttpContext = require('jls.net.http.HttpContext')
 
-local function isHandler(handler)
-  return type(handler) == 'function'
-end
-
 --- A class that holds HTTP contexts.
 -- @type HttpContextHolder
 return require('jls.lang.class').create(function(httpContextHolder)
@@ -17,24 +13,23 @@ return require('jls.lang.class').create(function(httpContextHolder)
   -- @function HttpContextHolder:new
   function httpContextHolder:initialize()
     self.contexts = {}
-    self.notFoundContext = HttpContext:new(HttpContext.notFoundHandler)
+    self.parent = nil
+    self.notFoundContext = HttpContext:new('not found', HttpContext.notFoundHandler)
   end
 
   --- Creates a @{jls.net.http.HttpContext|context} in this server with the specified path and using the specified handler.
   -- @tparam string path The path of the context.
-  -- @tparam function handler The handler function
-  --   the function takes one argument which is an @{HttpExchange}.
+  --   The path is absolute and must start with a slash '/'.
+  --   The path is a Lua pattern that match the full path.
+  -- @tparam function handler The handler function.
+  --   The function takes one argument which is an @{HttpExchange}.
   -- @tparam[opt] table attributes the optional context attributes
-  -- @tparam[opt] boolean headersHandler true to indicate that the handler is also used for headers
   -- @return the new context
   function httpContextHolder:createContext(path, handler, ...)
-    if type(path) ~= 'string' or path == '' then
-      error('Invalid context path')
+    if type(path) ~= 'string' or not string.match(path, '^/') then
+      error('Invalid context path "'..tostring(path)..'"')
     end
-    if not isHandler(handler) then
-      error('Invalid context handler, type is '..type(handler))
-    end
-    local context = HttpContext:new(handler, path, ...)
+    local context = HttpContext:new(path, handler, ...)
     self.contexts[context:getPath()] = context
     return context
   end
@@ -55,45 +50,41 @@ return require('jls.lang.class').create(function(httpContextHolder)
     self.contexts = {}
   end
 
-  --[[
-  function httpContextHolder:getHttpContexts()
-    return self.contexts
+  function httpContextHolder:getParent()
+    return self.parent
   end
 
-  function httpContextHolder:setHttpContexts(contexts)
-    self.contexts = contexts
+  function httpContextHolder:setParent(parent)
+    self.parent = parent
     return self
   end
 
-  function httpContextHolder:addHttpContexts(contexts)
-    for p, c in pairs(contexts) do
-      self.contexts[p] = c
-    end
-    return self
-  end
-  ]]
-
-  function httpContextHolder:getHttpContext(path)
+  function httpContextHolder:getMatchingContext(path)
     local context, contextPath, maxLen = self.notFoundContext, '', 0
     for p, c in pairs(self.contexts) do
       local pLen = string.len(p)
-      if pLen > maxLen and string.find(path, '^'..p..'$') then
+      if pLen > maxLen and string.match(path, '^'..p..'$') then
         maxLen = pLen
         context = c
         contextPath = p
       end
     end
+    if self.parent then
+      context = self.parent:getMatchingContext(path)
+    end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('httpContextHolder:getHttpContext("'..path..'") => "'..contextPath..'"')
+      logger:fine('httpContextHolder:getMatchingContext("'..path..'") => "'..contextPath..'"')
     end
     return context
   end
 
+  -- TODO Remove
   function httpContextHolder:toHandler()
     return function(httpExchange)
       local request = httpExchange:getRequest()
-      local context = self:getHttpContext(request:getTargetPath())
+      local context = self:getMatchingContext(request:getTargetPath())
       return httpExchange:handleRequest(context)
     end
   end
+
 end)
