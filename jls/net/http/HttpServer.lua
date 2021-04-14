@@ -38,10 +38,10 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
   -- @return a new HTTP server
   function httpServer:initialize(tcp)
     super.initialize(self)
+    self.filters = {}
     self.tcpServer = tcp or TcpServer:new()
-    local server = self
-    function self.tcpServer:onAccept(client)
-      server:onAccept(client)
+    self.tcpServer.onAccept = function(_, client)
+      self:onAccept(client)
     end
   end
 
@@ -65,7 +65,6 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
       exchange:setRequest(request)
       exchange:setResponse(HttpResponse:new())
       requestHeadersPromise = exchange:processRequestHeaders()
-      keepAlive = request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) == HttpMessage.CONST.CONNECTION_KEEP_ALIVE
       -- TODO limit request body
       return readBody(request, client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
@@ -77,21 +76,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
       end
     end):next(function()
       logger:fine('httpServer:onAccept() request processed')
-      local response = exchange:getResponse()
-      if not response then
-        return Promise.reject('No response to process')
-      end
-      if keepAlive then
-        local connection = response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
-        if not connection then
-          response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_KEEP_ALIVE)
-        elseif connection == HttpMessage.CONST.CONNECTION_CLOSE then
-          keepAlive = false
-        end
-      else
-        response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
-      end
-      response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
+      keepAlive = exchange:applyKeepAlive()
       local status, res = pcall(function ()
         return exchange:processResponse()
       end)

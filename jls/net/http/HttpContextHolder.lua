@@ -3,7 +3,14 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
+local TableList = require('jls.util.TableList')
 local HttpContext = require('jls.net.http.HttpContext')
+
+local function compareByLength(a, b)
+  local la = string.len(a:getPath())
+  local lb = string.len(b:getPath())
+  return la > lb
+end
 
 --- A class that holds HTTP contexts.
 -- @type HttpContextHolder
@@ -30,19 +37,19 @@ return require('jls.lang.class').create(function(httpContextHolder)
       error('Invalid context path "'..tostring(path)..'"')
     end
     local context = HttpContext:new(path, handler, ...)
-    self.contexts[context:getPath()] = context
+    table.insert(self.contexts, context)
+    table.sort(self.contexts, compareByLength)
     return context
   end
 
   function httpContextHolder:removeContext(pathOrContext)
     if type(pathOrContext) == 'string' then
-      self.contexts[pathOrContext] = nil
-    elseif HttpContext:isInstance(pathOrContext) then
-      for p, c in pairs(self.contexts) do
-        if c == pathOrContext then
-          self.contexts[p] = nil
-        end
+      local context = self:findContext(pathOrContext)
+      if context then
+        TableList.removeFirst(self.contexts, context)
       end
+    elseif HttpContext:isInstance(pathOrContext) then
+      TableList.removeAll(self.contexts, pathOrContext)
     end
   end
 
@@ -59,23 +66,24 @@ return require('jls.lang.class').create(function(httpContextHolder)
     return self
   end
 
-  function httpContextHolder:getMatchingContext(path)
-    local context, contextPath, maxLen = self.notFoundContext, '', 0
-    for p, c in pairs(self.contexts) do
-      local pLen = string.len(p)
-      if pLen > maxLen and string.match(path, '^'..p..'$') then
-        maxLen = pLen
-        context = c
-        contextPath = p
+  function httpContextHolder:findContext(path)
+    for _, context in ipairs(self.contexts) do
+      if context:matchPath(path) then
+        return context
       end
     end
-    if self.parent then
+    return nil
+  end
+
+  function httpContextHolder:getMatchingContext(path)
+    local context = self:findContext(path)
+    if not context and self.parent then
       context = self.parent:getMatchingContext(path)
     end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('httpContextHolder:getMatchingContext("'..path..'") => "'..contextPath..'"')
+      logger:fine('httpContextHolder:getMatchingContext("'..path..'") => "'..context:getPath()..'"')
     end
-    return context
+    return context or self.notFoundContext
   end
 
   -- TODO Remove

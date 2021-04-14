@@ -15,7 +15,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   --- Creates a new Exchange.
   -- @function HttpExchange:new
   function httpExchange:initialize(server, client)
-    super.initialize(self) -- TODO Check if using Attributes is relevant, only used in util REST
+    super.initialize(self)
     self.server = server
     self.client = client
   end
@@ -57,9 +57,10 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.requestBodyPromise
   end
 
-  function httpExchange:notifyRequestBody()
+  function httpExchange:notifyRequestBody(error)
     if self.requestBodyCallback then
-      self.requestBodyCallback(nil, self)
+      self.requestBodyCallback(error, self)
+      self.requestBodyCallback = nil
     end
   end
 
@@ -101,7 +102,24 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.response
   end
 
+  function httpExchange:applyKeepAlive()
+    local connection = HttpMessage.CONST.HEADER_CONNECTION
+    local requestConnection = self.request:getHeader(connection)
+    if requestConnection == HttpMessage.CONST.CONNECTION_KEEP_ALIVE then
+      local responseConnection = self.response:getHeader(connection)
+      if not responseConnection then
+        self.response:setHeader(connection, requestConnection)
+        return true
+      elseif responseConnection == requestConnection then
+        return true
+      end
+    end
+    self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
+    return false
+  end
+
   function httpExchange:prepareResponse(response)
+    response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
     if not response:getContentLength() then
       if response:hasBody() then
         response:setContentLength(response:getBodyLength())
@@ -113,7 +131,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
 
   function httpExchange:handleRequest(context)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('httpExchange:handleRequest() "'..self:getRequest():getTarget()..'"')
+      logger:finer('httpExchange:handleRequest() "'..self.request:getTarget()..'"')
     end
     local status, result = xpcall(function ()
       return context:handleExchange(self)
@@ -128,12 +146,14 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     if logger:isLoggable(logger.WARN) then
       logger:warn('HttpExchange error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(result)..'"')
     end
+    local error = result or 'Unkown error'
     local response = self:getResponse()
     response:close()
     response = self:createResponse()
     response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
     self:setResponse(response)
-    return Promise.reject(result or 'Unkown error')
+    self:notifyRequestBody(error)
+    return Promise.reject(error)
   end
 
   function httpExchange:processRequestHeaders()

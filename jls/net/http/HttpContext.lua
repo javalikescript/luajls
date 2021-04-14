@@ -20,8 +20,12 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   -- @function HttpContext:new
   function httpContext:initialize(path, handler, attributes)
     super.initialize(self, attributes)
-    self.path = path
-    self:setHandler(handler)
+    if type(path) == 'string' then
+      self.path = path
+    else
+      error('Invalid context path, type is '..type(path))
+    end
+    self:setHandler(handler or HttpContext.notFoundHandler)
   end
 
   function httpContext:getHandler()
@@ -32,6 +36,8 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     if type(handler) == 'function' then
       self.handler = HttpHandler.onBody(handler)
     elseif HttpHandler:isInstance(handler) then
+      self.handler = handler
+    elseif type(handler) == 'table' and type(handler.handle) == 'function' then
       self.handler = handler
     else
       error('Invalid context handler, type is '..type(handler))
@@ -47,6 +53,13 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   -- @treturn string the first captured value, nil if there is no captured value.
   function httpContext:getArguments(path)
     return select(3, string.find(path, '^'..self.path..'$'))
+  end
+
+  function httpContext:matchPath(path)
+    if string.match(path, '^'..self.path..'$') then
+      return true
+    end
+    return false
   end
 
   function httpContext:handleExchange(httpExchange)
