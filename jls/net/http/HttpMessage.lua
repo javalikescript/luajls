@@ -2,26 +2,33 @@
 -- @module jls.net.http.HttpMessage
 -- @pragma nostrip
 
+local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
-local strings = require('jls.util.strings')
+local StreamHandler = require('jls.io.streams.StreamHandler')
+local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 
 --- The HttpMessage class represents the base class for request and response.
 -- @type HttpMessage
-return require('jls.lang.class').create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
+return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
 
   --- Creates a new Message.
   -- @function HttpMessage:new
   function httpMessage:initialize()
     super.initialize(self)
-    self.line = ''
+    self:clearLine()
     self.version = HttpMessage.CONST.VERSION_1_1
-    self.bodyBuffer = StringBuffer:new()
+    self.body = ''
+    self.bodyStreamHandler = StreamHandler.null
   end
 
   function httpMessage:getLine()
     return self.line
+  end
+
+  function httpMessage:clearLine()
+    self.line = ''
   end
 
   function httpMessage:setLine(value)
@@ -44,53 +51,27 @@ return require('jls.lang.class').create('jls.net.http.HttpHeaders', function(htt
     self:setHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH, value)
   end
 
-  function httpMessage:hasBody()
-    return self.bodyBuffer:length() > 0
-  end
-
-  function httpMessage:getBodyLength()
-    return self.bodyBuffer:length()
-  end
-
-  function httpMessage:getBody()
-    return self.bodyBuffer:toString()
-  end
-
-  function httpMessage:setBody(value)
-    if value == nil or type(value) == 'string' then
-      self.bodyBuffer:clear()
-      self.bodyBuffer:append(value)
-    elseif StringBuffer:isInstance(value) then
-      self.bodyBuffer = value
-    elseif logger:isLoggable(logger.FINER) then
-      logger:finer('httpMessage:setBody('..tostring(value)..') Invalid value')
-    end
-  end
-
+  -- will be used to read/receive the body
   function httpMessage:setBodyStreamHandler(sh)
-    self.bodyBuffer = {
-      len = 0,
-      length = function(self)
-        return self.len
-      end,
-      append = function(self, value)
-        if value then
-          self.len = self.len + #value
+    self.bodyStreamHandler = sh
+  end
+
+  function httpMessage:bufferBody()
+    self.bodyStreamHandler = BufferedStreamHandler:new(StreamHandler:new(function(err, data)
+      if err then
+        if logger:isLoggable(logger.FINEST) then
+          logger:finest('httpMessage:bufferBody() error "'..tostring(err)..'"')
         end
-        sh:onData(value)
-      end,
-      clear = function(self)
-        error('Cannot clear a stream body')
-      end,
-      toString = function(self)
-        error('Cannot return string from a stream body')
-      end,
-    }
+        self.body = ''
+      elseif data then
+        self.body = data
+      end
+    end))
   end
 
   -- Could be overriden to read the body, for example to store the content in a file
   function httpMessage:readBody(value)
-    self.bodyBuffer:append(value)
+    self.bodyStreamHandler:onData(value)
   end
 
   function httpMessage:writeHeaders(stream, callback)
@@ -103,10 +84,31 @@ return require('jls.lang.class').create('jls.net.http.HttpHeaders', function(htt
     return stream:write(buffer:toString(), callback)
   end
 
-  -- Could be overriden to write the body, for example to get the content from a file
-  function httpMessage:writeBody(stream, callback)
-    if self:hasBody() then
-      local body = self:getBody()
+  function httpMessage:getBodyLength()
+    return #self.body
+  end
+
+  function httpMessage:getBody()
+    return self.body
+  end
+
+  -- will be used to write/send the body
+  function httpMessage:setBody(value)
+    if type(value) == 'string' then
+      self.body = value
+    elseif value == nil then
+      self.body = ''
+    elseif StringBuffer:isInstance(value) then
+      self.body = value:toString()
+    else
+      error('Invalid body value, type is '..type(value))
+    end
+  end
+
+  -- Could be overriden to write the body, for example to get the content from a file.
+  function httpMessage:writeBody(stream)
+    local body = self:getBody()
+    if #body > 0 then
       if logger:isLoggable(logger.FINER) then
         if logger:isLoggable(logger.FINEST) then
           logger:finest('httpMessage:writeBody() "'..tostring(body)..'"')
@@ -114,14 +116,12 @@ return require('jls.lang.class').create('jls.net.http.HttpHeaders', function(htt
           logger:finer('httpMessage:writeBody() #'..tostring(#body))
         end
       end
-      return stream:write(body, callback)
+      return stream:write(body)
     end
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpMessage:writeBody() empty body')
     end
-    local cb, promise = Promise.ensureCallback(callback)
-    cb()
-    return promise
+    return Promise.resolve()
   end
 
   function httpMessage:close()

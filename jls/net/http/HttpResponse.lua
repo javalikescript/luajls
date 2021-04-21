@@ -59,6 +59,10 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
       self.version = version
       self.statusCode = tonumber(statusCode)
       self.reasonPhrase = reasonPhrase
+    else
+      self.version = ''
+      self.statusCode = ''
+      self.reasonPhrase = ''
     end
   end
 

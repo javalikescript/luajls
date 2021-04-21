@@ -33,7 +33,7 @@ local function redirect(httpExchange)
     url = url,
     method = request:getMethod(),
     headers = request:getHeadersTable(),
-    body = request:hasBody() and request:getBody() or nil
+    body = request:getBody()
   })
   if log and logger:isLoggable(logger.INFO) then
     logger:info('redirect request')
@@ -48,9 +48,7 @@ local function redirect(httpExchange)
     end
     response:setStatusCode(subResponse:getStatusCode())
     response:setHeadersTable(subResponse:getHeadersTable())
-    if subResponse:hasBody() then
-      response:setBody(subResponse:getBody())
-    end
+    response:setBody(subResponse:getBody())
     if log and logger:isLoggable(logger.INFO) then
       logger:info('redirect response')
       logger:info(messageToString(subResponse))

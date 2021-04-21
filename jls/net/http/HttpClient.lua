@@ -82,6 +82,7 @@ return require('jls.lang.class').create(function(httpClient)
       self.response = options.response
     else
       self.response = HttpResponse:new()
+      self.response:bufferBody()
     end
     if options.body then
       if type(options.body) == 'string' then
@@ -161,6 +162,9 @@ return require('jls.lang.class').create(function(httpClient)
     return self.request
   end
 
+  function httpClient:processResponseHeaders()
+  end
+
   --[[
   The presence of a message body in a response depends on both the
   request method to which it is responding and the response status code.
@@ -197,19 +201,19 @@ return require('jls.lang.class').create(function(httpClient)
 
   function httpClient:receiveResponse()
     logger:finer('httpClient:receiveResponse()')
-    local hsh = HeaderStreamHandler:new(self.response)
+    local response = HttpResponse:new()
+    local hsh = HeaderStreamHandler:new(response)
     return hsh:read(self.tcpClient):next(function(buffer)
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpClient:receiveResponse() header done, status code is '..tostring(self.response:getStatusCode()))
+        logger:fine('httpClient:receiveResponse() header done, status code is '..tostring(response:getStatusCode()))
       end
-      if self.maxRedirectCount > 0 and (self.response:getStatusCode() // 100) == 3 then
-        local location = self.response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
+      if self.maxRedirectCount > 0 and (response:getStatusCode() // 100) == 3 then
+        local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
         if location then
           if logger:isLoggable(logger.FINE) then
             logger:fine('httpClient:receiveResponse() redirected #'..tostring(self.maxRedirectCount)..' to "'..tostring(location)..'"')
           end
           self.maxRedirectCount = self.maxRedirectCount - 1
-          self.response:initialize()
           return self:closeClient():next(function()
             self:setUrl(location)
             self:initializeTcpClient()
@@ -221,7 +225,9 @@ return require('jls.lang.class').create(function(httpClient)
           end)
         end
       end
-      -- the caller may want to react to the headers
+      self.response:setLine(response:getLine())
+      self.response:setHeadersTable(response:getHeadersTable())
+      self:processResponseHeaders()
       return readBody(self.response, self.tcpClient, buffer)
     end):next(function(remainingBuffer)
       logger:fine('httpClient:receiveResponse() body done')

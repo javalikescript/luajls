@@ -39,7 +39,7 @@ local function table(httpExchange)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('httpHandler.table(), request body: "'..request:getBody()..'"')
     end
-    if request:hasBody() then
+    if request:getBodyLength() > 0 then
       local rt = json.decode(request:getBody())
       if type(rt) == 'table' and rt.value then
         if method == HTTP_CONST.METHOD_PUT then

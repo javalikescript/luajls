@@ -40,7 +40,7 @@ return require('jls.lang.class').create(StreamHandler, function(fileStreamHandle
 
   function fileStreamHandler:onData(data)
     if data then
-      self.fd:writeSync(data)
+      self.fd:writeSync(data) -- TODO handle errors
     else
       self:close()
       self:onClose()

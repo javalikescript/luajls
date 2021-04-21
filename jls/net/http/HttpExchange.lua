@@ -57,6 +57,15 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.requestBodyPromise
   end
 
+  --- Returns a promise that resolves once the exchange is closed.
+  -- @treturn jls.lang.Promise a promise that resolves once the request body is available.
+  function httpExchange:onClose()
+    if not self.closePromise then
+      self.closePromise, self.closeCallback = Promise.createWithCallback()
+    end
+    return self.closePromise
+  end
+
   function httpExchange:notifyRequestBody(error)
     if self.requestBodyCallback then
       self.requestBodyCallback(error, self)
@@ -64,6 +73,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     end
   end
 
+  -- TODO Remove
   function httpExchange:setRequest(request)
     self.request = request
   end
@@ -80,6 +90,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     return self.response
   end
 
+  -- TODO Remove
   function httpExchange:setResponse(response)
     self.response = response
   end
@@ -121,11 +132,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   function httpExchange:prepareResponse(response)
     response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
     if not response:getContentLength() then
-      if response:hasBody() then
-        response:setContentLength(response:getBodyLength())
-      else
-        response:setContentLength(0)
-      end
+      response:setContentLength(response:getBodyLength())
     end
   end
 
@@ -151,7 +158,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     response:close()
     response = self:createResponse()
     response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
-    self:setResponse(response)
+    self.response = response
     self:notifyRequestBody(error)
     return Promise.reject(error)
   end
@@ -198,5 +205,10 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
       self.client:close()
       self.client = nil
     end
+    if self.closeCallback then
+      self.closeCallback(error, self)
+      self.closeCallback = nil
+    end
   end
+
 end)

@@ -28,6 +28,11 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     return self.headers[string.lower(name)]
   end
 
+  --- Removes all the header values.
+  function httpHeaders:clearHeaders()
+    self.headers = {}
+  end
+
   function httpHeaders:getHeaderValues(name)
     --[[
       see
@@ -87,6 +92,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   end
 
   function httpHeaders:setHeadersTable(headers)
+    self:clearHeaders()
     for name, value in pairs(headers) do
       self:setHeader(name, value)
     end

@@ -3,7 +3,6 @@ local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local HttpServer = require('jls.net.http.HttpServer')
 
 local form = {}
 

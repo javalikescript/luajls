@@ -101,7 +101,7 @@ local function webdav(httpExchange)
       httpHandlerBase.notFound(httpExchange)
     end
   elseif method == HTTP_CONST.METHOD_PUT then
-    if request:hasBody() then
+    if request:getBodyLength() > 0 then
       file:write(request:getBody()) -- TODO Handle errors
     end
     httpHandlerBase.ok(httpExchange)
@@ -119,7 +119,7 @@ local function webdav(httpExchange)
       logger:fine('-- webdav depth: '..tostring(depth)..' --------')
     end
     local propfind
-    if request:hasBody() then
+    if request:getBodyLength() > 0 then
       local body = request:getBody()
       local t = xml.decode(body)
       if logger:isLoggable(logger.FINE) then

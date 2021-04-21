@@ -48,6 +48,8 @@ end, function(HttpHandler)
       error('Invalid on body function handler, type ('..type(fn)..')')
     end
     return HttpHandler:new(function(httpExchange)
+      -- TODO buffer only for POST and PUT request
+      httpExchange:getRequest():bufferBody()
       return httpExchange:onRequestBody():next(function()
         local r = fn(httpExchange)
         if Promise:isInstance(r) then
