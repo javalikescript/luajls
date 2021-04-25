@@ -21,16 +21,19 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
     return self.statusCode, self.reasonPhrase
   end
 
+  function httpResponse:getReasonPhrase()
+    return self.reasonPhrase
+  end
+
+  --- Sets the status code for the response.
+  -- @tparam number statusCode the status code.
+  -- @tparam[opt] string reasonPhrase the reason phrase.
   function httpResponse:setStatusCode(statusCode, reasonPhrase)
     self.statusCode = tonumber(statusCode)
     if type(reasonPhrase) == 'string' then
       self.reasonPhrase = reasonPhrase
     end
     self.line = ''
-  end
-
-  function httpResponse:getReasonPhrase()
-    return self.reasonPhrase
   end
 
   function httpResponse:setReasonPhrase(value)

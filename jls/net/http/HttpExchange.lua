@@ -6,6 +6,7 @@ local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpResponse = require('jls.net.http.HttpResponse')
 
 --- The HttpExchange class wraps the HTTP request and response.
@@ -18,9 +19,12 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     super.initialize(self)
     self.server = server
     self.client = client
+    self.request = HttpRequest:new()
+    self.response = HttpResponse:new()
   end
 
   --- Returns the HTTP context.
+  -- Only available during the request handling
   -- @treturn HttpContext the HTTP context.
   function httpExchange:getContext()
     return self.context
@@ -30,9 +34,16 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     self.context = value
   end
 
-  -- TODO Remove
+  --- Returns the HTTP request.
+  -- @treturn HttpRequest the HTTP request.
   function httpExchange:getRequest()
     return self.request
+  end
+
+  --- Returns the HTTP response.
+  -- @treturn HttpResponse the HTTP response.
+  function httpExchange:getResponse()
+    return self.response
   end
 
   --- Returns the HTTP request method.
@@ -46,6 +57,12 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
   function httpExchange:getRequestHeaders()
     --return self.request
     return HttpHeaders:new(self.request:getHeadersTable())
+  end
+
+  --- Returns the captured values of the request target path using the context path.
+  -- @treturn string the first captured value, nil if there is no captured value.
+  function httpExchange:getRequestArguments()
+    return self:getContext():getArguments(self:getRequest():getTargetPath())
   end
 
   --- Returns a promise that resolves once the request body is available.
@@ -73,44 +90,15 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
     end
   end
 
-  -- TODO Remove
-  function httpExchange:setRequest(request)
-    self.request = request
-  end
-
-  --- Returns the captured values of the request target path using the context path.
-  -- @treturn string the first captured value, nil if there is no captured value.
-  function httpExchange:getRequestArguments()
-    return self:getContext():getArguments(self:getRequest():getTargetPath())
-  end
-
-  --- Returns the HTTP response.
-  -- @treturn HttpResponse the HTTP response.
-  function httpExchange:getResponse()
-    return self.response
-  end
-
-  -- TODO Remove
-  function httpExchange:setResponse(response)
-    self.response = response
-  end
-
+  --- Sets the status code for the response.
+  -- @tparam number statusCode the status code.
+  -- @tparam[opt] string reasonPhrase the reason phrase.
+  -- @tparam[opt] string body the response body.
   function httpExchange:setResponseStatusCode(statusCode, reasonPhrase, body)
     self.response:setStatusCode(statusCode, reasonPhrase)
     if body then
       self.response:setBody(body)
     end
-  end
-
-  function httpExchange:createResponse()
-    return HttpResponse:new()
-  end
-
-  function httpExchange:getOrCreateResponse()
-    if not self.response then
-      self.response = self:createResponse()
-    end
-    return self.response
   end
 
   function httpExchange:applyKeepAlive()
@@ -154,9 +142,9 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
       logger:warn('HttpExchange error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(result)..'"')
     end
     local error = result or 'Unkown error'
-    local response = self:getResponse()
+    local response = self.response
     response:close()
-    response = self:createResponse()
+    response = HttpResponse:new()
     response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
     self.response = response
     self:notifyRequestBody(error)

@@ -54,19 +54,16 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
   function httpServer:onAccept(client, buffer)
     logger:finer('httpServer:onAccept()')
     local exchange = HttpExchange:new(self, client)
-    local request = HttpRequest:new()
     local keepAlive = false
     local remainingBuffer = nil
     local requestHeadersPromise = nil
-    local hsh = HeaderStreamHandler:new(request)
+    local hsh = HeaderStreamHandler:new(exchange:getRequest())
     -- TODO limit headers
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
-      exchange:setRequest(request)
-      exchange:setResponse(HttpResponse:new())
       requestHeadersPromise = exchange:processRequestHeaders()
       -- TODO limit request body
-      return readBody(request, client, remainingHeaderBuffer)
+      return readBody(exchange:getRequest(), client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
       logger:fine('httpServer:onAccept() body done')
       exchange:notifyRequestBody()

@@ -69,6 +69,10 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     return false
   end
 
+  --- Sets the specified header value.
+  -- This is the raw value and may contains multiple entries.
+  -- @tparam string name the name of the value.
+  -- @param value the value to set.
   function httpHeaders:setHeader(name, value)
     local valueType = type(value)
     if valueType == 'string' or valueType == 'number' or valueType == 'boolean' then

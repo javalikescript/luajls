@@ -72,36 +72,10 @@ local function files(httpExchange)
   local isDirectoryPath = string.sub(path, -1) == '/'
   local filePath = isDirectoryPath and string.sub(path, 1, -2) or path
   if filePath == '' and method ~= HTTP_CONST.METHOD_GET or not httpHandlerUtil.isValidSubPath(path) then
-    if not httpExchange:getResponse() then
-      request:setBodyStreamHandler(StreamHandler.null)
-      httpExchange:setResponse(httpExchange:createResponse())
-    end
     httpHandlerBase.forbidden(httpExchange)
     return
   end
   local file = File:new(rootFile, filePath)
-  -- Are we called before reading the request body?
-  if not httpExchange:getResponse() then
-    request:setBodyStreamHandler(StreamHandler.null)
-    if method == HTTP_CONST.METHOD_POST then
-      httpExchange:setResponse(httpExchange:createResponse())
-      if file:isFile() then
-        request:setBodyStreamHandler(FileStreamHandler:new(file, true))
-        httpHandlerBase.ok(httpExchange)
-      else
-        httpHandlerBase.forbidden(httpExchange)
-      end
-    elseif method == HTTP_CONST.METHOD_PUT and context:getAttribute('allowCreate') == true then
-      httpExchange:setResponse(httpExchange:createResponse())
-      if isDirectoryPath then
-        file:mkdirs() -- TODO Handle errors
-      else
-        request:setBodyStreamHandler(FileStreamHandler:new(file, true))
-      end
-      httpHandlerBase.ok(httpExchange)
-    end
-    return
-  end
   -- TODO Handle HEAD as a GET without body
   -- TODO Handle PATCH, MOVE
   if method == HTTP_CONST.METHOD_GET then
