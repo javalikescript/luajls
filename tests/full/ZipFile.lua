@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local File = require('jls.io.File')
 local ZipFile = require('jls.util.zip.ZipFile')
-local base64 = require('jls.util.base64')
+local logger = require('jls.lang.logger')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
@@ -32,6 +32,7 @@ local function getEmptyTmpDir()
 end
 
 function Test_exists()
+  logger:info('create directories and files')
   local tmpDir = getEmptyTmpDir()
   local z = File:new(tmpDir, 'z')
   local a = File:new(tmpDir, 'a')
@@ -39,13 +40,17 @@ function Test_exists()
   local b = File:new(tmpDir, 'b')
   b:write('Test b')
   b:setLastModified(830908800000)
+
+  logger:info('zip directories and files')
   ZipFile.zipTo(z, {a, b})
 
+  logger:info('delete directories and files')
   a:delete()
   b:delete()
   lu.assertEquals(a:exists(), false)
   lu.assertEquals(b:exists(), false)
 
+  logger:info('unzip directories and files')
   ZipFile.unzipTo(z, tmpDir)
   lu.assertEquals(a:isFile(), true)
   lu.assertEquals(b:isFile(), true)
@@ -53,7 +58,8 @@ function Test_exists()
   lu.assertEquals(a:readAll(), 'Test a')
   lu.assertEquals(b:readAll(), 'Test b')
 
-  getTmpDir() -- clean up
+  logger:info('clean up temp dir')
+  getTmpDir()
 end
 
 function Test_Struct_to_from()

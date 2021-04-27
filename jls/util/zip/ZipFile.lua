@@ -10,6 +10,7 @@ local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 -- ----------------------------------------------------------------------
 -- TODO Replace Struct by string.pack, string.packsize, and string.unpack
@@ -236,6 +237,10 @@ local ZipEntry = class.create(function(zipEntry)
     return self.compressedSize
   end
 
+  function zipEntry:getSize()
+    return self.size
+  end
+
   function zipEntry:getOffset()
     return self.offset
   end
@@ -382,22 +387,39 @@ return class.create(function(zipFile, _, ZipFile)
   end
 
   --- Creates a new ZipFile with the specified file or filename.
+  -- @tparam File file the zip file.
+  -- @tparam[opt] boolean create true to indicate that the zip file shall be created
   -- @function ZipFile:new
-  function zipFile:initialize(file)
+  function zipFile:initialize(file, create)
     local f = File.asFile(file)
+    if create == nil then
+      create = not f:exists()
+    end
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('ZipFile:new("'..f:getPath()..'", '..tostring(create)..')')
+    end
     local fd, entries, err
-    if f:isFile() then
-      fd = FileDescriptor.openSync(f)
-      entries, err = readEntries(fd, f:length())
-      if not entries then
-        fd:closeSync()
-        error(err)
-      end
-    else
-      fd = FileDescriptor.openSync(f, 'w')
+    if create then
+      fd, err = FileDescriptor.openSync(f, 'w')
       entries = {}
       self.offset = 0
       self.writable = true
+    elseif not f:isFile() then
+      error('The zip file "'..f:getPath()..'" does not exist')
+    else
+      fd, err = FileDescriptor.openSync(f)
+      if fd then
+        entries, err = readEntries(fd, f:length())
+        if entries then
+          err = nil
+        else
+          fd:closeSync()
+        end
+      end
+    end
+    if err then
+      logger:warn('ZipFile:new("'..f:getPath()..'", '..tostring(create)..') err: "'..tostring(err)..'"')
+      error(err)
     end
     self.fd = fd
     self.entries = entries
@@ -548,7 +570,7 @@ return class.create(function(zipFile, _, ZipFile)
   function zipFile:readRawContent(entry, callback)
     local localFileHeader, offset = self:readLocalFileHeader(entry)
     if not localFileHeader then
-      callback(nil, offset or 'Cannot read LocalFileHeader')
+      callback(offset or 'Cannot read LocalFileHeader')
       return
     end
     local bufferSize = 4096
@@ -559,10 +581,11 @@ return class.create(function(zipFile, _, ZipFile)
         bufferSize = endOffset - offset
       end
       local data = self.fd:readSync(bufferSize, offset)
-      callback(data)
+      callback(nil, data)
       offset = nextOffset
     end
-    callback('')
+    --callback(nil, '')
+    callback()
   end
 
   --- Returns the content of the specified entry.
@@ -588,22 +611,30 @@ return class.create(function(zipFile, _, ZipFile)
   -- @tparam[opt] function callback an optional function that will be called with the content.
   -- @treturn string the entry content
   function zipFile:getContent(entry, callback)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('getContent("'..entry:getName()..'")')
+    end
     if not callback then
       return self:getContentSync(entry)
+    end
+    if StreamHandler:isInstance(callback) then
+      callback = callback:toCallback()
+    elseif type(callback) == 'function' then
+      error('Invalid argument')
     end
     if entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_STORED then
       self:readRawContent(entry, callback)
     elseif entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED then
       local inflater = Inflater:new(-15)
-      self:readRawContent(entry, function(data, err)
+      self:readRawContent(entry, function(err, data)
         if err then
-          callback(nil, err)
+          callback(err)
         else
-          callback(inflater:inflate(data))
+          callback(nil, inflater:inflate(data))
         end
       end)
     else
-      callback(nil, 'Unsupported method ('..tostring(entry:getMethod())..')')
+      callback('Unsupported method ('..tostring(entry:getMethod())..')')
     end
   end
 
@@ -633,6 +664,9 @@ return class.create(function(zipFile, _, ZipFile)
   }
 
   function ZipFile.unzipTo(file, directory, adaptFileName)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('ZipFile.unzipTo()')
+    end
     --local fil = File.asFile(file)
     local dir = File.asFile(directory)
     if not dir:isDirectory() then
@@ -642,11 +676,13 @@ return class.create(function(zipFile, _, ZipFile)
       adaptFileName = keepFileName
     end
     local err = nil
-    local zFile = ZipFile:new(file)
+    local zFile = ZipFile:new(file, false)
     for _, entry in ipairs(zFile:getEntries()) do
       local name = adaptFileName(entry:getName(), entry)
       if name then
-        logger:info('unzip entry "'..name..'"')
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('unzip entry "'..name..'"')
+        end
         local entryFile = File:new(dir, name)
         if entry:isDirectory() then
           if not entryFile:isDirectory() then
@@ -672,7 +708,9 @@ return class.create(function(zipFile, _, ZipFile)
           entryFile:setLastModified(date:getTime())
         end
       else
-        logger:info('skipping entry "'..entry:getName()..'"')
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('skipping entry "'..entry:getName()..'"')
+        end
       end
     end
     zFile:close()
@@ -696,7 +734,10 @@ return class.create(function(zipFile, _, ZipFile)
       end
       return ZipFile.zipTo(file, {directoryOrFiles})
     end
-    local zFile = ZipFile:new(file)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('ZipFile.zipTo()')
+    end
+    local zFile = ZipFile:new(file, true)
     addFiles(zFile, path or '', directoryOrFiles)
     zFile:close()
   end
