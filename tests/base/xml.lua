@@ -42,7 +42,7 @@ function Test_decode_encode_escaped()
   checkEncodeDecode([[<a><b c=" &apos;1 &amp; 1&#x0a;line" /><d>"2' &amp; 2</d></a>]])
 end
 
-function getSampleXmlTable()
+local function getSampleXmlTable()
   return {
     name = 'people',
     {
@@ -53,7 +53,7 @@ function getSampleXmlTable()
   }
 end
 
-function getSampleXmlTable2()
+local function getSampleXmlTable2()
   return {
     name = 'people',
     {

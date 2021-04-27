@@ -105,10 +105,6 @@ return require('jls.lang.class').create(function(event)
     return taskSchedule -- as opaque timer id
   end
 
-  function event:clearInterval(timer)
-    self.scheduler:unschedule(timer)
-  end
-
   -- Sets the timer daemon flag.
   -- @param timer the timer as returned by the setTimeout or setInterval method.
   -- @tparam[opt=false] boolean daemon true to indicate this timer is a daemon.

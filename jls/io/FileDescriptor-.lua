@@ -70,8 +70,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
   -- @return the data as a string, could be less than the specified size,
   -- nil if the end of file is reached.
   function fileDescriptor:readSync(size, offset)
-    offset = offset or -1
-    if offset >= 0 then
+    if offset and offset >= 0 then
       self.fd:seek('set', offset)
     end
     return self.fd:read(size)

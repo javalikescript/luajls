@@ -90,10 +90,6 @@ local LocalDateTime = require('jls.lang.class').create(function(localDateTime)
     return self
   end
 
-  function localDateTime:getMonthLength()
-    return getMonthLength(self.year, self.month)
-  end
-
   function localDateTime:getDayOfMonth() -- 1-31
     return self.day
   end
