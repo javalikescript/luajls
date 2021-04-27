@@ -85,9 +85,6 @@ return require('jls.lang.class').create(function(httpClient)
       self.response:bufferBody()
     end
     if options.body then
-      if type(options.body) == 'string' then
-        request:setContentLength(#options.body)
-      end
       request:setBody(options.body)
     end
     if self.host then
@@ -193,6 +190,7 @@ return require('jls.lang.class').create(function(httpClient)
 
   local function sendRequest(tcpClient, request)
     logger:finer('sendRequest()')
+    request:applyBodyLength()
     return request:writeHeaders(tcpClient):next(function()
       logger:finer('sendRequest() writeHeaders() done')
       return request:writeBody(tcpClient)

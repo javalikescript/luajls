@@ -119,9 +119,7 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
 
   function httpExchange:prepareResponse(response)
     response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
-    if not response:getContentLength() then
-      response:setContentLength(response:getBodyLength())
-    end
+    response:applyBodyLength()
   end
 
   function httpExchange:handleRequest(context)
@@ -179,22 +177,15 @@ return require('jls.lang.class').create(require('jls.net.http.Attributes'), func
 
   function httpExchange:close()
     logger:finest('httpExchange:close()')
-    self:cleanAttributes()
-    if self.request then
-      self.request:close()
-      self.request = nil
-    end
-    if self.response then
-      self.response:close()
-      self.response = nil
-    end
-    if self.client then
-      --self.client:readStop()
-      self.client:close()
-      self.client = nil
+    self.request:close()
+    self.response:close()
+    local client = self:removeClient()
+    if client then
+      --client:readStop()
+      client:close()
     end
     if self.closeCallback then
-      self.closeCallback(error, self)
+      self.closeCallback()
       self.closeCallback = nil
     end
   end

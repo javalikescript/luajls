@@ -107,16 +107,14 @@ local function createHttpServer(handler, keep)
     server.t_request = httpExchange:getRequest()
     logger:finer('http server handle #'..tostring(server.t_requestCount))
     if not keep then
-      local super = httpExchange.close
-      function httpExchange.close()
+      httpExchange:onClose():next(function()
         logger:finer('http exchange closed')
         local keepAlive = httpExchange:getResponse():getHeader('Connection') == 'keep-alive'
-        super(httpExchange)
         if not keepAlive then
           logger:finer('http server closing')
           server:close()
         end
-      end
+      end)
     end
     return handler(httpExchange)
   end)
@@ -384,6 +382,34 @@ function Test_HttpClientServer()
   lu.assertEquals(client.t_response:getBody(), body)
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
+end
+
+function Test_HttpClientServer_request_body()
+  local server, client
+  createHttpServer(function(httpExchange)
+    local request = httpExchange:getRequest()
+    local response = httpExchange:getResponse()
+    response:setStatusCode(200, 'Ok')
+    response:setBody('<p>Hello '..request:getBody()..'!</p>')
+    logger:fine('http server handler => Ok')
+  end):next(function(s)
+    server = s
+    client = createHttpClient()
+    local request = client:getRequest()
+    request:setMethod('POST')
+    request:setBody('Tim')
+    sendReceiveClose(client)
+  end)
+  if not loop(function()
+    client:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getBody(), '<p>Hello Tim!</p>')
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_request:getMethod(), 'POST')
 end
 
 local function createHttpServerRedirect(body, newPath, oldPath, veryOldPath)

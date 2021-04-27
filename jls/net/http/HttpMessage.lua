@@ -92,6 +92,12 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return self.body
   end
 
+  function httpMessage:applyBodyLength()
+    if not self:getContentLength() then
+      self:setContentLength(self:getBodyLength())
+    end
+  end
+
   -- will be used to write/send the body
   function httpMessage:setBody(value)
     if type(value) == 'string' then
@@ -103,6 +109,28 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     else
       error('Invalid body value, type is '..type(value))
     end
+  end
+
+  function httpMessage:getBodyStreamHandler()
+    return Promise:new(function(resolve, reject)
+      function self:writeBody(stream)
+        local pr, cb = Promise.createWithCallback()
+        local sh = StreamHandler:new(function(err, data)
+          if err then
+            if logger:isLoggable(logger.FINEST) then
+              logger:finest('httpMessage:getBodyStreamHandler() error "'..tostring(err)..'"')
+            end
+            cb(err)
+          elseif data then
+            stream:write(data)
+          else
+            cb()
+          end
+        end)
+        resolve(sh)
+        return pr
+      end
+    end)
   end
 
   -- Could be overriden to write the body, for example to get the content from a file.

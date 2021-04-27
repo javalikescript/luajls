@@ -42,11 +42,11 @@ local function setMessageBodyFileDescriptor(httpMessage, fdProvider, readBlockSi
   if logger:isLoggable(logger.FINE) then
     logger:fine('setMessageBodyFileDescriptor(?, '..tostring(readBlockSize)..')')
   end
-  function httpMessage:writeBody(stream, callback)
+  function httpMessage:writeBody(stream)
     if logger:isLoggable(logger.FINE) then
       logger:fine('setMessageBodyFileDescriptor() => response:writeBody()')
     end
-    local pcb, promise = Promise.ensureCallback(callback)
+    local pcb, promise = Promise.createWithCallback()
     local fd, cb
     if type(fdProvider) == 'function' then
       local err

@@ -24,33 +24,25 @@ end
 --- Updates the response with the status code Bad Request, 400.
 -- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
 function base.badRequest(httpExchange)
-  local response = httpExchange:getResponse()
-  response:setStatusCode(HTTP_CONST.HTTP_BAD_REQUEST, 'Bad Request')
-  response:setBody('<p>Sorry something seems to be wrong in your request.</p>')
+  httpExchange:setResponseStatusCode(HTTP_CONST.HTTP_BAD_REQUEST, 'Bad Request', '<p>Sorry something seems to be wrong in your request.</p>')
 end
 
 --- Updates the response with the status code Forbidden, 403.
 -- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
 function base.forbidden(httpExchange)
-  local response = httpExchange:getResponse()
-  response:setStatusCode(HTTP_CONST.HTTP_FORBIDDEN, 'Forbidden')
-  response:setBody('<p>The server cannot process your request.</p>')
+  httpExchange:setResponseStatusCode(HTTP_CONST.HTTP_FORBIDDEN, 'Forbidden', '<p>The server cannot process your request.</p>')
 end
 
 --- Updates the response with the status code Not Found, 404.
 -- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
 function base.notFound(httpExchange)
-  local response = httpExchange:getResponse()
-  response:setStatusCode(HTTP_CONST.HTTP_NOT_FOUND, 'Not Found')
-  response:setBody('<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
+  httpExchange:setResponseStatusCode(HTTP_CONST.HTTP_NOT_FOUND, 'Not Found', '<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
 end
 
 --- Updates the response with the status code Method Not Allowed, 405.
 -- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
 function base.methodNotAllowed(httpExchange)
-  local response = httpExchange:getResponse()
-  response:setStatusCode(HTTP_CONST.HTTP_METHOD_NOT_ALLOWED, 'Method Not Allowed')
-  response:setBody('<p>Sorry this method is not allowed.</p>')
+  httpExchange:setResponseStatusCode(HTTP_CONST.HTTP_METHOD_NOT_ALLOWED, 'Method Not Allowed', '<p>Sorry this method is not allowed.</p>')
 end
 
 --- Updates the response with the status code Internal Server Error, 500.
@@ -72,26 +64,31 @@ function base.options(httpExchange, ...)
 end
 
 function base.response(httpExchange, statusCode, reasonPhrase, body)
-  local response = httpExchange:getResponse()
-  response:setStatusCode(statusCode or HTTP_CONST.HTTP_OK, reasonPhrase or 'OK')
-  response:setBody(body or '')
+  httpExchange:setResponseStatusCode(statusCode or HTTP_CONST.HTTP_OK, reasonPhrase or 'OK', body or '')
 end
 
-function base.methodAllowed(httpExchange, method)
-  local httpRequest = httpExchange:getRequest()
+function base.isMethodAllowed(httpExchange, method)
+  local requestMethod = httpExchange:getRequestMethod()
   if type(method) == 'string' then
-    if httpRequest:getMethod() ~= method then
-      base.methodNotAllowed(httpExchange)
+    if requestMethod ~= method then
       return false
     end
   elseif type(method) == 'table' then
     for _, m in ipairs(method) do
-      if not base.methodAllowed(httpExchange, m) then
+      if requestMethod ~= m then
         return false
       end
     end
   end
   return true
+end
+
+function base.methodAllowed(httpExchange, method)
+  if base.isMethodAllowed(httpExchange, method) then
+    return true
+  end
+  base.methodNotAllowed(httpExchange)
+  return false
 end
 
 return base
