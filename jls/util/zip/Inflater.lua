@@ -2,6 +2,7 @@
 -- @module jls.util.zip.Inflater
 
 local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 local zLib = require('zlib')
 
@@ -28,7 +29,7 @@ return require('jls.lang.class').create(function(inflater)
   ]]
   --- Creates a new Inflater with the specified window bits.
   -- @function Inflater:new
-  -- @tparam number windowBits the window bits
+  -- @tparam[opt] number windowBits the window bits
   function inflater:initialize(windowBits)
     self:reset(windowBits)
   end
@@ -60,4 +61,21 @@ return require('jls.lang.class').create(function(inflater)
   function inflater:finished()
     return self.eof
   end
+
+end, function(Inflater)
+
+  function Inflater.inflateStream(stream, windowBits)
+    local cb = StreamHandler.ensureCallback(stream)
+    local inflater = Inflater:new(windowBits)
+    return StreamHandler:new(function(err, data)
+      if err then
+        return cb(err)
+      end
+      if data then
+        return cb(nil, inflater:inflate(data))
+      end
+      return cb()
+    end)
+  end
+
 end)

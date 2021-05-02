@@ -240,34 +240,11 @@ function gzip.decompressStream(sh, onHeader)
 end
 
 function gzip.compressStreamRaw(stream, compressionLevel)
-  local cb = StreamHandler.ensureCallback(stream)
-  local deflater = Deflater:new(compressionLevel)
-  return StreamHandler:new(function(err, data)
-    if err then
-      return cb(err)
-    end
-    if data then
-      cb(nil, deflater:deflate(data))
-    else
-      cb(nil, deflater:finish())
-      cb(nil, nil)
-    end
-  end)
+  return Deflater.deflateStream(stream, compressionLevel)
 end
 
 function gzip.decompressStreamRaw(stream)
-  local cb = StreamHandler.ensureCallback(stream)
-  local inflater = Inflater:new() -- auto detect
-  return StreamHandler:new(function(err, data)
-    if err then
-      return cb(err)
-    end
-    if data then
-      cb(nil, inflater:inflate(data))
-    else
-      cb()
-    end
-  end)
+  return Inflater.inflateStream(stream) -- auto detect
 end
 
 return gzip

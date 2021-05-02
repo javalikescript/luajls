@@ -558,7 +558,7 @@ return class.create(function(zipFile, _, ZipFile)
     return localFileHeader, offset
   end
 
-  function zipFile:readSyncRawContent(entry)
+  function zipFile:readRawContentAll(entry)
     local localFileHeader, offset = self:readLocalFileHeader(entry)
     if not localFileHeader then
       return nil, offset or 'Cannot read LocalFileHeader'
@@ -567,39 +567,81 @@ return class.create(function(zipFile, _, ZipFile)
     return rawContent, localFileHeader
   end
 
-  function zipFile:readRawContent(entry, callback)
+  function zipFile:readRawContentParts(entry, stream, async)
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('readRawContentParts("'..entry:getName()..'", ?, '..tostring(async)..')')
+    end
+    local callback = StreamHandler.ensureCallback(stream)
     local localFileHeader, offset = self:readLocalFileHeader(entry)
     if not localFileHeader then
       callback(offset or 'Cannot read LocalFileHeader')
       return
     end
-    local bufferSize = 4096
-    local endOffset = offset + localFileHeader.compressedSize
-    while offset < endOffset do
-      local nextOffset = offset + bufferSize
-      if nextOffset >= endOffset then
-        bufferSize = endOffset - offset
-      end
-      local data = self.fd:readSync(bufferSize, offset)
-      callback(nil, data)
-      offset = nextOffset
+    local uncompressedSize = localFileHeader.uncompressedSize > 0 and localFileHeader.uncompressedSize or entry:getSize()
+    local compressedSize = localFileHeader.compressedSize > 0 and localFileHeader.compressedSize or entry:getCompressedSize()
+    local ratio = math.max(1, math.min(8, uncompressedSize // compressedSize))
+    local bufferSize = 4096 // ratio
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('readRawContentParts("'..entry:getName()..'") size: '..tostring(compressedSize)..'->'..tostring(uncompressedSize)..', with buffer '..tostring(bufferSize))
     end
-    --callback(nil, '')
-    callback()
+    local endOffset = offset + compressedSize
+    if async then
+      local function readCallback(err, data)
+        if err then
+          callback(err)
+        else
+          if data then
+            if callback(nil, data) == false then
+              return
+            end
+          end
+          if offset < endOffset then
+            local nextOffset = offset + bufferSize
+            if nextOffset >= endOffset then
+              bufferSize = endOffset - offset
+            end
+            if logger:isLoggable(logger.FINER) then
+              logger:finer('readRawContentParts("'..entry:getName()..'") read #'..tostring(bufferSize)..' at '..tostring(offset))
+            end
+            self.fd:read(bufferSize, offset, readCallback)
+            offset = nextOffset
+          else
+            callback()
+          end
+        end
+      end
+      readCallback()
+    else
+      while offset < endOffset do
+        local nextOffset = offset + bufferSize
+        if nextOffset >= endOffset then
+          bufferSize = endOffset - offset
+        end
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('readRawContentParts("'..entry:getName()..'") read #'..tostring(bufferSize)..' at '..tostring(offset))
+        end
+        local data = self.fd:readSync(bufferSize, offset)
+        callback(nil, data)
+        offset = nextOffset
+      end
+      callback()
+    end
   end
+
+  local INFLATER_WINDOW_BITS = -15
 
   --- Returns the content of the specified entry.
   -- @param entry the entry
   -- @treturn string the entry content
   function zipFile:getContentSync(entry)
-    local rawContent, err = self:readSyncRawContent(entry)
+    local rawContent, err = self:readRawContentAll(entry)
     if not rawContent then
       return nil, err
     end
     if entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_STORED then
       return rawContent
     elseif entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED then
-      local inflater = Inflater:new(-15)
+      local inflater = Inflater:new(INFLATER_WINDOW_BITS)
       return inflater:inflate(rawContent)
     else
       return nil, 'Unsupported method ('..tostring(entry:getMethod())..')'
@@ -608,33 +650,22 @@ return class.create(function(zipFile, _, ZipFile)
 
   --- Returns the content of the specified entry.
   -- @param entry the entry
-  -- @tparam[opt] function callback an optional function that will be called with the content.
+  -- @tparam[opt] StreamHandler stream an optional stream that will be called with the content.
+  -- @tparam[opt] boolean async true to get the consent asynchronously.
   -- @treturn string the entry content
-  function zipFile:getContent(entry, callback)
+  function zipFile:getContent(entry, stream, async)
     if logger:isLoggable(logger.FINE) then
       logger:fine('getContent("'..entry:getName()..'")')
     end
-    if not callback then
+    if not stream then
       return self:getContentSync(entry)
     end
-    if StreamHandler:isInstance(callback) then
-      callback = callback:toCallback()
-    elseif type(callback) == 'function' then
-      error('Invalid argument')
-    end
     if entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_STORED then
-      self:readRawContent(entry, callback)
+      self:readRawContentParts(entry, stream, async)
     elseif entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED then
-      local inflater = Inflater:new(-15)
-      self:readRawContent(entry, function(err, data)
-        if err then
-          callback(err)
-        else
-          callback(nil, inflater:inflate(data))
-        end
-      end)
+      self:readRawContentParts(entry, Inflater.inflateStream(stream, INFLATER_WINDOW_BITS), async)
     else
-      callback('Unsupported method ('..tostring(entry:getMethod())..')')
+      stream:onError('Unsupported method ('..tostring(entry:getMethod())..')')
     end
   end
 

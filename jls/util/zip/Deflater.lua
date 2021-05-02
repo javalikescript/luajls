@@ -2,6 +2,7 @@
 -- @module jls.util.zip.Deflater
 
 local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 local zLib = require('zlib')
 
@@ -65,4 +66,22 @@ return require('jls.lang.class').create(function(deflater)
   function deflater:finished()
     return self.eof
   end
+
+end, function(Deflater)
+
+  function Deflater.deflateStream(stream, compressionLevel, windowBits)
+    local cb = StreamHandler.ensureCallback(stream)
+    local deflater = Deflater:new(compressionLevel, windowBits)
+    return StreamHandler:new(function(err, data)
+      if err then
+        return cb(err)
+      end
+      if data then
+        return cb(nil, deflater:deflate(data))
+      end
+      cb(nil, deflater:finish())
+      cb()
+    end)
+  end
+
 end)

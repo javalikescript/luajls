@@ -6,38 +6,36 @@ local logger = require('jls.lang.logger')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
+local TMP_DIR = File:new(TMP_PATH)
 
-local function getTmpDir()
-  local tmpDir = File:new(TMP_PATH)
-  if tmpDir:isDirectory() then
-    if not tmpDir:deleteRecursive() then
-      error('Cannot delete tmp dir')
-    end
-  end
-  return tmpDir
-end
-
-local function getEmptyTmpDir()
-  local tmpDir = File:new(TMP_PATH)
-  if tmpDir:isDirectory() then
-    if not tmpDir:deleteAll() then
+local function setUpTmpDir()
+  if TMP_DIR:isDirectory() then
+    if not TMP_DIR:deleteAll() then
       error('Cannot delete tmp dir')
     end
   else
-    if not tmpDir:mkdir() then
+    if not TMP_DIR:mkdir() then
       error('Cannot create tmp dir')
     end
   end
-  return tmpDir
 end
 
-function Test_exists()
+Tests = {}
+
+function Tests:tearDown()
+  if not TMP_DIR:deleteRecursive() then
+    error('Cannot delete tmp dir')
+  end
+end
+
+function Tests:test_exists()
+  setUpTmpDir()
+
   logger:info('create directories and files')
-  local tmpDir = getEmptyTmpDir()
-  local z = File:new(tmpDir, 'z')
-  local a = File:new(tmpDir, 'a')
+  local z = File:new(TMP_DIR, 'z')
+  local a = File:new(TMP_DIR, 'a')
   a:write('Test a')
-  local b = File:new(tmpDir, 'b')
+  local b = File:new(TMP_DIR, 'b')
   b:write('Test b')
   b:setLastModified(830908800000)
 
@@ -51,18 +49,15 @@ function Test_exists()
   lu.assertEquals(b:exists(), false)
 
   logger:info('unzip directories and files')
-  ZipFile.unzipTo(z, tmpDir)
+  ZipFile.unzipTo(z, TMP_DIR)
   lu.assertEquals(a:isFile(), true)
   lu.assertEquals(b:isFile(), true)
   lu.assertEquals(b:lastModified(), 830908800000)
   lu.assertEquals(a:readAll(), 'Test a')
   lu.assertEquals(b:readAll(), 'Test b')
-
-  logger:info('clean up temp dir')
-  getTmpDir()
 end
 
-function Test_Struct_to_from()
+function Tests:test_Struct_to_from()
   local Struct = ZipFile._Struct
 
   --lu.assertEquals(res, exp)
