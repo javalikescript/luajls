@@ -35,7 +35,11 @@ local function assertThenResolution(onFulfilledCalls, onRejectedCalls, value, re
     lu.assertEquals(#onRejectedCalls, 1)
     if type(value) ~= 'nil' then
       lu.assertEquals(#onRejectedCalls[1], 1)
-      lu.assertEquals(onRejectedCalls[1][1], value)
+      if type(value) == 'function' then
+        value(onRejectedCalls[1][1])
+      else
+        lu.assertEquals(onRejectedCalls[1][1], value)
+      end
     else
       lu.assertEquals(#onRejectedCalls[1], 0)
     end
@@ -205,7 +209,9 @@ function Test_then_error()
   end)
   local onFulfilledCalls, onRejectedCalls = nextPromise(np)
   deferred.resolve()
-  assertThenResolution(onFulfilledCalls, onRejectedCalls, err, true)
+  assertThenResolution(onFulfilledCalls, onRejectedCalls, function(result)
+    lu.assertNotNil(string.find(result, err, 1, true))
+  end, true)
 end
 
 function Test_then_reject()

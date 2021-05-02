@@ -26,11 +26,13 @@ applyPromiseHandler = function(promise, handler)
   local status, result = true, NO_VALUE
   if promise._state == FULFILLED then
     if type(handler.onFulfilled) == 'function' then
-      status, result = pcall(handler.onFulfilled, promise._result)
+      status, result = xpcall(handler.onFulfilled, debug.traceback, promise._result)
+      --status, result = pcall(handler.onFulfilled, promise._result)
     end
   elseif promise._state == REJECTED then
     if type(handler.onRejected) == 'function' then
-      status, result = pcall(handler.onRejected, promise._result)
+      status, result = xpcall(handler.onRejected, debug.traceback, promise._result)
+      --status, result = pcall(handler.onRejected, promise._result)
     end
   else
     error('Invalid promise state ('..tostring(promise._state)..')')
