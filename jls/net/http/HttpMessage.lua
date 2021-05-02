@@ -21,6 +21,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self.version = HttpMessage.CONST.VERSION_1_1
     self.body = ''
     self.bodyStreamHandler = StreamHandler.null
+    --self.willRead = willRead -- indicates this message direction
   end
 
   function httpMessage:getLine()
@@ -51,16 +52,19 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self:setHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH, value)
   end
 
-  -- will be used to read/receive the body
   function httpMessage:setBodyStreamHandler(sh)
     self.bodyStreamHandler = sh
+  end
+
+  function httpMessage:getBodyStreamHandler()
+    return self.bodyStreamHandler
   end
 
   function httpMessage:bufferBody()
     self.bodyStreamHandler = BufferedStreamHandler:new(StreamHandler:new(function(err, data)
       if err then
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('httpMessage:bufferBody() error "'..tostring(err)..'"')
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('httpMessage:bufferBody() error "'..tostring(err)..'"')
         end
         self.body = ''
       elseif data then
@@ -98,7 +102,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     end
   end
 
-  -- will be used to write/send the body
   function httpMessage:setBody(value)
     if type(value) == 'string' then
       self.body = value
@@ -109,50 +112,65 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     else
       error('Invalid body value, type is '..type(value))
     end
+    self.writeBodyCallback = httpMessage.writeBodyCallback
   end
 
-  function httpMessage:getBodyStreamHandler()
-    return Promise:new(function(resolve, reject)
-      function self:writeBody(stream)
-        local pr, cb = Promise.createWithCallback()
-        local sh = StreamHandler:new(function(err, data)
-          if err then
-            if logger:isLoggable(logger.FINEST) then
-              logger:finest('httpMessage:getBodyStreamHandler() error "'..tostring(err)..'"')
-            end
-            cb(err)
-          elseif data then
-            stream:write(data)
+  function httpMessage:isResponse()
+    return type(self.getStatusCode) == 'function'
+  end
+
+  -- It is the caller's responsability to ensure that the content length or message headers are correctly set.
+  function httpMessage:onWriteBodyStreamHandler(callback)
+    local cb, pr = Promise.ensureCallback(callback)
+    self.writeBodyCallback = cb
+    return pr
+  end
+
+  function httpMessage:writeBodyCallback()
+    local body = self:getBody()
+    local sh = self:getBodyStreamHandler()
+    if #body > 0 then
+      sh:onData(body)
+    end
+    sh:onData()
+  end
+
+  function httpMessage:writeBody(stream)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('httpMessage:writeBody()')
+    end
+    local pr, cb = Promise.createWithCallback()
+    local len = 0
+    self.bodyStreamHandler = StreamHandler:new(function(err, data)
+      if err then
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('httpMessage:writeBody() stream error "'..tostring(err)..'"')
+        end
+        cb(err)
+      elseif data then
+        len = len + #data
+        if logger:isLoggable(logger.FINER) then
+          local message = 'httpMessage:writeBody() write #'..tostring(len)..'+'..tostring(#data)
+          if logger:isLoggable(logger.FINEST) then
+            logger:finest(message..' "'..tostring(data)..'"')
           else
-            cb()
+            logger:finer(message)
           end
-        end)
-        resolve(sh)
-        return pr
+        end
+        stream:write(data)
+      else
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('httpMessage:writeBody() done #'..tostring(len))
+        end
+        cb()
       end
     end)
-  end
-
-  -- Could be overriden to write the body, for example to get the content from a file.
-  function httpMessage:writeBody(stream)
-    local body = self:getBody()
-    if #body > 0 then
-      if logger:isLoggable(logger.FINER) then
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('httpMessage:writeBody() "'..tostring(body)..'"')
-        else
-          logger:finer('httpMessage:writeBody() #'..tostring(#body))
-        end
-      end
-      return stream:write(body)
-    end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('httpMessage:writeBody() empty body')
-    end
-    return Promise.resolve()
+    self:writeBodyCallback()
+    return pr
   end
 
   function httpMessage:close()
+    self.bodyStreamHandler:close()
   end
 
   HttpMessage.CONST = {

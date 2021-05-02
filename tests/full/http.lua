@@ -6,6 +6,8 @@ local TcpServer = require('jls.net.TcpServer')
 local http = require('jls.net.http')
 local strings = require('jls.util.strings')
 local TableList = require('jls.util.TableList')
+local StreamHandler = require('jls.io.streams.StreamHandler')
+local HttpHandler = require('jls.net.http.HttpHandler')
 
 local logger = require('jls.lang.logger')
 
@@ -102,7 +104,8 @@ local function createHttpServer(handler, keep)
   end
   local server = http.Server:new()
   server.t_requestCount = 0
-  server:createContext('/.*', function(httpExchange)
+  local wh = handler
+  local ch = function(httpExchange)
     server.t_requestCount = server.t_requestCount + 1
     server.t_request = httpExchange:getRequest()
     logger:finer('http server handle #'..tostring(server.t_requestCount))
@@ -116,8 +119,15 @@ local function createHttpServer(handler, keep)
         end
       end)
     end
-    return handler(httpExchange)
-  end)
+    return wh(httpExchange)
+  end
+  if HttpHandler:isInstance(handler) then
+    ch = HttpHandler:new(ch)
+    wh = function(httpExchange)
+      return handler:handle(httpExchange)
+    end
+  end
+  server:createContext('/.*', ch)
   return server:bind('::', TEST_PORT):next(function()
     return server
   end)
@@ -132,7 +142,7 @@ local function sendReceiveClose(client)
     client.t_response = response
     client:close()
   end, function(err)
-    --print('client error', err)
+    logger:fine('sendReceiveClose error "'..tostring(err)..'"')
     client.t_err = err
     client:close()
   end)
@@ -384,7 +394,7 @@ function Test_HttpClientServer()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
-function Test_HttpClientServer_request_body()
+function Test_HttpClientServer_body()
   local server, client
   createHttpServer(function(httpExchange)
     local request = httpExchange:getRequest()
@@ -398,6 +408,42 @@ function Test_HttpClientServer_request_body()
     local request = client:getRequest()
     request:setMethod('POST')
     request:setBody('Tim')
+    sendReceiveClose(client)
+  end)
+  if not loop(function()
+    client:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getBody(), '<p>Hello Tim!</p>')
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_request:getMethod(), 'POST')
+end
+
+function Test_HttpClientServer_body_stream()
+  local server, client
+  createHttpServer(function(httpExchange)
+    local request = httpExchange:getRequest()
+    local response = httpExchange:getResponse()
+    response:setStatusCode(200, 'Ok')
+    local body = '<p>Hello '..request:getBody()..'!</p>'
+    response:setContentLength(#body)
+    response:onWriteBodyStreamHandler(function()
+      StreamHandler.fill(response:getBodyStreamHandler(), body)
+    end)
+    logger:fine('http server handler => Ok')
+  end):next(function(s)
+    server = s
+    client = createHttpClient()
+    local request = client:getRequest()
+    request:setMethod('POST')
+    local body = 'Tim'
+    request:setContentLength(#body)
+    request:onWriteBodyStreamHandler(function()
+      StreamHandler.fill(request:getBodyStreamHandler(), body)
+    end)
     sendReceiveClose(client)
   end)
   if not loop(function()
