@@ -77,13 +77,17 @@ return require('jls.lang.class').create(function(httpContextHolder)
 
   function httpContextHolder:getMatchingContext(path)
     local context = self:findContext(path)
-    if not context and self.parent then
-      context = self.parent:getMatchingContext(path)
+    if not context then
+      if self.parent then
+        context = self.parent:getMatchingContext(path)
+      else
+        context = self.notFoundContext
+      end
     end
     if logger:isLoggable(logger.FINE) then
       logger:fine('httpContextHolder:getMatchingContext("'..path..'") => "'..context:getPath()..'"')
     end
-    return context or self.notFoundContext
+    return context
   end
 
   -- TODO Remove

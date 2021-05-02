@@ -96,6 +96,7 @@ local function readBody(message, tcpClient, buffer, callback)
     -- request without content length nor transfer encoding does not have a body
     local connection = message:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
     if HttpRequest:isInstance(message) or HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.HEADER_UPGRADE) then
+      message:readBody(nil)
       cb(nil, buffer) -- no body
       return promise
     end

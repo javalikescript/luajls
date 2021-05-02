@@ -70,17 +70,17 @@ end
 function base.isMethodAllowed(httpExchange, method)
   local requestMethod = httpExchange:getRequestMethod()
   if type(method) == 'string' then
-    if requestMethod ~= method then
-      return false
+    if requestMethod == method then
+      return true
     end
   elseif type(method) == 'table' then
     for _, m in ipairs(method) do
-      if requestMethod ~= m then
-        return false
+      if requestMethod == m then
+        return true
       end
     end
   end
-  return true
+  return false
 end
 
 function base.methodAllowed(httpExchange, method)
