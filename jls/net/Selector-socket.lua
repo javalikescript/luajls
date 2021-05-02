@@ -2,7 +2,6 @@ local luaSocketLib = require('socket')
 
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
-local system = require('jls.lang.system')
 local TableList = require('jls.util.TableList')
 
 -- this module only work with scheduler based event
@@ -34,7 +33,7 @@ return require('jls.lang.class').create(function(selector)
     self.minSelectTimeout = 0.5
     self.maxSelectTimeout = 15
   end
-  
+
   function selector:register(socket, mode, streamHandler, writeData, writeCallback, ip, port)
     local context = self.contt[socket]
     local computedMode = 0
@@ -117,7 +116,7 @@ return require('jls.lang.class').create(function(selector)
     end
     return
   end
-  
+
   function selector:unregister(socket, mode)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('selector:unregister('..socketToString(socket)..', '..tostring(mode)..')')
@@ -133,7 +132,7 @@ return require('jls.lang.class').create(function(selector)
       self.contt[socket] = nil
     end
   end
-  
+
   function selector:unregisterAndClose(socket)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('selector:unregisterAndClose('..socketToString(socket)..')')
@@ -141,7 +140,7 @@ return require('jls.lang.class').create(function(selector)
     self:unregister(socket)
     socket:close()
   end
-  
+
   function selector:isEmpty()
     local count = #self.recvt + #self.sendt
     if logger:isLoggable(logger.DEBUG) then
@@ -155,12 +154,11 @@ return require('jls.lang.class').create(function(selector)
     end
     return count == 0
   end
-  
+
   function selector:select(timeout)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('selector:select('..tostring(timeout)..'s) recvt: '..tostring(#self.recvt)..' sendt: '..tostring(#self.sendt))
     end
-    local selectionTime = system.currentTime()
     local canrecvt, cansendt, selectErr = luaSocketLib.select(self.recvt, self.sendt, timeout)
     if selectErr then
       if logger:isLoggable(logger.DEBUG) then
@@ -189,7 +187,8 @@ return require('jls.lang.class').create(function(selector)
             context.streamHandler:onData(content)
           elseif recvErr then
             if logger:isLoggable(logger.FINER) then
-              logger:finer('selector:select() receive error: '..tostring(recvErr))
+              logger:finer('selector:select() receive error: "'..tostring(recvErr)..'", content #'
+                ..tostring(content and #content)..'", partial #'..tostring(partial and #partial))
             end
             if partial and #partial > 0 then
               context.streamHandler:onData(partial)

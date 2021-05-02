@@ -95,6 +95,13 @@ return require('jls.lang.class').create(function(url, _, URL)
     wss = 443
   }
 
+  local function parseHostPort(hostport)
+    if string.find(hostport, '^%[') then -- IPv6 addresses are enclosed in brackets
+      return string.match(hostport, '^%[([^%]]+)%]:?(%d*)$')
+    end
+    return string.match(hostport, '^([^:]+):?(%d*)$')
+  end
+
   -- //<user>:<password>@<host>:<port>/<url-path>
   local function parseCommon(scheme, specificPart)
     local t = {
@@ -119,12 +126,7 @@ return require('jls.lang.class').create(function(url, _, URL)
     else
       hostport = authority
     end
-    local host, port
-    if string.find(hostport, '^%[') then -- IPv6 addresses are enclosed in brackets
-      host, port = string.match(hostport, '^%[([^%]]+)%]:?(%d*)$')
-    else
-      host, port = string.match(hostport, '^([^:]+):?(%d*)$')
-    end
+    local host, port = parseHostPort(hostport)
     if not host then
       error('Invalid common URL, bad host and port part ("'..scheme..specificPart..'")') -- TODO refactor
     end
