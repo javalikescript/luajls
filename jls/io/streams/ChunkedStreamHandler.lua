@@ -7,7 +7,7 @@ local logger = require('jls.lang.logger')
 --- A ChunkedStreamHandler class.
 -- This class allows to buffer a stream and to call a sub handler depending on specified limit or pattern.
 -- @type ChunkedStreamHandler
-return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'), function(chunkedStreamHandler, super, ChunkedStreamHandler)
+return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(chunkedStreamHandler, super, ChunkedStreamHandler)
 
   --- Creates a buffered @{StreamHandler} using the pattern and/or limit.
   -- The data will be pass to the wrapped handler depending on the limit and the pattern.
@@ -17,8 +17,7 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
   -- @tparam[opt] number limit the max size to buffer waiting for a pattern
   -- @function ChunkedStreamHandler:new
   function chunkedStreamHandler:initialize(handler, pattern, plain, limit)
-    super.initialize(self)
-    self.handler = handler
+    super.initialize(self, handler)
     self.limit = limit or -1
     if type(pattern) == 'string' then
       self.findCut = ChunkedStreamHandler.createPatternFinder(pattern, plain)
@@ -27,7 +26,7 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
     end
     self.length = 0
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('chunkedStreamHandler:initialize(?, '..tostring(limit)..', ?)')
+      logger:finest('chunkedStreamHandler:initialize(?, '..tostring(pattern)..', '..tostring(plain)..', '..tostring(limit)..')')
     end
   end
 
@@ -111,12 +110,8 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
     return true
   end
 
-  function chunkedStreamHandler:onError(err)
-    self.handler:onError(err)
-  end
-
   function ChunkedStreamHandler.createPatternFinder(pattern, plain)
-    return function(self, buffer)
+    return function(_, buffer)
       local ib, ie = string.find(buffer, pattern, 1, plain)
       if ib then
         return ib - 1, ie + 1
@@ -124,4 +119,5 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
       return nil
     end
   end
+
 end)

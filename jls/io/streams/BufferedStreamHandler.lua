@@ -3,13 +3,12 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local StreamHandler = require('jls.io.streams.StreamHandler')
 local StringBuffer = require('jls.lang.StringBuffer')
 
 --- A BufferedStreamHandler class.
 -- This class allows to buffer the stream to pass to the wrapped handler.
 -- @type BufferedStreamHandler
-return require('jls.lang.class').create(StreamHandler, function(bufferedStreamHandler, super)
+return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(bufferedStreamHandler, super)
 
   --- Creates a buffered @{StreamHandler}.
   -- The data will be pass to the wrapped handler once.
@@ -19,8 +18,7 @@ return require('jls.lang.class').create(StreamHandler, function(bufferedStreamHa
     if logger:isLoggable(logger.FINEST) then
       logger:finest('bufferedStreamHandler:initialize()')
     end
-    super.initialize(self)
-    self.handler = handler or StreamHandler.null
+    super.initialize(self, handler)
     self.buffer = StringBuffer:new()
   end
 
@@ -46,10 +44,6 @@ return require('jls.lang.class').create(StreamHandler, function(bufferedStreamHa
       return false
     end
     return true
-  end
-
-  function bufferedStreamHandler:onError(err)
-    self.handler:onError(err)
   end
 
 end)

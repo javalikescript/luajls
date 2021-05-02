@@ -69,8 +69,7 @@ end, function(FileStreamHandler)
     if not size then
       size = DEFAULT_BLOCK_SIZE
     end
-    local readCallback
-    readCallback = function(err, data)
+    local function readCallback(err, data)
       if err then
         sh:onError(err)
         cb(err)

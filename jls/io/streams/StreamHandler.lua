@@ -74,6 +74,11 @@ local StreamHandler = class.create(function(streamHandler)
   function streamHandler:onError(err)
   end
 
+  --- Closes this stream handler.
+  -- Do nothing by default. Must support to be called multiple times.
+  function streamHandler:close()
+  end
+
   --- Returns this stream handler as a callback function.
   -- The callback function has two arguments: the error and the data.
   -- The data could be nil indicating the end of the stream.
@@ -100,8 +105,8 @@ local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, su
   -- @function BiStreamHandler:new
   function biStreamHandler:initialize(firstStream, secondStream)
     super.initialize(self)
-    self.firstStream = firstStream
-    self.secondStream = secondStream
+    self.firstStream = StreamHandler.ensureStreamHandler(firstStream)
+    self.secondStream = StreamHandler.ensureStreamHandler(secondStream)
   end
 
   function biStreamHandler:onData(data)
@@ -118,6 +123,11 @@ local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, su
   function biStreamHandler:onError(err)
     self.firstStream:onError(err)
     self.secondStream:onError(err)
+  end
+
+  function biStreamHandler:close()
+    self.firstStream:close()
+    self.secondStream:close()
   end
 
 end)
@@ -149,17 +159,24 @@ local MultipleStreamHandler = class.create(StreamHandler, function(multipleStrea
     end
   end
 
+  function multipleStreamHandler:close()
+    for _, stream in ipairs(self.streams) do
+      stream:close()
+    end
+  end
+
 end)
 
 --- Returns a callback function.
 -- @param cb a callback function or a StreamHandler.
+-- @tparam[opt] lazy true to indicate that nil values are valid.
 -- @treturn function a callback function.
-function StreamHandler.ensureCallback(cb)
+function StreamHandler.ensureCallback(cb, lazy)
   if type(cb) == 'function' then
     return cb
   elseif StreamHandler:isInstance(cb) then
     return cb:toCallback()
-  else
+  elseif not lazy or cb ~= nil then
     error('Invalid argument')
   end
 end
@@ -201,10 +218,12 @@ end
 
 --- Fills the specified StreamHandler with the specified data.
 -- This is shortcut for sh:onData(data); sh:onData(nil)
--- @param sh the StreamHandler to fill.
--- @param data the data to process.
+-- @tparam StreamHandler sh the StreamHandler to fill.
+-- @tparam string data the data to process.
 function StreamHandler.fill(sh, data)
-  sh:onData(data)
+  if data then
+    sh:onData(data)
+  end
   sh:onData(nil)
 end
 

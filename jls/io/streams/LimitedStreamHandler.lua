@@ -7,7 +7,7 @@ local logger = require('jls.lang.logger')
 --- A LimitedStreamHandler class.
 -- This class allows to limit the stream to pass to the wrapped handler to a specified size.
 -- @type LimitedStreamHandler
-return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'), function(limitedStreamHandler, super)
+return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(limitedStreamHandler, super)
 
   --- Creates a @{StreamHandler} with a limited size.
   -- The data will be pass to the wrapped handler up to the limit.
@@ -18,8 +18,7 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
     if logger:isLoggable(logger.FINEST) then
       logger:finest('limitedStreamHandler:initialize(?, '..tostring(limit)..')')
     end
-    super.initialize(self)
-    self.handler = handler
+    super.initialize(self, handler)
     self.limit = limit
     self.length = 0
   end
@@ -51,10 +50,6 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
     -- propagate EOF
     self.handler:onData(nil)
     return false
-  end
-
-  function limitedStreamHandler:onError(err)
-    self.handler:onError(err)
   end
 
 end)

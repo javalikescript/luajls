@@ -7,12 +7,13 @@ local Promise = require('jls.lang.Promise')
 -- A PromiseStreamHandler class.
 -- This class provides a promise that resolves once the stream is closed.
 -- @type PromiseStreamHandler
-return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'), function(promiseStreamHandler, super)
+return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(promiseStreamHandler, super)
 
   -- Creates a @{StreamHandler} with a promise.
+  -- @tparam[opt] StreamHandler handler the handler to wrap
   -- @function PromiseStreamHandler:new
-  function promiseStreamHandler:initialize()
-    super.initialize(self)
+  function promiseStreamHandler:initialize(handler)
+    super.initialize(self, handler)
     self:reset()
   end
 
@@ -27,13 +28,20 @@ return require('jls.lang.class').create(require('jls.io.streams.StreamHandler'),
   end
 
   function promiseStreamHandler:onData(data)
+    local result = self.handler:onData(data)
     if not data then
       self.promiseCallback()
     end
+    return result
   end
 
   function promiseStreamHandler:onError(err)
+    self.handler:onError(err)
     self.promiseCallback(err)
+  end
+
+  function promiseStreamHandler:close()
+    self.promiseCallback('Closed') -- if not already resolved
   end
 
 end)
