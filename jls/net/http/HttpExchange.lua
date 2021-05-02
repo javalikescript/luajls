@@ -11,7 +11,7 @@ local HttpResponse = require('jls.net.http.HttpResponse')
 
 --- The HttpExchange class wraps the HTTP request and response.
 -- @type HttpExchange
-return require('jls.lang.class').create(require('jls.net.http.Attributes'), function(httpExchange, super)
+return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
 
   --- Creates a new Exchange.
   -- @function HttpExchange:new

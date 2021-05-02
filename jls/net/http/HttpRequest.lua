@@ -5,7 +5,7 @@
 --- The HttpRequest class represents an HTTP request.
 -- The HttpRequest class inherits from @{HttpMessage}.
 -- @type HttpRequest
-return require('jls.lang.class').create(require('jls.net.http.HttpMessage'), function(httpRequest, super)
+return require('jls.lang.class').create('jls.net.http.HttpMessage', function(httpRequest, super)
 
   --- Creates a new Request.
   -- @function HttpRequest:new

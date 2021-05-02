@@ -8,7 +8,7 @@ local HttpHandler = require('jls.net.http.HttpHandler')
 --- The HttpContext class maps a path to a handler.
 -- The HttpContext is used by the @{HttpServer} through the @{HttpContextHolder}.
 -- @type HttpContext
-return require('jls.lang.class').create(require('jls.net.http.Attributes'), function(httpContext, super, HttpContext)
+return require('jls.lang.class').create('jls.net.http.Attributes', function(httpContext, super, HttpContext)
 
   --- Creates a new Context.
   -- The handler will be called when the request headers have been received if specified.

@@ -7,7 +7,7 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 --- The HttpResponseFile class represents an HTTP response.
 -- The HttpResponseFile class inherits from @{HttpResponse}.
 -- @type HttpResponseFile
-return require('jls.lang.class').create(require('jls.net.http.HttpResponse'), function(httpResponseFile, super)
+return require('jls.lang.class').create('jls.net.http.HttpResponse', function(httpResponseFile, super)
 
   --- Creates a new Response.
   -- @function HttpResponseFile:new

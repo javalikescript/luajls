@@ -5,9 +5,6 @@
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local TcpServer = require('jls.net.TcpServer')
-local HttpMessage = require('jls.net.http.HttpMessage')
-local HttpRequest = require('jls.net.http.HttpRequest')
-local HttpResponse = require('jls.net.http.HttpResponse')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local readBody = require('jls.net.http.readBody')
@@ -31,7 +28,7 @@ end)
 event:loop()
 @type HttpServer
 ]]
-return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'), function(httpServer, super)
+return require('jls.lang.class').create('jls.net.http.HttpContextHolder', function(httpServer, super)
 
   --- Creates a new HTTP server.
   -- @function HttpServer:new
@@ -62,6 +59,7 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
       requestHeadersPromise = exchange:processRequestHeaders()
+      logger:finer('httpServer:onAccept() request headers processed')
       -- TODO limit request body
       return readBody(exchange:getRequest(), client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
@@ -95,7 +93,8 @@ return require('jls.lang.class').create(require('jls.net.http.HttpContextHolder'
       exchange:close()
     end, function(err)
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'"')
+        logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on "'
+        ..tostring(exchange:getRequest() and exchange:getRequest():getTargetPath())..'"')
       end
       exchange:close()
     end)
