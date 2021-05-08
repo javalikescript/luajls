@@ -11,6 +11,8 @@ if arg then
   end
 end
 
+local isWindowsOS = string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll')
+
 return {
   exePath = function()
     return exePath
@@ -19,7 +21,12 @@ return {
     error('not available')
   end,
   spawn = function(pb, onexit)
-    local line = table.concat(pb.cmd, ' ')
+    local line
+    if isWindowsOS then
+      line = pb.cmd[1]..' "'..table.concat(pb.cmd, '" "', 2)..'"'
+    else
+      line = '"'..table.concat(pb.cmd, '" "')..'"'
+    end
     local status, kind, code = os.execute(line) -- will block
     if type(onexit) == 'function' then
       onexit(code or 0)
