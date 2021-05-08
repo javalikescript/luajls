@@ -3,9 +3,9 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local httpHandlerBase = require('jls.net.http.handler.base')
 local HttpClient = require('jls.net.http.HttpClient')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
+local HttpExchange = require('jls.net.http.HttpExchange')
 local DelayedStreamHandler = require('jls.io.streams.DelayedStreamHandler')
 local Promise = require('jls.lang.Promise')
 
@@ -60,7 +60,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
   end
 
   function proxyHttpHandler:handle(httpExchange)
-    if not httpHandlerBase.methodAllowed(httpExchange, {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD}) then
+    if not HttpExchange.methodAllowed(httpExchange, {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD}) then
       return
     end
     local request = httpExchange:getRequest()

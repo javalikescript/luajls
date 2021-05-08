@@ -1,4 +1,5 @@
---- Basic file handler
+-- Deprecated, will be removed
+
 local logger = require('jls.lang.logger')
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
@@ -6,11 +7,6 @@ local File = require('jls.io.File')
 local setMessageBodyFile = require('jls.net.http.setMessageBodyFile')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
---- Basic file handler.
--- Serve static files.
--- The files are looked up from attribute rootFile or rootPath.
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function file
 local function file(httpExchange)
   local response = httpExchange:getResponse()
   local context = httpExchange:getContext()

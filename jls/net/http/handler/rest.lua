@@ -1,11 +1,9 @@
---- rest handler
+-- Deprecated, will be removed
+
 local json = require('jls.util.json')
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
 
---- Groups handlers in a table.
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function rest
 local function rest(httpExchange)
   local context = httpExchange:getContext()
   local handlers = context:getAttribute('handlers')

@@ -1,4 +1,5 @@
---- table handler
+-- Deprecated, will be removed
+
 local logger = require('jls.lang.logger')
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
@@ -6,9 +7,6 @@ local json = require('jls.util.json')
 local tables = require('jls.util.tables')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
---- Exposes a table content
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function table
 local function table(httpExchange)
   local request = httpExchange:getRequest()
   local context = httpExchange:getContext()

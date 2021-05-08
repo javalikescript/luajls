@@ -1,13 +1,9 @@
---- basicAuthentication handler
 local logger = require('jls.lang.logger')
 local base64 = require('jls.util.base64')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
---- Basic authentication handler.
--- The credentials are checked using a function specified by the attribute checkCredentials
--- A table could also be provided using the attribute credentials
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function basicAuthentication
+-- Deprecated, will be removed
+
 local function basicAuthentication(httpExchange)
   local context = httpExchange:getContext()
   local checkCredentials = context:getAttribute('checkCredentials')

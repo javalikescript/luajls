@@ -1,4 +1,5 @@
---- redirect handler
+-- Deprecated, will be removed
+
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -14,10 +15,6 @@ local function messageToString(message)
   return buffer:toString()
 end
 
---- Proxies requests.
--- The requests are redirected to attribute url.
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function redirect
 local function redirect(httpExchange)
   local request = httpExchange:getRequest()
   local response = httpExchange:getResponse()

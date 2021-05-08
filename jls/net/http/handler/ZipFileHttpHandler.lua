@@ -2,10 +2,10 @@
 -- @module jls.net.http.handler.ZipFileHttpHandler
 -- @pragma nostrip
 
-local httpHandlerBase = require('jls.net.http.handler.base')
-local httpHandlerUtil = require('jls.net.http.handler.util')
 local ZipFile = require('jls.util.zip.ZipFile')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
+local HttpExchange = require('jls.net.http.HttpExchange')
+local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 
 --- A ZipFileHttpHandler class.
 -- @type ZipFileHttpHandler
@@ -18,7 +18,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(zip
   end
 
   function zipFileHttpHandler:handle(httpExchange)
-    if not httpHandlerBase.methodAllowed(httpExchange, {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD}) then
+    if not HttpExchange.methodAllowed(httpExchange, {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD}) then
       return
     end
     local response = httpExchange:getResponse()
@@ -27,7 +27,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(zip
     local entry = zipFile:getEntry(path)
     if entry and not entry:isDirectory() then
       response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
-      response:setContentType(httpHandlerUtil.guessContentType(path))
+      response:setContentType(FileHttpHandler.guessContentType(path))
       response:setCacheControl(true)
       response:setContentLength(entry:getSize())
       if httpExchange:getRequestMethod() == HTTP_CONST.METHOD_GET then
@@ -37,7 +37,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(zip
         end)
       end
     else
-      httpHandlerBase.notFound(httpExchange)
+      HttpExchange.notFound(httpExchange)
     end
   end
 

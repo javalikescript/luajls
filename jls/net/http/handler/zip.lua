@@ -1,13 +1,10 @@
---- zip handler
+-- Deprecated, will be removed
+
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
 local File = require('jls.io.File')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
---- Exposes ZIP file content.
--- The ZIP file is specified using the attribute zipFile
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function zip
 local function zip(httpExchange)
   local response = httpExchange:getResponse()
   local context = httpExchange:getContext()

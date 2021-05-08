@@ -1,4 +1,5 @@
---- files handler
+-- Deprecated, will be removed
+
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
 local json = require('jls.util.json')
@@ -53,11 +54,6 @@ local function handleGetDirectory(httpExchange, file, showParent)
   response:setBody(body)
 end
 
---- Files handler that can list directories, create and delete files.
--- The files are looked up from attribute rootFile or rootPath.
--- The attributes allowCreate and allowDelete control modification rights
--- @tparam jls.net.http.HttpExchange httpExchange ongoing HTTP exchange
--- @function files
 local function files(httpExchange)
   local request = httpExchange:getRequest()
   local context = httpExchange:getContext()

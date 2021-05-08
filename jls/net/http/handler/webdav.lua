@@ -1,3 +1,5 @@
+-- Deprecated, will be removed
+
 local logger = require('jls.lang.logger')
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
@@ -158,8 +160,10 @@ local function webdav(httpExchange)
     end
   elseif method == HTTP_CONST.METHOD_OPTIONS then
     local response = httpExchange:getResponse()
+    response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
+    response:setHeader('Allow', table.concat({HTTP_CONST.METHOD_OPTIONS, HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_PUT, HTTP_CONST.METHOD_DELETE, 'PROPFIND'}, ', '))
     response:setHeader('DAV', 1)
-    httpHandlerBase.options(httpExchange, HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_PUT, HTTP_CONST.METHOD_DELETE, 'PROPFIND')
+    response:setBody('')
   elseif method == 'MKCOL' then
     if file:exists() then
       httpHandlerBase.response(httpExchange, HTTP_CONST.HTTP_CONFLICT, 'Conflict, already exists')
@@ -194,17 +198,17 @@ local function webdav(httpExchange)
         logger:fine('destPath: '..tostring(destPath))
       end
       local destFile = File:new(rootFile, destPath)
-      if file:exists() and not overwrite then
+      if destFile:exists() and not overwrite then
         httpHandlerBase.response(httpExchange, HTTP_CONST.HTTP_PRECONDITION_FAILED, 'Already exists')
       elseif method == 'COPY' then
         if file:isFile() then
-          file:copyTo(file)
+          file:copyTo(destFile)
           httpHandlerBase.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Copied')
         else
           httpHandlerBase.badRequest(httpExchange)
         end
       elseif method == 'MOVE' then
-        file:renameTo(file)
+        file:renameTo(destFile)
         httpHandlerBase.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
       end
     else
