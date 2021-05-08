@@ -9,7 +9,7 @@ if event ~= require('jls.lang.event-') then
   error('Conflicting event libraries')
 end
 
-local socketToString = function(client)
+local function socketToString(client)
   --local ip, port = client:getpeername()
   local status, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
   if status and ip then
@@ -17,6 +17,8 @@ local socketToString = function(client)
   end
   return string.gsub(tostring(client), '%s+', '')
 end
+
+local function emptyFunction() end
 
 local BUFFER_SIZE = 2048
 
@@ -141,6 +143,29 @@ return require('jls.lang.class').create(function(selector)
     socket:close()
   end
 
+  function selector:close(socket, callback)
+    if logger:isLoggable(logger.DEBUG) then
+      logger:debug('selector:close('..socketToString(socket)..')')
+    end
+    local context = self.contt[socket]
+    if context and context.mode & MODE_SEND == MODE_SEND then
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('selector:close() defer to select, writet: #'..tostring(#context.writet))
+        if logger:isLoggable(logger.FINEST) and #context.writet > 0 and not socket.sendto then
+          local wf = context.writet[1]
+          logger:finest('selector:select() to send '..tostring(wf.position)..'/'..tostring(wf.length)
+            ..' buffer: "'..tostring(wf.buffer)..'"')
+        end
+      end
+      context.closeCallback = callback or emptyFunction
+    else
+      self:unregisterAndClose(socket)
+      if callback then
+        callback()
+      end
+    end
+  end
+
   function selector:isEmpty()
     local count = #self.recvt + #self.sendt
     if logger:isLoggable(logger.DEBUG) then
@@ -214,7 +239,9 @@ return require('jls.lang.class').create(function(selector)
     for _, socket in ipairs(cansendt) do
       local context = self.contt[socket]
       if context and #context.writet > 0 then
-        logger:debug('selector:select() sending on '..socketToString(socket))
+        if logger:isLoggable(logger.DEBUG) then
+          logger:debug('selector:select() sending on '..socketToString(socket))
+        end
         local wf = context.writet[1]
         if socket.sendto then
           local sendErr
@@ -229,13 +256,24 @@ return require('jls.lang.class').create(function(selector)
               -- the connection was closed before the transmission was completed
               wf.callback('closed')
             elseif sendErr ~= 'timeout' then
+              if logger:isLoggable(logger.DEBUG) then
+                logger:debug('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
+              end
               wf.callback(sendErr)
             end
           else
             table.remove(context.writet, 1)
             wf.callback()
             if #context.writet == 0 then
-              self:unregister(socket, MODE_SEND)
+              if context.closeCallback then
+                if logger:isLoggable(logger.DEBUG) then
+                  logger:debug('selector close socket '..socketToString(socket))
+                end
+                self:unregisterAndClose(socket)
+                context.closeCallback()
+              else
+                self:unregister(socket, MODE_SEND)
+              end
             end
           end
         else
@@ -247,6 +285,9 @@ return require('jls.lang.class').create(function(selector)
               -- the connection was closed before the transmission was completed
               wf.callback('closed')
             elseif sendErr ~= 'timeout' then
+              if logger:isLoggable(logger.DEBUG) then
+                logger:debug('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
+              end
               wf.callback(sendErr) -- TODO discard all write futures
             end
           else
@@ -256,7 +297,15 @@ return require('jls.lang.class').create(function(selector)
             table.remove(context.writet, 1)
             wf.callback()
             if #context.writet == 0 then
-              self:unregister(socket, MODE_SEND)
+              if context.closeCallback then
+                if logger:isLoggable(logger.DEBUG) then
+                  logger:debug('selector close socket '..socketToString(socket))
+                end
+                self:unregisterAndClose(socket)
+                context.closeCallback()
+              else
+                self:unregister(socket, MODE_SEND)
+              end
             end
           end
         end
