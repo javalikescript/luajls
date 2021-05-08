@@ -4,13 +4,18 @@ local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
 local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 
+local logger = require('jls.lang.logger')
+
+local LUA_PATH = ProcessBuilder.getExecutablePath()
+logger:fine('Lua path is "'..tostring(LUA_PATH)..'"')
+
 function Test_pipe()
   --lu.runOnlyIf(Pipe)
   if not Pipe then
     lu.success()
   end
   local text = 'Hello world!'
-  local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'print("'..text..'")'})
+  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'print("'..text..'")'})
   --pb:environment({'A_KEY=VALUE A', 'B_KEY=VALUE B'})
   local p = Pipe:new()
   pb:redirectOutput(p)
@@ -38,7 +43,7 @@ function Test_env()
     lu.success()
   end
   local text = 'Hello world!'
-  local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'print(os.getenv("A_KEY"))'})
+  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'print(os.getenv("A_KEY"))'})
   pb:environment({'A_KEY='..text, 'B_KEY=VALUE B'})
   local p = Pipe:new()
   pb:redirectOutput(p)
@@ -62,7 +67,7 @@ end
 
 function Test_exitCode()
   local code = 11
-  local pb = ProcessBuilder:new({ProcessBuilder.getExecutablePath(), '-e', 'os.exit('..tostring(code)..')'})
+  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'os.exit('..tostring(code)..')'})
   local exitCode
   local ph = pb:start(function(c)
     exitCode = c

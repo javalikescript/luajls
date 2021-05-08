@@ -13,25 +13,22 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
         return index, list[index]
     end
   end
-  
+
   local function irpairs(list)
     return reverseIterator, list, #list + 1
   end
-    
+
   local function indexOf(list, value)
     for i, v in ipairs(list) do
       if v == value then
         return i
       end
     end
+    return 0
   end
 
   local function contains(list, value)
-    if value == nil then
-      return false
-    end
-    local index = indexOf(list, value)
-    return index ~= nil and index > 0
+    return value ~= nil and indexOf(list, value) > 0
   end
 
   local function lastIndexOf(list, value)
@@ -44,7 +41,7 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
 
   local function removeFirst(list, value)
     local index = indexOf(list, value)
-    if index then
+    if index > 0 then
       table.remove(list, index)
       return true
     end
@@ -210,7 +207,7 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     end
     return filtered, unfilteredList
   end
-  
+
   function tableList:iterator()
     return ipairs(self)
   end
@@ -223,7 +220,7 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
 
   tableList.lastIndexOf = lastIndexOf
 
-  
+
   TableList.contains = contains
 
   TableList.indexOf = indexOf
@@ -253,13 +250,16 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   TableList.removeIf = removeIf
 
   TableList.irpairs = irpairs
-  
+
   local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
 
   function TableList.isName(value)
-    return string.find(value, '^[%a_][%a%d_]*$') and not indexOf(RESERVED_NAMES, value)
+    if string.find(value, '^[%a_][%a%d_]*$') and indexOf(RESERVED_NAMES, value) == 0 then
+      return true
+    end
+    return false
   end
-  
+
   function TableList.isList(t, withHoles)
     if type(t) ~= 'table' then
       return false

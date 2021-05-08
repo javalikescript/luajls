@@ -100,7 +100,16 @@ function Test_indexOf()
   lu.assertIs(list:indexOf('1'), 1)
   lu.assertIs(list:indexOf('2'), 2)
   lu.assertIs(list:indexOf('3'), 3)
-  lu.assertIsNil(list:indexOf('4'))
+  lu.assertIs(list:indexOf('4'), 0)
+end
+
+function Test_isName()
+  lu.assertIsTrue(TableList.isName('a_value'))
+  lu.assertIsTrue(TableList.isName('a1'))
+  lu.assertIsTrue(TableList.isName('_value'))
+  lu.assertIsTrue(TableList.isName('B'))
+  lu.assertIsFalse(TableList.isName('1_value'))
+  lu.assertIsFalse(TableList.isName('and'))
 end
 
 function Test_contains()
