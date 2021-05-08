@@ -8,6 +8,8 @@ local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpResponse = require('jls.net.http.HttpResponse')
+local TableList = require('jls.util.TableList')
+local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpExchange class wraps the HTTP request and response.
 -- @type HttpExchange
@@ -30,8 +32,8 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self.context
   end
 
-  function httpExchange:setContext(value)
-    self.context = value
+  function httpExchange:setContext(context)
+    self.context = context
   end
 
   --- Returns the HTTP request.
@@ -66,8 +68,12 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns a promise that resolves once the request body is available.
+  -- @tparam[opt] boolean buffer true to indicate that the request body must be bufferred.
   -- @treturn jls.lang.Promise a promise that resolves once the request body is available.
-  function httpExchange:onRequestBody()
+  function httpExchange:onRequestBody(buffer)
+    if buffer then
+      self.request:bufferBody()
+    end
     if not self.requestBodyPromise then
       self.requestBodyPromise, self.requestBodyCallback = Promise.createWithCallback()
     end
@@ -117,9 +123,9 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return false
   end
 
-  function httpExchange:prepareResponse(response)
-    response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
-    response:applyBodyLength()
+  function httpExchange:prepareResponseHeaders()
+    self.response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
+    self.response:applyBodyLength()
   end
 
   function httpExchange:handleRequest(context)
@@ -155,20 +161,6 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self:handleRequest(self:getContext())
   end
 
-  function httpExchange:processResponse()
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('httpExchange:processResponse()')
-    end
-    local response = self:getResponse()
-    if not response then
-      return Promise.reject('No response to process')
-    end
-    self:prepareResponse(response)
-    return response:writeHeaders(self.client):next(function()
-      return response:writeBody(self.client)
-    end)
-  end
-
   function httpExchange:removeClient()
     local client = self.client
     self.client = nil
@@ -188,6 +180,108 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       self.closeCallback()
       self.closeCallback = nil
     end
+  end
+
+end, function(HttpExchange)
+
+  HttpExchange.CONTENT_TYPES = {
+    bin = 'application/octet-stream',
+    css = 'text/css',
+    js = 'application/javascript',
+    json = 'application/json',
+    htm = 'text/html',
+    html = 'text/html',
+    txt = 'text/plain',
+    xml = 'text/xml',
+    pdf = 'application/pdf',
+  }
+
+  HttpExchange.REASONS = {
+    [HTTP_CONST.HTTP_OK] = 'OK',
+    [HTTP_CONST.HTTP_BAD_REQUEST] = 'Bad Request',
+    [HTTP_CONST.HTTP_FORBIDDEN] = 'Forbidden',
+    [HTTP_CONST.HTTP_NOT_FOUND] = 'Not Found',
+    [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = 'Method Not Allowed',
+    [HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR] = 'Internal Server Error',
+  }
+
+  HttpExchange.CONTENTS = {
+    [HTTP_CONST.HTTP_BAD_REQUEST] = '<p>Sorry something seems to be wrong in your request.</p>',
+    [HTTP_CONST.HTTP_FORBIDDEN] = '<p>The server cannot process your request.</p>',
+    [HTTP_CONST.HTTP_NOT_FOUND] = '<p>The resource is not available.</p>',
+    [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = '<p>Sorry this method is not allowed.</p>',
+    [HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR] = '<p>Sorry something went wrong on our side.</p>',
+  }
+
+  local function updateResponseFor(httpExchange, statusCode, reasonPhrase, bodyContent)
+    httpExchange:setResponseStatusCode(statusCode, reasonPhrase or HttpExchange.REASONS[statusCode], bodyContent or HttpExchange.CONTENTS[statusCode] or '')
+  end
+
+  --- Updates the response with the OK status code, 200.
+  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  -- @tparam[opt] string body the response content.
+  -- @tparam[opt] string contentType the response content type.
+  function HttpExchange.ok(httpExchange, body, contentType)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_OK, nil, body)
+    if type(contentType) == 'string' then
+      httpExchange:getResponse():setContentType(contentType)
+    end
+  end
+
+  --- Updates the response with the status code Bad Request, 400.
+  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  function HttpExchange.badRequest(httpExchange)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_BAD_REQUEST)
+  end
+
+  --- Updates the response with the status code Forbidden, 403.
+  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  function HttpExchange.forbidden(httpExchange)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_FORBIDDEN)
+  end
+
+  --- Updates the response with the status code Not Found, 404.
+  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  function HttpExchange.notFound(httpExchange)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_NOT_FOUND, nil, '<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
+  end
+
+  --- Updates the response with the status code Method Not Allowed, 405.
+  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  function HttpExchange.methodNotAllowed(httpExchange)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_METHOD_NOT_ALLOWED)
+  end
+
+  --- Updates the response with the status code Internal Server Error, 500.
+  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  function HttpExchange.internalServerError(httpExchange)
+    httpExchange:getResponse():setVersion(HTTP_CONST.VERSION_1_0)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR)
+  end
+
+  function HttpExchange.response(httpExchange, statusCode, reasonPhrase, bodyContent)
+    updateResponseFor(httpExchange, statusCode or HTTP_CONST.HTTP_OK, reasonPhrase, bodyContent)
+  end
+
+  function HttpExchange.isValidSubPath(path)
+    -- Checks whether it starts, ends or contains /../
+    return not (string.find(path, '/../', 1, true) or string.match(path, '^%.%./') or string.match(path, '/%.%.$') or string.find(path, '\\', 1, true))
+    --return not string.find(path, '..', 1, true)
+  end
+
+  function HttpExchange.methodAllowed(httpExchange, method)
+    local requestMethod = httpExchange:getRequestMethod()
+    if type(method) == 'string' then
+      if requestMethod == method then
+        return true
+      end
+    elseif type(method) == 'table' then
+      if TableList.contains(method, requestMethod) then
+        return true
+      end
+    end
+    HttpExchange.methodNotAllowed(httpExchange)
+    return false
   end
 
 end)

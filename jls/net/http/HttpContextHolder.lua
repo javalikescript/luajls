@@ -5,6 +5,7 @@
 local logger = require('jls.lang.logger')
 local TableList = require('jls.util.TableList')
 local HttpContext = require('jls.net.http.HttpContext')
+local HttpFilter = require('jls.net.http.HttpFilter')
 
 local function compareByLength(a, b)
   local la = string.len(a:getPath())
@@ -20,7 +21,8 @@ return require('jls.lang.class').create(function(httpContextHolder)
   -- @function HttpContextHolder:new
   function httpContextHolder:initialize()
     self.contexts = {}
-    self.parent = nil
+    self.filters = {}
+    self.parentContextHolder = nil
     self.notFoundContext = HttpContext:new('not found', HttpContext.notFoundHandler)
   end
 
@@ -57,12 +59,34 @@ return require('jls.lang.class').create(function(httpContextHolder)
     self.contexts = {}
   end
 
-  function httpContextHolder:getParent()
-    return self.parent
+  function httpContextHolder:addFilter(filter)
+    if type(filter) == 'function' then
+      filter = HttpFilter:new(filter)
+    elseif not HttpFilter:isInstance(filter) then
+      error('Invalid filter argument, type is '..type(filter))
+    end
+    table.insert(self.filters, filter)
+    return filter
   end
 
-  function httpContextHolder:setParent(parent)
-    self.parent = parent
+  function httpContextHolder:removeFilter(filter)
+    TableList.removeAll(self.filters, filter)
+  end
+
+  function httpContextHolder:removeAllFilters()
+    self.filters = {}
+  end
+
+  function httpContextHolder:getFilters()
+    return self.filters
+  end
+
+  function httpContextHolder:getParentContextHolder()
+    return self.parentContextHolder
+  end
+
+  function httpContextHolder:setParentContextHolder(parent)
+    self.parentContextHolder = parent
     return self
   end
 
@@ -78,8 +102,8 @@ return require('jls.lang.class').create(function(httpContextHolder)
   function httpContextHolder:getMatchingContext(path)
     local context = self:findContext(path)
     if not context then
-      if self.parent then
-        context = self.parent:getMatchingContext(path)
+      if self.parentContextHolder then
+        context = self.parentContextHolder:findContext(path) or self.notFoundContext
       else
         context = self.notFoundContext
       end

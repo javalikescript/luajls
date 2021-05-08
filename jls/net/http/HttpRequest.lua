@@ -63,4 +63,5 @@ return require('jls.lang.class').create('jls.net.http.HttpMessage', function(htt
   function httpRequest:getTargetQuery()
     return string.gsub(self.target, '^[^%?]*%??', '')
   end
+
 end)

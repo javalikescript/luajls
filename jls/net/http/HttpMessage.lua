@@ -8,6 +8,8 @@ local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
+local LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler')
+local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 
 --- The HttpMessage class represents the base class for request and response.
 -- @type HttpMessage
@@ -73,11 +75,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     end))
   end
 
-  -- Could be overriden to read the body, for example to store the content in a file
-  function httpMessage:readBody(value)
-    self.bodyStreamHandler:onData(value)
-  end
-
   function httpMessage:writeHeaders(stream, callback)
     local buffer = StringBuffer:new(self:getLine(), '\r\n')
     self:appendHeaders(buffer):append('\r\n')
@@ -133,6 +130,150 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       sh:onData(body)
     end
     sh:onData()
+  end
+
+  local function createChunkFinder()
+    local needChunkSize = true
+    local chunkSize
+    return function(self, buffer, length)
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('chunkFinder('..tostring(buffer and #buffer)..', '..tostring(length)..') chunk size: '..tostring(chunkSize))
+      end
+      if needChunkSize then
+        local ib, ie = string.find(buffer, '\r\n', 1, true)
+        if ib and ib > 1 and ib < 32 then
+          local chunkLine = string.sub(buffer, 1, ib - 1)
+          if logger:isLoggable(logger.FINEST) then
+            logger:finest('chunkFinder() chunk line: "'..chunkLine..'"')
+          end
+          local ic = string.find(chunkLine, ';', 1, true)
+          if ic then
+            chunkLine = string.sub(buffer, 1, ic - 1)
+          end
+          chunkSize = tonumber(chunkLine, 16)
+          if chunkSize then
+            needChunkSize = false
+          else
+            self:onError('Invalid chunk size, line length is '..tostring(chunkLine and #chunkLine))
+          end
+          return -1, ie + 1
+        elseif #buffer > 2 then
+          self:onError('Chunk size not found, buffer length is '..tostring(#buffer))
+        end
+      else
+        if chunkSize == 0 then
+          if logger:isLoggable(logger.FINER) then
+            logger:finer('chunkFinder() chunk ended')
+          end
+          -- TODO consume trailer-part
+          return -1, -1
+        elseif length >= chunkSize then
+          needChunkSize = true
+          return chunkSize, chunkSize + 2
+        end
+      end
+      return nil
+    end
+  end
+
+  local function isRequest(message)
+    return message and type(message.getMethod) == 'function'
+  end
+
+  function httpMessage:readBody(stream, buffer, callback)
+    local cb, promise = Promise.ensureCallback(callback)
+    logger:fine('httpMessage:readBody()')
+    local chunkFinder = nil
+    local transferEncoding = self:getHeader(HttpMessage.CONST.HEADER_TRANSFER_ENCODING)
+    if transferEncoding then
+      if transferEncoding == 'chunked' then
+        chunkFinder = createChunkFinder()
+      else
+        cb('Unsupported transfer encoding "'..transferEncoding..'"')
+        return promise
+      end
+    end
+    local length = self:getContentLength()
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('httpMessage:readBody() content length is '..tostring(length))
+    end
+    if length and length <= 0 then
+      self.bodyStreamHandler:onData(nil)
+      cb(nil, buffer) -- empty body
+      return promise
+    end
+    if length and buffer then
+      local bufferLength = #buffer
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpMessage:readBody() remaining buffer #'..tostring(bufferLength))
+      end
+      if bufferLength >= length then
+        local remainingBuffer = nil
+        if bufferLength > length then
+          logger:warn('httpMessage:readBody() remaining buffer too big '..tostring(bufferLength)..' > '..tostring(length))
+          remainingBuffer = string.sub(buffer, length + 1)
+          buffer = string.sub(buffer, 1, length)
+        end
+        self.bodyStreamHandler:onData(buffer)
+        self.bodyStreamHandler:onData(nil)
+        cb(nil, remainingBuffer)
+        return promise
+      end
+    end
+    if not length then
+      -- request without content length nor transfer encoding does not have a body
+      local connection = self:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+      if isRequest(self) or HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.HEADER_UPGRADE) then
+        self.bodyStreamHandler:onData(nil)
+        cb(nil, buffer) -- no body
+        return promise
+      end
+      length = -1
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpMessage:readBody() connection: '..tostring(connection))
+      end
+      if not HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
+        cb('Content length value, chunked transfer encoding or connection close expected')
+        return promise
+      end
+    end
+    local readState = 0
+    -- after that we know that we have something to read from the client
+    local readStream = StreamHandler:new(function(err, data)
+      if readState == 1 then
+        stream:readStop()
+      end
+      readState = 3
+      if err then
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('httpMessage:readBody() stream error is "'..tostring(err)..'"')
+        end
+      end
+      cb(err) -- TODO is there a remaining buffer
+    end)
+    local sh = StreamHandler:new(function(err, data)
+      if err then
+        readStream:onError(err)
+      else
+        self.bodyStreamHandler:onData(data)
+        if not data then
+          return readStream:onData(data)
+        end
+      end
+    end)
+    if chunkFinder then
+      sh = ChunkedStreamHandler:new(sh, chunkFinder)
+    elseif length > 0 then
+      sh = LimitedStreamHandler:new(sh, length)
+    end
+    if buffer and #buffer > 0 then
+      sh:onData(buffer)
+    end
+    if readState == 0 then
+      readState = 1
+      stream:readStart(sh)
+    end
+    return promise
   end
 
   function httpMessage:writeBody(stream)

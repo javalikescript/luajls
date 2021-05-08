@@ -9,7 +9,6 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpResponse = require('jls.net.http.HttpResponse')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
-local readBody = require('jls.net.http.readBody')
 
 --[[--
 The HttpClient class enables to send an HTTP request.
@@ -236,7 +235,7 @@ return require('jls.lang.class').create(function(httpClient)
 
   function httpClient:receiveResponseBody(buffer)
     logger:finest('httpClient:receiveResponseBody('..tostring(buffer and #buffer)..')')
-    return readBody(self.response, self.tcpClient, buffer)
+    return self.response:readBody(self.tcpClient, buffer)
   end
 
   function httpClient:receiveResponse()

@@ -34,7 +34,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
 
   function httpContext:setHandler(handler)
     if type(handler) == 'function' then
-      self.handler = HttpHandler.onBody(handler)
+      self.handler = HttpHandler.onBodyHandler(handler)
     elseif HttpHandler:isInstance(handler) then
       self.handler = handler
     elseif type(handler) == 'table' and type(handler.handle) == 'function' then
@@ -70,7 +70,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return HttpContext:new(self:getPath(), self:getHandler(), self:getAttributes())
   end
 
-  HttpContext.notFoundHandler = HttpHandler:new(function(httpExchange)
+  HttpContext.notFoundHandler = HttpHandler:new(function(self, httpExchange)
     local response = httpExchange:getResponse()
     response:setStatusCode(HttpMessage.CONST.HTTP_NOT_FOUND, 'Not Found')
     response:setBody('<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')

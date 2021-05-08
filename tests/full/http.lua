@@ -18,6 +18,7 @@ local function createTcpServer(onData)
     local replyData = onData
     onData = function(server, client)
       client:write(replyData)
+      onData = nil
     end
   end
   local server = TcpServer:new()
@@ -28,7 +29,7 @@ local function createTcpServer(onData)
         onData(server, client, data)
       end
       if err then
-        logger:warn('tcp server error '..tostring(err))
+        logger:warn('tcp server error "'..tostring(err)..'" => closing')
         server.t_error = err
         server:close()
         client:close()
@@ -40,7 +41,7 @@ local function createTcpServer(onData)
           server.t_receivedData = data
         end
       else
-        logger:finer('tcp server receives no data')
+        logger:finer('tcp server receives no data => closing')
         client:close()
         server:close()
       end
@@ -122,7 +123,10 @@ local function createHttpServer(handler, keep)
     return wh(httpExchange)
   end
   if HttpHandler:isInstance(handler) then
-    ch = HttpHandler:new(ch)
+    local chf = ch
+    ch = HttpHandler:new(function(_, httpExchange)
+      return chf(httpExchange)
+    end)
     wh = function(httpExchange)
       return handler:handle(httpExchange)
     end

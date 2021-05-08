@@ -3,11 +3,17 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local Promise = require('jls.lang.Promise')
 local TcpServer = require('jls.net.TcpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
-local readBody = require('jls.net.http.readBody')
+
+local function requestToString(exchange)
+  local request = exchange:getRequest()
+  if request then
+   return request:getMethod()..' '..tostring(request:getTargetPath())
+  end
+  return '?'
+end
 
 --[[-- An HTTP server.
 The HttpServer inherits from @{HttpContextHolder}.
@@ -35,11 +41,19 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
   -- @return a new HTTP server
   function httpServer:initialize(tcp)
     super.initialize(self)
-    self.filters = {}
     self.tcpServer = tcp or TcpServer:new()
     self.tcpServer.onAccept = function(_, client)
       self:onAccept(client)
     end
+  end
+
+  function httpServer:preFilter(exchange)
+    for _, filter in ipairs(self:getFilters()) do
+      if filter:doFilter(exchange) == false then
+        return false
+      end
+    end
+    return true
   end
 
   --[[
@@ -58,10 +72,11 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
     -- TODO limit headers
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
-      requestHeadersPromise = exchange:processRequestHeaders()
+      if self:preFilter(exchange) then
+        requestHeadersPromise = exchange:processRequestHeaders()
+      end
       logger:finer('httpServer:onAccept() request headers processed')
-      -- TODO limit request body
-      return readBody(exchange:getRequest(), client, remainingHeaderBuffer)
+      return exchange:getRequest():readBody(client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
       logger:fine('httpServer:onAccept() body done')
       exchange:notifyRequestBody()
@@ -70,18 +85,23 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
         return requestHeadersPromise
       end
     end):next(function()
-      logger:fine('httpServer:onAccept() request processed')
-      keepAlive = exchange:applyKeepAlive()
-      local status, res = pcall(function ()
-        return exchange:processResponse()
-      end)
-      if not status then
-        logger:warn('HttpExchange:processResponse() in error due to "'..tostring(res)..'"')
-        return Promise.reject(res)
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpServer:onAccept() request "'..requestToString(exchange)..'" processed')
       end
-      return res
+      keepAlive = exchange:applyKeepAlive()
+      exchange:prepareResponseHeaders()
+      return exchange:getResponse():writeHeaders(client)
     end):next(function()
-      logger:fine('httpServer:onAccept() response processed')
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpServer:onAccept() response headers "'..requestToString(exchange)..'" done')
+      end
+      -- post filter
+      --exchange:prepareResponseBody()
+      return exchange:getResponse():writeBody(client)
+    end):next(function()
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpServer:onAccept() response body "'..requestToString(exchange)..'" done')
+      end
       if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange:removeClient()
         if c then
@@ -93,8 +113,7 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
       exchange:close()
     end, function(err)
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on "'
-        ..tostring(exchange:getRequest() and exchange:getRequest():getTargetPath())..'"')
+        logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on "'..requestToString(exchange)..'"')
       end
       exchange:close()
     end)

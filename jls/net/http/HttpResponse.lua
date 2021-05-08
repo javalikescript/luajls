@@ -4,6 +4,7 @@
 
 local HttpMessage = require('jls.net.http.HttpMessage')
 local Date = require('jls.util.Date')
+local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpResponse class represents an HTTP response.
 -- The HttpResponse class inherits from @{HttpMessage}.
@@ -14,7 +15,7 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
   -- @function HttpResponse:new
   function httpResponse:initialize()
     super.initialize(self)
-    self:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
+    self:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
   end
 
   function httpResponse:getStatusCode()
@@ -70,7 +71,7 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
   end
 
   function httpResponse:setContentType(value)
-    self:setHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE, value)
+    self:setHeader(HTTP_CONST.HEADER_CONTENT_TYPE, value)
   end
 
   function httpResponse:setCacheControl(value)
@@ -83,7 +84,7 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
     elseif type(value) == 'number' then
       value = 'public, max-age='..tostring(value)
     end
-    self:setHeader(HttpMessage.CONST.HEADER_CACHE_CONTROL, value)
+    self:setHeader(HTTP_CONST.HEADER_CACHE_CONTROL, value)
   end
 
   function httpResponse:setLastModified(value)
@@ -93,7 +94,7 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
     elseif Date:isInstance(value) then
       value = value:toRFC822String(true)
     end
-    self:setHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED, value)
+    self:setHeader(HTTP_CONST.HEADER_LAST_MODIFIED, value)
   end
 
 end)

@@ -2,6 +2,8 @@ local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local FileDescriptor = require('jls.io.FileDescriptor')
 
+-- Deprecated, will be removed
+
 -- Reads from a file descriptor and writes to the specified stream.
 local function writeFileDescriptor(fd, stream, readBlockSize, cb)
   if type(readBlockSize) ~= 'number' then
@@ -46,7 +48,7 @@ local function setMessageBodyFileDescriptor(httpMessage, fdProvider, readBlockSi
     if logger:isLoggable(logger.FINE) then
       logger:fine('setMessageBodyFileDescriptor() => response:writeBody()')
     end
-    local pcb, promise = Promise.createWithCallback()
+    local promise, pcb = Promise.createWithCallback()
     local fd, cb
     if type(fdProvider) == 'function' then
       local err
