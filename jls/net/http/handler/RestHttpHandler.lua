@@ -13,17 +13,15 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(res
 
   --- Creates a REST @{HttpHandler}.
   -- @tparam table handlers the REST path handlers as a Lua table.
-  function restHttpHandler:initialize(handlers, attributes)
+  function restHttpHandler:initialize(handlers, attributes, noBody)
     self.handlers = handlers or {}
     if type(attributes) == 'table' then
       self.attributes = attributes
     end
+    self.consumeBody = noBody ~= true
   end
 
-  function restHttpHandler:handle(httpExchange)
-    if self.attributes then
-      httpExchange:setAttributes(self.attributes)
-    end
+  function restHttpHandler:handleNow(httpExchange)
     local path = httpExchange:getRequestArguments()
     local result = RestHttpHandler.restPart(self.handlers, httpExchange, path)
     if result == nil then
@@ -41,6 +39,21 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(res
     else
       HttpExchange.internalServerError(httpExchange)
     end
+  end
+
+  function restHttpHandler:handle(httpExchange)
+    if self.attributes then
+      httpExchange:setAttributes(self.attributes)
+    end
+    if self.consumeBody then
+      local length = httpExchange:getRequest():getContentLength()
+      if length and length > 0 then
+        return httpExchange:onRequestBody(true):next(function()
+          return self:handleNow(httpExchange)
+        end)
+      end
+    end
+    return self:handleNow(httpExchange)
   end
 
   function RestHttpHandler.shiftPath(path)

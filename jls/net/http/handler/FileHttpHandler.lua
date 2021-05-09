@@ -152,12 +152,16 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     end
   end
 
+  function fileHttpHandler:getPath(httpExchange)
+    return httpExchange:getRequestArguments()
+  end
+
   function fileHttpHandler:isValidPath(httpExchange, path)
   end
 
   function fileHttpHandler:handle(httpExchange)
     local method = httpExchange:getRequestMethod()
-    local path = httpExchange:getRequestArguments()
+    local path = self:getPath(httpExchange)
     local isDirectoryPath = string.sub(path, -1) == '/'
     local filePath = isDirectoryPath and string.sub(path, 1, -2) or path
     if not HttpExchange.isValidSubPath(path) then
