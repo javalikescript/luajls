@@ -13,6 +13,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(res
 
   --- Creates a REST @{HttpHandler}.
   -- @tparam table handlers the REST path handlers as a Lua table.
+  -- @tparam[opt] table attributes exchange attributes.
+  -- @tparam[opt] boolean noBody true to indicate the body should not be consumed.
   function restHttpHandler:initialize(handlers, attributes, noBody)
     self.handlers = handlers or {}
     if type(attributes) == 'table' then

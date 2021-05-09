@@ -16,7 +16,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
 
   --- Creates a Lua table @{HttpHandler}.
   -- @tparam table table the table.
-  -- @tparam string path the table base path.
+  -- @tparam[opt] string path the table base path.
+  -- @tparam[opt] boolean editable true to indicate that the table can be modified.
   function tableHttpHandler:initialize(table, path, editable)
     self.table = table or {}
     self.path = path or ''

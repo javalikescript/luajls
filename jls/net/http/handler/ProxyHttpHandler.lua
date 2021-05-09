@@ -15,12 +15,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
 
   --- Creates a proxy @{HttpHandler}.
   -- @tparam[opt] string baseUrl the base URL to proxy to.
-  function proxyHttpHandler:initialize(baseUrl, log)
+  function proxyHttpHandler:initialize(baseUrl)
     if baseUrl then
       self.baseUrl = string.gsub(baseUrl, '/+$', '')
     end
     self.protocol = 'http'
-    self.log = log == true
   end
 
   function proxyHttpHandler:getBaseUrl(httpExchange)

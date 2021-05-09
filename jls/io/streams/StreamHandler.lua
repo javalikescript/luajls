@@ -169,7 +169,7 @@ end)
 
 --- Returns a callback function.
 -- @param cb a callback function or a StreamHandler.
--- @tparam[opt] lazy true to indicate that nil values are valid.
+-- @tparam[opt] boolean lazy true to indicate that nil values are valid.
 -- @treturn function a callback function.
 function StreamHandler.ensureCallback(cb, lazy)
   if type(cb) == 'function' then

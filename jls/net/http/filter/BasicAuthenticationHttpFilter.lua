@@ -14,8 +14,9 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(basi
     return true
   end
 
-  --- Creates a ZIP file @{HttpHandler}.
-  -- @tparam File zipFile the ZIP file.
+  --- Creates a basic authentication @{HttpFilter}.
+  -- @param checkCredentials a table with user name and password pairs or a function.
+  -- @tparam[opt] string realm an optional message.
   function basicAuthenticationHttpFilter:initialize(checkCredentials, realm)
     if type(checkCredentials) == 'function' then
       self.checkCredentials = checkCredentials

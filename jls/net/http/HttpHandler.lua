@@ -18,8 +18,7 @@ end)
 local Promise = require('jls.lang.Promise')
 
 --- A HttpHandler class.
--- By default the handler will be called after the request body is available.
--- The handler could also be configured to be called after the request headers but before the request body.
+-- The handler is called when the request headers are available.
 -- @type HttpHandler
 return require('jls.lang.class').create(function(httpHandler)
 
@@ -34,7 +33,7 @@ return require('jls.lang.class').create(function(httpHandler)
 
   --- Handles the request for the specified exchange.
   -- @tparam HttpExchange httpExchange the HTTP exchange to handle
-  -- @treturn jls.lang.Promise a promise that resolves once the response is completed.
+  -- @treturn jls.lang.Promise a optional promise that resolves once the response is completed.
   function httpHandler:handle(httpExchange)
   end
 

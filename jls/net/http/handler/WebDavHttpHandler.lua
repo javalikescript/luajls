@@ -1,4 +1,5 @@
 --- Provide an HTTP handler for the WebDAV protocol.
+-- Based on the file handler, see @{FileHttpHandler}.
 -- @module jls.net.http.handler.WebDavHttpHandler
 -- @pragma nostrip
 

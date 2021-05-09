@@ -1,6 +1,8 @@
 local httpHandlerBase = require('jls.net.http.handler.base')
 local httpHandlerUtil = require('jls.net.http.handler.util')
 
+-- Deprecated, will be removed
+
 return {
   -- utils
   CONTENT_TYPES = httpHandlerUtil.CONTENT_TYPES,

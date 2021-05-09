@@ -15,8 +15,6 @@ local HTTP_CONST = HttpMessage.CONST
 -- @type HttpExchange
 return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
 
-  --- Creates a new Exchange.
-  -- @function HttpExchange:new
   function httpExchange:initialize(server, client)
     super.initialize(self)
     self.server = server

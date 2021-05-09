@@ -16,7 +16,6 @@ local HttpExchange = require('jls.net.http.HttpExchange')
 return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fileHttpHandler, _, FileHttpHandler)
 
   --- Creates a file @{HttpHandler}.
-  -- The data will be pass to the wrapped handler once.
   -- @tparam File rootFile the root File
   -- @tparam[opt] string permissions a string containing the granted permissions, 'rwxlcud' default is 'r'
   -- @tparam[opt] string indexFilename the name of the file to use in case of GET request on a directory
