@@ -2,6 +2,7 @@
 SETLOCAL
 
 SET ALL=no
+SET BASE=no
 SET VERBOSE=no
 SET JLS_REQUIRES=
 
@@ -12,6 +13,8 @@ SHIFT
 IF %ARG%==-v SET VERBOSE=yes
 IF %ARG%==-a SET ALL=yes
 IF %ARG%==all SET ALL=yes
+IF %ARG%==-b SET BASE=yes
+IF %ARG%==base SET BASE=yes
 IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs
 IF %ARG%==socket SET JLS_REQUIRES=!luv
 IF %ARG%==nossl SET JLS_REQUIRES=!openssl
@@ -19,7 +22,7 @@ GOTO :args
 
 :main
 SET JLS_LOGGER_LEVEL=
-SET LUA=lua53
+SET LUA=lua54
 WHERE /Q %LUA%
 IF ERRORLEVEL 1 SET LUA=lua
 IF %VERBOSE%==yes (
@@ -29,8 +32,21 @@ IF %VERBOSE%==yes (
 )
 
 IF %ALL%==yes GOTO :runall
+IF %BASE%==yes GOTO :runbase
 
 CALL :runtests
+GOTO :eof
+
+:runbase
+IF %VERBOSE%==yes ECHO JLS_REQUIRES=%JLS_REQUIRES%
+SET TESTCOUNT=0
+SET ERRORCOUNT=0
+CALL :rundir base
+IF %ERRORCOUNT% NEQ 0 (
+  ECHO %ERRORCOUNT%/%TESTCOUNT% files in error
+) ELSE (
+  ECHO %TESTCOUNT% files passed
+)
 GOTO :eof
 
 :runall
