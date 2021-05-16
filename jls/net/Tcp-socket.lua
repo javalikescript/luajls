@@ -24,10 +24,14 @@ return require('jls.lang.class').create(function(tcp)
 
   function tcp:close(callback)
     logger:debug('tcp:close()')
-    local socket = self.tcp
-    self.tcp = nil
     local cb, d = Promise.ensureCallback(callback)
-    self.selector:close(socket, cb)
+    local socket = self.tcp
+    if socket then
+      self.tcp = nil
+      self.selector:close(socket, cb)
+    else
+      cb()
+    end
     return d
   end
 

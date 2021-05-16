@@ -46,9 +46,10 @@ return require('jls.lang.class').create(function(tcp)
   function tcp:close(callback)
     logger:finer('tcp:close()')
     local cb, d = Promise.ensureCallback(callback)
-    if self.tcp then
-      self.tcp:close(cb)
+    local socket = self.tcp
+    if socket then
       self.tcp = nil
+      socket:close(cb)
     else
       cb()
     end
