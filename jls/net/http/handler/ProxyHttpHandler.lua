@@ -1,4 +1,4 @@
---- Provide a simple HTTP handler that forward requests.
+--- Provide a simple HTTP handler that proxies requests.
 -- @module jls.net.http.handler.ProxyHttpHandler
 -- @pragma nostrip
 
@@ -22,34 +22,46 @@ https://tools.ietf.org/html/rfc7231
 return require('jls.lang.class').create('jls.net.http.HttpHandler', function(proxyHttpHandler, super)
 
   --- Creates a proxy @{HttpHandler}.
-  -- @tparam[opt] string baseUrl the base URL to proxy to.
-  function proxyHttpHandler:initialize(baseUrl)
+  function proxyHttpHandler:initialize()
     self.allowConnect = false
+    self.isReverse = false
     self.protocol = 'http'
-    self.isReverse = true
-    if baseUrl then
-      self.baseUrl = string.gsub(baseUrl, '/+$', '')
-    end
   end
 
-  function proxyHttpHandler:setAllowConnect(allowConnect)
+  --- Configures this proxy to forward requests.
+  -- @tparam[opt] boolean allowConnect true to allow connect method.
+  -- @treturn ProxyHttpHandler this proxy for chaining.
+  function proxyHttpHandler:configureForward(allowConnect)
+    self.isReverse = false
     self.allowConnect = allowConnect == true
     return self
   end
 
+  --- Configures this proxy as reverse proxy.
+  -- @tparam[opt] string baseUrl a base URL to forward requests to.
+  -- @treturn ProxyHttpHandler this proxy for chaining.
+  function proxyHttpHandler:configureReverse(baseUrl)
+    self.isReverse = true
+    self:setBaseUrl(baseUrl)
+    return self
+  end
+
   function proxyHttpHandler:setBaseUrl(baseUrl)
-    self.baseUrl = baseUrl
+    if baseUrl then
+      self.baseUrl = string.gsub(baseUrl, '/+$', '')
+    else
+      self.baseUrl = nil
+    end
     return self
   end
 
-  function proxyHttpHandler:setIsReverse(isReverse)
-    self.isReverse = isReverse == true
-    return self
-  end
-
-  function proxyHttpHandler:acceptHost(host)
+  function proxyHttpHandler:acceptHost(httpExchange, host)
     logger:info('Proxy host "'..tostring(host)..'"')
-    return host ~= nil
+    if host == nil then
+      HttpExchange.forbidden(httpExchange)
+      return false
+    end
+    return true
   end
 
   function proxyHttpHandler:getBaseUrl(httpExchange)
@@ -71,9 +83,6 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       proto = 'https'
       port = nil
     end
-    if not self:acceptHost(host) then
-      return nil
-    end
     if port then
       return proto..'://'..host..':'..tostring(port)
     end
@@ -86,90 +95,87 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       if baseUrl then
         local path = httpExchange:getRequestArguments()
         if path then
-          return baseUrl..string.gsub(path, '^/*', '/')
+          return URL.fromString(baseUrl..string.gsub(path, '^/*', '/'))
         end
       end
     else
       local target = httpExchange:getRequest():getTarget()
-      local url = URL.fromString(target)
-      if url then
-        if not self:acceptHost(url:getHost()) then
-          return nil
-        end
-        return url:toString()
-      end
+      return URL.fromString(target)
     end
     return nil
   end
 
-  local ALLOWED_METHODS = {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD, HTTP_CONST.METHOD_POST, HTTP_CONST.METHOD_PUT, HTTP_CONST.METHOD_DELETE, HTTP_CONST.METHOD_CONNECT}
+  local function connectStream(fromClient, toClient)
+    fromClient:readStart(function(err, data)
+      if err then
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('proxyHttpHandler tunnel error "'..tostring(err)..'"')
+        end
+      elseif data then
+        toClient:write(data)
+        return
+      end
+      toClient:close()
+      fromClient:close()
+    end)
+  end
 
-  function proxyHttpHandler:handle(httpExchange)
-    if not HttpExchange.methodAllowed(httpExchange, ALLOWED_METHODS) then
+  function proxyHttpHandler:handleConnect(httpExchange)
+    local hostport = httpExchange:getRequest():getTarget()
+    local host, port = string.match(hostport, '^(.+):(%d+)$')
+    if not host then
+      HttpExchange.badRequest(httpExchange)
       return
     end
+    if not self:acceptHost(httpExchange, host) then
+      return
+    end
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('proxyHttpHandler connecting to "'..hostport..'"')
+    end
+    local client
+    return Promise:new(function(resolve, reject)
+      local targetClient = TcpClient:new()
+      targetClient:connect(host, tonumber(port) or 80):next(function()
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('proxyHttpHandler connected to "'..hostport..'"')
+        end
+        HttpExchange.ok(httpExchange)
+        httpExchange:getResponse():setHeader(HTTP_CONST.HEADER_CONNECTION, HTTP_CONST.CONNECTION_CLOSE)
+        function httpExchange:close()
+          client = httpExchange:removeClient()
+          HttpExchange.prototype.close(httpExchange)
+          connectStream(client, targetClient)
+          connectStream(targetClient, client)
+        end
+        resolve()
+      end, function(err)
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('proxyHttpHandler connect error "'..tostring(err)..'"')
+        end
+        if client then
+          client:close()
+        end
+        reject('Cannot connect')
+      end)
+    end)
+  end
+
+  local ALLOWED_METHODS = {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD, HTTP_CONST.METHOD_POST, HTTP_CONST.METHOD_PUT, HTTP_CONST.METHOD_DELETE}
+
+  function proxyHttpHandler:handle(httpExchange)
     local request = httpExchange:getRequest()
     local response = httpExchange:getResponse()
     local method = request:getMethod()
     if method == HTTP_CONST.METHOD_CONNECT then
       if not self.allowConnect then
         HttpExchange.methodNotAllowed(httpExchange)
-        return
+      else
+        return self:handleConnect(httpExchange)
       end
-      local hostport = request:getTarget()
-      local host, port = string.match(hostport, '^(.+):(%d+)$')
-      if not host then
-        HttpExchange.badRequest(httpExchange)
-        return
-      end
-      if not self:acceptHost(host) then
-        HttpExchange.forbidden(httpExchange)
-        return
-      end
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('proxyHttpHandler connect to "'..hostport..'"')
-      end
-      HttpExchange.ok(httpExchange)
-      response:setHeader(HTTP_CONST.HEADER_CONNECTION, HTTP_CONST.CONNECTION_CLOSE)
-      function httpExchange:close()
-        local client = httpExchange:removeClient()
-        HttpExchange.prototype.close(httpExchange)
-        local destinationClient = TcpClient:new()
-        destinationClient:connect(host, tonumber(port) or 80):next(function()
-          if logger:isLoggable(logger.FINE) then
-            logger:fine('proxyHttpHandler connected to "'..hostport..'"')
-          end
-          destinationClient:readStart(function(err, data)
-            if err then
-              if logger:isLoggable(logger.FINE) then
-                logger:fine('proxyHttpHandler tunnel error "'..tostring(err)..'"')
-              end
-            elseif data then
-              client:write(data)
-              return
-            end
-            client:close()
-            destinationClient:close()
-        end)
-          client:readStart(function(err, data)
-            if err then
-              if logger:isLoggable(logger.FINE) then
-                logger:fine('proxyHttpHandler tunnel error "'..tostring(err)..'"')
-              end
-            elseif data then
-              destinationClient:write(data)
-              return
-            end
-            client:close()
-            destinationClient:close()
-          end)
-        end, function(err)
-          if logger:isLoggable(logger.FINE) then
-            logger:fine('proxyHttpHandler connect error "'..tostring(err)..'"')
-          end
-          client:close()
-        end)
-      end
+      return
+    end
+    if not HttpExchange.methodAllowed(httpExchange, ALLOWED_METHODS) then
       return
     end
     local targetUrl = self:getTargetUrl(httpExchange)
@@ -177,12 +183,15 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       httpExchange:setResponseStatusCode(HTTP_CONST.HTTP_FORBIDDEN, 'Forbidden', '<p>The server cannot proxy your request to the specified host.</p>')
       return
     end
+    if not self:acceptHost(httpExchange, targetUrl:getHost()) then
+      return
+    end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('proxyHttpHandler forward to "'..targetUrl..'"')
+      logger:fine('proxyHttpHandler forward to "'..targetUrl:toString()..'"')
     end
     -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
     local client = HttpClient:new({
-      url = targetUrl,
+      url = targetUrl:toString(),
       method = method,
       headers = request:getHeadersTable()
     })
