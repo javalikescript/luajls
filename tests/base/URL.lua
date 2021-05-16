@@ -7,6 +7,10 @@ local function assertParsedURL(url, urlt)
     lu.assertEquals(t, urlt)
 end
 
+local function assertFromToString(url)
+    lu.assertEquals(URL.fromString(url):toString(), url)
+end
+
 function Test_parse()
     local t = URL.parse('http://www.host.name')
     lu.assertEquals(t.scheme, 'http')
@@ -236,6 +240,21 @@ function Test_decodePercent()
     lu.assertEquals(URL.decodePercent('aA0'), 'aA0')
     lu.assertEquals(URL.decodePercent('http%3A%2F%2Fhostname%2F%3Fa%3Db%23c'), 'http://hostname/?a=b#c')
     lu.assertEquals(URL.decodePercent('%09%0D%0A'), '\t\r\n')
+end
+
+function Test_toString()
+    assertFromToString('http://hostname')
+    assertFromToString('http://hostname/')
+    assertFromToString('http://hostname/some_path')
+    assertFromToString('http://hostname/some_path?some_query')
+    assertFromToString('http://hostname/some_path#some_fragment')
+    assertFromToString('http://hostname/?some_query')
+end
+
+function Test_fromString()
+    lu.assertNil(URL.fromString('something'))
+    lu.assertNil(URL.fromString('something:8080'))
+    lu.assertEquals(URL.fromString('http://hostname/'):toString(), 'http://hostname/')
 end
 
 os.exit(lu.LuaUnit.run())

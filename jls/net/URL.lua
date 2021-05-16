@@ -23,7 +23,7 @@ return require('jls.lang.class').create(function(url, _, URL)
     if not host then
       if type(protocol) == 'string' then
         self.s = protocol
-        self.t = URL.parse(protocol)
+        self.t = assert(URL.parse(protocol))
       elseif type(protocol) == 'table' then
         self.t = protocol
       else
@@ -110,14 +110,14 @@ return require('jls.lang.class').create(function(url, _, URL)
     }
     local authority, path = string.match(specificPart, '^//([^/]+)(/?.*)$') -- we are lazy on the slash
     if not authority then
-      error('Invalid common URL ("'..scheme..specificPart..'")')
+      return nil, 'Invalid common URL ("'..scheme..specificPart..'")'
     end
     t.path = path
     local authentication, hostport = string.match(authority, '^([^@]+)@(.*)$')
     if authentication then
       local user, password = string.match(authentication, '^([^:]+):?(.*)$')
       if not user then
-        error('Invalid common URL, bad authentication part ("'..scheme..specificPart..'")')
+        return nil, 'Invalid common URL, bad authentication part ("'..scheme..specificPart..'")'
       end
       t.user = user
       if password and #password > 0 then
@@ -128,13 +128,13 @@ return require('jls.lang.class').create(function(url, _, URL)
     end
     local host, port = parseHostPort(hostport)
     if not host then
-      error('Invalid common URL, bad host and port part ("'..scheme..specificPart..'")') -- TODO refactor
+      return nil, 'Invalid common URL, bad host and port part ("'..scheme..specificPart..'")'
     end
     t.host = host
     if #port > 0 then
       port = tonumber(port)
       if not port then
-        error('Invalid common URL, bad port ("'..scheme..specificPart..'")') -- TODO refactor
+        return nil, 'Invalid common URL, bad port ("'..scheme..specificPart..'")'
       end
       t.port = port
     end
@@ -142,7 +142,10 @@ return require('jls.lang.class').create(function(url, _, URL)
   end
 
   local function parseHttp(scheme, specificPart)
-    local t = parseCommon(scheme, specificPart)
+    local t, err = parseCommon(scheme, specificPart)
+    if err then
+      return nil, err
+    end
     if not t.path then
       return t
     end
@@ -163,15 +166,29 @@ return require('jls.lang.class').create(function(url, _, URL)
 
   --- Returns the URL corresponding to the specified string.
   -- @tparam string url The string to parse.
-  -- @treturn jls.net.URL the URL corresponding to the string.
+  -- @treturn table a table representing the URL or nil.
   function URL.parse(url)
     -- scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
     local scheme, specificPart = string.match(url, '^([%w][%w%+%.%-]*):(.*)$')
+    if not scheme then
+      return nil
+    end
     scheme = string.lower(scheme)
     if scheme == 'http' or scheme == 'https' or scheme == 'ws' or scheme == 'wss' then
       return parseHttp(scheme, specificPart)
     end
     return parseCommon(scheme, specificPart)
+  end
+
+  --- Returns the URL corresponding to the specified string.
+  -- @tparam string url The URL as a string.
+  -- @treturn jls.net.URL the URL or nil.
+  function URL.fromString(url)
+    local t = URL.parse(url)
+    if t then
+      return URL:new(t)
+    end
+    return nil
   end
 
   local function formatCommon(t)
@@ -192,7 +209,7 @@ return require('jls.lang.class').create(function(url, _, URL)
       url = url..':'..t.port
     end
     if t.path then
-      url = url..'/'..t.path
+      url = url..t.path
     end
     return url
   end

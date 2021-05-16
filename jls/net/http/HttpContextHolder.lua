@@ -35,7 +35,7 @@ return require('jls.lang.class').create(function(httpContextHolder)
   -- @tparam[opt] table attributes the optional context attributes
   -- @return the new context
   function httpContextHolder:createContext(path, handler, ...)
-    if type(path) ~= 'string' or not string.match(path, '^/') then
+    if type(path) ~= 'string' then
       error('Invalid context path "'..tostring(path)..'"')
     end
     local context = HttpContext:new(path, handler, ...)
