@@ -37,6 +37,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     self.allowUpdate = not not string.match(permissions, '[wu]')
     self.allowCreate = not not string.match(permissions, '[wc]')
     self.allowDelete = not not string.match(permissions, '[wd]')
+    self.allowDeleteRecursive = not not string.match(permissions, '[RD]')
     if logger:isLoggable(logger.FINE) then
       logger:fine('fileHttpHandler permissions is "'..permissions..'"')
       for k, v in pairs(self) do
@@ -49,20 +50,29 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     return FileHttpHandler.guessContentType(file)
   end
 
+  function fileHttpHandler:listFiles(dir)
+    local files = {}
+    for _, file in ipairs(dir:listFiles()) do
+      local name = file:getName()
+      local isDirectory = file:isDirectory()
+      if isDirectory then
+        name = name..'/'
+      end
+      table.insert(files, {
+        name = name,
+        isDirectory = isDirectory
+      })
+    end
+    return files
+  end
+
   function fileHttpHandler:handleGetDirectory(httpExchange, dir, showParent)
     local response = httpExchange:getResponse()
-    local files = dir:listFiles()
+    local files = self:listFiles(dir)
     local body = ''
     local request = httpExchange:getRequest()
     if request:hasHeaderValue(HTTP_CONST.HEADER_ACCEPT, HttpExchange.CONTENT_TYPES.json) then
-      local content = {}
-      for _, file in ipairs(files) do
-        table.insert(content, {
-          name = file:getName(),
-          isDirectory = file:isDirectory()
-        })
-      end
-      body = json.encode(content)
+      body = json.encode(files)
       response:setContentType(HttpExchange.CONTENT_TYPES.json)
     else
       local buffer = StringBuffer:new()
@@ -70,11 +80,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         buffer:append('<a href="..">..</a><br/>\n')
       end
       for _, file in ipairs(files) do
-        local filename = file:getName()
-        if file:isDirectory() then
-          filename = filename..'/'
-        end
-        buffer:append('<a href="', filename, '">', filename, '</a><br/>\n')
+        buffer:append('<a href="', file.name, '">', file.name, '</a><br/>\n')
       end
       body = buffer:toString()
       response:setContentType(HttpExchange.CONTENT_TYPES.html)
@@ -134,16 +140,16 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       end
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
       if isDirectoryPath then
-        file:mkdirs() -- TODO Handle errors
+        file:mkdir() -- TODO Handle errors
       else
         self:receiveFile(httpExchange, file)
       end
       HttpExchange.ok(httpExchange)
     elseif method == HTTP_CONST.METHOD_DELETE and self.allowDelete then
-      if file:isFile() then
-        file:delete() -- TODO Handle errors
-      elseif file:isDirectory() then
+      if self.allowDeleteRecursive then
         file:deleteRecursive() -- TODO Handle errors
+      else
+        file:delete() -- TODO Handle errors
       end
       HttpExchange.ok(httpExchange)
     else
