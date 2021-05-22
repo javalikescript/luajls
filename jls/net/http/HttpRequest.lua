@@ -11,7 +11,7 @@ return require('jls.lang.class').create('jls.net.http.HttpMessage', function(htt
   -- @function HttpRequest:new
   function httpRequest:initialize()
     super.initialize(self)
-    self.method = 'GET'
+    self.method = ''
     self.target = '/'
   end
 
@@ -33,23 +33,28 @@ return require('jls.lang.class').create('jls.net.http.HttpMessage', function(htt
     self.line = ''
   end
 
+  function httpRequest:setVersion(version)
+    self.line = ''
+    return super.setVersion(self, version)
+  end
+
   function httpRequest:getLine()
-    if self.line == '' then
-      self.line = self:getMethod()..' '..self:getTarget()..' '..self:getVersion()
-      --self.line = table.concat({self:getMethod(), ' ', self:getTarget(), ' ', self:getVersion()})
+    if self.line == '' and self.method ~= '' then
+      self.line = self.method..' '..self.target..' '..self:getVersion()
     end
     return self.line
   end
 
   function httpRequest:setLine(line)
-    self.line = line
     -- see https://tools.ietf.org/html/rfc7230#section-3.1.1
     local method, target, version = string.match(line, "^(%S+)%s(%S+)%s(%S+)$")
     if method then
+      self.line = line
       self.method = string.upper(method)
       self.target = target
       self.version = version
     else
+      self.line = ''
       self.method = ''
       self.target = ''
       self.version = ''

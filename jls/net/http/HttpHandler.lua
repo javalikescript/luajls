@@ -37,6 +37,11 @@ return require('jls.lang.class').create(function(httpHandler)
   function httpHandler:handle(httpExchange)
   end
 
+  --- Closes this request handler.
+  -- Do nothing by default. Must support to be called multiple times.
+  function httpHandler:close()
+  end
+
 end, function(HttpHandler)
 
   function HttpHandler.onBodyHandler(fn)

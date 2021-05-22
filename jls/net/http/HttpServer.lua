@@ -5,12 +5,15 @@
 local logger = require('jls.lang.logger')
 local TcpServer = require('jls.net.TcpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
+local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 
 local function requestToString(exchange)
   local request = exchange:getRequest()
   if request then
-   return request:getMethod()..' '..tostring(request:getTargetPath())
+    local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
+    local path = request:getTargetPath()
+    return request:getMethod()..' '..tostring(path)..' '..tostring(hostport)
   end
   return '?'
 end
@@ -45,6 +48,7 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
     self.tcpServer.onAccept = function(_, client)
       self:onAccept(client)
     end
+    self.pendings = {}
   end
 
   function httpServer:preFilter(exchange)
@@ -64,19 +68,24 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
   ]]
   function httpServer:onAccept(client, buffer)
     logger:finer('httpServer:onAccept()')
-    local exchange = HttpExchange:new(self, client)
+    local exchange = HttpExchange:new(client)
     local keepAlive = false
     local remainingBuffer = nil
     local requestHeadersPromise = nil
     local hsh = HeaderStreamHandler:new(exchange:getRequest())
     -- TODO limit headers
+    self.pendings[client] = exchange
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
+      self.pendings[client] = nil
+      local request = exchange:getRequest()
       if self:preFilter(exchange) then
-        requestHeadersPromise = exchange:processRequestHeaders()
+        local path = request:getTargetPath()
+        local context = self:getMatchingContext(path, request)
+        requestHeadersPromise = exchange:handleRequest(context)
       end
       logger:finer('httpServer:onAccept() request headers processed')
-      return exchange:getRequest():readBody(client, remainingHeaderBuffer)
+      return request:readBody(client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
       logger:fine('httpServer:onAccept() body done')
       exchange:notifyRequestBody()
@@ -107,13 +116,19 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
         if c then
           logger:fine('httpServer:onAccept() keeping client alive')
           exchange:close()
-          return self:onAccept(c, remainingBuffer) -- tail call
+          return self:onAccept(c, remainingBuffer)
         end
       end
       exchange:close()
     end, function(err)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on "'..requestToString(exchange)..'"')
+      if not hsh:isEmpty() then
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on "'..requestToString(exchange)..'"')
+        end
+        if hsh:getErrorStatus() and not client:isClosed() then
+          HttpExchange.response(exchange, hsh:getErrorStatus())
+          exchange:getResponse():writeHeaders(client)
+        end
       end
       exchange:close()
     end)
@@ -139,6 +154,18 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the server is closed.
   function httpServer:close(callback)
+    local pendings = self.pendings
+    self.pendings = {}
+    local count = 0
+    for client, exchange in pairs(pendings) do
+      exchange:close()
+      client:close()
+      count = count + 1
+    end
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('httpServer:close() '..tostring(count)..' pending request(s) closed')
+    end
+    self:closeContexts()
     return self.tcpServer:close(callback)
   end
 end, function(HttpServer)

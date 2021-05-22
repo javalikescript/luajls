@@ -42,6 +42,11 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return self.version or HttpMessage.CONST.VERSION_1_0
   end
 
+  function httpMessage:setVersion(version)
+    self.version = version
+    return self
+  end
+
   function httpMessage:getContentLength()
     local value = self:getHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH)
     if type(value) == 'string' then
@@ -335,6 +340,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     HTTP_CONFLICT = 409,
     HTTP_LENGTH_REQUIRED = 411,
     HTTP_PRECONDITION_FAILED = 412,
+    HTTP_PAYLOAD_TOO_LARGE = 413,
     HTTP_UNSUPPORTED_MEDIA_TYPE = 415,
 
     HTTP_INTERNAL_SERVER_ERROR = 500,

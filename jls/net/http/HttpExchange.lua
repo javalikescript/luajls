@@ -15,9 +15,8 @@ local HTTP_CONST = HttpMessage.CONST
 -- @type HttpExchange
 return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
 
-  function httpExchange:initialize(server, client)
+  function httpExchange:initialize(client)
     super.initialize(self)
-    self.server = server
     self.client = client
     self.request = HttpRequest:new()
     self.response = HttpResponse:new()
@@ -62,7 +61,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   --- Returns the captured values of the request target path using the context path.
   -- @treturn string the first captured value, nil if there is no captured value.
   function httpExchange:getRequestArguments()
-    return self:getContext():getArguments(self:getRequest():getTargetPath())
+    return self.context:getArguments(self:getRequest():getTargetPath())
   end
 
   --- Returns a promise that resolves once the request body is available.
@@ -130,6 +129,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpExchange:handleRequest() "'..self.request:getTarget()..'"')
     end
+    self.context = context
     local status, result = xpcall(function ()
       return context:handleExchange(self)
     end, debug.traceback)
@@ -151,12 +151,6 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     self.response = response
     self:notifyRequestBody(error)
     return Promise.reject(error)
-  end
-
-  function httpExchange:processRequestHeaders()
-    local path = self.request:getTargetPath()
-    self.context = self.server:getMatchingContext(path)
-    return self:handleRequest(self:getContext())
   end
 
   function httpExchange:removeClient()
@@ -200,6 +194,7 @@ end, function(HttpExchange)
     [HTTP_CONST.HTTP_FORBIDDEN] = 'Forbidden',
     [HTTP_CONST.HTTP_NOT_FOUND] = 'Not Found',
     [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = 'Method Not Allowed',
+    [HTTP_CONST.HTTP_PAYLOAD_TOO_LARGE] = 'Payload Too Large',
     [HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR] = 'Internal Server Error',
   }
 
@@ -207,7 +202,8 @@ end, function(HttpExchange)
     [HTTP_CONST.HTTP_BAD_REQUEST] = '<p>Sorry something seems to be wrong in your request.</p>',
     [HTTP_CONST.HTTP_FORBIDDEN] = '<p>The server cannot process your request.</p>',
     [HTTP_CONST.HTTP_NOT_FOUND] = '<p>The resource is not available.</p>',
-    [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = '<p>Sorry this method is not allowed.</p>',
+    [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = '<p>Sorry the method is not allowed.</p>',
+    [HTTP_CONST.HTTP_PAYLOAD_TOO_LARGE] = '<p>Sorry the request is too large.</p>',
     [HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR] = '<p>Sorry something went wrong on our side.</p>',
   }
 
@@ -228,14 +224,16 @@ end, function(HttpExchange)
 
   --- Updates the response with the status code Bad Request, 400.
   -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  function HttpExchange.badRequest(httpExchange)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_BAD_REQUEST)
+  -- @tparam[opt] string reasonPhrase the response reason phrase.
+  function HttpExchange.badRequest(httpExchange, reasonPhrase)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_BAD_REQUEST, reasonPhrase)
   end
 
   --- Updates the response with the status code Forbidden, 403.
   -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  function HttpExchange.forbidden(httpExchange)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_FORBIDDEN)
+  -- @tparam[opt] string reasonPhrase the response reason phrase.
+  function HttpExchange.forbidden(httpExchange, reasonPhrase)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_FORBIDDEN, reasonPhrase)
   end
 
   --- Updates the response with the status code Not Found, 404.

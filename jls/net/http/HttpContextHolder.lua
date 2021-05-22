@@ -7,10 +7,8 @@ local TableList = require('jls.util.TableList')
 local HttpContext = require('jls.net.http.HttpContext')
 local HttpFilter = require('jls.net.http.HttpFilter')
 
-local function compareByLength(a, b)
-  local la = string.len(a:getPath())
-  local lb = string.len(b:getPath())
-  return la > lb
+local function compareByIndex(a, b)
+  return a:getIndex() > b:getIndex()
 end
 
 --- A class that holds HTTP contexts.
@@ -40,7 +38,7 @@ return require('jls.lang.class').create(function(httpContextHolder)
     end
     local context = HttpContext:new(path, handler, ...)
     table.insert(self.contexts, context)
-    table.sort(self.contexts, compareByLength)
+    table.sort(self.contexts, compareByIndex)
     return context
   end
 
@@ -90,20 +88,20 @@ return require('jls.lang.class').create(function(httpContextHolder)
     return self
   end
 
-  function httpContextHolder:findContext(path)
+  function httpContextHolder:findContext(path, request)
     for _, context in ipairs(self.contexts) do
-      if context:matchPath(path) then
+      if context:matchRequest(path, request) then
         return context
       end
     end
     return nil
   end
 
-  function httpContextHolder:getMatchingContext(path)
-    local context = self:findContext(path)
+  function httpContextHolder:getMatchingContext(path, request)
+    local context = self:findContext(path, request)
     if not context then
       if self.parentContextHolder then
-        context = self.parentContextHolder:findContext(path) or self.notFoundContext
+        context = self.parentContextHolder:findContext(path, request) or self.notFoundContext
       else
         context = self.notFoundContext
       end
@@ -112,6 +110,12 @@ return require('jls.lang.class').create(function(httpContextHolder)
       logger:fine('httpContextHolder:getMatchingContext("'..path..'") => "'..context:getPath()..'"')
     end
     return context
+  end
+
+  function httpContextHolder:closeContexts()
+    for _, context in ipairs(self.contexts) do
+      context:close()
+    end
   end
 
   -- TODO Remove

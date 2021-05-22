@@ -59,17 +59,19 @@ return require('jls.lang.class').create(function(httpClient)
       request:setHeadersTable(options.headers)
     end
     request:setMethod(method)
+    request:setTarget('/')
     if type(options.url) == 'string' then
       self:setUrl(options.url)
-    end
-    if type(options.target) == 'string' then
-      request:setTarget(options.target)
-    end
-    if type(options.host) == 'string' then
-      self.host = options.host
-    end
-    if type(options.port) == 'number' then
-      self.port = options.port
+    else
+      if type(options.target) == 'string' then
+        request:setTarget(options.target)
+      end
+      if type(options.host) == 'string' then
+        self.host = options.host
+      end
+      if type(options.port) == 'number' then
+        self.port = options.port
+      end
     end
     if options.followRedirect == true then
       self.maxRedirectCount = 3
@@ -119,7 +121,7 @@ return require('jls.lang.class').create(function(httpClient)
     end
     local u = URL:new(url)
     local target = u:getFile()
-    self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
+    self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss' or u:getPort() == 443
     self.host = u:getHost()
     self.port = u:getPort()
     self.request:setTarget(target or '/')

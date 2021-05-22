@@ -4,11 +4,22 @@ local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 
 return require('jls.lang.class').create('jls.io.streams.StreamHandler', function(headerStreamHandler, super)
 
-  function headerStreamHandler:initialize(message, size)
+  function headerStreamHandler:initialize(message, maxLineLength, maxSize)
     super.initialize(self)
     self.message = message
-    self.maxLineLength = size or 2048
+    self.maxLineLength = maxLineLength or 4096
+    self.maxSize = maxSize or self.maxLineLength * 8
+    self.size = 0
     self.firstLine = true
+    self.errorStatus = nil
+  end
+
+  function headerStreamHandler:isEmpty()
+    return self.firstLine
+  end
+
+  function headerStreamHandler:getErrorStatus()
+    return self.errorStatus
   end
 
   function headerStreamHandler:onData(line)
@@ -35,8 +46,14 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
     end
     -- decode header
     local l = string.len(line)
+    self.size = self.size + l
     if l >= self.maxLineLength then
-      self:onError('Too long header line (max is '..tostring(self.maxLineLength)..')')
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('headerStreamHandler:onData() too long header is "'..line..'"')
+      end
+      self:onError('Too long header line '..tostring(l)..' (max is '..tostring(self.maxLineLength)..')', 413)
+    elseif self.size >= self.maxSize then
+      self:onError('Too long headers '..tostring(self.size)..' (max is '..tostring(self.maxSize)..')', 413)
     elseif l == 0 then
       self:onCompleted()
     else
@@ -46,21 +63,24 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
           self.firstLine = false
           return true
         else
-          self:onError('Bad HTTP request line (Invalid version in "'..line..'")')
+          self:onError('Bad HTTP request line (Invalid version in "'..line..'")', 400)
         end
       else
         if self.message:parseHeaderLine(line) then
           return true
         else
-          self:onError('Bad HTTP request header ("'..line..'")')
+          self:onError('Bad HTTP request header ("'..line..'")', 400)
         end
       end
     end
     return false -- stop
   end
 
-  function headerStreamHandler:onError(err)
+  function headerStreamHandler:onError(err, statusCode)
     if self.onCompleted then
+      if statusCode then
+        self.errorStatus = statusCode
+      end
       self:onCompleted(err or 'Unknown error')
     else
       logger:warn('HeaderStreamHandler in error, due to '..tostring(err))

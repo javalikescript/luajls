@@ -21,10 +21,11 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   function httpContext:initialize(path, handler, attributes)
     super.initialize(self, attributes)
     if type(path) == 'string' then
-      self.path = path
+      self.pattern = '^'..path..'$'
     else
       error('Invalid context path, type is '..type(path))
     end
+    self.index = string.len(path)
     self:setHandler(handler or HttpContext.notFoundHandler)
   end
 
@@ -46,17 +47,26 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   function httpContext:getPath()
-    return self.path
+    return string.sub(self.pattern, 2, -2)
+  end
+
+  function httpContext:setIndex(index)
+    self.index = index
+    return self
+  end
+
+  function httpContext:getIndex()
+    return self.index
   end
 
   --- Returns the captured values of the specified path.
   -- @treturn string the first captured value, nil if there is no captured value.
   function httpContext:getArguments(path)
-    return select(3, string.find(path, '^'..self.path..'$'))
+    return select(3, string.find(path, self.pattern))
   end
 
-  function httpContext:matchPath(path)
-    if string.match(path, '^'..self.path..'$') then
+  function httpContext:matchRequest(path, request)
+    if string.match(path, self.pattern) then
       return true
     end
     return false
@@ -68,6 +78,12 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
 
   function httpContext:copyContext()
     return HttpContext:new(self:getPath(), self:getHandler(), self:getAttributes())
+  end
+
+  function httpContext:close()
+    if type(self.handler.close) == 'function' then
+      self.handler:close()
+    end
   end
 
   HttpContext.notFoundHandler = HttpHandler:new(function(self, httpExchange)
