@@ -60,7 +60,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     if self:isAbsolute() then
       return self
     end
-    return File:new(fs.currentdir()..Path.separator..self.path)
+    return File:new(self:getAbsolutePath())
   end
 
   function file:getAbsolutePath()
@@ -70,30 +70,34 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     return fs.currentdir()..Path.separator..self.path
   end
 
+  function file:stat()
+    return fs.stat(self.npath)
+  end
+
   --- Indicates whether or not this file exists.
   -- @treturn boolean true when this file exists, false otherwise.
   function file:exists()
-    return fs.stat(self.npath) ~= nil
+    return self:stat() ~= nil
   end
 
   --- Indicates whether or not this file entry is a file.
   -- @treturn boolean true when this file entry exists and is a file, false otherwise.
   function file:isFile()
-    local st = fs.stat(self.npath)
+    local st = self:stat()
     return st ~= nil and st.mode == 'file'
   end
 
   --- Indicates whether or not this file entry is a directory.
   -- @treturn boolean true when this file entry exists and is a directory, false otherwise.
   function file:isDirectory()
-    local st = fs.stat(self.npath)
+    local st = self:stat()
     return st ~= nil and st.mode == 'directory'
   end
 
   --- Returns the length of the file entry represented by this file.
   -- @treturn boolean the size of this file entry or 0.
   function file:length()
-    local st = fs.stat(self.npath)
+    local st = self:stat()
     if st ~= nil then
       return st.size
     end
@@ -104,7 +108,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   -- The time is given as the number of milliseconds since the Epoch, 1970-01-01 00:00:00 +0000 (UTC). 
   -- @treturn number the last modified time of this file entry or 0.
   function file:lastModified()
-    local st = fs.stat(self.npath)
+    local st = self:stat()
     if st ~= nil then
       return st.modification * 1000
     end
@@ -122,7 +126,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     local modificationTimeInSec = time
     local accessTimeInSec = time
     --[[
-    local st = fs.stat(self.npath)
+    local st = self:stat()
     if st ~= nil then
       accessTimeInSec = st.access
     end
@@ -148,21 +152,21 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   end
 
   --- Renames this file entry.
-  -- @param file the new name of this file as a File or a string.
+  -- @param dest the new name of this file as a File or a string.
   -- @treturn boolean true if the file is renamed.
   -- In case of error, it returns nil, plus a string describing the error and the error code.
-  function file:renameTo(file)
-    if type(file) == 'string' then
-      file = File:new(file)
+  function file:renameTo(dest)
+    if type(dest) == 'string' then
+      dest = File:new(dest)
     end
-    return os.rename(self.npath, file.npath)
+    return os.rename(self.npath, dest.npath)
   end
 
   --- Deletes this file entry.
   -- This file may points to a file or an empty directory.
   -- @treturn boolean true if the file entry is deleted.
   function file:delete()
-    local st = fs.stat(self.npath)
+    local st = self:stat()
     if st == nil then
       return true
     end
@@ -179,13 +183,13 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     if not files then
       return false
     end
-    for _, file in ipairs(files) do
-      if file:isDirectory() then
-        if not file:deleteAll() then
+    for _, f in ipairs(files) do
+      if f:isDirectory() then
+        if not f:deleteAll() then
           return false
         end
       end
-      if not file:delete() then
+      if not f:delete() then
         return false
       end
     end
@@ -201,28 +205,8 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     return self:delete()
   end
 
-  function file:forEachFile(fn, recursive)
-    if not self:isDirectory() then
-      return
-    end
-    for filename in fs.dir(self.npath) do
-      if filename ~= '.' and filename ~= '..' then
-        local f = File:new(self.path, filename)
-        local r
-        if recursive and f:isDirectory() then
-          r = f:forEachFile(fn, recursive)
-        else
-          r = fn(self, f)
-        end
-        if r then
-          return r
-        end
-      end
-    end
-  end
-
   --- Returns an array of strings naming the file system entries in the directory represented by this file.
-  -- @treturn table An array of strings naming the file system entries.
+  -- @treturn table An array of strings naming the file system entries or nil.
   function file:list()
     if not self:isDirectory() then
       return nil
@@ -237,25 +221,43 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   end
 
   --- Returns an array of files in the directory represented by this file.
-  -- @treturn table An array of files.
+  -- @treturn table An array of files or nil.
   function file:listFiles()
-    if not self:isDirectory() then
+    local filenames = self:list()
+    if not filenames then
       return nil
     end
     local files = {}
-    for filename in fs.dir(self.npath) do
-      if filename ~= '.' and filename ~= '..' then
-        table.insert(files, File:new(self.path, filename))
-      end
+    for _, filename in ipairs(filenames) do
+      table.insert(files, File:new(self.path, filename))
     end
     return files
   end
+
+  function file:forEachFile(fn, recursive)
+    if not self:isDirectory() then
+      return
+    end
+    for _, f in ipairs(self:listFiles()) do
+      local r
+      if recursive and f:isDirectory() then
+        r = f:forEachFile(fn, recursive)
+      else
+        r = fn(self, f)
+      end
+      if r then
+        return r
+      end
+    end
+  end
+
+  -- listRoots() getFreeSpace() getTotalSpace() getUsableSpace()
 
   --- Returns the lines of this file.
   -- @treturn table an array containing all the line of this file.
   function file:readAllLines()
     local t = {}
-    for line in io.lines(self.npath) do 
+    for line in io.lines(self.npath) do
       table.insert(t, line)
     end
     return t
@@ -296,25 +298,23 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     end
   end
 
-  function file:copyTo(file)
-    if type(file) == 'string' then
-      file = File:new(file)
-    end
+  function file:copyTo(dest)
+    local f = File.asFile(dest)
     -- TODO use async and window buffer
     local content = self:readAll()
     if content then
-      file:write(content)
+      f:write(content)
     end
   end
 
   -- Returns a File.
-  -- @param file a file, a path or a string representing a path.
+  -- @param value a file, a path or a string representing a path.
   -- @treturn jls.io.File a file.
-  function File.asFile(file)
-    if File:isInstance(file) then
-      return file
+  function File.asFile(value)
+    if File:isInstance(value) then
+      return value
     end
-    return File:new(file)
+    return File:new(value)
   end
-  
+
 end)
