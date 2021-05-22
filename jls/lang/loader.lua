@@ -139,7 +139,7 @@ If no module could be loaded then an error is raised.
 @return the loaded module
 @function requireOne
 @usage
-return require('jls.lang.loader').requireOne('jls.net-luv', 'jls.net-socket')
+return require('jls.lang.loader').requireOne('jls.io.fs-luv', 'jls.io.fs-lfs')
 ]]
 local function requireOne(...)
   local arg = {...}

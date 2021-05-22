@@ -41,7 +41,7 @@ if not isWindowsOS and not os.getenv('JLS_DO_NOT_IGNORE_SIGPIPE') then
   -- signal(SIGPIPE, SIG_IGN);
   if pcall(require, 'socket.core') then
     if logger:isLoggable(logger.FINE) then
-      logger:fine('net-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
+      logger:fine('TcpClient-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
     end
   end
 end
