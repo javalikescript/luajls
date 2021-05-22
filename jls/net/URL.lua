@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 --local logger = require("jls.lang.logger")
+local StringBuffer = require('jls.lang.StringBuffer')
 
 --- The URL class represents an Uniform Resource Locator.
 -- see https://tools.ietf.org/html/rfc1738
@@ -65,6 +66,9 @@ return require('jls.lang.class').create(function(url, _, URL)
 
   function url:getFile()
     local file = self.t.path
+    if file == '' then
+      file = '/'
+    end
     if self.t.query then
       if file then
         file = file..'?'..self.t.query
@@ -110,7 +114,8 @@ return require('jls.lang.class').create(function(url, _, URL)
     }
     local authority, path = string.match(specificPart, '^//([^/]+)(/?.*)$') -- we are lazy on the slash
     if not authority then
-      return nil, 'Invalid common URL ("'..scheme..specificPart..'")'
+      t.path = specificPart
+      return t
     end
     t.path = path
     local authentication, hostport = string.match(authority, '^([^@]+)@(.*)$')
@@ -192,26 +197,30 @@ return require('jls.lang.class').create(function(url, _, URL)
   end
 
   local function formatCommon(t)
-    local url = t.scheme..'://'
-    if t.user then
-      url = url..t.user
-      if t.password then
-        url = url..':'..t.password
+    local buffer = StringBuffer:new()
+    buffer:append(t.scheme, ':')
+    if t.host then
+      buffer:append('//')
+      if t.user then
+        buffer:append(t.user)
+        if t.password then
+          buffer:append(':', t.password)
+        end
+        buffer:append('@')
       end
-      url = url..'@'
-    end
-    if string.find(t.host, ':') then -- IPv6 addresses are enclosed in brackets
-      url = url..'['..t.host..']'
-    else
-      url = url..t.host
-    end
-    if t.port and t.port ~= PORT_BY_SCHEME[t.scheme] then
-      url = url..':'..t.port
+      if string.find(t.host, ':') then -- IPv6 addresses are enclosed in brackets
+        buffer:append('[', t.host, ']')
+      else
+        buffer:append(t.host)
+      end
+      if t.port and t.port ~= PORT_BY_SCHEME[t.scheme] then
+        buffer:append(':', t.port)
+      end
     end
     if t.path then
-      url = url..t.path
+      buffer:append(t.path)
     end
-    return url
+    return buffer:toString()
   end
 
   local function formatHttp(t)

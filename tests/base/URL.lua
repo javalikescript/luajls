@@ -8,7 +8,9 @@ local function assertParsedURL(url, urlt)
 end
 
 local function assertFromToString(url)
-    lu.assertEquals(URL.fromString(url):toString(), url)
+    local u = URL.fromString(url)
+    lu.assertNotNil(u, 'URL from "'..url..'"')
+    lu.assertEquals(u:toString(), url)
 end
 
 function Test_parse()
@@ -210,7 +212,7 @@ function Test_getPath()
 end
 
 function Test_getFile()
-    lu.assertEquals(URL:new('http://hostname'):getFile(), '')
+    lu.assertEquals(URL:new('http://hostname'):getFile(), '/')
     lu.assertEquals(URL:new('http://hostname/'):getFile(), '/')
     lu.assertEquals(URL:new('http://hostname/some_path'):getFile(), '/some_path')
     lu.assertEquals(URL:new('http://hostname/some_path?some_query'):getFile(), '/some_path?some_query')
@@ -245,15 +247,21 @@ end
 function Test_toString()
     assertFromToString('http://hostname')
     assertFromToString('http://hostname/')
+    assertFromToString('http://hostname:8080/')
     assertFromToString('http://hostname/some_path')
     assertFromToString('http://hostname/some_path?some_query')
     assertFromToString('http://hostname/some_path#some_fragment')
     assertFromToString('http://hostname/?some_query')
+    assertFromToString('http://username:password@hostname')
+    assertFromToString('http://username:password@hostname:8080')
+    assertFromToString('file:///path')
+    assertFromToString('file:path')
+    assertFromToString('file:/path')
+    assertFromToString('file://hostname/path')
 end
 
 function Test_fromString()
     lu.assertNil(URL.fromString('something'))
-    lu.assertNil(URL.fromString('something:8080'))
     lu.assertEquals(URL.fromString('http://hostname/'):toString(), 'http://hostname/')
 end
 
