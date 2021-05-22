@@ -12,28 +12,24 @@ function Test_TcpClient_TcpServer()
   local server = TcpServer:new()
   assert(server:bind('0.0.0.0', TEST_PORT))
   function server:onAccept(client)
-    local stream = StreamHandler:new()
-    function stream:onData(data)
+    client:readStart(StreamHandler:new(function(_, data)
       if data then
         client:write(data)
       else
         client:close()
         server:close()
       end
-    end
-    client:readStart(stream)
+    end))
   end
   local client = TcpClient:new()
   local receivedData
   client:connect('127.0.0.1', TEST_PORT):next(function(err)
-    local stream = StreamHandler:new()
-    function stream:onData(data)
+    client:readStart(StreamHandler:new(function(_, data)
       if data then
         receivedData = data
       end
       client:close()
-    end
-    client:readStart(stream)
+    end))
     client:write('Hello')
   end)
   if not loop(function()

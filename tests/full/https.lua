@@ -2,11 +2,13 @@ local lu = require('luaunit')
 
 local http = require('jls.net.http')
 local secure = require('jls.net.secure')
+local HttpExchange = require('jls.net.http.HttpExchange')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 local loader = require('jls.lang.loader')
 local loop = loader.load('loop', 'tests', false, true)
-local netLuv = loader.getRequired('jls.net-luv')
-local netSocket = loader.getRequired('jls.net-socket')
+local TcpClientLuv = loader.getRequired('jls.net.TcpClient-luv')
+local TcpClientSocket = loader.getRequired('jls.net.TcpClient-socket')
 local luaSocketLib = loader.tryRequire('socket')
 
 local File = require('jls.io.File')
@@ -16,12 +18,12 @@ local opensslLib = require('openssl')
 
 local TEST_PORT = 3002
 
-local function createHttpsClient(headers)
+local function createHttpsClient(headers, method)
   headers = headers or {}
   logger:fine('createHttpsClient()')
   local client = http.Client:new({
     url = 'https://127.0.0.1:'..tostring(TEST_PORT)..'/',
-    method = 'GET',
+    method = method or 'GET',
     checkHost = false,
     headers = headers
   })
@@ -122,9 +124,7 @@ function Test_HttpsClientServer()
   local body = '<p>Hello.</p>'
   local server, client
   createHttpsServer(function(httpExchange)
-    local response = httpExchange:getResponse()
-    response:setStatusCode(200, 'Ok')
-    response:setBody(body)
+    HttpExchange.ok(httpExchange, body)
   end):next(function(s)
     server = s
     client = createHttpsClient()
@@ -150,9 +150,7 @@ function Test_HttpsServerClients()
   local server
   local count = 0
   createHttpsServer(function(httpExchange)
-    local response = httpExchange:getResponse()
-    response:setStatusCode(200, 'Ok')
-    response:setBody('<p>Hello.</p>')
+    HttpExchange.ok(httpExchange, '<p>Hello.</p>')
     count = count + 1
   end):next(function(s)
     server = s
@@ -176,9 +174,7 @@ function Test_HttpsServerClientsKeepAlive()
   local server, client
   local count = 0
   createHttpsServer(function(httpExchange)
-    local response = httpExchange:getResponse()
-    response:setStatusCode(200, 'Ok')
-    response:setBody('<p>Hello.</p>')
+    HttpExchange.ok(httpExchange, '<p>Hello.</p>')
     count = count + 1
   end):next(function(s)
     server = s
@@ -202,15 +198,15 @@ function Test_HttpsServerClientsKeepAlive()
 end
 
 local function canResetConnection()
-  return netSocket or netLuv and luaSocketLib
+  return TcpClientSocket or TcpClientLuv and luaSocketLib
 end
 
 local function resetConnection(tcp, close, shutdown)
-  if netLuv and luaSocketLib and netLuv.TcpClient:isInstance(tcp) then
+  if TcpClientLuv and luaSocketLib and TcpClientLuv:isInstance(tcp) then
     local fd = tcp.tcp:fileno()
-    tcp = luaSocketLib.tcp()  
+    tcp = luaSocketLib.tcp()
     tcp:setfd(fd)
-  elseif netSocket and netSocket.TcpClient:isInstance(tcp) then
+  elseif TcpClientSocket and TcpClientSocket:isInstance(tcp) then
     tcp = tcp.tcp
   else
     error('illegal state')
@@ -227,9 +223,9 @@ local function resetConnection(tcp, close, shutdown)
 end
 
 local function shutdownConnection(tcp, close)
-  if netLuv and netLuv.TcpClient:isInstance(tcp) then
+  if TcpClientLuv and TcpClientLuv:isInstance(tcp) then
     tcp.tcp:shutdown()
-  elseif netSocket and netSocket.TcpClient:isInstance(tcp) then
+  elseif TcpClientSocket and TcpClientSocket:isInstance(tcp) then
     tcp.tcp:shutdown('both')
   end
   if close then
@@ -251,9 +247,7 @@ end
 function Test_HttpsClientServerConnectionCloseAfterHandshake()
   local server, client
   createHttpsServer(function(httpExchange)
-    local response = httpExchange:getResponse()
-    response:setStatusCode(200, 'Ok')
-    response:setBody('<p>Hello.</p>')
+    HttpExchange.ok(httpExchange, '<p>Hello.</p>')
     logger:info('server replied')
   end):next(function(s)
     server = s
@@ -275,33 +269,66 @@ function Test_HttpsClientServerConnectionCloseAfterHandshake()
   end
 end
 
-function Test_HttpsClientServerConnectionResetAfterHandshake()
-  if not canResetConnection() then
-    logger:warn('skip Test_HttpsClientServerConnectionResetAfterHandshake')
-    return
-  end
-  local server, client
-  createHttpsServer(function(httpExchange)
-    local response = httpExchange:getResponse()
-    response:setStatusCode(200, 'Ok')
-    response:setBody('<p>Hello.</p>')
-    logger:info('server replied')
-  end):next(function(s)
-    server = s
-    client = createSecureTcpClient()
-    client:connect('localhost', TEST_PORT):next(function()
-      logger:info('client connected')
-      resetConnection(client, true, false)
-      logger:info('client reset')
-      server:close()
-      logger:info('server closed')
-    end, function(err)
-      logger:info('an error occurred, '..tostring(err))
+if canResetConnection() then
+  function Test_HttpsClientServerConnectionResetAfterHandshake()
+    local server, client
+    createHttpsServer(function(httpExchange)
+      HttpExchange.ok(httpExchange, '<p>Hello.</p>')
+      logger:info('server replied')
+    end):next(function(s)
+      server = s
+      client = createSecureTcpClient()
+      client:connect('localhost', TEST_PORT):next(function()
+        logger:info('client connected')
+        resetConnection(client, true, false)
+        logger:info('client reset')
+        server:close()
+        logger:info('server closed')
+      end, function(err)
+        logger:info('an error occurred, '..tostring(err))
+      end)
     end)
+    if not loop(function()
+      client:close()
+      server:close()
+    end) then
+      lu.fail('Timeout reached')
+    end
+  end
+else
+  logger:warn('skip Test_HttpsClientServerConnectionResetAfterHandshake')
+end
+
+function No_Test_HttpsClientOnline()
+  local client = http.Client:new({
+    url = 'https://openssl.org/',
+    method = 'GET',
+    headers = {},
+  })
+  logger:finer('connecting client')
+  client:connect():next(function()
+    logger:finer('client connected')
+    return client:sendRequest()
+  end):next(function()
+    return client:receiveResponseHeaders()
+  end):next(function(remainingBuffer)
+    local response = client:getResponse()
+    local sh = StreamHandler.null
+    if logger:isLoggable(logger.FINE) then
+      sh = StreamHandler.std
+    end
+    response:setBodyStreamHandler(sh)
+    sh:onData(response:getLine())
+    return client:receiveResponseBody(remainingBuffer)
+  end):next(function()
+    logger:finer('closing client')
+    client:close()
+  end, function(err)
+    print('error: ', err)
+    client:close()
   end)
   if not loop(function()
     client:close()
-    server:close()
   end) then
     lu.fail('Timeout reached')
   end
