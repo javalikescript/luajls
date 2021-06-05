@@ -11,7 +11,7 @@ local SAMPLE_PLAIN = 'Hello world !'
 local SAMPLE_GZIPPED = base64.decode('H4sIAAAAAAAAA/NIzcnJVyjPL8pJUVAEAEAsDgcNAAAA')
 
 local function compress_decompress(data, header)
-  local bufferedStream = BufferedStreamHandler:new(StreamHandler:new())
+  local bufferedStream = BufferedStreamHandler:new(StreamHandler.null)
   local resultHeader
   local stream = gzip.compressStream(gzip.decompressStream(bufferedStream, function(header)
     resultHeader = header
@@ -21,7 +21,7 @@ local function compress_decompress(data, header)
 end
 
 function Test_decompress()
-  local bufferedStream = BufferedStreamHandler:new(StreamHandler:new())
+  local bufferedStream = BufferedStreamHandler:new(StreamHandler.null)
   local stream = gzip.decompressStream(bufferedStream)
   StreamHandler.fill(stream, SAMPLE_GZIPPED)
   local result = bufferedStream:getBuffer()
@@ -29,7 +29,7 @@ function Test_decompress()
 end
 
 function Test_compress()
-  local bufferedStream = BufferedStreamHandler:new(StreamHandler:new())
+  local bufferedStream = BufferedStreamHandler:new(StreamHandler.null)
   local stream = gzip.compressStream(bufferedStream)
   StreamHandler.fill(stream, SAMPLE_PLAIN)
   local result = bufferedStream:getBuffer()

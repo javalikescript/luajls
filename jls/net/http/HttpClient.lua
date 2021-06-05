@@ -73,11 +73,10 @@ return require('jls.lang.class').create(function(httpClient)
         self.port = options.port
       end
     end
-    if options.followRedirect == true then
-      self.maxRedirectCount = 3
-    end
     if type(options.maxRedirectCount) == 'number' then
       self.maxRedirectCount = options.maxRedirectCount
+    elseif options.followRedirect == true then
+      self.maxRedirectCount = 3
     end
     if options.response and HttpResponse:isInstance(options.response) then
       self.response = options.response
