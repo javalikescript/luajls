@@ -10,11 +10,54 @@ function Test_decode()
   lu.assertEquals(t.aBoolean, true)
 end
 
+local function assertEncode(fn)
+  lu.assertEquals(fn({aString = 'Hello world !'}), '{"aString":"Hello world !"}')
+  lu.assertEquals(fn({anInteger = 123}), '{"anInteger":123}')
+  lu.assertEquals(fn({aNumber = 1.23}), '{"aNumber":1.23}')
+  lu.assertEquals(fn({aBoolean = true}), '{"aBoolean":true}')
+  lu.assertEquals(fn({1, 2, 3}), '[1,2,3]')
+end
+
 function Test_encode()
-  lu.assertEquals(json.encode({aString = 'Hello world !'}), '{"aString":"Hello world !"}')
-  lu.assertEquals(json.encode({anInteger = 123}), '{"anInteger":123}')
-  lu.assertEquals(json.encode({aNumber = 1.23}), '{"aNumber":1.23}')
-  lu.assertEquals(json.encode({aBoolean = true}), '{"aBoolean":true}')
+  assertEncode(json.encode)
+end
+
+function Test_stringify()
+  assertEncode(json.stringify)
+  lu.assertEquals(json.stringify('a\r\nb "Hi" 1/2'), '"a\\r\\nb \\"Hi\\" 1/2"')
+  lu.assertEquals(json.stringify(json.null), 'null')
+end
+
+function Test_stringify_empty_table()
+  lu.assertEquals(json.stringify({}), '{}') -- unspecified
+end
+
+local function normalize(s)
+  return string.gsub(string.gsub(s, '\r\n', '\n'), '%]EOF$', ']')
+end
+
+function Test_stringify_2()
+  lu.assertEquals(json.stringify({a = 1, b = 'Hi', c = false}, 2), normalize([[{
+  "a": 1,
+  "b": "Hi",
+  "c": false
+}]]))
+  lu.assertEquals(json.stringify({3, 'Hi', 1, 2}, 2), normalize([[[
+  3,
+  "Hi",
+  1,
+  2
+]EOF]]))
+  lu.assertEquals(json.stringify({a = 1, b = 'Hi', c = false, d = {a = 2.34, b = '"hello"', c = true}}, 2), normalize([[{
+  "a": 1,
+  "b": "Hi",
+  "c": false,
+  "d": {
+    "a": 2.34,
+    "b": "\"hello\"",
+    "c": true
+  }
+}]]))
 end
 
 function Test_decode_encode()
