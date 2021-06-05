@@ -3,6 +3,7 @@
 
 local StringBuffer = require('jls.lang.StringBuffer')
 local TableList = require('jls.util.TableList')
+local Map = require('jls.util.Map')
 
 local tables = {}
 
@@ -120,10 +121,9 @@ end
 function tables.merge(baseTable, mergeTable, keep)
   for key, mergeValue in pairs(mergeTable) do
     local baseValue = baseTable[key]
-    local baseType = type(baseValue)
-    if baseType == 'table' and baseType == type(mergeValue) then
+    if type(baseValue) == 'table' and type(mergeValue) == 'table' then
       tables.merge(baseValue, mergeValue, keep)
-    elseif baseValue == nil or not keep then
+    elseif not keep or baseValue == nil then
       baseTable[key] = mergeValue
     end
   end
@@ -255,8 +255,9 @@ local function getPathKey(path, separator)
       return n, remainingPath
     end
   end
+  -- accepts positive integer keys
   local index = tonumber(key)
-  if index then
+  if index and math.type(index) == 'integer' and index > 0 then
     return index, remainingPath
   end
   return key, remainingPath
@@ -264,7 +265,7 @@ end
 
 --- Returns the value at the specified path in the specified table.
 -- A path consists in table keys separated by slashes.
--- The key are considered as string or number.
+-- The key are considered as string, number or boolean. Table or userdata keys are not supported.
 -- @tparam table t a table.
 -- @tparam string path the path to look in the table.
 -- @param defaultValue the default value to return if there is no value for the path.
@@ -426,38 +427,60 @@ end
 
 -- Command line argument parsing
 
+-- TODO Add JSON schema allowing for help, data type and validation
+
+local ARGUMENT_PATH_SEPARATOR = '.'
+local ARGUMENT_DEFAULT_PATH = '0' -- '0' '{}'
+
 -- Returns a table containing an entry for each argument name.
 -- An entry contains a string or a list of string.
 -- An argument name starts with a comma ('-').
--- The arguments without name are available under the empty name ('').
 -- @tparam string arguments the command line containing the arguments.
+-- @tparam[opt] string emptyPath the path used for arguments without name, default is zero ('0').
+-- @tparam[opt] boolean keepComma true to keep leading commas from argument names.
+-- @tparam[opt] string separator the path separator, default is the dot ('.').
 -- @treturn table the arguments as a table.
-function tables.createArgumentTable(arguments)
+function tables.createArgumentTable(arguments, emptyPath, keepComma, separator)
+  if separator == nil then
+    separator = ARGUMENT_PATH_SEPARATOR
+  end
+  if emptyPath == nil then
+    emptyPath = ARGUMENT_DEFAULT_PATH
+  end
   local t = {}
-  local name = ''
+  local name = emptyPath
   for _, argument in ipairs(arguments) do
-    if string.find(argument, '^-') then
-      name = argument
-      if t[name] == nil then
-        t[name] = true
+    local argumentName = string.match(argument, '^-+(.+)$')
+    if argumentName then
+      name = not keepComma and argumentName or argument
+      if tables.getPath(t, name, nil, separator) == nil then
+        tables.setPath(t, name, true, separator)
       end
     else
-      local value = t[name]
-      if type(value) == 'boolean' then
-        t[name] = argument
-      elseif type(value) == 'table' then
-        table.insert(value, argument)
+      local value
+      local currentValue = tables.getPath(t, name, nil, separator)
+      if currentValue == true or currentValue == nil then
+        value = argument
+      elseif type(currentValue) == 'table' then
+        if TableList.isList(currentValue) then
+          table.insert(currentValue, argument)
+        else
+          value = argument
+        end
       else
-        t[name] = {value, argument}
+        value = {currentValue, argument}
       end
-      name = ''
+      if value then
+        tables.setPath(t, name, value, separator)
+      end
+      name = emptyPath
     end
   end
   return t
 end
 
-function tables.getArgument(t, name, defaultValue, index, asString)
-  local value = t[name]
+function tables.getArgument(t, name, defaultValue, index, asString, separator)
+  local value = tables.getPath(t, name or ARGUMENT_DEFAULT_PATH, nil, separator or ARGUMENT_PATH_SEPARATOR)
   if value == nil then
     return defaultValue
   elseif asString and type(value) == 'boolean' then
@@ -471,8 +494,8 @@ function tables.getArgument(t, name, defaultValue, index, asString)
   return value
 end
 
-function tables.getArguments(t, name)
-  local value = t[name]
+function tables.getArguments(t, name, separator)
+  local value = tables.getPath(t, name or ARGUMENT_DEFAULT_PATH, nil, separator or ARGUMENT_PATH_SEPARATOR)
   if value == nil or type(value) == 'boolean' then
     return {}
   elseif type(value) == 'table' then
@@ -481,29 +504,11 @@ function tables.getArguments(t, name)
   return {value}
 end
 
-function tables.keys(t)
-  local list = {}
-  for key in pairs(t) do
-    table.insert(list, key)
-  end
-  return list
-end
-
-function tables.values(t)
-  local list = {}
-  for _, value in pairs(t) do
-    table.insert(list, value)
-  end
-  return list
-end
-
-function tables.size(t)
-  local size = 0
-  for _ in pairs(t) do
-    size = size + 1
-  end
-  return size
-end
-
+-- Map functions, for compatibilities
+-- TODO Remove
+tables.keys = Map.keys
+tables.values = Map.values
+tables.size = Map.size
+tables.spairs = Map.spairs
 
 return tables

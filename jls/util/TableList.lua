@@ -76,6 +76,11 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     end
   end
 
+  local function sort(list, comp)
+    table.sort(list, comp)
+    return list
+  end
+
   --- Creates a new TableList.
   -- @function TableList:new
   function tableList:initialize(...)
@@ -163,11 +168,6 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return TableList:new():addAll(self)
   end
 
-  function tableList:sort(comp)
-    table.sort(self, comp)
-    return self
-  end
-
   function tableList:get(index)
     return self[index]
   end
@@ -220,10 +220,14 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
 
   tableList.lastIndexOf = lastIndexOf
 
+  tableList.sort = sort
+
 
   TableList.contains = contains
 
   TableList.indexOf = indexOf
+
+  TableList.sort = sort
 
   TableList.lastIndexOf = lastIndexOf
 
@@ -253,6 +257,10 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
 
   local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
 
+  --- Returns true when the specified value is a Lua name.
+  -- Names in Lua are any string of letters, digits, and underscores, not beginning with a digit and not being a reserved word.
+  -- @tparam string value The string value to check.
+  -- @treturn boolean true when the specified value is a Lua name.
   function TableList.isName(value)
     if string.find(value, '^[%a_][%a%d_]*$') and indexOf(RESERVED_NAMES, value) == 0 then
       return true
@@ -260,7 +268,13 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return false
   end
 
-  function TableList.isList(t, withHoles)
+  --- Returns true when the specified table is a list.
+  -- A list has continuous integer keys starting at 1.
+  -- @tparam table t The table to check.
+  -- @tparam[opt] boolean withHoles true to indicate that the list may have holes.
+  -- @tparam[opt] boolean empty true to indicate that the list could be empty.
+  -- @treturn boolean true when the specified table is a list.
+  function TableList.isList(t, withHoles, empty)
     if type(t) ~= 'table' then
       return false
     end
@@ -279,6 +293,9 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
       else
         count = count + 1
       end
+    end
+    if empty and count == 0 and size == 0 then
+      return true
     end
     return count == 0 and min == 1 and (max == size or withHoles)
   end

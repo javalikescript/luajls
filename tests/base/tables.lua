@@ -61,7 +61,10 @@ function Test_getPath_tree()
 end
 
 function Test_getPath_list()
-  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/2'), 'y')
+  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/1'), 'x')
+  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/[2]'), 'y')
+  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/3'), 'z')
+  lu.assertNil(tables.getPath({a = {'x', 'y', 'z'}}, 'a/[4]'))
 end
 
 function Test_getPath_defaultValue()
@@ -89,6 +92,7 @@ function Test_setPath_tree()
 end
 
 function Test_setPath_list()
+  assertSetPath({a = {'x', 'y', 'z'}}, 'a/[2]', 'New y', {a = {'x', 'New y', 'z'}})
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/2', 'New y', {a = {'x', 'New y', 'z'}})
 end
 
@@ -116,7 +120,7 @@ function Test_removePath_tree()
 end
 
 function Test_removePath_list()
-  assertRemovePath({a = {'x', 'y', 'z'}}, 'a/2', {a = {'x', 'z'}})
+  assertRemovePath({a = {'x', 'y', 'z'}}, 'a/[2]', {a = {'x', 'z'}})
 end
 
 function Test_mapValuesByPath()
@@ -160,26 +164,34 @@ function Test_stringify()
   lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
 end
 
-local function sort(t)
-  table.sort(t)
-  return t
-end
-
-function Test_keys()
-  lu.assertEquals(sort(tables.keys({a = true, b = 'A value', c = 1})), {'a', 'b', 'c'})
-end
-
-function Test_values()
-  lu.assertEquals(sort(tables.values({a = 1, b = 2, c = 3})), {1, 2, 3})
-end
-
 function Test_createArgumentTable()
   local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
-  local t = tables.createArgumentTable(arguments)
+  local t = tables.createArgumentTable(arguments, nil, true)
   lu.assertEquals(tables.getArgument(t, '-x'), 'y')
   lu.assertEquals(tables.getArgument(t, '-u'), 'v')
   lu.assertNil(tables.getArgument(t, '-t'))
   lu.assertNotNil(tables.getArgument(t, '-h'))
+end
+
+function Test_createArgumentTableWithoutCommas()
+  local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
+  local t = tables.createArgumentTable(arguments)
+  lu.assertEquals(tables.getArgument(t, 'x'), 'y')
+  lu.assertEquals(tables.getArgument(t, 'u'), 'v')
+  lu.assertNil(tables.getArgument(t, 't'))
+  lu.assertNotNil(tables.getArgument(t, 'h'))
+end
+
+function Test_createArgumentTablePath()
+  local arguments = {'-h', '-x', 'y', '-a.b', 'v', '-a.c', 'w', 'w'}
+  local t = tables.createArgumentTable(arguments)
+  tables.merge(t, {a = {c = 'ww', d = 'x'}}, true)
+  lu.assertEquals(tables.getArgument(t, 'x'), 'y')
+  lu.assertEquals(tables.getArgument(t, 'a.b'), 'v')
+  lu.assertEquals(tables.getArgument(t, 'a.c'), 'w')
+  lu.assertEquals(tables.getArgument(t, 'a.d'), 'x')
+  lu.assertNil(tables.getArgument(t, 't'))
+  lu.assertNotNil(tables.getArgument(t, 'h'))
 end
 
 os.exit(lu.LuaUnit.run())
