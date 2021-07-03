@@ -1,7 +1,7 @@
 --- Provide JavaScript Object Notation (JSON) codec.
 -- @module jls.util.json
 
-local json = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson')
+local json = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
 local StringBuffer = require('jls.lang.StringBuffer')
 local TableList = require('jls.util.TableList')
 local Map = require("jls.util.Map")
