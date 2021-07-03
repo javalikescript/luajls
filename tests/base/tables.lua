@@ -164,16 +164,79 @@ function Test_stringify()
   lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
 end
 
-function Test_createArgumentTable()
+local function getSchemaValueOrFail(schema, value, translateValues)
+  local result, err = tables.getSchemaValue(schema, value, translateValues)
+  if err then
+    lu.fail(err)
+    return
+  end
+  return result
+end
+
+function Test_getSchemaValue_simple()
+  lu.assertEquals(getSchemaValueOrFail({type = 'integer'}, 0), 0)
+  lu.assertEquals(getSchemaValueOrFail({type = 'integer'}, 1), 1)
+  lu.assertEquals(getSchemaValueOrFail({type = 'integer'}, 1.0), 1)
+  lu.assertNil(tables.getSchemaValue({type = 'integer'}, 1.2))
+  lu.assertNil(tables.getSchemaValue({type = 'integer'}, {}))
+  lu.assertEquals(getSchemaValueOrFail({type = 'number'}, 1.2), 1.2)
+  lu.assertNil(tables.getSchemaValue({type = 'number'}, {}))
+  lu.assertEquals(getSchemaValueOrFail({type = 'string'}, 'Hello'), 'Hello')
+  lu.assertNil(tables.getSchemaValue({type = 'string'}, {}))
+  lu.assertEquals(getSchemaValueOrFail({type = 'boolean'}, true), true)
+  lu.assertEquals(getSchemaValueOrFail({type = 'boolean'}, false), false)
+  lu.assertNil(tables.getSchemaValue({type = 'array'}, 'String'))
+  lu.assertNil(tables.getSchemaValue({type = 'object'}, 'String'))
+end
+
+local function assertSchemaValueTranslated(schema, value, expextedValue)
+  lu.assertNil(tables.getSchemaValue(schema, value, false))
+  lu.assertEquals(getSchemaValueOrFail(schema, value, true), expextedValue)
+end
+
+function Test_getSchemaValue_translated()
+  assertSchemaValueTranslated({type = 'integer'}, '1', 1)
+  assertSchemaValueTranslated({type = 'number'}, '1.2', 1.2)
+  assertSchemaValueTranslated({type = 'string'}, 1.2, '1.2')
+  assertSchemaValueTranslated({type = 'string'}, true, 'true')
+  assertSchemaValueTranslated({type = 'boolean'}, 'true', true)
+  assertSchemaValueTranslated({type = 'boolean'}, 'false', false)
+end
+
+function Test_getSchemaValue_object()
+  local schema = {
+    type = 'object',
+    properties = {
+      name = {
+        type = 'string'
+      },
+      count = {
+        type = 'integer',
+        default = 1
+      },
+      available = {
+        type = 'boolean',
+        default = false
+      },
+    }
+  }
+  lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Bag', count = 3, available = true}, true),
+    {name = 'Bag', count = 3, available = true})
+  lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Tea', count = '2', available = 'false'}, true),
+    {name = 'Tea', count = 2, available = false})
+  lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Cup'}, true), {name = 'Cup', count = 1, available = false})
+end
+
+function Test_createArgumentTableWithCommas()
   local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
-  local t = tables.createArgumentTable(arguments, nil, true)
+  local t = tables.createArgumentTable(arguments, {keepComma = true})
   lu.assertEquals(tables.getArgument(t, '-x'), 'y')
   lu.assertEquals(tables.getArgument(t, '-u'), 'v')
   lu.assertNil(tables.getArgument(t, '-t'))
   lu.assertNotNil(tables.getArgument(t, '-h'))
 end
 
-function Test_createArgumentTableWithoutCommas()
+function Test_createArgumentTable()
   local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
   local t = tables.createArgumentTable(arguments)
   lu.assertEquals(tables.getArgument(t, 'x'), 'y')
