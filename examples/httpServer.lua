@@ -108,7 +108,8 @@ local DEFAULT_CONFIG = {
   endpoints = {
     {path = '/admin/stop', target = 'lua:event:publishEvent("terminate")'},
     {path = '/files/', target = 'file:.', permissions = 'rl'},
-    {path = '/', target = 'data:text/html;charset=utf-8,<!DOCTYPE html><html><head><title>Welcome</title></head><body><p>Welcome !</p><p><a href="admin/stop">Stop the server</a></p><p><a href="files">Explore files</a></p></body></html>'},
+    {path = '/', target = 'data:text/html;charset=utf-8,<!DOCTYPE html><html><head><title>Welcome</title></head><body>'..
+      '<p>Welcome !</p><p><a href="admin/stop">Stop the server</a></p><p><a href="files/">Explore files</a></p></body></html>'},
   }
 }
 
