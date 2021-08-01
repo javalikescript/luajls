@@ -1,15 +1,15 @@
 local llthreadsLib = require('llthreads')
 
-local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local event = require('jls.lang.event')
-local tables = require("jls.util.tables")
+
+local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
 
 -- this module only work with scheduler based event
 if event ~= require('jls.lang.event-') then
   error('Conflicting event libraries')
- end
- 
+end
+
 return require('jls.lang.class').create(function(thread)
 
   function thread:initialize(fn)
@@ -38,7 +38,8 @@ return require('jls.lang.class').create(function(thread)
       local status, value = pcall(fn, ...)
       if status then
         if type(value) == 'table' then
-          return 'table', require("jls.util.tables").stringify(value)
+          local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
+          return 'table', tables and tables.stringify(value)
         end
         return nil, value
       end
@@ -65,7 +66,7 @@ return require('jls.lang.class').create(function(thread)
               if valueType == 'error' then
                 reject(value or 'Unknown error')
               elseif valueType == 'table' then
-                resolve(tables.parse(value))
+                resolve(tables and tables.parse(value))
               else
                 resolve(value)
               end

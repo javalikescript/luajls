@@ -6,7 +6,8 @@ local luvLib = require('luv')
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local tables = require("jls.util.tables")
+
+local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
 
 --- A Thread class.
 -- @type Thread
@@ -50,7 +51,7 @@ return require('jls.lang.class').create(function(thread)
       if valueType == 'error' then
         endCallback(value or 'Unknown error')
       elseif valueType == 'table' then
-        endCallback(nil, tables.parse(value))
+        endCallback(nil, tables and tables.parse(value))
       else
         endCallback(nil, value)
       end
@@ -70,7 +71,8 @@ return require('jls.lang.class').create(function(thread)
       local status, value = pcall(fn, select(2, ...))
       if status then
         if type(value) == 'table' then
-          async:send('table', require("jls.util.tables").stringify(value))
+          local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
+          async:send('table', tables and tables.stringify(value))
         else
           async:send(nil, value)
         end
