@@ -325,4 +325,36 @@ function Test_race_rejected()
   lu.assertEquals(resolution, 'Error 2')
 end
 
+function Test_resolution_ordering()
+  local index = 0
+  local function nextIndex()
+    index = index + 1
+    return index
+  end
+  local nextIndex1, nextIndex2, nextIndex3, nextIndex4, nextIndex5
+  local deferred, promise = deferPromise()
+  promise:next(function()
+    nextIndex1 = nextIndex()
+    promise:next(function()
+      nextIndex3 = nextIndex()
+    end)
+  end)
+  promise:next(function()
+    nextIndex2 = nextIndex()
+    promise:next(function()
+      nextIndex4 = nextIndex()
+    end)
+  end)
+  deferred.resolve()
+  promise:next(function()
+    nextIndex5 = nextIndex()
+  end)
+  lu.assertEquals(nextIndex1, 1)
+  lu.assertEquals(nextIndex2, 2)
+  lu.assertEquals(nextIndex3, 3)
+  lu.assertEquals(nextIndex4, 4)
+  lu.assertEquals(nextIndex5, 5)
+  lu.assertEquals(nextIndex(), 6)
+end
+
 os.exit(lu.LuaUnit.run())

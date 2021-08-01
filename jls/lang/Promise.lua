@@ -120,20 +120,21 @@ or returns any other value, then returns a resolved Promise.
 @return A new promise.
 ]]
 function promise:next(onFulfilled, onRejected)
-  local promise = Promise:new()
+  local p = Promise:new()
   local handler = {
-    promise = promise,
+    promise = p,
     onFulfilled = onFulfilled,
     onRejected = onRejected
   }
-  if self._state == PENDING then
+  --if self._state == PENDING then
+  if self._handlers ~= nil then
     table.insert(self._handlers, handler)
   else
     -- onFulfilled and onRejected must be called asynchronously;
     -- TODO defer
     applyPromiseHandler(self, handler)
   end
-  return promise
+  return p
 end
 
 --- Appends a rejection handler callback to the promise, and returns a new
@@ -173,9 +174,8 @@ function Promise.createWeakWithCallback(prepare)
     if type(prepare) == 'function' then
       prepare(asCallback(self))
     end
-    prepare = nil
     return self:next(onFulfilled, onRejected)
-  end  
+  end
   return p
 end
 
@@ -199,7 +199,7 @@ end
 --- Returns a promise that either fulfills when all of the promises in the
 -- iterable argument have fulfilled or rejects as soon as one of the
 -- promises in the iterable argument rejects.
--- 
+--
 -- @tparam table promises The promises list.
 -- @return A promise.
 function Promise.all(promises)
@@ -228,7 +228,7 @@ end
 --- Returns a promise that fulfills or rejects as soon as one of the
 -- promises in the iterable fulfills or rejects, with the value or reason
 -- from that promise.
--- 
+--
 -- @param promises The promises.
 -- @return A promise.
 function Promise.race(promises)
@@ -240,26 +240,26 @@ function Promise.race(promises)
 end
 
 --- Returns a Promise object that is rejected with the given reason.
--- 
+--
 -- @param reason The reason for the rejection.
 -- @return A rejected promise.
 function Promise.reject(reason)
-  return Promise:new(function(resolve, reject)
-    reject(reason)
-  end)
+  local p = Promise:new()
+  applyPromise(promise, reason, REJECTED)
+  return p
 end
 
 --- Returns a Promise object that is resolved with the given value.
 -- If the value is a thenable (i.e. has a next method), the returned
 -- promise will "follow" that thenable, adopting its eventual state;
 -- otherwise the returned promise will be fulfilled with the value.
--- 
+--
 -- @param value The resolving value.
 -- @return A resolved promise.
 function Promise.resolve(value)
-  return Promise:new(function(resolve, reject)
-    resolve(value)
-  end)
+  local p = Promise:new()
+  applyPromise(p, value, FULFILLED)
+  return p
 end
 
 --- Returns the specified callback if any or a callback and its associated promise.
