@@ -73,13 +73,35 @@ runtime.execute = require('jls.lang.loader').lazyFunction(function(Promise, Thre
   return runtime.execute
 end, 'jls.lang.Promise', 'jls.lang.Thread')
 
+local shutdownHooks = {}
+
+local function runShutdownHooks()
+  local list = shutdownHooks
+  shutdownHooks = {}
+  for _, fn in ipairs(list) do
+    fn()
+  end
+end
+
+-- Registers a function that will be called prior Lua termination.
+function runtime.addShutdownHook(fn)
+  if type(JLS_RUNTIME_GLOBAL_OBJECT) == 'nil' then
+    -- registering a global object to check if the event loop has been called and processed all the events.
+    JLS_RUNTIME_GLOBAL_OBJECT = setmetatable({}, {
+      __gc = runShutdownHooks
+    })
+  end
+  table.insert(shutdownHooks, fn)
+end
+
 --- Terminates the program and returns a value to the OS.
 -- @param code The exit code to return to the OS.
 function runtime.exit(code)
+  runShutdownHooks()
   return os.exit(code, true)
 end
 
---- Runs the garbage collector. 
+--- Runs the garbage collector.
 function runtime.gc()
   collectgarbage('collect')
 end
@@ -87,6 +109,7 @@ end
 --- Forcibly terminates the program and returns a value to the OS.
 -- @param code The exit code to return to the OS.
 function runtime.halt(code)
+  runShutdownHooks()
   return os.exit(code, false)
 end
 

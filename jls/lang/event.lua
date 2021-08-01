@@ -5,7 +5,7 @@ if not noLoopCheck then
   local logger = require('jls.lang.logger')
   if logger:isLoggable(logger.WARN) then
     -- registering a global object to check if the event loop has been called and processed all the events.
-    EVENT_GLOBAL_OBJECT = setmetatable({}, {
+    JLS_EVENT_GLOBAL_OBJECT = setmetatable({}, {
       __gc = function()
         if event:loopAlive() then
           logger:warn('event is alive, make sure you ran the event loop!')

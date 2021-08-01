@@ -84,7 +84,7 @@ local BASE_REQUIRE = require
 -- The JLS_REQUIRES environment variable enables to pre load native/non jls modules
 -- that can be used in case of multiple implementations
 local jlsRequires = os.getenv('JLS_REQUIRES')
-if jlsRequires then
+if jlsRequires and jlsRequires ~= '' then
   local jlsObviates = {}
   local isDebugLoggable = logger:isLoggable(logger.DEBUG)
   require = function(name)
