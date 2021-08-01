@@ -7,78 +7,24 @@
 -- @type TableList
 return require('jls.lang.class').create(function(tableList, _, TableList)
 
-  local function reverseIterator(list, index)
+  local function previous(list, index)
     index = index - 1
     if index > 0 then
         return index, list[index]
     end
   end
 
-  local function irpairs(list)
-    return reverseIterator, list, #list + 1
-  end
-
-  local function indexOf(list, value)
-    for i, v in ipairs(list) do
-      if v == value then
-        return i
-      end
-    end
-    return 0
-  end
-
-  local function contains(list, value)
-    return value ~= nil and indexOf(list, value) > 0
-  end
-
-  local function lastIndexOf(list, value)
-    for i, v in irpairs(list) do
-      if v == value then
-        return i
-      end
-    end
-  end
-
-  local function removeFirst(list, value)
-    local index = indexOf(list, value)
-    if index > 0 then
-      table.remove(list, index)
-      return true
-    end
-    return false
-  end
-
-  local function removeLast(list, value)
-    local index = lastIndexOf(list, value)
-    if index then
-      table.remove(list, index)
-      return true
-    end
-    return false
-  end
-
-  local function removeAll(list, value)
-    for i, v in irpairs(list) do
-      if v == value then
-        table.remove(list, i)
-      end
-    end
-  end
-
-  local function removeIf(list, ifFn, removedList)
-    for i, v in irpairs(list) do
-      if ifFn(v, list) then
-        table.remove(list, i)
-        if removedList then
-          table.insert(removedList, v)
+  local function concat(l, ...)
+    for _, e in ipairs({...}) do
+      if type(e) == 'table' then
+        for _, v in ipairs(e) do
+          table.insert(l, v)
         end
+      else
+        table.insert(l, e)
       end
     end
-  end
-
-  local function sort(list, comp)
-    table.sort(list, comp)
-    return list
+    return l
   end
 
   --- Creates a new TableList.
@@ -86,6 +32,29 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   function tableList:initialize(...)
     if ... then
       self:add(...)
+    end
+  end
+
+  function tableList:reverseIterator()
+    return previous, self, #self + 1
+  end
+
+  function tableList:indexOf(value)
+    for i, v in ipairs(self) do
+      if v == value then
+        return i
+      end
+    end
+    return 0
+  end
+
+  local irpairs = tableList.reverseIterator
+
+  function tableList:lastIndexOf(value)
+    for i, v in irpairs(self) do
+      if v == value then
+        return i
+      end
     end
   end
 
@@ -117,23 +86,57 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return table.remove(self, index)
   end
 
+  local indexOf = tableList.indexOf
+
   --- Removes the first specified value from this list.
   -- The matching values are found using equality (==)
   -- @param value The value to remove from the list.
   -- @treturn boolean true if a value has been removed.
-  -- @function tableList:removeFirst
-  tableList.removeFirst = removeFirst
+  function tableList:removeFirst(value)
+    local index = indexOf(self, value)
+    if index > 0 then
+      table.remove(self, index)
+      return true
+    end
+    return false
+  end
+
+  local lastIndexOf = tableList.lastIndexOf
 
   --- Removes the last specified value from this list.
   -- @param value The value to remove from the list.
   -- @treturn boolean true if a value has been removed.
-  -- @function tableList:removeLast
-  tableList.removeLast = removeLast
+  function tableList:removeLast(value)
+    local index = lastIndexOf(self, value)
+    if index then
+      table.remove(self, index)
+      return true
+    end
+    return false
+  end
 
   --- Removes the specified value from this list.
   -- @param value The value to remove from the list.
-  -- @function tableList:removeAll
-  tableList.removeAll = removeAll
+  function tableList:removeAll(value)
+    for i, v in irpairs(self) do
+      if v == value then
+        table.remove(self, i)
+      end
+    end
+    return self
+  end
+
+  function tableList:removeIf(removeFn, removedList)
+    for i, v in irpairs(self) do
+      if removeFn(v, i, self) then
+        table.remove(self, i)
+        if removedList then
+          table.insert(removedList, v)
+        end
+      end
+    end
+    return self
+  end
 
   --- Inserts a new element to this list at the specified index.
   -- @tparam integer index The index where to insert the element.
@@ -157,11 +160,14 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   end
 
   function tableList:clear()
-    --self[1] = nil
     for k in pairs(self) do
       self[k] = nil
     end
     return self
+  end
+
+  function tableList:concat(...)
+    return concat(TableList:new(), self, ...)
   end
 
   function tableList:clone()
@@ -208,52 +214,82 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return filtered, unfilteredList
   end
 
+  function tableList:contains(value)
+    return value ~= nil and indexOf(self, value) > 0
+  end
+
+  function tableList:sort(comp)
+    -- TODO Should fallback to a comparison function that accept any value, Map.compareKey
+    table.sort(self, comp)
+    return self
+  end
+
   function tableList:iterator()
     return ipairs(self)
   end
 
-  tableList.reverseIterator = irpairs
+  --- Returns a string by concatenating all the values of the specified list.
+  -- tostring() is used to get the string of a value.
+  -- @tparam[opt] string sep An optional separator to add between values.
+  -- @tparam[opt] integer i The index of the first value, default is 1.
+  -- @tparam[opt] integer j The index of the last value, default is #list.
+  -- @treturn string a string with all values joined.
+  function tableList:join(sep, i, j)
+    local l = {}
+    for _, value in ipairs(self) do
+      table.insert(l, tostring(value))
+    end
+    return table.concat(l, sep, i, j)
+  end
 
-  tableList.contains = contains
-
-  tableList.indexOf = indexOf
-
-  tableList.lastIndexOf = lastIndexOf
-
-  tableList.sort = sort
-
-
-  TableList.contains = contains
 
   TableList.indexOf = indexOf
 
-  TableList.sort = sort
-
   TableList.lastIndexOf = lastIndexOf
+
+  TableList.irpairs = irpairs
+
+  TableList.filter = TableList.prototype.filter
+
+  TableList.contains = TableList.prototype.contains
+
+  TableList.sort = TableList.prototype.sort
 
   --- Removes the first specified value from the specified list.
   -- @tparam table list The list from which to remove the value.
   -- @param value The value to remove from the list.
   -- @treturn boolean true if a value has been removed.
   -- @function TableList.removeFirst
-  TableList.removeFirst = removeFirst
+  TableList.removeFirst = TableList.prototype.removeFirst
 
   --- Removes the last specified value from the specified list.
   -- @tparam table list The list from which to remove the value.
   -- @param value The value to remove from the list.
   -- @treturn boolean true if a value has been removed.
   -- @function TableList.removeLast
-  TableList.removeLast = removeLast
+  TableList.removeLast = TableList.prototype.removeLast
 
   --- Removes the specified value from the specified list.
   -- @tparam table list The list from which to remove the value.
   -- @param value The value to remove from the list.
   -- @function TableList.removeAll
-  TableList.removeAll = removeAll
+  TableList.removeAll = TableList.prototype.removeAll
 
-  TableList.removeIf = removeIf
+  TableList.removeIf = TableList.prototype.removeIf
 
-  TableList.irpairs = irpairs
+  --- Returns a string by concatenating all the values of the specified list.
+  -- tostring() is used to get the string of a value.
+  -- @tparam table list The list of values to concatenate.
+  -- @tparam[opt] string sep An optional separator to add between values.
+  -- @tparam[opt] integer i The index of the first value, default is 1.
+  -- @tparam[opt] integer j The index of the last value, default is #list.
+  -- @treturn string a string with all values joined.
+  -- @function TableList.join
+  TableList.join = TableList.prototype.join
+
+  function TableList.concat(...)
+    return concat({}, ...)
+  end
 
   local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
 
@@ -272,9 +308,10 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   -- A list has continuous integer keys starting at 1.
   -- @tparam table t The table to check.
   -- @tparam[opt] boolean withHoles true to indicate that the list may have holes.
-  -- @tparam[opt] boolean empty true to indicate that the list could be empty.
+  -- @tparam[opt] boolean acceptEmpty true to indicate that the list could be empty.
   -- @treturn boolean true when the specified table is a list.
-  function TableList.isList(t, withHoles, empty)
+  -- @treturn number the number of fields of the table.
+  function TableList.isList(t, withHoles, acceptEmpty)
     if type(t) ~= 'table' then
       return false
     end
@@ -294,25 +331,11 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
         count = count + 1
       end
     end
-    if empty and count == 0 and size == 0 then
-      return true
+    if acceptEmpty and count == 0 and size == 0 then
+      return true, 0
     end
-    return count == 0 and min == 1 and (max == size or withHoles)
-  end
-
-  --- Returns a string by concatenating all the values of the specified list.
-  -- tostring() is used to get the string of a value.
-  -- @tparam table list The list of values to concatenate.
-  -- @tparam[opt] string sep An optional separator to add between values.
-  -- @tparam[opt] integer i The index of the first value, default is 1.
-  -- @tparam[opt] integer j The index of the last value, default is #list.
-  -- @treturn string a string with all values joined.
-  function TableList.concat(list, sep, i, j)
-    local l = {}
-    for _, value in ipairs(list) do
-      table.insert(l, tostring(value))
-    end
-    return table.concat(l, sep, i, j)
+    local result = count == 0 and min == 1 and (max == size or withHoles)
+    return result, count + size
   end
 
 end)

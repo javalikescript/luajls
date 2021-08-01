@@ -161,13 +161,23 @@ function Test_removeAll()
   lu.assertEquals(list, {'1', '3'})
 end
 
-function Test_concat()
-  lu.assertEquals(TableList.concat({}, ','), '')
-  lu.assertEquals(TableList.concat({'a'}, ','), 'a')
-  lu.assertEquals(TableList.concat({'a', 'b', 'c'}, ','), 'a,b,c')
-  lu.assertEquals(TableList.concat({'a', 'b', 'c'}), 'abc')
+function Test_join()
+  lu.assertEquals(TableList.join({}, ','), '')
+  lu.assertEquals(TableList.join({'a'}, ','), 'a')
+  lu.assertEquals(TableList.join({'a', 'b', 'c'}, ','), 'a,b,c')
+  lu.assertEquals(TableList.join({'a', 'b', 'c'}), 'abc')
   local t = {}
-  lu.assertEquals(TableList.concat({'a', t, 1, true}, ','), 'a,'..tostring(t)..',1,true')
+  lu.assertEquals(TableList.join({'a', t, 1, true}, ','), 'a,'..tostring(t)..',1,true')
+end
+
+function Test_concat()
+  lu.assertEquals(TableList.concat(), {})
+  lu.assertEquals(TableList.concat({'a'}), {'a'})
+  lu.assertEquals(TableList.concat({'a', 'b', 'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(TableList.concat({'a'}, {'b', 'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(TableList.concat({'a', 'b'}, {'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(TableList.concat({'a'}, {'b'}, {'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(TableList.concat({'a'}, 'b', {'c'}), {'a', 'b', 'c'})
 end
 
 os.exit(lu.LuaUnit.run())

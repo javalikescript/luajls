@@ -746,7 +746,7 @@ function tables.createArgumentTable(arguments, options)
       name = emptyPath
     end
   end
-  if options.defaultValues then
+  if type(options.defaultValues) == 'table' then
     tables.merge(t, options.defaultValues)
   end
   if options.schema then

@@ -608,7 +608,7 @@ function Test_HttpServer_keep_alive()
   lu.assertEquals(server.t_requestCount, 2)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
   local bodies = strings.split(client.t_receivedData, 'HTTP/1%.')
-  logger:finest('http client received '..TableList.concat(bodies, '+'))
+  logger:finest('http client received '..TableList.join(bodies, '+'))
   lu.assertEquals(#bodies, 3)
 end
 
