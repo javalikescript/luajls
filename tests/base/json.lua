@@ -1,6 +1,8 @@
 local lu = require('luaunit')
 
-local json = require("jls.util.json")
+local json = require('jls.util.json')
+local Map = require('jls.util.Map')
+local TableList = require('jls.util.TableList')
 
 function Test_decode()
   local t = json.decode('{"aString": "Hello world !", "anInteger": 123, "aNumber": 1.23, "aBoolean": true, "aNull": null}')
@@ -29,7 +31,9 @@ function Test_stringify()
 end
 
 function Test_stringify_empty_table()
-  lu.assertEquals(json.stringify({}), '{}') -- unspecified
+  lu.assertEquals(json.stringify({}), '[]') -- unspecified
+  lu.assertEquals(json.stringify(TableList:new()), '[]')
+  lu.assertEquals(json.stringify(Map:new()), '{}')
 end
 
 local function normalize(s)
@@ -75,6 +79,21 @@ function Test_encode_decode()
     aBoolean = true
   }
   lu.assertEquals(json.decode(json.encode(t)), t)
+end
+
+function Test_stringify_parse()
+  local l = {
+    'Hello world !', 123, 1.23, true,
+    {},
+    {aString = 'Hello world !', anInteger = 123, aNumber = 1.23, aBoolean = true},
+    {
+      a = {aString = 'Hello world !', anInteger = 123, aNumber = 1.23, aBoolean = true},
+      b = {aString = 'Hi', anInteger = 321, aNumber = 3.21, aBoolean = false},
+    },
+  }
+  for _, e in ipairs(l) do
+    lu.assertEquals(json.parse(json.stringify(e)), e)
+  end
 end
 
 os.exit(lu.LuaUnit.run())

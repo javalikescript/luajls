@@ -6,6 +6,8 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local TableList = require('jls.util.TableList')
 local Map = require("jls.util.Map")
 
+-- TODO json libs should takes empty array and empty object as argument to be able to keep format.
+
 --- The opaque value representing null.
 -- @field null
 
@@ -67,9 +69,16 @@ function json.stringify(value, space)
       sb:append('null')
     elseif valueType == 'table' then
       local subPrefix = prefix..indent
-      -- we cannot decide whether empty tables should be array or object
-      -- we may use instanceof TableList
-      if TableList.isList(val) then
+      local isList, size = TableList.isList(val)
+      if size == 0 then
+        -- we cannot decide whether empty tables should be array or object
+        -- cjson defaults empty tables to object
+        if Map:isInstance(val) then
+          sb:append('{}')
+        else
+          sb:append('[]')
+        end
+      elseif isList then
         sb:append('[', newline)
         for i, v in ipairs(val) do
           if i > 1 then
