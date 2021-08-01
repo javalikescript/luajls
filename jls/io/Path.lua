@@ -20,13 +20,13 @@ return require('jls.lang.class').create(function(path, _, Path)
   --- Creates a new Path representing the specified pathname.
   -- @function Path:new
   -- @param[opt] parent The optional parent as a string or a @{Path}.
-  -- @tparam string path The name of the path.
+  -- @tparam string pathname The name of the path.
   -- @return a new Path
   -- @usage
   --local workingDirectory = Path:new('work')
   --local configurationPath = Path:new(workingDirectory, 'configuration.json')
-  function path:initialize(parent, path)
-    if type(path) == 'string' then
+  function path:initialize(parent, pathname)
+    if type(pathname) == 'string' then
       if Path:isInstance(parent) then
         parent = parent:getPathName()
       elseif type(parent) == 'string' then
@@ -34,18 +34,18 @@ return require('jls.lang.class').create(function(path, _, Path)
       else
         error('Invalid new Path arguments')
       end
-      if path ~= '' then
-        path = parent..Path.separator..Path.cleanPath(path)
+      if pathname ~= '' then
+        pathname = parent..Path.separator..Path.cleanPath(pathname)
       else
-        path = parent
+        pathname = parent
       end
     elseif type(parent) == 'string' then
-      path = Path.cleanPath(parent)
+      pathname = Path.cleanPath(parent)
     else
       error('Invalid new Path arguments')
     end
-    self.path = path
-    self.npath = Path.normalizePath(path)
+    self.path = pathname
+    self.npath = Path.normalizePath(pathname, Path.separator)
   end
 
   --- Returns the name of the file or directory of this Path.
@@ -84,18 +84,6 @@ return require('jls.lang.class').create(function(path, _, Path)
     return self.path
   end
 
-  function path:getPathPrefix()
-    local prefix, path = string.match(self.path, '^([/\\]+)(.*)$')
-    if prefix then
-      return prefix, path
-    end
-    prefix, path = string.match(self.path, '^(%a:[/\\]*)([^/\\]?.*)$')
-    if prefix then
-      return prefix, path
-    end
-    return '', self.path
-  end
-
   --- Returns the parent path as a string.
   -- @treturn string the parent path.
   -- @usage
@@ -103,11 +91,11 @@ return require('jls.lang.class').create(function(path, _, Path)
   --configurationPath:getParent() -- returns 'work'
   function path:getParent()
     if self:isAbsolute() then
-      local prefix, path = self:getPathPrefix()
-      if path == '' then
+      local prefix, pathname = Path.getPathPrefix(self.path)
+      if pathname == '' then
         return nil
       end
-      local parentPath = string.match(path, '^(.+)[/\\][^/\\]+$')
+      local parentPath = string.match(pathname, '^(.+)[/\\][^/\\]+$')
       if parentPath then
         return prefix..parentPath
       end
@@ -122,9 +110,9 @@ return require('jls.lang.class').create(function(path, _, Path)
   --local configurationPath = File:new('work/configuration.json')
   --configurationPath:getParentPath():getName() -- returns 'work'
   function path:getParentPath()
-    local p = self:getParent()
-    if p then
-      return Path:new(p)
+    local pathname = self:getParent()
+    if pathname then
+      return Path:new(pathname)
     end
     return nil
   end
@@ -144,42 +132,68 @@ end, function(Path)
   -- @field Path.separator
   Path.separator = string.sub(package.config, 1, 1) or '/'
 
-  function Path.cleanPath(path)
-    if type(path) == 'string' then
-      path = string.gsub(path, '[/\\]+', Path.separator)
-      if string.len(path) > 1 and not string.find(path, '^%a:[/\\]$') then
-        path = string.gsub(path, '[/\\]$', '')
+  function Path.getPathPrefix(pathname)
+    local prefix, rel = string.match(pathname, '^([/\\]+)(.*)$')
+    if prefix then
+      return prefix, rel
+    end
+    prefix, rel = string.match(pathname, '^(%a:[/\\]*)([^/\\]?.*)$')
+    if prefix then
+      return prefix, rel
+    end
+    return '', pathname
+  end
+
+  function Path.cleanPath(pathname)
+    if type(pathname) == 'string' then
+      pathname = string.gsub(pathname, '([/\\])[/\\]+', '%1')
+      if string.len(pathname) > 1 and not string.find(pathname, '^%a:[/\\]$') then
+        pathname = string.gsub(pathname, '[/\\]$', '')
       end
     end
-    return path
+    return pathname
   end
 
-  function Path.normalizePath(path)
-    if type(path) == 'string' then
+  function Path.normalizePath(pathname, separator)
+    if type(pathname) == 'string' then
       -- clean extra slashes
-      -- TODO find a better way to clean extra slashes, if possible in a single pass
-      path = string.gsub(path, '[/\\]%.([/\\])', '%1')
-      path = string.gsub(path, '[^/\\]+[/\\]%.%.[/\\]', '')
-      path = string.gsub(path, '[/\\][^/\\]+[/\\]%.%.$', '')
-      path = string.gsub(path, '[/\\]%.$', '')
-      path = string.gsub(path, '^%.[/\\]', '')
+      local sep = separator or string.match(pathname, '[/\\]') or Path.separator
+      local prefix, rel = Path.getPathPrefix(pathname)
+      rel = '/'..rel..'/'
+      if string.find(rel, '[/\\]%.%.?[/\\]') then
+        local ss = {}
+        for s in string.gmatch(rel, '[^/\\]+') do
+          if s == '..' and #ss > 0 then
+            table.remove(ss)
+          elseif s ~= '.' and s ~= '' then
+            table.insert(ss, s)
+          end
+        end
+        rel = table.concat(ss, sep)
+        if rel == '' and prefix == '' then
+          return '.'
+        end
+        return prefix..rel
+      else
+        return string.gsub(pathname, '[/\\]+', sep)
+      end
     end
-    return path
+    return pathname
   end
 
-  function Path.extractExtension(path)
-    return string.match(path, '%.([^/\\%.]*)$') -- or ''
+  function Path.extractExtension(pathname)
+    return string.match(pathname, '%.([^/\\%.]*)$') -- or ''
   end
 
-  function Path.extractBaseName(path)
-    return string.match(path, '^(.+)%.[^%.]*$') or path
+  function Path.extractBaseName(pathname)
+    return string.match(pathname, '^(.+)%.[^%.]*$') or pathname
   end
 
-  function Path.asPathName(path)
-    if type(path) == 'table' and type(path.getPathName) == 'function' then
-      return path:getPathName()
+  function Path.asPathName(pathOrName)
+    if type(pathOrName) == 'table' and type(pathOrName.getPathName) == 'function' then
+      return pathOrName:getPathName()
     end
-    return Path.cleanPath(path)
+    return Path.cleanPath(pathOrName)
   end
 
 end)

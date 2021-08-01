@@ -18,6 +18,7 @@ IF %ARG%==base SET BASE=yes
 IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs
 IF %ARG%==socket SET JLS_REQUIRES=!luv
 IF %ARG%==nossl SET JLS_REQUIRES=!openssl
+IF %ARG%==none SET JLS_REQUIRES=!buffer,!cjson,!lfs,!socket,!llthreads,!lpeg,!luv,!openssl,!webview,!win32,!winapi,!zlib
 GOTO :args
 
 :main
