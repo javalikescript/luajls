@@ -108,6 +108,9 @@ WebView.openSync('https://www.lua.org/')
     WebView:new(url, title, width, height, resizable):loop()
   end
 
+  -- We need to keep a reference to the thread webview to avoid GC
+  local WEBVIEW_THREAD_MAP = {}
+
   --[[--
 Opens the specified URL in a new window.
 Opening a webview in a dedicated thread may not be supported on all platform.
@@ -119,15 +122,21 @@ Opening a webview in a dedicated thread may not be supported on all platform.
 @treturn jls.lang.Thread the webview started thread.
 @treturn jls.util.WebView the created webview.
 ]]
-  function WebView.open(url, title, width, height, resizable)
+  function WebView.open(url, title, width, height, resizable, debug)
     local webview = class.makeInstance(WebView)
-    webview._webview = webviewLib.allocate(url, title, width, height, resizable)
-    return Thread:new(function(ws)
-      local webviewLib = require('webview')
-      local w = webviewLib.fromstring(ws)
-      webviewLib.init(w)
-      webviewLib.loop(w)
-    end):start(webviewLib.asstring(webview._webview)), webview
+    webview._webview = webviewLib.allocate(url, title, width, height, resizable, debug)
+    local thread = Thread:new(function(ws)
+      local wvLib = require('webview')
+      local w = wvLib.fromstring(ws)
+      wvLib.init(w)
+      wvLib.loop(w)
+    end)
+    thread:start(webviewLib.asstring(webview._webview))
+    WEBVIEW_THREAD_MAP[thread] = webview
+    thread:ended():finally(function()
+      WEBVIEW_THREAD_MAP[thread] = nil
+    end)
+    return thread, webview
   end
 
 end)
