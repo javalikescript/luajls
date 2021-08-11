@@ -56,27 +56,10 @@ local CONFIG_SCHEMA = {
         },
       },
     },
-    scheduler = {
-      type = 'object',
-      additionalProperties = false,
-      properties = {
-        enabled = {
-          type = 'boolean',
-          default = true,
-        },
-        heartbeat = {
-          type = 'number',
-          default = 15,
-          multipleOf = 0.1,
-          minimum = 0.5,
-          maximum = 3600,
-        },
-        refresh = {
-          title = 'The refresh scheduler recurrence',
-          type = 'string',
-          default = '*/15 * * * *',
-        },
-      },
+    dir = {
+      title = 'The root directory to serve',
+      type = 'string',
+      default = '.'
     },
     endpoints = {
       type = 'array',
@@ -101,21 +84,34 @@ local CONFIG_SCHEMA = {
         },
       },
     },
+    scheduler = {
+      type = 'object',
+      additionalProperties = false,
+      properties = {
+        enabled = {
+          type = 'boolean',
+          default = true,
+        },
+        heartbeat = {
+          type = 'number',
+          default = 15,
+          multipleOf = 0.1,
+          minimum = 0.5,
+          maximum = 3600,
+        },
+        refresh = {
+          title = 'The refresh scheduler recurrence',
+          type = 'string',
+          default = '*/15 * * * *',
+        },
+      },
+    },
   },
-}
-
-local DEFAULT_CONFIG = {
-  endpoints = {
-    {path = '/admin/stop', target = 'lua:event:publishEvent("terminate")'},
-    {path = '/files/', target = 'file:.', permissions = 'rl'},
-    {path = '/', target = 'data:text/html;charset=utf-8,<!DOCTYPE html><html><head><title>Welcome</title></head><body>'..
-      '<p>Welcome !</p><p><a href="admin/stop">Stop the server</a></p><p><a href="files/">Explore files</a></p></body></html>'},
-  }
 }
 
 local config = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
-  emptyPath = 'config',
+  emptyPath = 'dir',
   schema = CONFIG_SCHEMA
 });
 
@@ -132,10 +128,17 @@ if configFile:exists() then
     os.exit(22)
   end
   tables.merge(config, tt, true)
-else
-  tables.merge(config, DEFAULT_CONFIG, true)
 end
 
+local endpoints = config.endpoints
+if not endpoints or #endpoints == 0 then
+  endpoints = {
+    {path = '/admin/stop', target = 'lua:event:publishEvent("terminate")'},
+    {path = '/files/', target = 'file:'..config.dir, permissions = 'rl'},
+    {path = '/', target = 'data:text/html;charset=utf-8,<!DOCTYPE html><html><head><title>Welcome</title></head><body>'..
+      '<p>Welcome !</p><p><a href="admin/stop">Stop the server</a></p><p><a href="files/">Explore files</a></p></body></html>'},
+  }
+end
 
 local eventPublisher = EventPublisher:new()
 
@@ -169,7 +172,7 @@ if config.scheduler and config.scheduler.enabled then
   end)
 end
 
-for _, endpoint in ipairs(config.endpoints) do
+for _, endpoint in ipairs(endpoints) do
   local scheme, specificPart = string.match(endpoint.target, '^([%w][%w%+%.%-]*):(.*)$')
   --local targetUri = URL.fromString(endpoint.target)
   if scheme then

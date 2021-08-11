@@ -1,3 +1,5 @@
+This folder contains command line examples, use "-help" argument to get help.
+
 An HTTP server
 Could be used as a static web server, a reverse proxy or a combination.
 Allows testing of simple web applications, the reverse proxy could serve dependencies.
