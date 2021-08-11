@@ -90,18 +90,19 @@ return require('jls.lang.class').create(function(path, _, Path)
   --local configurationPath = Path:new('work/configuration.json')
   --configurationPath:getParent() -- returns 'work'
   function path:getParent()
-    if self:isAbsolute() then
-      local prefix, pathname = Path.getPathPrefix(self.path)
-      if pathname == '' then
-        return nil
-      end
-      local parentPath = string.match(pathname, '^(.+)[/\\][^/\\]+$')
-      if parentPath then
-        return prefix..parentPath
-      end
-      return prefix
+    local npath = Path.normalizePath(self.path)
+    local prefix, rel = Path.getPathPrefix(npath)
+    if rel == '' then
+      return nil
     end
-    return string.match(self.path, '^(.+)[/\\][^/\\]+$')
+    local parent = string.match(rel, '^(.+)[/\\][^/\\]+$')
+    if parent then
+      return prefix..parent
+    end
+    if prefix == '' then
+      return nil
+    end
+    return prefix
   end
 
   --- Returns the parent of this path as a Path.
@@ -120,10 +121,7 @@ return require('jls.lang.class').create(function(path, _, Path)
   --- Indicates whether or not this path is absolute.
   -- @treturn boolean true when this path is absolute, false otherwise.
   function path:isAbsolute()
-    if string.find(self.npath, '^[/\\]') or string.find(self.npath, '^%a:[/\\]') then
-      return true
-    end
-    return false
+    return Path.getPathPrefix(self.npath) ~= ''
   end
 
 end, function(Path)
@@ -132,20 +130,24 @@ end, function(Path)
   -- @field Path.separator
   Path.separator = string.sub(package.config, 1, 1) or '/'
 
+  -- Returns the path prefix and the path relative.
+  -- The prefix is empty when the path is relative.
   function Path.getPathPrefix(pathname)
-    local prefix, rel = string.match(pathname, '^([/\\]+)(.*)$')
+    local prefix, rel = string.match(pathname, '^([/\\])[/\\]*(.*)$')
     if prefix then
       return prefix, rel
     end
-    prefix, rel = string.match(pathname, '^(%a:[/\\]*)([^/\\]?.*)$')
+    prefix, rel = string.match(pathname, '^(%a:)[/\\]*([^/\\]?.*)$')
     if prefix then
-      return prefix, rel
+      return prefix..'\\', rel
     end
     return '', pathname
   end
 
+  -- Returns the specified path without extra slashes.
   function Path.cleanPath(pathname)
     if type(pathname) == 'string' then
+      -- clean extra slashes
       pathname = string.gsub(pathname, '([/\\])[/\\]+', '%1')
       if string.len(pathname) > 1 and not string.find(pathname, '^%a:[/\\]$') then
         pathname = string.gsub(pathname, '[/\\]$', '')
@@ -154,10 +156,11 @@ end, function(Path)
     return pathname
   end
 
+  -- Returns the specified path without dots.
   function Path.normalizePath(pathname, separator)
     if type(pathname) == 'string' then
-      -- clean extra slashes
       local sep = separator or string.match(pathname, '[/\\]') or Path.separator
+      -- clean dots
       local prefix, rel = Path.getPathPrefix(pathname)
       rel = '/'..rel..'/'
       if string.find(rel, '[/\\]%.%.?[/\\]') then
