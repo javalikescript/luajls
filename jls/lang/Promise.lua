@@ -279,4 +279,12 @@ function Promise.ensureCallback(callback)
   return resolutionCallback, p
 end
 
+function Promise.callbackToNext(callback)
+  return function(value)
+    return callback(nil, value)
+  end, function(reason)
+    return callback(reason or 'Unknown error')
+  end
+end
+
 end)

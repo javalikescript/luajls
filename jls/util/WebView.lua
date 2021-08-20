@@ -5,7 +5,6 @@ local webviewLib = require('webview')
 
 local class = require('jls.lang.class')
 local Thread = require('jls.lang.Thread')
-local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 
 --- The WebView class.

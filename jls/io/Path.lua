@@ -67,6 +67,7 @@ return require('jls.lang.class').create(function(path, _, Path)
   end
 
   --- Returns the string representation of this Path.
+  -- This is the creation value.
   -- @treturn string the string representation of this Path.
   -- @usage
   --local configurationPath = Path:new('work/configuration.json')

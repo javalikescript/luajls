@@ -35,12 +35,13 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   --local configurationPath = File:new(workingDirectory, 'configuration.json')
 
   --- Returns the path of the file as a string.
+  -- The result is normalized with the OS separator.
   -- @treturn string the path of the file.
   -- @usage
   --local configurationPath = File:new('work/configuration.json')
   --configurationPath:getPath() -- returns 'work/configuration.json'
   function file:getPath()
-    return self.path
+    return self.npath
   end
 
   --- Returns the parent of this file entry as a File.
@@ -65,9 +66,9 @@ return require('jls.lang.class').create(Path, function(file, _, File)
 
   function file:getAbsolutePath()
     if self:isAbsolute() then
-      return self.path
+      return self.npath
     end
-    return fs.currentdir()..Path.separator..self.path
+    return fs.currentdir()..Path.separator..self.npath
   end
 
   function file:stat()
