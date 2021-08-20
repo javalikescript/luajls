@@ -28,6 +28,9 @@ return require('jls.lang.class').create(function(thread)
   -- Sets this Thread function.
   -- @tparam[opt] function fn the function to execute in this thread.
   function thread:setFunction(fn)
+    if self.t then
+      error('thread is runnning')
+    end
     if type(fn) == 'function' then
       self.fn = fn
     else
@@ -44,10 +47,11 @@ return require('jls.lang.class').create(function(thread)
       return self
     end
     local endPromise, endCallback = Promise.createWithCallback()
-    local async
-    async = luvLib.new_async(function(valueType, value)
+    self._endPromise = endPromise
+    self._async = luvLib.new_async(function(valueType, value)
+      local async = self._async
+      self._async = nil
       self.t = nil
-      self._endPromise = nil
       if valueType == 'error' then
         endCallback(value or 'Unknown error')
       elseif valueType == 'table' then
@@ -82,18 +86,14 @@ return require('jls.lang.class').create(function(thread)
     ]]
     --logger:finest('code: [['..code..']]')
     local chunk = string.dump(load(code, nil, 't'))
-    self.t = luvLib.new_thread(chunk, async, ...)
-    self._endPromise = endPromise
+    self.t = luvLib.new_thread(chunk, self._async, ...)
     return self
   end
 
   --- Returns a promise that resolves once this thread is terminated.
   -- @treturn jls.lang.Promise a promise that resolves once this thread is terminated.
   function thread:ended()
-    if self.t and self._endPromise then
-      return self._endPromise
-    end
-    return Promise.reject()
+    return self._endPromise or Promise.reject()
   end
 
   --- Returns true if this thread is alive.
@@ -107,7 +107,6 @@ return require('jls.lang.class').create(function(thread)
     if self.t then
       self.t:join()
       self.t = nil
-      self._endPromise = nil
     end
   end
 

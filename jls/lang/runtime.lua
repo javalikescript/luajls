@@ -30,43 +30,48 @@ runtime.exec = require('jls.lang.loader').lazyFunction(function(ProcessBuilder)
   return runtime.exec
 end, 'jls.lang.ProcessBuilder')
 
+local function applyExecuteCallback(cb, anyCode, status, kind, code)
+  if anyCode then
+    cb(nil, {
+      code = math.floor(code),
+      kind = kind
+    })
+  elseif status then
+    cb()
+  else
+    cb('Execute fails with '..tostring(kind)..' code '..tostring(code))
+  end
+end
+
 runtime.execute = require('jls.lang.loader').lazyFunction(function(Promise, Thread)
   --- Executes the specified command line in a separate thread.
-  -- The callback will be in error if the process exit code is not zero.
+  -- The promise will be rejected if the process exit code is not zero.
   -- The error is a table with a code and a kind fields.
   -- @tparam string command The command-line to execute.
+  -- @tparam[opt] boolean details true to resolve the promise with any exit code.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
-  runtime.execute = function(command, callback)
+  runtime.execute = function(command, anyCode, callback)
+    if type(anyCode) == 'function' then
+      callback = anyCode
+      anyCode = false
+    end
     local cb, d = Promise.ensureCallback(callback)
     if Thread then
-      Thread:new(function(command)
+      Thread:new(function(cmd)
         -- Windows uses 32-bit unsigned integers as exit codes
         -- windows system function does not return the exit code but the errno
-        local status, kind, code = os.execute(command)
-        if status then
-          return nil
-        else
-          return {
-            code = code,
-            kind = kind
-          }
-        end
-      end):start(command):ended():next(function(value)
-        cb(value)
+        local status, kind, code = os.execute(cmd)
+        -- status is a shorter for kind == 'exit' and code == 0
+        return tostring(status)..' '..kind..' '..tostring(code)
+      end):start(command):ended():next(function(result)
+        local status, kind, code = string.match(result, '^(%a+) (%a+) %-?(%d+)$')
+        applyExecuteCallback(cb, anyCode, status == 'true', kind, tonumber(code))
       end, function(reason)
-        cb(reason)
+        cb(reason or 'Unkown error')
       end)
     else
-      local status, kind, code = os.execute(command)
-      if status then
-        cb()
-      else
-        cb({
-          code = math.floor(code),
-          kind = kind
-        })
-      end
+      applyExecuteCallback(cb, anyCode, os.execute(command))
     end
     return d
   end
