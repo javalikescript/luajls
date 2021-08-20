@@ -782,12 +782,34 @@ function tables.createArgumentTable(arguments, options)
       end
       os.exit(0)
     end
-    local tt, err = tables.getSchemaValue(options.schema, t, true)
-    if err then
-      print(err)
+    local st, serr = tables.getSchemaValue(options.schema, t, true)
+    if serr then
+      print(serr)
       os.exit(22)
     end
-    t = tt
+    local configPath = options.configPath and tables.getPath(st, options.configPath, nil, separator)
+    if configPath then
+      local File = require('jls.io.File')
+      local configFile = File:new(configPath)
+      if configFile:exists() then
+        local json = require('jls.util.json')
+        local status, result = pcall(json.decode, configFile:readAll())
+        if not status then
+          print('Invalid configuration file "'..configFile:getPath()..'"')
+          os.exit(1)
+        end
+        local ct, cerr = tables.getSchemaValue(options.schema, result)
+        if cerr then
+          print('Invalid configuration file "'..configFile:getPath()..'", '..tostring(cerr))
+          os.exit(22)
+        end
+        tables.merge(st, ct)
+      elseif tables.getPath(t, options.configPath, nil, separator) then
+        print('Configuration file "'..configFile:getPath()..'" not found')
+        os.exit(22)
+      end
+    end
+    t = st
   end
   return t
 end

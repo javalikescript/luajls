@@ -110,25 +110,11 @@ local CONFIG_SCHEMA = {
 }
 
 local config = tables.createArgumentTable(system.getArguments(), {
-  helpPath = 'help',
+  configPath = 'config',
   emptyPath = 'dir',
+  helpPath = 'help',
   schema = CONFIG_SCHEMA
 });
-
-local configFile = File:new(config.config)
-if configFile:exists() then
-  local status, result = pcall(json.decode, configFile:readAll())
-  if not status then
-    print('Invalid configuration file "'..config.config..'"')
-    os.exit(1)
-  end
-  local tt, err = tables.getSchemaValue(CONFIG_SCHEMA, result)
-  if err then
-    print('Invalid configuration file "'..config.config..'", '..tostring(err))
-    os.exit(22)
-  end
-  tables.merge(config, tt, true)
-end
 
 local endpoints = config.endpoints
 if not endpoints or #endpoints == 0 then
