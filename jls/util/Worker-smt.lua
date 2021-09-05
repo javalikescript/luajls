@@ -11,11 +11,13 @@ thread worker implementation, each worker has a dedicated thread
 
 local WorkerServer = class.create(function(workerServer, _, WorkerServer)
 
+  local USE_TCP = os.getenv('WORKER_SMT_USE_TCP') ~= nil or not smt.SmtPipeServer
+
   function workerServer:initialize()
-    self.useTcp = os.getenv('WORKER_SMT_USE_TCP') ~= nil or not smt.SmtPipeServer
-    logger:finer('workerServer:new() useTcp: '..tostring(self.useTcp))
-    self.smtServer = nil
-    if self.useTcp then
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('workerServer:new() USE_TCP: '..tostring(USE_TCP))
+    end
+    if USE_TCP then
       self.smtServer = smt.SmtTcpServer:new()
     else
       self.smtServer = smt.SmtPipeServer:new()
@@ -49,7 +51,7 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
 
   function workerServer:bind()
     logger:finer('workerServer:bind()')
-    if self.useTcp then
+    if USE_TCP then
       -- peak an ephemeral port
       return self.smtServer:bind(nil, 0):next(function()
         self.tcpPort = self.smtServer:getTcpPort()
@@ -70,6 +72,9 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
   function workerServer:start()
     logger:finer('workerServer:start()')
     if not self.startPromise then
+      if not self.smtServer then
+        self:initialize()
+      end
       self.startPromise = self:bind()
     end
     return self.startPromise
@@ -89,6 +94,7 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
     end):next(function()
       logger:finer('workerServer:stop() stopping')
       self.smtServer:close()
+      self.smtServer = nil
       self.started = false
       self.startPromise = nil
     end)
@@ -98,14 +104,16 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
     self.workers[client] = worker
   end
 
-  function workerServer:newWorkerThread(workerFn)
+  function workerServer:newWorkerThread(workerFn, workerData)
     local chunk = string.dump(workerFn)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('workerServer:newWorkerThread() code >>'..tostring(chunk)..'<<')
     end
+    local dataStr = string.format('%q', workerData and json.encode(workerData) or nil)
+    local chunkStr = string.format('%q', chunk)
     local code = "local Worker = require('jls.util.Worker-smt');"..
       "local event = require('jls.lang.event');"..
-      "Worker.WorkerServer.initializeWorkerThread(load("..string.format('%q', chunk)..", nil, 'b'), ...);"..
+      "Worker.WorkerServer.initializeWorkerThread(load("..chunkStr..", nil, 'b'), "..dataStr..", ...);"..
       "event:loop()"
     local thread = Thread:new(load(code, nil, 't'))
     local workerId = tostring(thread)
@@ -114,7 +122,7 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
     if logger:isLoggable(logger.FINER) then
       logger:finer('workerServer:newWorkerThread() "'..tostring(workerId)..'"')
     end
-    thread:start(workerId, self.useTcp, self.useTcp and self.tcpPort or self.pipeName):ended():next(function()
+    thread:start(workerId, USE_TCP, USE_TCP and self.tcpPort or self.pipeName):ended():next(function()
       if logger:isLoggable(logger.FINER) then
         logger:finer('workerServer thread ended "'..tostring(workerId)..'"')
       end
@@ -129,8 +137,11 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
     return promise
   end
 
-  function WorkerServer.initializeWorkerThread(workerFn, workerId, useTcp, tcpPortOrPipeName)
-    local Worker = require('jls.util.Worker-smt')
+  function WorkerServer.initializeWorkerThread(workerFn, workerJsonData, workerId, useTcp, tcpPortOrPipeName)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('initializeWorkerThread(?, '..tostring(workerJsonData)..', '..tostring(workerId)..', '..tostring(useTcp)..', '..tostring(tcpPortOrPipeName)..')')
+    end
+    local Worker = require('jls.util.Worker-smt') -- TODO clean
     local worker = nil
     local smtClient = useTcp and smt.SmtTcpClient:new() or smt.SmtPipeClient:new()
     function smtClient:onMessage(payload)
@@ -158,7 +169,7 @@ local WorkerServer = class.create(function(workerServer, _, WorkerServer)
       function worker:close()
         return smtClient:close()
       end
-      workerFn(worker)
+      workerFn(worker, workerJsonData and json.decode(workerJsonData))
       return smtClient:postMessage(json.encode({
         workerId = workerId
       })):next(function()
@@ -185,7 +196,7 @@ local WORKER_SERVER = WorkerServer:new()
 
 return class.create(function(worker, _, Worker)
 
-  function worker:initialize(workerFn)
+  function worker:initialize(workerFn, workerData)
     logger:finer('worker:new()')
     self.pendingMessages = {}
     if type(workerFn) ~= 'function' then
@@ -193,7 +204,7 @@ return class.create(function(worker, _, Worker)
     end
     WORKER_SERVER:start():next(function()
       logger:finer('worker:new() server started')
-      return WORKER_SERVER:newWorkerThread(workerFn)
+      return WORKER_SERVER:newWorkerThread(workerFn, workerData)
     end):next(function(client)
       logger:finer('worker:new() worker thread client connected')
       WORKER_SERVER:registerWorker(client, self)

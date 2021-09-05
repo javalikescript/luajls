@@ -5,16 +5,23 @@ local logger = require('jls.lang.logger')
 local Worker = require('jls.util.Worker')
 local loop = loader.load('loop', 'tests', false, true)
 
-local function assertPostReceive()
+Tests = {}
+
+--function Tests:tearDown()
+--  Worker.shutdown()
+--end
+
+local function assertPostReceive(withData)
   local received = nil
-  local w = Worker:new(function(w)
-    local logger = require('jls.lang.logger')
-    logger:info('initializing worker')
+  local w = Worker:new(function(w, d)
+    local logr = require('jls.lang.logger')
+    logr:info('initializing worker')
+    local suffix = d and (', '..tostring(d)) or ''
     function w:onMessage(message)
-      logger:info('received in worker "'..tostring(message)..'"')
-      w:postMessage('Hi '..tostring(message))
+      logr:info('received in worker "'..tostring(message)..'"')
+      w:postMessage('Hi '..tostring(message)..suffix)
     end
-  end)
+  end, withData and 'cheers' or nil)
   function w:onMessage(message)
     logger:info('received from worker "'..tostring(message)..'"')
     received = message
@@ -31,14 +38,18 @@ local function assertPostReceive()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(received, 'Hi John')
+  lu.assertEquals(received, withData and 'Hi John, cheers' or 'Hi John')
 end
 
-function Test_default()
+function Tests:test_default()
   assertPostReceive()
 end
 
-function _Test_TCP()
+function Tests:test_default_with_data()
+  assertPostReceive(true)
+end
+
+function Tests:_test_TCP()
   if not Worker.WorkerServer then
     lu.success()
     return

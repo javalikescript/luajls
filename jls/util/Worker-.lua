@@ -26,7 +26,7 @@ function w:onMessage(message)
 end
 w:postMessage('John')
   ]]
-  function worker:initialize(workerFn)
+  function worker:initialize(workerFn, workerData)
     if type(workerFn) == 'function' then
       local w = Worker:new()
       function w.postMessage(_, message)
@@ -37,7 +37,7 @@ w:postMessage('John')
         w:onMessage(message)
         return Promise.resolve()
       end
-      workerFn(w)
+      workerFn(w, workerData)
     end
   end
 
