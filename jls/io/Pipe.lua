@@ -12,22 +12,19 @@ Note: The only implementation is based on libuv
 
 local luvLib = require('luv')
 
+local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 
 --- The Pipe class.
 -- @type Pipe
-return require('jls.lang.class').create(function(pipe, _, Pipe)
+return class.create(function(pipe, _, Pipe)
 
   --- Creates a new Pipe.
   -- @function Pipe:new
-  function pipe:initialize(fdOrIpc)
-    if type(fdOrIpc) == 'userdata' then
-      self.fd = fdOrIpc
-    else
-      self.fd = luvLib.new_pipe(fdOrIpc == true)
-    end
+  function pipe:initialize(ipc)
+    self.fd = luvLib.new_pipe(ipc == true)
   end
 
   --- Binds this pipe to the specified name.
@@ -62,7 +59,8 @@ return require('jls.lang.class').create(function(pipe, _, Pipe)
   function pipe:handleAccept()
     local fd = self:pipeAccept()
     if fd then
-      local p = Pipe:new(fd)
+      local p = class.makeInstance(Pipe)
+      p.fd = fd
       self:onAccept(p)
     end
   end

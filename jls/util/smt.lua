@@ -361,7 +361,7 @@ if Pipe then
       super.initialize(self, Pipe:new(), options)
     end
     function smtPipeClient:connect(pipeName)
-      return self.stream:connect(pipeName, self.pipeName or Pipe.normalizePipeName(DEFAULT_PIPE_NAME)):next(function()
+      return self.stream:connect(pipeName or self.pipeName or Pipe.normalizePipeName(DEFAULT_PIPE_NAME)):next(function()
         return self:initializeConnection()
       end)
     end

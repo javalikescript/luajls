@@ -264,7 +264,7 @@ end
 
 --- Returns the specified callback if any or a callback and its associated promise.
 -- This function helps to create asynchronous functions with an optional ending callback parameter.
--- @param callback An optional existing callback.
+-- @param callback An optional existing callback or false to indicate that no promise is expected.
 -- @return a callback and an associated promise if necessary.
 -- @usage function readAsync(callback)
 --   local cb, promise = Promise.ensureCallback(callback)
@@ -273,7 +273,11 @@ end
 -- end
 function Promise.ensureCallback(callback)
   if type(callback) == 'function' then
-    return callback
+    return callback, nil
+  elseif callback == false then
+    return nil, nil
+  elseif callback ~= nil then
+    error('Invalid callback')
   end
   local p, resolutionCallback = Promise.createWithCallback()
   return resolutionCallback, p
