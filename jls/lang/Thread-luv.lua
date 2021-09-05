@@ -48,18 +48,18 @@ return require('jls.lang.class').create(function(thread)
     end
     local endPromise, endCallback = Promise.createWithCallback()
     self._endPromise = endPromise
-    self._async = luvLib.new_async(function(valueType, value)
-      local async = self._async
+    self._async = luvLib.new_async(function(reason, value, tableValue)
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('Thread function done: '..tostring(reason)..', "'..tostring(value)..'"')
+      end
+      if tableValue == true and tables then
+        value = tables.parse(value)
+      end
+      endCallback(reason, value)
+      self._async:close()
+      self.t:join()
       self._async = nil
       self.t = nil
-      if valueType == 'error' then
-        endCallback(value or 'Unknown error')
-      elseif valueType == 'table' then
-        endCallback(nil, tables and tables.parse(value))
-      else
-        endCallback(nil, value)
-      end
-      async:close()
     end)
     -- check if the function has upvalues
     if logger:isLoggable(logger.FINE) then
@@ -72,16 +72,27 @@ return require('jls.lang.class').create(function(thread)
     [[
       local fn = load(chunk, nil, 'b')
       local async = (...)
-      local status, value = pcall(fn, select(2, ...))
+      local status, val, err = pcall(fn, select(2, ...))
       if status then
-        if type(value) == 'table' then
-          local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
-          async:send('table', tables and tables.stringify(value))
+        if err then
+          async:send(tostring(err))
         else
-          async:send(nil, value)
+          local typ = type(val)
+          if val == nil or typ == 'string' or typ == 'number' or typ == 'boolean' then
+            async:send(nil, val)
+          elseif typ == 'table' then
+            local tablesRequired, tables = pcall(require, 'jls.util.tables')
+            if tablesRequired then
+              async:send(nil, tables.stringify(val), true)
+            else
+              async:send(tostring(tables))
+            end
+          else
+            async:send('Invalid thread function return type '..typ)
+          end
         end
       else
-        async:send('error', value)
+        async:send(val or 'Unknown error in thread')
       end
     ]]
     --logger:finest('code: [['..code..']]')
@@ -106,7 +117,6 @@ return require('jls.lang.class').create(function(thread)
   function thread:join()
     if self.t then
       self.t:join()
-      self.t = nil
     end
   end
 

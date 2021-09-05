@@ -35,15 +35,28 @@ return require('jls.lang.class').create(function(thread)
     local code = "local chunk = "..string.format('%q', chunk)..
     [[
       local fn = load(chunk, nil, 'b')
-      local status, value = pcall(fn, ...)
+      local status, val, err = pcall(fn, ...)
       if status then
-        if type(value) == 'table' then
-          local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
-          return 'table', tables and tables.stringify(value)
+        if err then
+          return 0, tostring(err)
+        else
+          local typ = type(val)
+          if val == nil or typ == 'string' or typ == 'number' or typ == 'boolean' then
+            return 1, val
+          elseif typ == 'table' then
+            local tablesRequired, tables = pcall(require, 'jls.util.tables')
+            if tablesRequired then
+              return 2, tables.stringify(val)
+            else
+              return 0, tostring(tables)
+            end
+          else
+            return 0, 'Invalid thread function return type '..typ
+          end
         end
-        return nil, value
+      else
+        return 0, val or 'Unknown error in thread'
       end
-      return 'error', value
     ]]
     --logger:finest('code: [['..code..']]')
     self.t = llthreadsLib.new(code, ...)
@@ -59,20 +72,20 @@ return require('jls.lang.class').create(function(thread)
             if self.t:alive() then
               return true
             end
-            local ok, valueType, value = self.t:join()
-            self.t = nil
+            local ok, state, value = self.t:join()
             self._endPromise = nil
             if ok then
-              if valueType == 'error' then
-                reject(value or 'Unknown error')
-              elseif valueType == 'table' then
-                resolve(tables and tables.parse(value))
-              else
+              if state == 1 then
                 resolve(value)
+              elseif state == 2 and tables then
+                resolve(tables.parse(value))
+              else
+                reject(value)
               end
             else
-              reject('Not able to join properly')
+              reject('Not able to join thread properly')
             end
+            self.t = nil
             return false
           end, 500)
         end)
