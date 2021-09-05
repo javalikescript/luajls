@@ -41,12 +41,24 @@ local function encodeString(s)
   end)
 end
 
+if not string.match(tostring(1234.5), '^1234[%.,]5$') then
+  error('Unsupported number locale')
+end
+
+local function encodeNumber(n)
+  local s = tostring(n)
+  if math.type(n) == 'integer' then
+    return s
+  end
+  return (string.gsub(s, ',', '.', 1))
+end
+
 --- Returns the JSON encoded string representing the specified value.
--- When specifying a spaces, the encoded string will includes new lines.
+-- When specifying space, the encoded string will includes new lines.
 -- @tparam table value The value to to convert to a JSON encoded string.
 -- @tparam number space The number of space characters to use as white space.
 -- @return the encoded string.
--- @function encode
+-- @function stringify
 function json.stringify(value, space)
   local sb = StringBuffer:new()
   local indent = ''
@@ -102,7 +114,12 @@ function json.stringify(value, space)
           if tk == 'string' then
             ec = encodeString(k)
           elseif tk == 'number' then
-            ec = tostring(k)
+            local nk = math.tointeger(k)
+            if nk then
+              ec = tostring(nk)
+            else
+              error('Invalid number key, '..tostring(k))
+            end
           else
             error('Invalid key type '..tk)
           end
@@ -114,10 +131,9 @@ function json.stringify(value, space)
     elseif valueType == 'string' then
       sb:append('"', encodeString(val), '"')
     elseif valueType == 'number' then
-      -- TODO Ensure the number value is valid in JSON
-      sb:append(tostring(val))
+      sb:append(encodeNumber(val))
     elseif valueType == 'boolean' then
-      sb:append(tostring(val))
+      sb:append(val and 'true' or 'false')
     else
       error('Invalid value type '..valueType)
     end
