@@ -280,9 +280,9 @@ WebView.openSync('https://www.lua.org/')
   local USE_TCP = os.getenv('JLS_WEBVIEW_USE_TCP') ~= nil
 
   local function openThreadStream(threadMode, url, title, width, height, resizable, debug)
-    if event:loopAlive() then
-      error('event loop is alive')
-    end
+    --if event:loopAlive() then
+    --  error('event loop is alive')
+    --end
     local thread = Thread:new(function(...)
       local WV = require('jls.util.WebView')
       WV._threadStreamFunction(...)
@@ -390,6 +390,13 @@ Opening a webview in a dedicated thread may not be supported on all platform.
     end
     thread:start(webviewLib.asstring(webview._webview), chunk, data)
     return threadResult(thread, webview)
+  end
+
+  function WebView.toDataUrl(content)
+    local data = string.gsub(content, "[ %c!#$%%&'()*+,/:;=?@%[%]]", function(c)
+      return string.format('%%%02X', string.byte(c))
+    end)
+    return 'data:text/html,'..data
   end
 
 end)
