@@ -143,6 +143,10 @@ return class.create(function(pipe, _, Pipe)
     return Promise.resolve()
   end
 
+  function pipe:isClosed()
+    return not self.fd
+  end
+
   -- Shutdowns the outgoing (write) side of a duplex stream.
   function pipe:shutdown(callback)
     logger:finest('pipe:shutdown()')

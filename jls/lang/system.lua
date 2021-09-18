@@ -64,7 +64,7 @@ function system.isWindows()
 end
 
 --- Returns the arguments used when calling the Lua standalone executable.
--- @return The environnement property.
+-- @treturn table The arguments.
 function system.getArguments()
   if win32Lib then
     local args = table.pack(win32Lib.GetCommandLineArguments())
