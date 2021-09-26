@@ -158,6 +158,8 @@ return class.create(function(pipe, _, Pipe)
     return d
   end
 
+  local index = 1
+
   function Pipe.normalizePipeName(name, uniq)
     local system = require('jls.lang.system')
     if system.isWindows() then
@@ -167,8 +169,9 @@ return class.create(function(pipe, _, Pipe)
       name = tmpdir..name
     end
     if uniq then
-      local strings = require('jls.util.strings')
-      name = name..'-'..strings.formatInteger(system.currentTimeMillis(), 64)
+      local formatInteger = require('jls.util.strings').formatInteger
+      name = name..'-'..formatInteger(luvLib.os_getpid(), 64)..'-'..formatInteger(index, 64)..'-'..formatInteger(system.currentTimeMillis(), 64)
+      index = (index + 1) % 262144
     end
     return name
   end

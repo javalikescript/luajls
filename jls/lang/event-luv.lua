@@ -59,8 +59,8 @@ return require('jls.lang.class').create(function(event)
     -- may returns nil then an error message in case of libuv returning <0
     local ret, err = luvLib.run(mode)
     if ret then
-      if logger:isLoggable(logger.WARN) then
-        logger:warn('event:loop('..tostring(mode)..') return '..tostring(ret))
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('event:loop('..tostring(mode)..') return '..tostring(ret))
       end
     elseif ret == nil then
       if logger:isLoggable(logger.WARN) then
