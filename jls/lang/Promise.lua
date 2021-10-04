@@ -245,7 +245,7 @@ end
 -- @return A rejected promise.
 function Promise.reject(reason)
   local p = Promise:new()
-  applyPromise(promise, reason, REJECTED)
+  applyPromise(p, reason, REJECTED)
   return p
 end
 
