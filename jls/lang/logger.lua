@@ -129,27 +129,31 @@ local Logger = require('jls.lang.class').create(function(logger)
   end
 
   local function dump(p, v, name, maxLevel, prefix, indent, level)
-    name = name or ''
-    maxLevel = maxLevel or 1
-    prefix = prefix or ''
-    indent = indent or '  '
-    level = level or 0
     local tv = type(v)
     local pn = prefix..name..' (' .. tv .. ')'
     -- There are eight basic types in Lua: nil, boolean, number, string, userdata, function, thread, and table.
     if tv == 'string' then
       p(pn..': "'..v..'"')
-    elseif tv == 'boolean' or tv == 'number' or tv == 'nil' then
-      p(pn..': '..tostring(v))
     elseif tv == 'table' then
-      p(pn..':')
-      if level < maxLevel then
-        for k in pairs(v) do
-          dump(p, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
+      local empty = next(v) == nil
+      if empty then
+        p(pn..': empty')
+      else
+        p(pn..':')
+        if level < maxLevel then
+          for k in pairs(v) do
+            dump(p, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
+          end
+        else
+          p(prefix..indent..'...')
         end
       end
     else
-      p(pn)
+      local mt = getmetatable(v)
+      p(pn..': '..tostring(v))
+      if mt then
+        dump(p, mt, 'metatable', maxLevel, prefix..indent, indent, level + 1)
+      end
     end
   end
 
@@ -161,14 +165,14 @@ local Logger = require('jls.lang.class').create(function(logger)
       if type(message) == 'string' then
         writeLog(formatLog(self, level, message))
       else
-        dump(writeLog, message, 'value')
+        dump(writeLog, message, 'value', 5, '', '  ', 0)
       end
     end
   end
 
   function logger:logTable(level, value, name, depth)
     if level >= self.level then
-      dump(writeLog, value, name or 'value', depth, '', '  ', 0)
+      dump(writeLog, value, name or 'value', depth or 5, '', '  ', 0)
     end
   end
 

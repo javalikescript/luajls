@@ -48,7 +48,7 @@ runtime.execute = require('jls.lang.loader').lazyFunction(function(Promise, Thre
   -- The promise will be rejected if the process exit code is not zero.
   -- The error is a table with a code and a kind fields.
   -- @tparam string command The command-line to execute.
-  -- @tparam[opt] boolean details true to resolve the promise with any exit code.
+  -- @tparam[opt] boolean anyCode true to resolve the promise with any exit code.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
   runtime.execute = function(command, anyCode, callback)

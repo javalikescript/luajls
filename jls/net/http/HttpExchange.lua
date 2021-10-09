@@ -78,7 +78,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns a promise that resolves once the exchange is closed.
-  -- @treturn jls.lang.Promise a promise that resolves once the request body is available.
+  -- @treturn jls.lang.Promise a promise that resolves once the exchange is closed.
   function httpExchange:onClose()
     if not self.closePromise then
       self.closePromise, self.closeCallback = Promise.createWithCallback()

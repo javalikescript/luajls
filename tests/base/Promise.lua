@@ -357,4 +357,32 @@ function Test_resolution_ordering()
   lu.assertEquals(nextIndex(), 6)
 end
 
+function Test_promise_reject()
+  local ok, reason
+  Promise.reject('Houla'):next(function()
+    ok = false
+  end, function(r)
+    ok = true
+    reason = r
+  end)
+  lu.assertTrue(ok)
+  lu.assertEquals(reason, 'Houla')
+end
+
+function Test_next_reject_next_catch_chained()
+  local ok, reason
+  local deferred, promise = deferPromise()
+  promise:next(function()
+    return Promise.reject('Houla')
+  end):next(function()
+    ok = false
+  end):catch(function(r)
+    ok = true
+    reason = r
+  end)
+  deferred.resolve()
+  lu.assertEquals(reason, 'Houla')
+  lu.assertTrue(ok)
+end
+
 os.exit(lu.LuaUnit.run())
