@@ -15,7 +15,8 @@ local luvLib = require('luv')
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local luv_stream = require('jls.lang.luv_stream')
+local close, read_start, read_stop, write = luv_stream.close, luv_stream.read_start, luv_stream.read_stop, luv_stream.write
 
 --- The Pipe class.
 -- @type Pipe
@@ -25,6 +26,9 @@ return class.create(function(pipe, _, Pipe)
   -- @function Pipe:new
   function pipe:initialize(ipc)
     self.fd = luvLib.new_pipe(ipc == true)
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('Pipe:new() fd: '..tostring(self.fd))
+    end
   end
 
   --- Binds this pipe to the specified name.
@@ -58,6 +62,9 @@ return class.create(function(pipe, _, Pipe)
 
   function pipe:handleAccept()
     local fd = self:pipeAccept()
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('pipe:handleAccept() fd: '..tostring(self.fd)..', accept: '..tostring(fd))
+    end
     if fd then
       local p = class.makeInstance(Pipe)
       p.fd = fd
@@ -66,6 +73,7 @@ return class.create(function(pipe, _, Pipe)
   end
 
   function pipe:pipeAccept()
+    logger:finest('pipe:pipeAccept()')
     local fd = luvLib.new_pipe(false)
     local status, err = luvLib.accept(self.fd, fd)
     if status then
@@ -78,6 +86,7 @@ return class.create(function(pipe, _, Pipe)
   -- This method should be overriden, the default implementation closes the client.
   -- @param pipeClient the pipe client to accept.
   function pipe:onAccept(pipeClient)
+    logger:fine('pipe:onAccept() => closing')
     pipeClient:close()
   end
 
@@ -86,6 +95,9 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe is connected.
   function pipe:connect(name, callback)
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('pipe:connect('..tostring(name)..')')
+    end
     local cb, d = Promise.ensureCallback(callback)
     self.fd:connect(name, cb)
     return d
@@ -101,13 +113,12 @@ return class.create(function(pipe, _, Pipe)
   --- Starts reading data on this pipe.
   -- @param stream the stream reader, could be a function or a StreamHandler.
   function pipe:readStart(stream)
-    local cb = StreamHandler.ensureCallback(stream)
-    return luvLib.read_start(self.fd, cb) -- TODO handle error
+    return read_start(self.fd, stream)
   end
 
   --- Stops reading data on this client.
   function pipe:readStop()
-    luvLib.read_stop(self.fd)
+    return read_stop(self.fd)
   end
 
   --- Writes data on this client.
@@ -115,9 +126,7 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   function pipe:write(data, callback)
-    local cb, d = Promise.ensureCallback(callback)
-    luvLib.write(self.fd, data, cb)
-    return d
+    return write(self.fd, data, callback)
   end
 
   --- Makes the pipe writable or readable by all users.
@@ -132,15 +141,9 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe is closed.
   function pipe:close(callback)
-    logger:finest('pipe:close()')
-    local fd = self.fd
-    if fd then
-      self.fd = nil
-      local cb, d = Promise.ensureCallback(callback)
-      luvLib.close(fd, cb)
-      return d
-    end
-    return Promise.resolve()
+    local stream = self.fd
+    self.fd = nil
+    return close(stream, callback)
   end
 
   function pipe:isClosed()
@@ -150,30 +153,35 @@ return class.create(function(pipe, _, Pipe)
   -- Shutdowns the outgoing (write) side of a duplex stream.
   function pipe:shutdown(callback)
     logger:finest('pipe:shutdown()')
-    if not self.fd then
-      return Promise.resolve()
-    end
     local cb, d = Promise.ensureCallback(callback)
-    luvLib.shutdown(self.fd, cb)
+    if self.fd then
+      luvLib.shutdown(self.fd, cb)
+    else
+      cb()
+    end
     return d
   end
 
-  local index = 1
+  local index = 0
+  function Pipe.generateUniqueName(name)
+    local currentTimeMillis = require('jls.lang.system').currentTimeMillis
+    local formatInteger = require('jls.util.strings').formatInteger
+    index = (index + 1) % 262144
+    return name..'-'..formatInteger(luvLib.os_getpid(), 64)..'-'..formatInteger(index, 64)..'-'..formatInteger(currentTimeMillis(), 64)
+  end
 
-  function Pipe.normalizePipeName(name, uniq)
-    local system = require('jls.lang.system')
-    if system.isWindows() then
-      name = '\\\\?\\pipe\\'..name
-    else
-      local tmpdir = os.getenv('TMPDIR') or '/tmp/'
-      name = tmpdir..name
+  local PIPE_PREFIX
+  if require('jls.lang.system').isWindows() then
+    PIPE_PREFIX = '\\\\.\\pipe\\'
+  else
+    PIPE_PREFIX = os.getenv('TMPDIR') or '/tmp/'
+  end
+
+  function Pipe.normalizePipeName(name, unique)
+    if unique then
+      return PIPE_PREFIX..Pipe.generateUniqueName(name)
     end
-    if uniq then
-      local formatInteger = require('jls.util.strings').formatInteger
-      name = name..'-'..formatInteger(luvLib.os_getpid(), 64)..'-'..formatInteger(index, 64)..'-'..formatInteger(system.currentTimeMillis(), 64)
-      index = (index + 1) % 262144
-    end
-    return name
+    return PIPE_PREFIX..name
   end
 
 end)

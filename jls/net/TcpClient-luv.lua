@@ -26,6 +26,8 @@ event:loop()
 ]]
 
 local luvLib = require('luv')
+local luv_stream = require('jls.lang.luv_stream')
+local read_start, read_stop, write = luv_stream.read_start, luv_stream.read_stop, luv_stream.write
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
@@ -121,16 +123,7 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpClient)
   --  s:write('Hello')
   --end)
   function tcpClient:write(data, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpClient:write('..tostring(string.len(data))..')')
-    end
-    local cb, d = Promise.ensureCallback(callback)
-    if self.tcp then
-      self.tcp:write(data, cb)
-    else
-      cb('closed')
-    end
-    return d
+    return write(self.tcp, data, callback)
   end
 
   --- Starts reading data on this client.
@@ -143,34 +136,12 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpClient)
   --  end)
   --end)
   function tcpClient:readStart(stream)
-    logger:finer('tcpClient:readStart()')
-    local cb = StreamHandler.ensureCallback(stream)
-    -- TODO Raise or return errors
-    -- int 0 UV_EALREADY UV_ENOTCONN
-    local err = 0
-    if self.tcp then
-      err = self.tcp:read_start(cb)
-    else
-      cb('closed')
-    end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpClient:readStart() => '..tostring(err))
-    end
-    return err
+    return read_start(self.tcp, stream)
   end
 
   --- Stops reading data on this client.
   function tcpClient:readStop()
-    logger:finer('tcpClient:readStop()')
-    local err = 0
-    if self.tcp then
-      -- TODO Raise or return errors
-      err = self.tcp:read_stop()
-    end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpClient:readStop() => '..tostring(err))
-    end
-    return err
+    return read_stop(self.tcp)
   end
 
   --- Enables or disables TCP no delay.

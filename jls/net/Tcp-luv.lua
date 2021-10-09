@@ -1,15 +1,14 @@
 --- TCP socket base class.
 -- @module jls.net.Tcp
 
-local logger = require('jls.lang.logger')
-local Promise = require('jls.lang.Promise')
+local close = require('jls.lang.luv_stream').close
 
 --- The Tcp base class.
 -- @type Tcp
 return require('jls.lang.class').create(function(tcp)
 
-  function tcp:initialize(tcp)
-    self.tcp = tcp
+  function tcp:initialize(stream)
+    self.tcp = stream
   end
 
   --- Returns the local name of this TCP socket.
@@ -44,16 +43,9 @@ return require('jls.lang.class').create(function(tcp)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the socket is closed.
   function tcp:close(callback)
-    logger:finer('tcp:close()')
-    local cb, d = Promise.ensureCallback(callback)
-    local socket = self.tcp
-    if socket then
-      self.tcp = nil
-      socket:close(cb)
-    else
-      cb()
-    end
-    return d
+    local stream = self.tcp
+    self.tcp = nil
+    return close(stream, callback)
   end
 
 end)
