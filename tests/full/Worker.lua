@@ -5,13 +5,7 @@ local logger = require('jls.lang.logger')
 local Worker = require('jls.util.Worker')
 local loop = loader.load('loop', 'tests', false, true)
 
-Tests = {}
-
---function Tests:tearDown()
---  Worker.shutdown()
---end
-
-local function assertPostReceive(withData)
+local function assertPostReceive(withData, scheme)
   local received = nil
   local w = Worker:new(function(w, d)
     local logr = require('jls.lang.logger')
@@ -19,14 +13,15 @@ local function assertPostReceive(withData)
     local suffix = d and (', '..tostring(d)) or ''
     function w:onMessage(message)
       logr:info('received in worker "'..tostring(message)..'"')
-      w:postMessage('Hi '..tostring(message)..suffix)
+      local reply = 'Hi '..tostring(message)..suffix
+      w:postMessage(reply)
+      logr:info('posted in worker "'..tostring(reply)..'"')
     end
-  end, withData and 'cheers' or nil)
+  end, withData and 'cheers' or nil, scheme)
   function w:onMessage(message)
     logger:info('received from worker "'..tostring(message)..'"')
     received = message
     self:close()
-    Worker.shutdown()
   end
   lu.assertNil(received)
   logger:info('posting')
@@ -34,34 +29,22 @@ local function assertPostReceive(withData)
   logger:info('looping')
   if not loop(function()
     w:close()
-    Worker.shutdown()
   end) then
     lu.fail('Timeout reached')
   end
   lu.assertEquals(received, withData and 'Hi John, cheers' or 'Hi John')
 end
 
-function Tests:test_default()
+function Test_default()
   assertPostReceive()
 end
 
-function Tests:test_default_with_data()
+function Test_default_with_data()
   assertPostReceive(true)
 end
 
-function Tests:_test_TCP()
-  if not Worker.WorkerServer then
-    lu.success()
-    return
-  end
-  loader.unload('jls.util.Worker')
-  local smt = require('jls.util.smt')
-  smt.SmtPipeServer = nil
-  Worker = require('jls.util.Worker')
-  assertPostReceive()
-  loader.unload('jls.util.smt')
-  loader.unload('jls.util.Worker')
-  Worker = require('jls.util.Worker')
+function Test_TCP()
+  assertPostReceive(false, 'tcp')
 end
 
 os.exit(lu.LuaUnit.run())

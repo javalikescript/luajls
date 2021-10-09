@@ -11,7 +11,8 @@ return class.create(function(worker, _, Worker)
 
   --[[-- Creates a new Worker.
   @function Worker:new
-  @tparam function workerFn the function that the worker will execute
+  @tparam function fn the function that the worker will execute
+  @param[opt] data the data to pass to the worker function
   @return a new Worker
   @usage
 local w = Worker:new(function(w)
@@ -26,8 +27,8 @@ function w:onMessage(message)
 end
 w:postMessage('John')
   ]]
-  function worker:initialize(workerFn, workerData)
-    if type(workerFn) == 'function' then
+  function worker:initialize(fn, data)
+    if type(fn) == 'function' then
       local w = Worker:new()
       function w.postMessage(_, message)
         self:onMessage(message)
@@ -37,7 +38,7 @@ w:postMessage('John')
         w:onMessage(message)
         return Promise.resolve()
       end
-      workerFn(w, workerData)
+      fn(w, data)
     end
   end
 
@@ -54,14 +55,6 @@ w:postMessage('John')
 
   --- Closes the worker.
   function worker:close()
-  end
-
-  --- Terminates the worker.
-  function worker:terminate()
-    self:close()
-  end
-
-  function Worker.shutdown()
   end
 
 end)

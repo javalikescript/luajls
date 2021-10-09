@@ -1,1 +1,1 @@
-return require('jls.lang.loader').requireOne('jls.util.Worker-smt', 'jls.util.Worker-')
+return require('jls.lang.loader').requireOne('jls.util.Worker-channel', 'jls.util.Worker-')
