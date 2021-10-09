@@ -78,15 +78,23 @@ end
 function Test_parse_common_authentication()
     assertParsedURL('http://nick@www.host.name', {
         scheme = 'http',
-        user = 'nick',
+        userinfo = 'nick',
         host = 'www.host.name',
         port = 80,
         path = ''
     })
     assertParsedURL('http://nick:changeit@www.host.name', {
         scheme = 'http',
-        user = 'nick',
+        username = 'nick',
         password = 'changeit',
+        host = 'www.host.name',
+        port = 80,
+        path = ''
+    })
+    assertParsedURL('http://nick:@www.host.name', {
+        scheme = 'http',
+        username = 'nick',
+        password = '',
         host = 'www.host.name',
         port = 80,
         path = ''
@@ -187,13 +195,28 @@ end
 function Test_format_common_authentication()
     lu.assertEquals(URL.format({
         scheme = 'http',
-        user = 'nick',
+        username = 'nick',
+        host = 'www.host.name'
+    }), 'http://nick@www.host.name')
+    lu.assertEquals(URL.format({
+        scheme = 'http',
+        userinfo = 'nick',
         host = 'www.host.name'
     }), 'http://nick@www.host.name')
     lu.assertEquals(URL.format({
         scheme = 'http',
         user = 'nick',
+        host = 'www.host.name'
+    }), 'http://nick@www.host.name')
+    lu.assertEquals(URL.format({
+        scheme = 'http',
+        username = 'nick',
         password = 'changeit',
+        host = 'www.host.name'
+    }), 'http://nick:changeit@www.host.name')
+    lu.assertEquals(URL.format({
+        scheme = 'http',
+        userinfo = 'nick:changeit',
         host = 'www.host.name'
     }), 'http://nick:changeit@www.host.name')
 end

@@ -44,6 +44,13 @@ return require('jls.lang.class').create(function(url, _, URL)
     return self.t.scheme
   end
 
+  function url:	getUserInfo()
+    if self.t.password then
+      return self.t.username..':'..self.t.password
+    end
+    return self.t.username
+  end
+
   --- Returns this URL hostname.
   -- @return this URL hostname.
   function url:getHost()
@@ -106,7 +113,7 @@ return require('jls.lang.class').create(function(url, _, URL)
     return string.match(hostport, '^([^:]+):?(%d*)$')
   end
 
-  -- //<user>:<password>@<host>:<port>/<url-path>
+  -- //<username>:<password>@<host>:<port>/<url-path>
   local function parseCommon(scheme, specificPart)
     local t = {
       scheme = scheme,
@@ -118,15 +125,14 @@ return require('jls.lang.class').create(function(url, _, URL)
       return t
     end
     t.path = path
-    local authentication, hostport = string.match(authority, '^([^@]+)@(.*)$')
-    if authentication then
-      local user, password = string.match(authentication, '^([^:]+):?(.*)$')
-      if not user then
-        return nil, 'Invalid common URL, bad authentication part ("'..scheme..specificPart..'")'
-      end
-      t.user = user
-      if password and #password > 0 then
+    local userinfo, hostport = string.match(authority, '^([^@]+)@(.*)$')
+    if userinfo then
+      local username, password = string.match(userinfo, '^([^:]+):(.*)$')
+      if username then
+        t.username = username
         t.password = password
+      else
+        t.userinfo = userinfo
       end
     else
       hostport = authority
@@ -173,7 +179,7 @@ return require('jls.lang.class').create(function(url, _, URL)
   -- @tparam string url The string to parse.
   -- @treturn table a table representing the URL or nil.
   function URL.parse(url)
-    -- scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+    -- scheme:[//[username[:password]@]host[:port]][/path][?query][#fragment]
     local scheme, specificPart = string.match(url, '^([%w][%w%+%.%-]*):(.*)$')
     if not scheme then
       return nil
@@ -201,8 +207,11 @@ return require('jls.lang.class').create(function(url, _, URL)
     buffer:append(t.scheme, ':')
     if t.host then
       buffer:append('//')
-      if t.user then
-        buffer:append(t.user)
+      if t.userinfo then
+        buffer:append(t.userinfo)
+        buffer:append('@')
+      elseif t.username or t.user then
+        buffer:append(t.username or t.user)
         if t.password then
           buffer:append(':', t.password)
         end
@@ -216,8 +225,10 @@ return require('jls.lang.class').create(function(url, _, URL)
       if t.port and t.port ~= PORT_BY_SCHEME[t.scheme] then
         buffer:append(':', t.port)
       end
-    end
-    if t.path then
+      if t.path and string.match(t.path, '^/') then
+        buffer:append(t.path)
+      end
+    elseif t.path then
       buffer:append(t.path)
     end
     return buffer:toString()
