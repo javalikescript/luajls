@@ -1,13 +1,26 @@
---- Provide WebView class.
--- @module jls.util.WebView
+--[[--
+Provide WebView class.
+
+This class allow to display HTML content in a window.
+A webview requires a thread to run its own event loop, which is not compatible with the base event loop.
+This class provide helpers to start webview in a dedicated thread so that the base event loop can be used.
+
+@module jls.util.WebView
+
+--]]
 
 local webviewLib = require('webview')
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
+local Promise = require('jls.lang.Promise')
 local Thread = require('jls.lang.Thread')
 local Channel = require('jls.util.Channel')
+
+local function optionsToArgs(options)
+  return options.title, options.width, options.height, options.resizable, options.debug
+end
 
 --- The WebView class.
 -- @type WebView
@@ -31,8 +44,13 @@ return class.create(function(webView)
     end
   end
 
+  function webView:isAvailable()
+    return self._webview ~= nil
+  end
+
   --- Processes the webview event loop.
   -- This function will block.
+  -- If you need to use the event loop in a callback then use the open function.
   -- @tparam[opt] string mode the loop mode, default, once or nowait.
   function webView:loop(mode)
     self:checkAvailable()
@@ -96,23 +114,15 @@ return class.create(function(webView)
     end
   end
 
-end, function(WebView)
-
-  --[[--
-Opens the specified URL in a new window and returns when the window has been closed.
-@tparam string url the URL of the resource to be viewed.
-@tparam[opt] string title the title of the window.
-@tparam[opt] number width the width of the opened window.
-@tparam[opt] number height the height of the opened window.
-@tparam[opt] boolean resizable true if the opened window could be resized.
-@tparam[opt] boolean debug true to enable devtools.
-@usage
-local WebView = require('jls.util.WebView')
-WebView.openSync('https://www.lua.org/')
-]]
-  function WebView.openSync(url, title, width, height, resizable, debug)
-    WebView:new(url, title, width, height, resizable, debug):loop()
+  function webView:getChannel()
+    return self._channel
   end
+
+  function webView:getThread()
+    return self._thread
+  end
+
+end, function(WebView)
 
   function WebView._threadChannelOnlyFunction(webviewAsString, channelName, chunk, data)
     if event:loopAlive() then
@@ -158,11 +168,12 @@ WebView.openSync('https://www.lua.org/')
     end)
   end
 
-  function WebView.openWithThread(url, title, width, height, resizable, debug, fn, data)
-    if type(fn) ~= 'function' then
+  local function openWithThreadAndChannel(url, options)
+    logger:finer('openWithThreadAndChannel()')
+    if type(options.fn) ~= 'function' then
       error('Invalid function argument')
     end
-    local wv = webviewLib.allocate(url, title, width, height, resizable, debug)
+    local wv = webviewLib.allocate(url, optionsToArgs(options))
     local channelServer = Channel:new()
     local acceptPromise = channelServer:acceptAndClose()
     return channelServer:bind():next(function()
@@ -171,7 +182,7 @@ WebView.openSync('https://www.lua.org/')
         local WV = require('jls.util.WebView')
         WV._threadChannelOnlyFunction(...)
       end)
-      thread:start(webviewLib.asstring(wv), channelName, string.dump(fn), data)
+      thread:start(webviewLib.asstring(wv), channelName, string.dump(options.fn), options.data)
       return acceptPromise
     end):next(function(channel)
       webviewLib.callback(wv, function(message)
@@ -187,6 +198,7 @@ WebView.openSync('https://www.lua.org/')
       webviewLib.clean(wv)
       wv = nil
       channel:close(false)
+      return Promise.resolve()
     end)
   end
 
@@ -220,7 +232,8 @@ WebView.openSync('https://www.lua.org/')
     event:loop()
   end
 
-  function WebView.openInThread(url, title, width, height, resizable, debug)
+  local function openInThreadWithChannel(url, options)
+    logger:finer('openInThreadWithChannel()')
     local webview = class.makeInstance(WebView)
     function webview:callback(cb)
       webview._cb = cb
@@ -233,7 +246,7 @@ WebView.openSync('https://www.lua.org/')
         local WV = require('jls.util.WebView')
         WV._threadChannelFunction(...)
       end)
-      local wv = webviewLib.allocate(url, title, width, height, resizable, debug)
+      local wv = webviewLib.allocate(url, optionsToArgs(options))
       thread:start(webviewLib.asstring(wv), channelName)
       registerWebViewThread(thread, webview)
       webview._webview = wv
@@ -267,40 +280,75 @@ WebView.openSync('https://www.lua.org/')
     webviewLib.clean(wv)
   end
 
-  --[[--
-Opens the specified URL in a new window.
-Opening a webview in a dedicated thread may not be supported on all platform.
-@tparam string url the URL of the resource to be viewed.
-@tparam[opt] string title the title of the window.
-@tparam[opt] number width the width of the opened window.
-@tparam[opt] number height the height of the opened window.
-@tparam[opt] boolean resizable true if the opened window could be resized.
-@tparam[opt] boolean debug true to enable devtools.
-@tparam[opt] function fn a function to be called in the webview context.
-@tparam[opt] string data the data to be passed to the function as a string.
-@treturn jls.lang.Thread the webview started thread.
-@treturn jls.util.WebView the created webview.
-]]
-  function WebView.open(url, title, width, height, resizable, debug, fn, data)
+  local function openInThread(url, options)
+    logger:finer('openInThread()')
     local webview = class.makeInstance(WebView)
     function webview:callback(cb)
       error('The WebView callback is not avaible')
     end
-    local wv = webviewLib.allocate(url, title, width, height, resizable, debug)
+    local wv = webviewLib.allocate(url, optionsToArgs(options))
     webview._webview = wv
     local thread = Thread:new(function(...)
       local WV = require('jls.util.WebView')
       WV._threadOpenFunction(...)
     end)
     local chunk
-    if type(fn) == 'function' then
-      chunk = string.dump(fn)
+    if type(options.fn) == 'function' then
+      chunk = string.dump(options.fn)
     end
-    thread:start(webviewLib.asstring(webview._webview), chunk, data)
+    thread:start(webviewLib.asstring(webview._webview), chunk, options.data)
     registerWebViewThread(thread, webview)
-    return thread, webview
+    return Promise.resolve(webview)
   end
 
+  --[[--
+Opens the specified URL in a new window.
+Opening a webview in a dedicated thread may not be supported on all platform.
+@tparam string url the URL of the resource to be viewed.
+@param[opt] title the title of the window or a table containing the options.
+@tparam[opt] number width the width of the opened window.
+@tparam[opt] number height the height of the opened window.
+@tparam[opt] boolean resizable true if the opened window could be resized.
+@tparam[opt] boolean debug true to enable devtools.
+@tparam[opt] boolean sync true to block until the webview is closed.
+@tparam[opt] function fn a function to be called in the webview context or true to indicate that no callback will be used.
+@tparam[opt] string data the data to be passed to the function as a string.
+@treturn jls.lang.Promise a promise that resolve when the webview is available or closed.
+]]
+  function WebView.open(url, title, width, height, resizable, debug, sync, fn, data)
+    local options
+    if type(title) == 'table' then
+      options = title
+    else
+      options = {
+        title = title,
+        width = width,
+        height = height,
+        resizable = resizable,
+        debug = debug,
+        sync = sync,
+        fn = fn,
+        data = data
+      }
+    end
+    if options.sync == true then
+      if options.fn then
+        return openWithThreadAndChannel(url, options)
+      end
+      logger:finer('open WebView and loop')
+      local webview = WebView:new(url, optionsToArgs(options))
+      webview:loop()
+      return Promise.resolve()
+    end
+    if options.fn then
+      return openInThread(url, options)
+    end
+    return openInThreadWithChannel(url, options)
+  end
+
+  --- Returns an URL representing the specified content.
+  -- @tparam string content the HTML content to convert.
+  -- @treturn string an URL representing the specified content.
   function WebView.toDataUrl(content)
     local data = string.gsub(content, "[ %c!#$%%&'()*+,/:;=?@%[%]]", function(c)
       return string.format('%%%02X', string.byte(c))
