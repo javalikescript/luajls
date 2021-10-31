@@ -115,4 +115,16 @@ function strings.formatInteger(value, radix, len, chars)
   return s
 end
 
+--- Returns the pattern corresponding to the specified string with the magic characters ^$()%.[]*+-? escaped.
+-- @tparam string value The string to escape.
+-- @treturn string The corresponding pattern.
+function strings.escape(value)
+  if value == nil then
+    return nil
+  end
+  return (string.gsub(value, '[%^%$%(%)%%%.%[%]%*%+%-%?]', function(c)
+    return '%'..c
+  end))
+end
+
 return strings
