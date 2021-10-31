@@ -115,24 +115,24 @@ return require('jls.lang.class').create(function(url, _, URL)
 
   -- //<username>:<password>@<host>:<port>/<url-path>
   local function parseCommon(scheme, specificPart)
-    local t = {
+    local tUrl = {
       scheme = scheme,
       port = PORT_BY_SCHEME[scheme]
     }
     local authority, path = string.match(specificPart, '^//([^/]+)(/?.*)$') -- we are lazy on the slash
     if not authority then
-      t.path = specificPart
-      return t
+      tUrl.path = specificPart
+      return tUrl
     end
-    t.path = path
+    tUrl.path = path
     local userinfo, hostport = string.match(authority, '^([^@]+)@(.*)$')
     if userinfo then
       local username, password = string.match(userinfo, '^([^:]+):(.*)$')
       if username then
-        t.username = username
-        t.password = password
+        tUrl.username = username
+        tUrl.password = password
       else
-        t.userinfo = userinfo
+        tUrl.userinfo = userinfo
       end
     else
       hostport = authority
@@ -141,46 +141,46 @@ return require('jls.lang.class').create(function(url, _, URL)
     if not host then
       return nil, 'Invalid common URL, bad host and port part ("'..scheme..specificPart..'")'
     end
-    t.host = host
+    tUrl.host = host
     if #port > 0 then
       port = tonumber(port)
       if not port then
         return nil, 'Invalid common URL, bad port ("'..scheme..specificPart..'")'
       end
-      t.port = port
+      tUrl.port = port
     end
-    return t
+    return tUrl
   end
 
   local function parseHttp(scheme, specificPart)
-    local t, err = parseCommon(scheme, specificPart)
+    local tUrl, err = parseCommon(scheme, specificPart)
     if err then
       return nil, err
     end
-    if not t.path then
-      return t
+    if not tUrl.path then
+      return tUrl
     end
-    local path, fragment = string.match(t.path, '^([^#]*)#(.*)$')
+    local path, fragment = string.match(tUrl.path, '^([^#]*)#(.*)$')
     if path then
-      t.fragment = fragment
+      tUrl.fragment = fragment
     else
-      path = t.path
+      path = tUrl.path
     end
     local qpath, query = string.match(path, '^([^%?]*)%?(.*)$')
     if qpath then
       path = qpath
-      t.query = query
+      tUrl.query = query
     end
-    t.path = path
-    return t
+    tUrl.path = path
+    return tUrl
   end
 
   --- Returns the URL corresponding to the specified string.
-  -- @tparam string url The string to parse.
+  -- @tparam string sUrl The string to parse.
   -- @treturn table a table representing the URL or nil.
-  function URL.parse(url)
+  function URL.parse(sUrl)
     -- scheme:[//[username[:password]@]host[:port]][/path][?query][#fragment]
-    local scheme, specificPart = string.match(url, '^([%w][%w%+%.%-]*):(.*)$')
+    local scheme, specificPart = string.match(sUrl, '^([%w][%w%+%.%-]*):(.*)$')
     if not scheme then
       return nil
     end
@@ -192,64 +192,64 @@ return require('jls.lang.class').create(function(url, _, URL)
   end
 
   --- Returns the URL corresponding to the specified string.
-  -- @tparam string url The URL as a string.
+  -- @tparam string sUrl The URL as a string.
   -- @treturn jls.net.URL the URL or nil.
-  function URL.fromString(url)
-    local t = URL.parse(url)
-    if t then
-      return URL:new(t)
+  function URL.fromString(sUrl)
+    local tUrl = URL.parse(sUrl)
+    if tUrl then
+      return URL:new(tUrl)
     end
     return nil
   end
 
-  local function formatCommon(t)
+  local function formatCommon(tUrl)
     local buffer = StringBuffer:new()
-    buffer:append(t.scheme, ':')
-    if t.host then
+    buffer:append(tUrl.scheme, ':')
+    if tUrl.host then
       buffer:append('//')
-      if t.userinfo then
-        buffer:append(t.userinfo)
+      if tUrl.userinfo then
+        buffer:append(tUrl.userinfo)
         buffer:append('@')
-      elseif t.username or t.user then
-        buffer:append(t.username or t.user)
-        if t.password then
-          buffer:append(':', t.password)
+      elseif tUrl.username or tUrl.user then
+        buffer:append(tUrl.username or tUrl.user)
+        if tUrl.password then
+          buffer:append(':', tUrl.password)
         end
         buffer:append('@')
       end
-      if string.find(t.host, ':') then -- IPv6 addresses are enclosed in brackets
-        buffer:append('[', t.host, ']')
+      if string.find(tUrl.host, ':') then -- IPv6 addresses are enclosed in brackets
+        buffer:append('[', tUrl.host, ']')
       else
-        buffer:append(t.host)
+        buffer:append(tUrl.host)
       end
-      if t.port and t.port ~= PORT_BY_SCHEME[t.scheme] then
-        buffer:append(':', t.port)
+      if tUrl.port and tUrl.port ~= PORT_BY_SCHEME[tUrl.scheme] then
+        buffer:append(':', tUrl.port)
       end
-      if t.path and string.match(t.path, '^/') then
-        buffer:append(t.path)
+      if tUrl.path and string.match(tUrl.path, '^/') then
+        buffer:append(tUrl.path)
       end
-    elseif t.path then
-      buffer:append(t.path)
+    elseif tUrl.path then
+      buffer:append(tUrl.path)
     end
     return buffer:toString()
   end
 
-  local function formatHttp(t)
-    local url = formatCommon(t)
-    if t.query then
-      url = url..'?'..t.query
+  local function formatHttp(tUrl)
+    local sUrl = formatCommon(tUrl)
+    if tUrl.query then
+      sUrl = sUrl..'?'..tUrl.query
     end
-    if t.fragment then
-      url = url..'#'..t.fragment
+    if tUrl.fragment then
+      sUrl = sUrl..'#'..tUrl.fragment
     end
-    return url
+    return sUrl
   end
 
-  function URL.format(t)
-    if t.scheme == 'http' or t.scheme == 'https' then
-      return formatHttp(t)
+  function URL.format(tUrl)
+    if tUrl.scheme == 'http' or tUrl.scheme == 'https' then
+      return formatHttp(tUrl)
     end
-    return formatCommon(t)
+    return formatCommon(tUrl)
   end
 
   local function encodePercent(value, pattern)

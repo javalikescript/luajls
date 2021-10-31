@@ -25,9 +25,10 @@ return require('jls.lang.class').create(function(httpContextHolder)
   end
 
   --- Creates a @{jls.net.http.HttpContext|context} in this server with the specified path and using the specified handler.
+  -- The path is a Lua pattern that match the full path, take care of escaping the magic characters ^$()%.[]*+-?.
+  -- You could use the @{jls.util.strings}.escape() function.
+  -- The path is absolute and starts with a slash '/'.
   -- @tparam string path The path of the context.
-  --   The path is absolute and must start with a slash '/'.
-  --   The path is a Lua pattern that match the full path.
   -- @param handler The @{jls.net.http.HttpHandler|handler} or a handler function.
   --   The function takes one argument which is the @{HttpExchange} and will be called when the body is available.
   -- @tparam[opt] table attributes the optional context attributes

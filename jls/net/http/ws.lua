@@ -81,8 +81,8 @@ local WebSocketBase = class.create(function(webSocketBase)
     local opcode = b1 & 0x0f
     local mask = (b2 >> 7) == 0x01
     local len = b2 & 0x7f
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
     end
     -- Payload length:  7 bits, 7+16 bits, or 7+64 bits
     -- If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
@@ -138,8 +138,8 @@ local WebSocketBase = class.create(function(webSocketBase)
   end
 
   function webSocketBase:onReadFrame(fin, opcode, payload)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocketBase:onReadFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(#payload)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('webSocketBase:onReadFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(#payload)..')')
     end
     if fin then
       if opcode == CONST.OP_CODE_TEXT_FRAME then
@@ -213,8 +213,8 @@ local WebSocketBase = class.create(function(webSocketBase)
     if not payload then
       payload = ''
     end
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocketBase:sendFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(mask)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('webSocketBase:sendFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(mask)..')')
     end
     local b1 = 0
     if fin then
@@ -250,8 +250,8 @@ local WebSocketBase = class.create(function(webSocketBase)
       header = header..maskChars
       payload = applyMask(maskChars, payload)
     end
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocketBase:sendFrame() '..hex.encode(header..payload))
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('webSocketBase:sendFrame() '..hex.encode(header..payload))
     end
     return self.tcp:write(header..payload, callback)
   end
@@ -261,8 +261,8 @@ local WebSocketBase = class.create(function(webSocketBase)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   function webSocketBase:sendTextMessage(message, callback)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocketBase:sendTextMessage("'..tostring(message)..'")')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('webSocketBase:sendTextMessage("'..tostring(message)..'")')
     end
     return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, message, callback)
   end
@@ -345,50 +345,50 @@ local function upgradeHandler(httpExchange)
   local response = httpExchange:getResponse()
   local context = httpExchange:getContext()
   local open = context:getAttribute('open')
-  if logger:isLoggable(logger.FINE) then
-    logger:fine('ws.upgradeHandler()')
+  if logger:isLoggable(logger.FINER) then
+    logger:finer('ws.upgradeHandler()')
     for name, value in pairs(request:getHeadersTable()) do
-          logger:fine(tostring(name)..': "'..tostring(value)..'")')
+      logger:finer(tostring(name)..': "'..tostring(value)..'")')
     end
   end
   local headerConnection = string.lower(request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) or '')
   local headerUpgrade = string.lower(request:getHeader(HttpMessage.CONST.HEADER_UPGRADE) or '')
   if string.find(headerConnection, string.lower(CONST.CONNECTION_UPGRADE)) and headerUpgrade == string.lower(CONST.UPGRADE_WEBSOCKET) then
-      local headerSecWebSocketKey = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_KEY)
-      local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
-      if headerSecWebSocketKey and headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
-          local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
-          local accept = context:getAttribute('accept')
-          if type(accept) == 'function' and not accept(headerSecWebSocketProtocol, request) then
-            response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
-            response:setBody('<p>Upgrade rejected.</p>')
-          else
-            response:setStatusCode(HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS, 'Switching Protocols')
-            response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, CONST.CONNECTION_UPGRADE)
-            response:setHeader(HttpMessage.CONST.HEADER_UPGRADE, CONST.UPGRADE_WEBSOCKET)
-            response:setHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT, hashWebSocketKey(headerSecWebSocketKey))
-            local protocol = context:getAttribute('protocol')
-            if protocol then
-                response:setHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL, protocol)
-            end
-            -- override HTTP client close
-            local close = httpExchange.close
-            function httpExchange:close()
-              if logger:isLoggable(logger.FINE) then
-                logger:fine('ws.upgradeHandler() close')
-              end
-              local tcpClient = self:removeClient()
-              close(self)
-              open(WebSocketBase:new(tcpClient))
-            end
+    local headerSecWebSocketKey = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_KEY)
+    local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
+    if headerSecWebSocketKey and headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
+      local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
+      local accept = context:getAttribute('accept')
+      if type(accept) == 'function' and not accept(headerSecWebSocketProtocol, request) then
+        response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
+        response:setBody('<p>Upgrade rejected.</p>')
+      else
+        response:setStatusCode(HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS, 'Switching Protocols')
+        response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, CONST.CONNECTION_UPGRADE)
+        response:setHeader(HttpMessage.CONST.HEADER_UPGRADE, CONST.UPGRADE_WEBSOCKET)
+        response:setHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT, hashWebSocketKey(headerSecWebSocketKey))
+        local protocol = context:getAttribute('protocol')
+        if protocol then
+          response:setHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL, protocol)
+        end
+        -- override HTTP client close
+        local close = httpExchange.close
+        function httpExchange:close()
+          if logger:isLoggable(logger.FINER) then
+            logger:finer('ws.upgradeHandler() close')
           end
-        else
-          response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
-          response:setBody('<p>Missing or invalid WebSocket headers.</p>')
+          local tcpClient = self:removeClient()
+          close(self)
+          open(WebSocketBase:new(tcpClient))
+        end
       end
-  else
+    else
       response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
-      response:setBody('<p>Missing or invalid connection headers.</p>')
+      response:setBody('<p>Missing or invalid WebSocket headers.</p>')
+    end
+  else
+    response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
+    response:setBody('<p>Missing or invalid connection headers.</p>')
   end
 end
 
