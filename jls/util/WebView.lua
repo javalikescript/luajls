@@ -362,7 +362,9 @@ end, function(WebView)
           httpServer:createContext(path, handler)
         end
       end
-      tUrl.port = select(2, httpServer:getAddress())
+      if tUrl.port == 0 then
+        tUrl.port = select(2, httpServer:getAddress())
+      end
       local url = URL.format(tUrl)
       if options.callback == true then
         local strings = require('jls.util.strings')
@@ -473,7 +475,7 @@ end)
       return openInThread(url, options)
     end
     local tUrl = URL.parse(url)
-    if tUrl and tUrl.scheme == 'http' and tUrl.host and tUrl.port == 0 then
+    if tUrl and tUrl.scheme == 'http' and tUrl.host and (tUrl.port == 0 or options.bind) then
       return openInThreadWithHttpServer(tUrl, options)
     end
     return openInThreadWithChannel(url, options)
