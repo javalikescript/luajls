@@ -22,6 +22,10 @@ local function applyPromise(promise, result, state)
   end
 end
 
+local function isPromise(promise)
+  return type(promise) == 'table' and type(promise.next) == 'function'
+end
+
 applyPromiseHandler = function(promise, handler)
   local status, result = true, NO_VALUE
   if promise._state == FULFILLED then
@@ -44,7 +48,7 @@ applyPromiseHandler = function(promise, handler)
       applyPromise(handler.promise, promise._result, promise._state)
     elseif result == promise then
       applyPromise(handler.promise, 'Invalid promise result', REJECTED)
-    elseif type(result) == 'table' and type(result.next) == 'function' then
+    elseif isPromise(result) then
       -- we may want to detect cycle in the thenable chain
       -- TODO: If calling then throws an exception e,
       -- If resolvePromise or rejectPromise have been called, ignore it.
@@ -290,5 +294,11 @@ function Promise.callbackToNext(callback)
     return callback(reason or 'Unknown error')
   end
 end
+
+--- Return true if the specified value is a promise.
+-- @param promise The value to test.
+-- @treturn boolean true if the specified value is a promise.
+-- @function Promise.isPromise
+Promise.isPromise = isPromise
 
 end)
