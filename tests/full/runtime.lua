@@ -6,11 +6,11 @@ local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
 local LUA_EXE_PATH = require('jls.lang.ProcessBuilder').getExecutablePath()
 
 local function commandLine(code)
-  return table.concat({
+  return runtime.formatCommandLine({
     LUA_EXE_PATH,
     '-e',
-    '"os.exit('..tostring(code)..')"'
-  }, ' ')
+    'os.exit('..tostring(code)..')'
+  })
 end
 
 function Test_execute_success()

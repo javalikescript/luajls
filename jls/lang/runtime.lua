@@ -1,9 +1,39 @@
 --- Provides interaction with the underlying OS runtime.
 -- @module jls.lang.runtime
 
+local loader = require('jls.lang.loader')
+
 local runtime = {}
 
-runtime.exec = require('jls.lang.loader').lazyFunction(function(ProcessBuilder)
+local isWindowsOS = string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll')
+
+-- Returns the command line corresponding to the specified arguments.
+-- @tparam table args Array of strings specifying the command-line arguments.
+-- @treturn string the command line
+function runtime.formatCommandLine(args)
+  local pargs = {}
+  for _, arg in ipairs(args) do
+    local earg = arg
+    if isWindowsOS then
+      -- see https://ss64.com/nt/syntax-esc.html
+      if string.find(arg, '[%s"&\\<>%^|%%]') and not string.match(arg, '^[<>|&]+$') then
+        earg = '"'..string.gsub(arg, '"', '""')..'"'
+      end
+    else
+      -- see https://www.oreilly.com/library/view/learning-the-bash/1565923472/ch01s09.html
+      if string.find(arg, '[%s"~`#$&%*%(%)\\|%[%]{};\'"<>/%?!]') and not string.match(arg, '^[<>|&]+$') then
+        earg = '"'..string.gsub(arg, '["\\]', '\\%&1')..'"'
+      end
+    end
+    table.insert(pargs, earg)
+  end
+  if isWindowsOS then
+    return '"'..table.concat(pargs, ' ')..'"'
+  end
+  return table.concat(pargs, ' ')
+end
+
+runtime.exec = loader.lazyFunction(function(ProcessBuilder)
   --- Executes the specified command and arguments in a separate process with the specified environment and working directory.
   -- @param command Array of strings specifying the command-line arguments.
   -- The first argument is the name of the executable file.
@@ -43,7 +73,7 @@ local function applyExecuteCallback(cb, anyCode, status, kind, code)
   end
 end
 
-runtime.execute = require('jls.lang.loader').lazyFunction(function(Promise, Thread)
+runtime.execute = loader.lazyFunction(function(Promise, Thread)
   --- Executes the specified command line in a separate thread.
   -- The promise will be rejected if the process exit code is not zero.
   -- The error is a table with a code and a kind fields.
