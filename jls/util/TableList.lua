@@ -287,9 +287,7 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   -- @function TableList.join
   TableList.join = TableList.prototype.join
 
-  function TableList.concat(...)
-    return concat({}, ...)
-  end
+  TableList.concat = concat
 
   local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
 

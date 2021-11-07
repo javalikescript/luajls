@@ -171,7 +171,7 @@ function Test_join()
 end
 
 function Test_concat()
-  lu.assertEquals(TableList.concat(), {})
+  lu.assertIsNil(TableList.concat())
   lu.assertEquals(TableList.concat({'a'}), {'a'})
   lu.assertEquals(TableList.concat({'a', 'b', 'c'}), {'a', 'b', 'c'})
   lu.assertEquals(TableList.concat({'a'}, {'b', 'c'}), {'a', 'b', 'c'})
