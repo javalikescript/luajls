@@ -62,7 +62,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   --- Returns the captured values of the specified path.
   -- @treturn string the first captured value, nil if there is no captured value.
   function httpContext:getArguments(path)
-    return select(3, string.find(path, self.pattern))
+    return string.match(path, self.pattern)
   end
 
   function httpContext:matchRequest(path, request)

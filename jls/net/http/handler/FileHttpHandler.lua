@@ -6,6 +6,7 @@ local logger = require('jls.lang.logger')
 local json = require('jls.util.json')
 local Path = require('jls.io.Path')
 local File = require('jls.io.File')
+local Promise = require('jls.lang.Promise')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local StringBuffer = require('jls.lang.StringBuffer')
@@ -38,10 +39,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     self.allowCreate = not not string.match(permissions, '[wc]')
     self.allowDelete = not not string.match(permissions, '[wd]')
     self.allowDeleteRecursive = not not string.match(permissions, '[RD]')
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('fileHttpHandler permissions is "'..permissions..'"')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('fileHttpHandler permissions is "'..permissions..'"')
       for k, v in pairs(self) do
-        logger:fine('  '..tostring(k)..': "'..tostring(v)..'"')
+        logger:finest('  '..tostring(k)..': "'..tostring(v)..'"')
       end
     end
   end
@@ -120,17 +121,29 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     end)
   end
 
+  function fileHttpHandler:handleGetHeadFile(httpExchange, file)
+    if file:isFile() then
+      self:handleGetFile(httpExchange, file)
+    elseif file:isDirectory() and self.allowList then
+      self:handleGetDirectory(httpExchange, file, true)
+    else
+      HttpExchange.notFound(httpExchange)
+    end
+  end
+
+  function fileHttpHandler:prepareFile(httpExchange, file)
+    return Promise.resolve()
+  end
+
   function fileHttpHandler:handleFile(httpExchange, file, isDirectoryPath)
     local method = httpExchange:getRequestMethod()
     -- TODO Handle PATCH, MOVE
     if method == HTTP_CONST.METHOD_GET or method == HTTP_CONST.METHOD_HEAD then
-      if file:isFile() then
-        self:handleGetFile(httpExchange, file)
-      elseif file:isDirectory() and self.allowList then
-        self:handleGetDirectory(httpExchange, file, true)
-      else
+      return self:prepareFile(httpExchange, file):next(function()
+        self:handleGetHeadFile(httpExchange, file)
+      end, function()
         HttpExchange.notFound(httpExchange)
-      end
+      end)
     elseif method == HTTP_CONST.METHOD_POST and self.allowUpdate then
       if self.allowCreate or file:isFile() then
         self:receiveFile(httpExchange, file)
@@ -178,7 +191,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     if logger:isLoggable(logger.FINE) then
       logger:fine('fileHttpHandler method is "'..method..'" file is "'..file:getPath()..'"')
     end
-    self:handleFile(httpExchange, file, isDirectoryPath)
+    return self:handleFile(httpExchange, file, isDirectoryPath)
   end
 
   function FileHttpHandler.guessContentType(path, def)
