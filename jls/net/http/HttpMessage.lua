@@ -59,6 +59,10 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self:setHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH, value)
   end
 
+  function httpMessage:getContentType()
+    return self:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
+  end
+
   function httpMessage:setBodyStreamHandler(sh)
     self.bodyStreamHandler = sh
   end
