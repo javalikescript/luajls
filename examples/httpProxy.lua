@@ -185,17 +185,17 @@ local CONFIG_SCHEMA = {
           default = true
         },
         allowList = {
-          title = 'The binding address',
+          title = 'A file with the list of allowed hosts',
           type = 'string',
           default = 'proxy_allow_list.txt'
         },
         denyList = {
-          title = 'The binding address',
+          title = 'A file with the list of denied hosts',
           type = 'string',
           default = 'proxy_deny_list.txt'
         },
         unknownList = {
-          title = 'The binding address',
+          title = 'A file that will list the unknown hosts',
           type = 'string',
           default = 'proxy_unknown_list.txt'
         },
