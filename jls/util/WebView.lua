@@ -20,6 +20,18 @@ local Thread = require('jls.lang.Thread')
 local URL = require('jls.net.URL')
 local Channel = require('jls.util.Channel')
 
+-- workaround 2 issues: webview/GTK is changing the locale and cjson do not support such change
+local function webviewLib_init(wv)
+  local locale = os.setlocale()
+  webviewLib.init(wv)
+  local newLocale = os.setlocale()
+  if locale ~= newLocale and not os.getenv('JLS_WEBVIEW_KEEP_LOCALE') then
+    logger:fine('webview init changed the locale to "'..tostring(newLocale)..'" restoring "'..tostring(locale)..'"')
+    os.setlocale(locale)
+    logger:fine('to avoid this behavior, preset the native locale using: os.setlocale("")')
+  end
+end
+
 local function optionsToArgs(options)
   return options.title, options.width, options.height, options.resizable, options.debug
 end
@@ -223,7 +235,7 @@ end, function(WebView)
       webviewLib.callback(wv, function(message)
         channel:sendMessage(message, false)
       end)
-      webviewLib.init(wv)
+      webviewLib_init(wv)
       channel:onClose():next(function()
         if wv then
           webviewLib.terminate(wv)
@@ -254,7 +266,7 @@ end, function(WebView)
     webviewLib.callback(wv, function(message)
       channel:sendMessage(message, false)
     end)
-    webviewLib.init(wv)
+    webviewLib_init(wv)
     channel:onClose():next(function()
       if wv then
         webviewLib.terminate(wv)
@@ -302,7 +314,7 @@ end, function(WebView)
     local wv = webviewLib.fromstring(webviewAsString)
     local webview = class.makeInstance(WebView)
     webview._webview = wv
-    webviewLib.init(wv)
+    webviewLib_init(wv)
     if chunk then
       local fn, err = load(chunk, nil, 'b')
       if fn then
