@@ -180,4 +180,12 @@ function Test_concat()
   lu.assertEquals(TableList.concat({'a'}, 'b', {'c'}), {'a', 'b', 'c'})
 end
 
+function Test_map()
+  local function f(v, i)
+    return v..tostring(i)
+  end
+  lu.assertEquals(TableList.map({}, {'a', 'b'}, f), {'a1', 'b2'})
+  lu.assertEquals(TableList.map({}, {}, f), {})
+end
+
 os.exit(lu.LuaUnit.run())

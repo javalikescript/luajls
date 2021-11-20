@@ -1,4 +1,5 @@
---- Represents an array.
+--- Represents a list.
+-- The functions could be used for Lua tables.
 -- @module jls.util.TableList
 -- @pragma nostrip
 
@@ -7,10 +8,10 @@
 -- @type TableList
 return require('jls.lang.class').create(function(tableList, _, TableList)
 
-  local function previous(list, index)
+  local function previous(l, index)
     index = index - 1
     if index > 0 then
-        return index, list[index]
+        return index, l[index]
     end
   end
 
@@ -25,6 +26,13 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
       end
     end
     return l
+  end
+
+  local function map(d, s, f)
+    for i, v in ipairs(s) do
+      table.insert(d, f(v, i, s))
+    end
+    return d
   end
 
   --- Creates a new TableList.
@@ -170,6 +178,10 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
     return concat(TableList:new(), self, ...)
   end
 
+  function tableList:map(f)
+    return map(TableList:new(), self, f)
+  end
+
   function tableList:clone()
     return TableList:new():addAll(self)
   end
@@ -287,7 +299,13 @@ return require('jls.lang.class').create(function(tableList, _, TableList)
   -- @function TableList.join
   TableList.join = TableList.prototype.join
 
+  TableList.shift = TableList.prototype.shift
+
+  TableList.pop = TableList.prototype.pop
+
   TableList.concat = concat
+
+  TableList.map = map
 
   local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
 
