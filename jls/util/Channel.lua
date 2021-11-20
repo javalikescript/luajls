@@ -220,6 +220,11 @@ return class.create(function(channel, _, Channel)
     return Promise.reject('Invalid channel name "'..tostring(name)..'"')
   end
 
+  local MT_CLOSE = 0
+  local MT_CONNECT = 1
+  local MT_USER = 2
+  Channel.MESSAGE_TYPE_USER = MT_USER
+
   --- Starts receiving messages on this channel.
   -- @tparam function handleMessage a function that will be called when a message is received.
   function channel:receiveStart(handleMessage)
@@ -259,9 +264,9 @@ return class.create(function(channel, _, Channel)
           if logger:isLoggable(logger.FINEST) then
             logger:finest('channel received message type '..tostring(messageType)..', payload "'..tostring(payload)..'"')
           end
-          if messageType == 2 and self.authorized then
-            handleMessage(payload)
-          elseif messageType == 1 and payload == self.privateKey then
+          if messageType >= MT_USER and self.authorized then
+            handleMessage(payload, messageType)
+          elseif messageType == MT_CONNECT and payload == self.privateKey then
             self.authorized = true
           else
             self:close(false)
@@ -283,7 +288,12 @@ return class.create(function(channel, _, Channel)
     return self.stream:readStop()
   end
 
-  function channel:writeMessage(messageType, payload, callback)
+  --- Writes a message on this channel.
+  -- @tparam string message the message to send
+  -- @tparam[opt] number messageType the message type, default is Channel.MESSAGE_TYPE_USER.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
+  -- @treturn jls.lang.Promise a promise that resolves once the message has been sent.
+  function channel:writeMessage(payload, messageType, callback)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('channel['..tostring(self)..']:writeMessage('..tostring(messageType)..', "'..tostring(payload)..'")')
     end
@@ -301,9 +311,9 @@ return class.create(function(channel, _, Channel)
         end
       end
     end
-    local data = string.pack('>Bs4', messageType, payload or '')
+    local data = string.pack('>Bs4', messageType or MT_USER, payload or '')
     if self.publicKey then
-      data = string.pack('>Bs4', 1, self.publicKey)..data
+      data = string.pack('>Bs4', MT_CONNECT, self.publicKey)..data
       self.publicKey = nil
     end
     local _, req = self.stream:write(data, wcb)
@@ -316,16 +326,8 @@ return class.create(function(channel, _, Channel)
     return p, req
   end
 
-  --- Sends a message on this channel.
-  -- @tparam string message the message to send
-  -- @tparam function callback an optional callback function to use in place of promise.
-  -- @treturn jls.lang.Promise a promise that resolves once the message has been sent.
-  function channel:sendMessage(message, callback)
-    return self:writeMessage(2, message, callback)
-  end
-
-  function channel:sendClose(callback)
-    return self:writeMessage(3, nil, callback)
+  function channel:writeCloseMessage(callback)
+    return self:writeMessage(nil, MT_CLOSE, callback)
   end
 
 end)
