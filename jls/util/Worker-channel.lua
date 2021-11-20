@@ -34,27 +34,49 @@ return class.create(function(worker, _, Worker)
     end)
   end
 
+  local MT_STRING = Channel.MESSAGE_TYPE_USER
+  local MT_JSON = Channel.MESSAGE_TYPE_USER + 1
+
+  local function postMessage(channel, message)
+    if type(message) == 'string' then
+      return channel:writeMessage(message, MT_STRING)
+    end
+    return channel:writeMessage(json.encode(message), MT_JSON)
+  end
+
+  function worker:handleMessage(payload, messageType)
+    if messageType == MT_STRING then
+      self:onMessage(payload)
+    elseif messageType == MT_JSON then
+      local value = json.decode(payload)
+      if value == json.null then
+        value = nil
+      end
+      self:onMessage(value)
+    end
+  end
+
   function worker:initialize(workerFn, workerData, scheme, channel)
     if type(workerFn) == 'function' then
       self.pendingMessages = {}
-      newThreadChannel(workerFn, workerData, scheme):next(function(channel)
-        self._channel = channel
-        channel:receiveStart(function(message)
-          self:onMessage(json.decode(message))
+      newThreadChannel(workerFn, workerData, scheme):next(function(ch)
+        ch:receiveStart(function(payload, messageType)
+          self:handleMessage(payload, messageType)
         end)
+        self._channel = ch
         function self:postMessage(message)
-          return channel:sendMessage(json.encode(message))
+          return postMessage(ch, message)
         end
         self:postPendingMessages()
         --channel:onClose():next(function() self:close() end)
       end)
     elseif channel then
       self._channel = channel
-      channel:receiveStart(function(message)
-        self:onMessage(json.decode(message))
+      channel:receiveStart(function(payload, messageType)
+        self:handleMessage(payload, messageType)
       end)
       function self:postMessage(message)
-        return channel:sendMessage(json.encode(message))
+        return postMessage(channel, message)
       end
       --channel:onClose():next(function() wkr:close() end)
     end
