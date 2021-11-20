@@ -299,6 +299,54 @@ function Test_all_empty()
   lu.assertEquals(resolution, {})
 end
 
+function Test_any_resolved()
+  local deferred1, promise1 = deferPromise()
+  local deferred2, promise2 = deferPromise()
+  local promise = Promise.any({promise1, promise2})
+  local resolution = false
+  promise:next(function(value)
+    resolution = value
+  end)
+  lu.assertFalse(resolution)
+  deferred2.resolve('Success 2')
+  lu.assertEquals('Success 2', resolution)
+  deferred1.resolve('Success 1')
+  lu.assertEquals('Success 2', resolution)
+end
+
+function Test_any_empty()
+  local promise = Promise.any({})
+  local rejected = false
+  promise:next(nil, function()
+    rejected = true
+  end)
+  lu.assertTrue(rejected)
+end
+
+function Test_allSettled_resolved()
+  local deferred1, promise1 = deferPromise()
+  local deferred2, promise2 = deferPromise()
+  local promise = Promise.allSettled({promise1, promise2})
+  local resolution = false
+  promise:next(function(value)
+    resolution = value
+  end)
+  lu.assertFalse(resolution)
+  deferred2.resolve('Success 2')
+  lu.assertFalse(resolution)
+  deferred1.resolve('Success 1')
+  lu.assertEquals(resolution, {{status="fulfilled", value="Success 1"}, {status="fulfilled", value="Success 2"}})
+end
+
+function Test_allSettled_empty()
+  local promise = Promise.allSettled({})
+  local resolution = false
+  promise:next(function(value)
+    resolution = value
+  end)
+  lu.assertEquals(resolution, {})
+end
+
 function Test_race_resolved()
   local deferred1, promise1 = deferPromise()
   local deferred2, promise2 = deferPromise()

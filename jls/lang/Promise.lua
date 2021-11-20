@@ -229,6 +229,64 @@ function Promise.all(promises)
   return ps
 end
 
+function Promise.allSettled(promises)
+  local count = #promises
+  local values = {}
+  local ps, resolve, reject = Promise.createWithCallbacks()
+  if count > 0 then
+    local function callbackAt(index, rejected)
+      return function(value)
+        local outcome
+        if rejected then
+          outcome = {
+            status = 'rejected',
+            reason = value
+          }
+        else
+          outcome = {
+            status = 'fulfilled',
+            value = value
+          }
+        end
+        values[index] = outcome
+        count = count - 1
+        if count == 0 then
+          resolve(values)
+        end
+      end
+    end
+    for i, p in ipairs(promises) do
+      p:next(callbackAt(i), callbackAt(i, true))
+    end
+  else
+    resolve(values)
+  end
+  return ps
+end
+
+function Promise.any(promises)
+  local count = #promises
+  local reasons = {}
+  local ps, resolve, reject = Promise.createWithCallbacks()
+  if count > 0 then
+    local function rejectAt(index)
+      return function(value)
+        reasons[index] = value
+        count = count - 1
+        if count == 0 then
+          reject(reasons)
+        end
+      end
+    end
+    for i, p in ipairs(promises) do
+      p:next(resolve, rejectAt(i))
+    end
+  else
+    reject()
+  end
+  return ps
+end
+
 --- Returns a promise that fulfills or rejects as soon as one of the
 -- promises in the iterable fulfills or rejects, with the value or reason
 -- from that promise.
