@@ -1,9 +1,9 @@
 local lu = require('luaunit')
 
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 
 function Test_size()
-  local list = TableList:new('1', '2')
+  local list = List:new('1', '2')
   lu.assertEquals(list:size(), 2)
   list:add('3')
   lu.assertEquals(list:size(), 3)
@@ -12,7 +12,7 @@ end
 function Test_add()
   local e1 = {}
   local e2 = {}
-  local list = TableList:new()
+  local list = List:new()
   list:add(e1)
   lu.assertEquals(list:size(), 1)
   list:add(e2)
@@ -24,7 +24,7 @@ end
 function Test_table()
   local e1 = {}
   local e2 = {}
-  local list = TableList:new(e1, e2)
+  local list = List:new(e1, e2)
   lu.assertEquals(#list, 2)
   lu.assertIs(list[1], e1)
   lu.assertIs(list[2], e2)
@@ -33,14 +33,14 @@ end
 function Test_init()
   local e1 = {}
   local e2 = {}
-  local list = TableList:new(e1, e2)
+  local list = List:new(e1, e2)
   lu.assertEquals(list:size(), 2)
   lu.assertIs(list:get(1), e1)
   lu.assertIs(list:get(2), e2)
 end
 
 function Test_clone()
-  local list = TableList:new('1', '2', '3')
+  local list = List:new('1', '2', '3')
   lu.assertEquals(list, {'1', '2', '3'})
   local cl = list:clone()
   lu.assertEquals(list, {'1', '2', '3'})
@@ -57,7 +57,7 @@ function Test_remove()
   local e1 = {}
   local e2 = {}
   local e3 = {}
-  local list = TableList:new(e1, e2, e3)
+  local list = List:new(e1, e2, e3)
   lu.assertEquals(list:size(), 3)
   lu.assertIs(list:get(1), e1)
   lu.assertIs(list:get(2), e2)
@@ -69,14 +69,14 @@ function Test_remove()
 end
 
 function Test_remove_2()
-  local list = TableList:new('1', '2', '3')
+  local list = List:new('1', '2', '3')
   lu.assertEquals(list, {'1', '2', '3'})
   lu.assertIs(list:remove(2), '2')
   lu.assertEquals(list, {'1', '3'})
 end
 
 function Test_iterator()
-  local list = TableList:new('1', '2', '3')
+  local list = List:new('1', '2', '3')
   local tl = {}
   for _, v in list:iterator() do
     table.insert(tl, v)
@@ -86,7 +86,7 @@ function Test_iterator()
 end
 
 function Test_reverseIterator()
-  local list = TableList:new('1', '2', '3')
+  local list = List:new('1', '2', '3')
   local tl = {}
   for _, v in list:reverseIterator() do
     table.insert(tl, v)
@@ -96,7 +96,7 @@ function Test_reverseIterator()
 end
 
 function Test_indexOf()
-  local list = TableList:new('1', '2', '3', '2')
+  local list = List:new('1', '2', '3', '2')
   lu.assertIs(list:indexOf('1'), 1)
   lu.assertIs(list:indexOf('2'), 2)
   lu.assertIs(list:indexOf('3'), 3)
@@ -104,16 +104,16 @@ function Test_indexOf()
 end
 
 function Test_isName()
-  lu.assertIsTrue(TableList.isName('a_value'))
-  lu.assertIsTrue(TableList.isName('a1'))
-  lu.assertIsTrue(TableList.isName('_value'))
-  lu.assertIsTrue(TableList.isName('B'))
-  lu.assertIsFalse(TableList.isName('1_value'))
-  lu.assertIsFalse(TableList.isName('and'))
+  lu.assertIsTrue(List.isName('a_value'))
+  lu.assertIsTrue(List.isName('a1'))
+  lu.assertIsTrue(List.isName('_value'))
+  lu.assertIsTrue(List.isName('B'))
+  lu.assertIsFalse(List.isName('1_value'))
+  lu.assertIsFalse(List.isName('and'))
 end
 
 function Test_contains()
-  local list = TableList:new('1', '2', '3', '2')
+  local list = List:new('1', '2', '3', '2')
   lu.assertIsTrue(list:contains('1'), 1)
   lu.assertIsTrue(list:contains('2'), 2)
   lu.assertIsTrue(list:contains('3'), 3)
@@ -121,7 +121,7 @@ function Test_contains()
 end
 
 function Test_lastIndexOf()
-  local list = TableList:new('1', '2', '3', '2')
+  local list = List:new('1', '2', '3', '2')
   lu.assertIs(list:lastIndexOf('1'), 1)
   lu.assertIs(list:lastIndexOf('2'), 4)
   lu.assertIs(list:lastIndexOf('3'), 3)
@@ -129,7 +129,7 @@ function Test_lastIndexOf()
 end
 
 function Test_removeFirst()
-  local list = TableList:new('1', '2', '3', '2')
+  local list = List:new('1', '2', '3', '2')
   lu.assertEquals(list:size(), 4)
   lu.assertIsTrue(list:removeFirst('2'))
   lu.assertEquals(list:size(), 3)
@@ -140,7 +140,7 @@ function Test_removeFirst()
 end
 
 function Test_removeLast()
-  local list = TableList:new('1', '2', '3', '2')
+  local list = List:new('1', '2', '3', '2')
   lu.assertEquals(list:size(), 4)
   lu.assertIsTrue(list:removeLast('2'))
   lu.assertEquals(list:size(), 3)
@@ -151,7 +151,7 @@ function Test_removeLast()
 end
 
 function Test_removeAll()
-  local list = TableList:new('1', '2', '3', '2')
+  local list = List:new('1', '2', '3', '2')
   lu.assertEquals(list:size(), 4)
   list:removeAll('2')
   lu.assertEquals(list:size(), 2)
@@ -162,30 +162,30 @@ function Test_removeAll()
 end
 
 function Test_join()
-  lu.assertEquals(TableList.join({}, ','), '')
-  lu.assertEquals(TableList.join({'a'}, ','), 'a')
-  lu.assertEquals(TableList.join({'a', 'b', 'c'}, ','), 'a,b,c')
-  lu.assertEquals(TableList.join({'a', 'b', 'c'}), 'abc')
+  lu.assertEquals(List.join({}, ','), '')
+  lu.assertEquals(List.join({'a'}, ','), 'a')
+  lu.assertEquals(List.join({'a', 'b', 'c'}, ','), 'a,b,c')
+  lu.assertEquals(List.join({'a', 'b', 'c'}), 'abc')
   local t = {}
-  lu.assertEquals(TableList.join({'a', t, 1, true}, ','), 'a,'..tostring(t)..',1,true')
+  lu.assertEquals(List.join({'a', t, 1, true}, ','), 'a,'..tostring(t)..',1,true')
 end
 
 function Test_concat()
-  lu.assertIsNil(TableList.concat())
-  lu.assertEquals(TableList.concat({'a'}), {'a'})
-  lu.assertEquals(TableList.concat({'a', 'b', 'c'}), {'a', 'b', 'c'})
-  lu.assertEquals(TableList.concat({'a'}, {'b', 'c'}), {'a', 'b', 'c'})
-  lu.assertEquals(TableList.concat({'a', 'b'}, {'c'}), {'a', 'b', 'c'})
-  lu.assertEquals(TableList.concat({'a'}, {'b'}, {'c'}), {'a', 'b', 'c'})
-  lu.assertEquals(TableList.concat({'a'}, 'b', {'c'}), {'a', 'b', 'c'})
+  lu.assertIsNil(List.concat())
+  lu.assertEquals(List.concat({'a'}), {'a'})
+  lu.assertEquals(List.concat({'a', 'b', 'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(List.concat({'a'}, {'b', 'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(List.concat({'a', 'b'}, {'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(List.concat({'a'}, {'b'}, {'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(List.concat({'a'}, 'b', {'c'}), {'a', 'b', 'c'})
 end
 
 function Test_map()
   local function f(v, i)
     return v..tostring(i)
   end
-  lu.assertEquals(TableList.map({}, {'a', 'b'}, f), {'a1', 'b2'})
-  lu.assertEquals(TableList.map({}, {}, f), {})
+  lu.assertEquals(List.map({}, {'a', 'b'}, f), {'a1', 'b2'})
+  lu.assertEquals(List.map({}, {}, f), {})
 end
 
 os.exit(lu.LuaUnit.run())
