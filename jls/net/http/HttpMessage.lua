@@ -87,8 +87,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   function httpMessage:writeHeaders(stream, callback)
     local buffer = StringBuffer:new(self:getLine(), '\r\n')
     self:appendHeaders(buffer):append('\r\n')
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('httpMessage:writeHeaders() "'..buffer:toString()..'"')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('httpMessage:writeHeaders() "'..buffer:toString()..'"')
     end
     -- TODO write StringBuffer
     return stream:write(buffer:toString(), callback)

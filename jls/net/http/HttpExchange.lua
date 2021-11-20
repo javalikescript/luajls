@@ -86,9 +86,9 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self.closePromise
   end
 
-  function httpExchange:notifyRequestBody(error)
+  function httpExchange:notifyRequestBody(reason)
     if self.requestBodyCallback then
-      self.requestBodyCallback(error, self)
+      self.requestBodyCallback(reason, self)
       self.requestBodyCallback = nil
     end
   end
@@ -107,22 +107,34 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   function httpExchange:applyKeepAlive()
     local connection = HttpMessage.CONST.HEADER_CONNECTION
     local requestConnection = self.request:getHeader(connection)
+    local responseConnection = self.response:getHeader(connection)
     if requestConnection == HttpMessage.CONST.CONNECTION_KEEP_ALIVE then
-      local responseConnection = self.response:getHeader(connection)
       if not responseConnection then
         self.response:setHeader(connection, requestConnection)
         return true
       elseif responseConnection == requestConnection then
         return true
       end
+      self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
+    elseif not responseConnection then
+      self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
     end
-    self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
     return false
   end
 
   function httpExchange:prepareResponseHeaders()
     self.response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
     self.response:applyBodyLength()
+  end
+
+  function httpExchange:resetResponseToError(reason)
+    local r = reason and tostring(reason) or 'Unkown error'
+    local response = self.response
+    response:close()
+    response = HttpResponse:new()
+    response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
+    self.response = response
+    self:notifyRequestBody(r)
   end
 
   function httpExchange:handleRequest(context)
@@ -136,21 +148,17 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     if status then
       -- always return a promise
       if Promise:isInstance(result) then
-        return result
+        return result:catch(function(reason)
+          self:resetResponseToError(reason)
+        end)
       end
       return Promise.resolve()
     end
     if logger:isLoggable(logger.WARN) then
       logger:warn('HttpExchange error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(result)..'"')
     end
-    local error = result or 'Unkown error'
-    local response = self.response
-    response:close()
-    response = HttpResponse:new()
-    response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
-    self.response = response
-    self:notifyRequestBody(error)
-    return Promise.reject(error)
+    self:resetResponseToError(result)
+    return Promise.resolve()
   end
 
   function httpExchange:removeClient()
