@@ -46,26 +46,131 @@ local function hashWebSocketKey(key)
   return base64.encode(md:digest(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
 end
 
---math.randomseed(os.time())
+local string_char = string.char
+local string_byte = string.byte
 
 local function randomChars(len)
   local buffer = ''
-  for i = 1, len do
-    buffer = buffer..string.char(math.random(0, 255))
+  for _ = 1, len do
+    buffer = buffer..string_char(math.random(0, 255))
   end
   return buffer
 end
 
+local function generateMask()
+  return string_char(math.random(1, 255), math.random(1, 255), math.random(1, 255), math.random(1, 255))
+end
+
+local function applyMask(mask, payload)
+  if payload == '' then
+    return ''
+  end
+  return string.gsub(payload, '(..?.?.?)', function(value)
+    local len = #value
+    if len == 4 then
+      local a, b, c, d = string_byte(value, 1, len)
+      local e, f, g, h = string_byte(mask, 1, len)
+      return string_char(a ~ e, b ~ f, c ~ g, d ~ h)
+    elseif len == 3 then
+      local a, b, c = string_byte(value, 1, len)
+      local e, f, g = string_byte(mask, 1, len)
+      return string_char(a ~ e, b ~ f, c ~ g)
+    elseif len == 2 then
+      local a, b = string_byte(value, 1, len)
+      local e, f = string_byte(mask, 1, len)
+      return string_char(a ~ e, b ~ f)
+    elseif len == 1 then
+      local a = string_byte(value, 1)
+      local e = string_byte(mask, 1)
+      return string_char(a ~ e)
+    end
+  end)
+end
+
+local function read2BytesHeader(buffer)
+  local b1, b2 = string_byte(buffer, 1, 2)
+  local fin = (b1 >> 7) == 0x01
+  local rsv = (b1 >> 4) & 0x07
+  local opcode = b1 & 0x0f
+  local mask = (b2 >> 7) == 0x01
+  local len = b2 & 0x7f
+  if logger:isLoggable(logger.FINER) then
+    logger:finer('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
+  end
+  -- Payload length:  7 bits, 7+16 bits, or 7+64 bits
+  -- If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
+  -- If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length.
+  local sizeLength
+  if len < 126 then
+    sizeLength = 0
+  else
+    if len == 126 then
+      sizeLength = 2
+    else
+      sizeLength = 8
+    end
+  end
+  -- Masking-key:  0 or 4 bytes
+  local maskLength
+  if mask then
+    maskLength = 4
+  else
+    maskLength = 0
+  end
+  return fin, opcode, len, sizeLength, maskLength, rsv
+end
+
+local function formatFrame(fin, opcode, mask, payload)
+  if not payload then
+    payload = ''
+  end
+  local b1 = 0
+  if fin then
+    b1 = 0x80
+  end
+  b1 = b1 + (opcode & 0x0f)
+  local payload_length = #payload
+  local len, size_length
+  if payload_length < 126 then
+    len = payload_length
+    size_length = 0
+  elseif payload_length < 65536 then
+    len = 126
+    size_length = 2
+  else
+    len = 127
+    size_length = 8
+  end
+  local b2 = 0
+  if mask then
+    b2 = 0x80
+  end
+  b2 = b2 + (len & 0x7f)
+  local hdr_size = ''
+  for i = 1, size_length do
+    hdr_size = string_char(payload_length & 0xff)..hdr_size
+    payload_length = payload_length // 256
+  end
+  local header = string_char(b1, b2)..hdr_size
+  if mask then
+    local mask_chars = generateMask()
+    return header..mask_chars..applyMask(mask_chars, payload)
+  end
+  return header..payload
+end
 
 --- The WebSocketBase class represents the base class for WebSocket.
 -- @type WebSocketBase
 local WebSocketBase = class.create(function(webSocketBase)
 
   --- Creates a new WebSocket.
+  -- @tparam[opt] boolean client true to indicate that the websocket is the client.
   -- @function WebSocketBase:new
-  function webSocketBase:initialize(tcp)
+  function webSocketBase:initialize(tcp, client)
     self.tcp = tcp
-    self.mask = true
+    -- A client MUST mask all frames that it sends to the server
+    -- A client MUST NOT mask any frames that it sends to the client
+    self.mask = client == true
   end
 
   function webSocketBase:onReadError(err)
@@ -74,55 +179,11 @@ local WebSocketBase = class.create(function(webSocketBase)
     end
   end
 
-  local function read2BytesHeader(buffer)
-    local b1, b2 = string.byte(buffer, 1, 2)
-    local fin = (b1 >> 7) == 0x01
-    local rsv = (b1 >> 4) & 0x07
-    local opcode = b1 & 0x0f
-    local mask = (b2 >> 7) == 0x01
-    local len = b2 & 0x7f
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
-    end
-    -- Payload length:  7 bits, 7+16 bits, or 7+64 bits
-    -- If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
-    -- If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length.
-    local sizeLength
-    if len < 126 then
-      sizeLength = 0
-    else
-      if len == 126 then
-        sizeLength = 2
-      else
-        sizeLength = 8
-      end
-    end
-    -- Masking-key:  0 or 4 bytes
-    local maskLength
-    if mask then
-      maskLength = 4
-    else
-      maskLength = 0
-    end
-    return fin, opcode, len, sizeLength, maskLength, rsv
-  end
-
   --- Closes this WebSocket.
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is closed.
   function webSocketBase:close(callback)
     return self.tcp:close(callback)
-  end
-
-  local function applyMask(maskTable, payload)
-    local buffer = ''
-    local maskLength = #maskTable
-    for i = 1, #payload do
-        local j = ((i - 1) % maskLength) + 1
-        local x = string.byte(payload, i) ~ string.byte(maskTable, j)
-        buffer = buffer..string.char(x)
-    end
-    return buffer
   end
 
   function webSocketBase:onTextMessage(message)
@@ -169,7 +230,7 @@ local WebSocketBase = class.create(function(webSocketBase)
           if bufferLength < 2 then
             break
           end
-          local fin, opcode, len, sizeLength, maskLength, rsv = read2BytesHeader(buffer)
+          local fin, opcode, len, sizeLength, maskLength = read2BytesHeader(buffer)
           local headerLength = 2 + sizeLength + maskLength
           if bufferLength < headerLength then
             break
@@ -178,7 +239,7 @@ local WebSocketBase = class.create(function(webSocketBase)
           if sizeLength > 0 then
               len = 0
               for i = idx, idx + sizeLength - 1 do
-                  len = (len * 256) + string.byte(data, i)
+                  len = (len * 256) + string_byte(data, i)
               end
               idx = idx + sizeLength
           end
@@ -210,50 +271,14 @@ local WebSocketBase = class.create(function(webSocketBase)
   end
 
   function webSocketBase:sendFrame(fin, opcode, mask, payload, callback)
-    if not payload then
-      payload = ''
-    end
     if logger:isLoggable(logger.FINER) then
       logger:finer('webSocketBase:sendFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(mask)..')')
     end
-    local b1 = 0
-    if fin then
-      b1 = 0x80
-    end
-    b1 = b1 + (opcode & 0x0f)
-    local payloadLength = #payload
-    local len, sizeLength
-    if payloadLength < 126 then
-      len = payloadLength
-      sizeLength = 0
-    elseif payloadLength < 65536 then
-      len = 126
-      sizeLength = 2
-    else
-      len = 127
-      sizeLength = 8
-    end
-    local b2 = 0
-    if mask then
-      b2 = 0x80
-    end
-    b2 = b2 + (len & 0x7f)
-    local header = string.char(b1, b2)
-    local sizeChars = ''
-    for i = 1, sizeLength do
-      sizeChars = string.char(payloadLength & 0xff)..sizeChars
-      payloadLength = payloadLength // 256
-    end
-    header = header..sizeChars
-    if mask then
-      local maskChars = randomChars(4)
-      header = header..maskChars
-      payload = applyMask(maskChars, payload)
-    end
+    local frame = formatFrame(fin, opcode, mask, payload)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('webSocketBase:sendFrame() '..hex.encode(header..payload))
+      logger:finest('webSocketBase:sendFrame() '..hex.encode(frame))
     end
-    return self.tcp:write(header..payload, callback)
+    return self.tcp:write(frame, callback)
   end
 
   --- Sends a message on this WebSocket.
@@ -294,9 +319,9 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
   -- @tparam string url A table describing the client options.
   -- @return a new WebSocket
   function webSocket:initialize(url, protocols)
+    super.initialize(self, true)
     self.url = url
     self.protocols = protocols
-    super.initialize(self)
   end
 
   function webSocket:open()
@@ -337,18 +362,13 @@ end)
 
 --- @section end
 
---- WebSocket HTTP handler.
--- The open attribute must be set to a function that will be called with the new accepted WebSockets.
--- @param httpExchange the HTTP exchange to handle.
-local function upgradeHandler(httpExchange)
+local function upgrade(httpExchange, open, accept, protocol)
   local request = httpExchange:getRequest()
   local response = httpExchange:getResponse()
-  local context = httpExchange:getContext()
-  local open = context:getAttribute('open')
   if logger:isLoggable(logger.FINER) then
     logger:finer('ws.upgradeHandler()')
     for name, value in pairs(request:getHeadersTable()) do
-      logger:finer(tostring(name)..': "'..tostring(value)..'")')
+      logger:finer(' '..tostring(name)..': "'..tostring(value)..'"')
     end
   end
   local headerConnection = string.lower(request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) or '')
@@ -358,7 +378,6 @@ local function upgradeHandler(httpExchange)
     local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
     if headerSecWebSocketKey and headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
       local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
-      local accept = context:getAttribute('accept')
       if type(accept) == 'function' and not accept(headerSecWebSocketProtocol, request) then
         response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
         response:setBody('<p>Upgrade rejected.</p>')
@@ -367,18 +386,22 @@ local function upgradeHandler(httpExchange)
         response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, CONST.CONNECTION_UPGRADE)
         response:setHeader(HttpMessage.CONST.HEADER_UPGRADE, CONST.UPGRADE_WEBSOCKET)
         response:setHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT, hashWebSocketKey(headerSecWebSocketKey))
-        local protocol = context:getAttribute('protocol')
         if protocol then
           response:setHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL, protocol)
+        end
+        function httpExchange:prepareResponseHeaders()
         end
         -- override HTTP client close
         local close = httpExchange.close
         function httpExchange:close()
           if logger:isLoggable(logger.FINER) then
-            logger:finer('ws.upgradeHandler() close')
+            logger:finer('ws.upgradeHandler() close exchange')
           end
           local tcpClient = self:removeClient()
           close(self)
+          if logger:isLoggable(logger.FINER) then
+            logger:finer('ws.upgradeHandler() open websocket')
+          end
           open(WebSocketBase:new(tcpClient))
         end
       end
@@ -392,8 +415,47 @@ local function upgradeHandler(httpExchange)
   end
 end
 
+--- WebSocket HTTP handler.
+-- The open attribute must be set to a function that will be called with the new accepted WebSockets.
+-- @param httpExchange the HTTP exchange to handle.
+local function upgradeHandler(httpExchange)
+  local context = httpExchange:getContext()
+  local open = context:getAttribute('open')
+  local accept = context:getAttribute('accept')
+  local protocol = context:getAttribute('protocol')
+  upgrade(httpExchange, open, accept, protocol)
+end
+
+local WebSocketUpgradeHandler = class.create('jls.net.http.HttpHandler', function(webSocketUpgradeHandler)
+  function webSocketUpgradeHandler:initialize(protocol)
+    self.openFn = function(webSocket)
+      self:onOpen(webSocket)
+    end
+    self.acceptFn = function(...)
+      return self:accept(...)
+    end
+    self.protocol = protocol
+  end
+  function webSocketUpgradeHandler:handle(exchange)
+    upgrade(exchange, self.openFn, self.acceptFn, self.protocol)
+  end
+  function webSocketUpgradeHandler:setProtocol(protocol)
+    self.protocol = protocol
+  end
+  function webSocketUpgradeHandler:onOpen(webSocket)
+    webSocket:close()
+  end
+  function webSocketUpgradeHandler:accept(protocol, request)
+    return true
+  end
+end)
+
 return {
   CONST = CONST,
   upgradeHandler = upgradeHandler,
-  WebSocket = WebSocket
+  WebSocketUpgradeHandler = WebSocketUpgradeHandler,
+  WebSocket = WebSocket,
+  randomChars = randomChars,
+  generateMask = generateMask,
+  applyMask = applyMask,
 }

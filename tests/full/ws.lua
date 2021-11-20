@@ -37,4 +37,25 @@ function Test_send_receive()
   lu.assertEquals(reply, 'You said Hello')
 end
 
+function Test_applyMask()
+  local values = {'', 'a', 'ab', 'abc', 'abcd', 'abcde'}
+  local mask = ws.generateMask()
+  for _, value in ipairs(values) do
+    local maskedValue = ws.applyMask(mask, value)
+    lu.assertEquals(#maskedValue, #value)
+    if value ~= '' then
+      lu.assertNotEquals(maskedValue, value)
+    end
+    lu.assertEquals(ws.applyMask(mask, maskedValue), value)
+  end
+end
+
+function _Test_applyMask_perf()
+  local value = ws.randomChars(8195)
+  local mask = ws.generateMask()
+  for _ = 1, 1000 do
+    ws.applyMask(mask, value)
+  end
+end
+
 os.exit(lu.LuaUnit.run())
