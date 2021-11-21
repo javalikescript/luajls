@@ -35,9 +35,14 @@ body > iframe {
 }
 </style></head><body>
   <div>
-    <a href="docs/topics/intro.md.html" target="iframe">Luajls documentation</a>,
-    <a href="docs/index.html" target="iframe">index</a>-
+    <a href="docs/luajls.html" target="iframe">Luajls</a>,
+    <a href="docs/index.html" target="iframe">documentation</a>
+    -
     <a href="docs/lua/contents.html" target="iframe">Lua reference</a>
+    -
+    <a href="docs/ldoc.html" target="iframe">LDoc</a>
+    -
+    <a href="docs/luaunit.html" target="iframe">LuaUnit</a>
   </div>
   <iframe name="iframe" src="welcome.html"></iframe>
 </body></html>
