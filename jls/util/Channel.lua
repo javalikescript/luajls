@@ -226,6 +226,7 @@ return class.create(function(channel, _, Channel)
   Channel.MESSAGE_TYPE_USER = MT_USER
 
   --- Starts receiving messages on this channel.
+  -- The handler will be called with the payload and the message type.
   -- @tparam function handleMessage a function that will be called when a message is received.
   function channel:receiveStart(handleMessage)
     if logger:isLoggable(logger.FINEST) then
@@ -289,7 +290,7 @@ return class.create(function(channel, _, Channel)
   end
 
   --- Writes a message on this channel.
-  -- @tparam string message the message to send
+  -- @tparam string payload the message to send
   -- @tparam[opt] number messageType the message type, default is Channel.MESSAGE_TYPE_USER.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the message has been sent.
