@@ -12,5 +12,9 @@ return {
   end,
   sleep = function(millis)
     luaSocketLib.sleep(millis / 1000)
-  end
+  end,
+  getenv = os.getenv,
+  setenv = function(name, value)
+    error('not available')
+  end,
 }

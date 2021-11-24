@@ -10,5 +10,7 @@ return {
     return sec * 1000 + usec // 1000
   end,
   gettimeofday = luvLib.gettimeofday,
-  sleep = luvLib.sleep
+  sleep = luvLib.sleep,
+  getenv = luvLib.os_getenv,
+  setenv = luvLib.os_setenv,
 }

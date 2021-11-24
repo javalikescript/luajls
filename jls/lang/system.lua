@@ -59,6 +59,8 @@ end
 -- @function system.getenv
 system.getenv = os.getenv
 
+system.setenv = sysLib.setenv
+
 function system.isWindows()
   return isWindowsOS
 end

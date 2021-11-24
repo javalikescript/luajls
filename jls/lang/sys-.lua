@@ -11,5 +11,9 @@ return {
   sleep = function(millis)
     local t = os_time() + (millis / 1000)
     while os_time() < t do end
-  end
+  end,
+  getenv = os.getenv,
+  setenv = function(name, value)
+    error('not available')
+  end,
 }
