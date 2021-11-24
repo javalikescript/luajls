@@ -17,6 +17,9 @@ return {
   exePath = function()
     return exePath
   end,
+  getPid = function()
+    error('not available')
+  end,
   kill = function(pid)
     error('not available')
   end,
