@@ -505,7 +505,7 @@ local url = WebView.toDataUrl('<html><body>Hello</body></thread>'))
     local data = string.gsub(content, "[ %c!#$%%&'()*+,/:;=?@%[%]]", function(c)
       return string.format('%%%02X', string.byte(c))
     end)
-    if type(mediaType) == 'string' then
+    if type(mediaType) ~= 'string' then
       mediaType = 'text/html'
     end
     return 'data:'..mediaType..','..data
