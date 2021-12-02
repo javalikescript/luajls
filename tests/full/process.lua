@@ -15,7 +15,7 @@ function Test_pipe()
     lu.success()
   end
   local text = 'Hello world!'
-  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'print("'..text..'")'})
+  local pb = ProcessBuilder:new(LUA_PATH, '-e', 'print("'..text..'")')
   --pb:environment({'A_KEY=VALUE A', 'B_KEY=VALUE B'})
   local p = Pipe:new()
   pb:redirectOutput(p)

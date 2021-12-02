@@ -11,7 +11,7 @@ if arg then
   end
 end
 
-local isWindowsOS = string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll')
+local formatCommandLine = require('jls.lang.formatCommandLine')
 
 return {
   exePath = function()
@@ -24,12 +24,11 @@ return {
     error('not available')
   end,
   spawn = function(pb, onexit)
-    local line
-    if isWindowsOS then
-      line = pb.cmd[1]..' "'..table.concat(pb.cmd, '" "', 2)..'"'
-    else
-      line = '"'..table.concat(pb.cmd, '" "')..'"'
+    if pb.stdin or pb.stdout or pb.stderr then
+      -- TODO use popen
+      error('cannot redirect')
     end
+    local line = formatCommandLine(pb.cmd)
     local status, kind, code = os.execute(line) -- will block
     if type(onexit) == 'function' then
       onexit(code or 0)
