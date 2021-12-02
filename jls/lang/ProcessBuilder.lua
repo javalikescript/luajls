@@ -28,11 +28,10 @@ return require('jls.lang.class').create(function(processBuilder)
     if argCount == 0 then
       return self.cmd
     end
-    local args = {...}
-    if argCount == 1 and type(args[1]) == 'table' then
-      self.cmd = args[1]
+    if argCount == 1 and type(...) == 'table' then
+      self.cmd = (...)
     else
-      self.cmd = args
+      self.cmd = {...}
     end
     return self
   end
@@ -61,6 +60,10 @@ return require('jls.lang.class').create(function(processBuilder)
 
   function processBuilder:redirectOutput(fd)
     self.stdout = fd.fd
+  end
+
+  function processBuilder:redirectError(fd)
+    self.stderr = fd.fd
   end
 
   --- Starts this ProcessBuilder.
