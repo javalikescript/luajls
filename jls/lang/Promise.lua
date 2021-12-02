@@ -346,6 +346,9 @@ function Promise.ensureCallback(callback)
 end
 
 function Promise.callbackToNext(callback)
+  if callback == nil then
+    return nil, nil
+  end
   return function(value)
     return callback(nil, value)
   end, function(reason)
