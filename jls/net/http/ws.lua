@@ -362,9 +362,9 @@ end)
 
 --- @section end
 
-local function upgrade(httpExchange, open, accept, protocol)
-  local request = httpExchange:getRequest()
-  local response = httpExchange:getResponse()
+local function upgrade(exchange, open, accept, protocol)
+  local request = exchange:getRequest()
+  local response = exchange:getResponse()
   if logger:isLoggable(logger.FINER) then
     logger:finer('ws.upgradeHandler()')
     for name, value in pairs(request:getHeadersTable()) do
@@ -378,7 +378,8 @@ local function upgrade(httpExchange, open, accept, protocol)
     local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
     if headerSecWebSocketKey and headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
       local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
-      if type(accept) == 'function' and not accept(headerSecWebSocketProtocol, request) then
+      if type(accept) == 'function' and not accept(headerSecWebSocketProtocol, exchange) then
+        -- TODO Check if response has been set
         response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
         response:setBody('<p>Upgrade rejected.</p>')
       else
@@ -389,11 +390,11 @@ local function upgrade(httpExchange, open, accept, protocol)
         if protocol then
           response:setHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL, protocol)
         end
-        function httpExchange:prepareResponseHeaders()
+        function exchange:prepareResponseHeaders()
         end
         -- override HTTP client close
-        local close = httpExchange.close
-        function httpExchange:close()
+        local close = exchange.close
+        function exchange:close()
           if logger:isLoggable(logger.FINER) then
             logger:finer('ws.upgradeHandler() close exchange')
           end
@@ -402,7 +403,7 @@ local function upgrade(httpExchange, open, accept, protocol)
           if logger:isLoggable(logger.FINER) then
             logger:finer('ws.upgradeHandler() open websocket')
           end
-          open(WebSocketBase:new(tcpClient))
+          open(WebSocketBase:new(tcpClient), exchange)
         end
       end
     else
@@ -417,19 +418,19 @@ end
 
 --- WebSocket HTTP handler.
 -- The open attribute must be set to a function that will be called with the new accepted WebSockets.
--- @param httpExchange the HTTP exchange to handle.
-local function upgradeHandler(httpExchange)
-  local context = httpExchange:getContext()
+-- @param exchange the HTTP exchange to handle.
+local function upgradeHandler(exchange)
+  local context = exchange:getContext()
   local open = context:getAttribute('open')
   local accept = context:getAttribute('accept')
   local protocol = context:getAttribute('protocol')
-  upgrade(httpExchange, open, accept, protocol)
+  upgrade(exchange, open, accept, protocol)
 end
 
 local WebSocketUpgradeHandler = class.create('jls.net.http.HttpHandler', function(webSocketUpgradeHandler)
   function webSocketUpgradeHandler:initialize(protocol)
-    self.openFn = function(webSocket)
-      self:onOpen(webSocket)
+    self.openFn = function(...)
+      self:onOpen(...)
     end
     self.acceptFn = function(...)
       return self:accept(...)
@@ -442,7 +443,7 @@ local WebSocketUpgradeHandler = class.create('jls.net.http.HttpHandler', functio
   function webSocketUpgradeHandler:setProtocol(protocol)
     self.protocol = protocol
   end
-  function webSocketUpgradeHandler:onOpen(webSocket)
+  function webSocketUpgradeHandler:onOpen(webSocket, exchange)
     webSocket:close()
   end
   function webSocketUpgradeHandler:accept(protocol, request)
