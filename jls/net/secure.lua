@@ -170,35 +170,32 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
 
   function secureTcpClient:connect(addr, port, callback)
     logger:finer('secureTcpClient:connect()')
-    if not self.ssl then
-      self:sslInit()
-    end
     local cb, d = Promise.ensureCallback(callback)
-    local ecb = function(err)
-      cb(err or 'Connection failed')
-    end
     super.connect(self, addr, port):next(function()
-      local dh = self:startHandshake()
-      dh:next(function()
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('secureTcpClient:connect() handshake completed for '..TcpClient.socketToString(self.tcp))
-          if logger:isLoggable(logger.FINER) then
-            logger:finer('getpeerverification() => '..tostring(self.ssl:getpeerverification()))
-            logger:finer('peerCert:subject() => '..tostring(self.ssl:peer():subject():oneline()))
-          end
-        end
-        if self.sslCheckHost then
-          local peerCert = self.ssl:peer()
-          if not peerCert:check_host(addr) then
-            logger:fine('secureTcpClient:connect() => Wrong host')
-            cb('Wrong host')
-            return
-          end
-        end
-        cb()
-      end, ecb)
-    end, ecb)
+      return self:onConnected(addr)
+    end):next(Promise.callbackToNext(cb))
     return d
+  end
+
+  function secureTcpClient:onConnected(host, startData)
+    logger:finer('secureTcpClient:onConnected()')
+    return self:startHandshake(startData):next(function()
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('secureTcpClient:connect() handshake completed for '..TcpClient.socketToString(self.tcp))
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('getpeerverification() => '..tostring(self.ssl:getpeerverification()))
+          logger:finer('peerCert:subject() => '..tostring(self.ssl:peer():subject():oneline()))
+        end
+      end
+      if self.sslCheckHost then
+        local peerCert = self.ssl:peer()
+        if host and not peerCert:check_host(host) then
+          logger:fine('secureTcpClient:connect() => Wrong host')
+          return Promise.reject('Wrong host')
+        end
+      end
+      return Promise.resolve()
+    end)
   end
 
   function secureTcpClient:sslFlush(callback)
@@ -293,11 +290,24 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
     end]]
   end
 
-  function secureTcpClient:startHandshake()
+  function secureTcpClient:startHandshake(startData)
     if logger:isLoggable(logger.FINER) then
       logger:finer('secureTcpClient:startHandshake()')
     end
+    if not self.ssl then
+      self:sslInit()
+    end
     local promise, resolutionCallback = Promise.createWithCallback()
+    if startData and #startData > 0 and self.inMem:write(startData) then
+      local handshakeCompleted = false
+      self:sslDoHandshake(function(err)
+        handshakeCompleted = true
+        resolutionCallback(err)
+      end)
+      if handshakeCompleted then
+        return promise
+      end
+    end
     super.readStart(self, StreamHandler:new(function(_, cipherData)
       if logger:isLoggable(logger.FINE) then
         logger:fine('sslStream:onData('..tostring(cipherData and #cipherData)..')')
