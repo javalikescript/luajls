@@ -15,20 +15,30 @@ return require('jls.lang.class').create(StreamHandler, function(fileStreamHandle
   -- @tparam jls.io.File file The file to create
   -- @tparam[opt] boolean overwrite true to indicate that existing file must be re created
   -- @tparam[opt] function onClose a function that will be called when the stream has ended
+  -- @tparam[opt] boolean openOnData true to indicate that the file shall be opened on first data received
   -- @function FileStreamHandler:new
-  function fileStreamHandler:initialize(file, overwrite, onClose)
+  function fileStreamHandler:initialize(file, overwrite, onClose, openOnData)
     self.file = File.asFile(file)
     if not overwrite and self.file:isFile() then
       error('File exists')
     end
+    if type(onClose) == 'function' then
+      self.onClose = onClose
+    end
+    if openOnData then
+      self.openOnData = true
+    else
+      self.openOnData = false
+      self:openFile()
+    end
+  end
+
+  function fileStreamHandler:openFile()
     local fd, err = FileDescriptor.openSync(self.file, 'w')
     if err then
       error(err)
     end
     self.fd = fd
-    if type(onClose) == 'function' then
-      self.onClose = onClose
-    end
   end
 
   function fileStreamHandler:getFile()
@@ -40,6 +50,10 @@ return require('jls.lang.class').create(StreamHandler, function(fileStreamHandle
 
   function fileStreamHandler:onData(data)
     if data then
+      if self.openOnData then
+        self.openOnData = false
+        self:openFile()
+      end
       self.fd:writeSync(data) -- TODO handle errors
     else
       self:close()
