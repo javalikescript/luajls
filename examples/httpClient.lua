@@ -5,6 +5,14 @@ local StreamHandler = require('jls.io.streams.StreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local system = require('jls.lang.system')
 local tables = require('jls.util.tables')
+local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
+local File = require('jls.io.File')
+local Path = require('jls.io.Path')
+local URL = require('jls.net.URL')
+
+--[[
+lua examples\httpClient.lua -loglevel fine -maxRedirectCount 3 -out.headers true
+]]
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
@@ -36,15 +44,26 @@ local options = tables.createArgumentTable(system.getArguments(), {
           [HTTP_CONST.HEADER_USER_AGENT] = HTTP_CONST.DEFAULT_USER_AGENT,
         },
       },
-      show = {
+      out = {
         type = 'object',
         additionalProperties = false,
         properties = {
+          file = {
+            title = 'Write the response in the file',
+            type = 'string',
+          },
+          overwrite = {
+            title = 'Overwrite existing file',
+            type = 'boolean',
+            default = false
+          },
           headers = {
+            title = 'Write the response headers',
             type = 'boolean',
             default = false
           },
           body = {
+            title = 'Write the response body',
             type = 'boolean',
             default = true
           },
@@ -56,9 +75,30 @@ local options = tables.createArgumentTable(system.getArguments(), {
         minimum = 0,
         maximum = 3
       },
+      loglevel = {
+        title = 'The log level',
+        type = 'string',
+        default = 'WARN',
+        enum = {'ERROR', 'WARN', 'INFO', 'CONFIG', 'FINE', 'FINER', 'FINEST', 'DEBUG', 'ALL'},
+      },
     }
   }
 })
+
+logger:setLevel(options.loglevel)
+
+local responseStreamHandler = StreamHandler.std
+local outFile
+if options.out.file and (options.out.headers or options.out.body) then
+  outFile = File:new(options.out.file)
+  if outFile:isDirectory() and options.url then
+    local u = URL:new(options.url)
+    local p = Path:new(u:getPath())
+    outFile = File:new(outFile, p:getName())
+  end
+  --local tmpFile = File:new(outFile:getPathName()..'.tmp')
+  responseStreamHandler = FileStreamHandler:new(outFile, options.out.overwrite, nil, true)
+end
 
 local client = HttpClient:new(options)
 
@@ -70,15 +110,18 @@ end):next(function()
   return client:receiveResponseHeaders()
 end):next(function(remainingBuffer)
   local response = client:getResponse()
-  if options.show.headers then
-    print(response:getLine())
-    print('Response headers:')
+  if options.out.headers then
+    local lines = {}
+    table.insert(lines, response:getLine())
     for name, value in pairs(response:getHeadersTable()) do
-      print('', name, value)
+      table.insert(lines, '\t'..name..': '..tostring(value))
     end
+    table.insert(lines, '')
+    responseStreamHandler:onData(table.concat(lines, '\r\n'))
   end
-  if options.show.body then
-    response:setBodyStreamHandler(StreamHandler.std)
+  -- and response:getStatusCode() == 200
+  if options.out.body then
+    response:setBodyStreamHandler(responseStreamHandler)
   end
   return client:receiveResponseBody(remainingBuffer)
 end):next(function()
