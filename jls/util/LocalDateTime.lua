@@ -46,7 +46,7 @@ local WEEK_DAYS = {
 --- The LocalDateTime class.
 -- The LocalDateTime provides a way to manipulate local date and time.
 -- @type LocalDateTime
-local LocalDateTime = require('jls.lang.class').create(function(localDateTime)
+return require('jls.lang.class').create(function(localDateTime, _, LocalDateTime)
 
   --- Creates a new LocalDateTime.
   -- @function LocalDateTime:new
@@ -68,10 +68,15 @@ local LocalDateTime = require('jls.lang.class').create(function(localDateTime)
     self.ms = ms or 0
   end
 
+  --- Returns the year of this date.
+  -- @treturn number the year.
   function localDateTime:getYear()
     return self.year
   end
 
+  --- Sets the year of this date.
+  -- @tparam number value the year.
+  -- @return this date.
   function localDateTime:setYear(value)
     self.year = value
     return self
@@ -206,6 +211,11 @@ local LocalDateTime = require('jls.lang.class').create(function(localDateTime)
     return self
   end
 
+  --- Returns a negative, zero or positive value depending if this date
+  -- is before, equal or after the specified date.
+  -- @tparam LocalDateTime date the local date to compare to.
+  -- @treturn number a negative, zero or positive value depending if this date
+  -- is before, equal or after the specified date.
   function localDateTime:compareTo(date)
     local delta
     delta = self.year - date.year
@@ -246,13 +256,13 @@ local LocalDateTime = require('jls.lang.class').create(function(localDateTime)
     return string.format('%04d-%02d-%02dT%02d:%02d:%02d.%03d', self.year, self.month, self.day, self.hour, self.min, self.sec, self.ms)
   end
 
+end, function(LocalDateTime)
+
+  LocalDateTime.isLeapYear = isLeapYear
+  LocalDateTime.getMonthLength = getMonthLength
+  LocalDateTime.computeTotalDays = computeTotalDays
+  for k, v in pairs(WEEK_DAYS) do
+    LocalDateTime[k] = v
+  end
+
 end)
-
-LocalDateTime.isLeapYear = isLeapYear
-LocalDateTime.getMonthLength = getMonthLength
-LocalDateTime.computeTotalDays = computeTotalDays
-for k, v in pairs(WEEK_DAYS) do
-  LocalDateTime[k] = v
-end
-
-return LocalDateTime

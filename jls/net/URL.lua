@@ -12,10 +12,10 @@ return require('jls.lang.class').create(function(url, _, URL)
 
   --- Creates a new URL.
   -- @function URL:new
-  -- @param protocol The protocol or the URL as a string.
-  -- @param host The host name.
-  -- @param port The port number.
-  -- @param file The file part of the URL.
+  -- @param protocol The protocol or the URL as a string or the URL as a table.
+  -- @tparam[opt] string host The host name.
+  -- @tparam[opt] string port The port number.
+  -- @tparam[opt] string file The file part of the URL.
   -- @return a new URL
   -- @usage
   --local url = URL:new('http://somehost:1234/some/path')
@@ -40,10 +40,14 @@ return require('jls.lang.class').create(function(url, _, URL)
     end
   end
 
+  --- Returns this URL scheme.
+  -- @return this URL scheme.
   function url:getProtocol()
     return self.t.scheme
   end
 
+  --- Returns this URL userInfo.
+  -- @return this URL userInfo.
   function url:	getUserInfo()
     if self.t.password then
       return self.t.username..':'..self.t.password
@@ -63,10 +67,14 @@ return require('jls.lang.class').create(function(url, _, URL)
     return self.t.port
   end
 
+  --- Returns this URL path.
+  -- @return this URL path.
   function url:getPath()
     return self.t.path
   end
 
+  --- Returns this URL query.
+  -- @return this URL query.
   function url:getQuery()
     return self.t.query
   end
@@ -176,6 +184,7 @@ return require('jls.lang.class').create(function(url, _, URL)
   end
 
   --- Returns the URL corresponding to the specified string.
+  -- The table contains the keys: scheme, host, port, path, query, userinfo, username, password.
   -- @tparam string sUrl The string to parse.
   -- @treturn table a table representing the URL or nil.
   function URL.parse(sUrl)
@@ -245,6 +254,9 @@ return require('jls.lang.class').create(function(url, _, URL)
     return sUrl
   end
 
+  --- Returns the string value representing the specified URL.
+  -- @tparam table tUrl The URL as a table.
+  -- @return the string value representing the URL.
   function URL.format(tUrl)
     if tUrl.scheme == 'http' or tUrl.scheme == 'https' then
       return formatHttp(tUrl)

@@ -12,7 +12,7 @@ luajls provides:
 * language basics such as class definition, module loading, logging, promise, event loop, threads, processes
 * file system manipulation, I/O, file and networking access, serial communication, streams
 * HTTP client and server, MQTT, web socket with support for secured communication using SSL
-* utility modules for date and time, JSON and XML format, deflate, ZIP file, scheduling and web view
+* utility modules for List and Map, date and time, JSON and XML formats, deflate, ZIP and tar files, scheduling, worker and web view
 
 ## What does it look like?
 
@@ -50,6 +50,23 @@ Lua, luajls and all the dependencies are available in the [Lua C libraries repos
 
 As luajls is composed of Lua modules, you need to adapt the environment variables LUA_PATH and LUA_CPATH to include the luajls home directory.
 
+
+## Motivations and reasoning
+
+The motivation is to facilitate the development of complex standalone applications.
+
+Building standalone application requires to use operating system features such as file system, network, timers, processes, theads, inter-process communication, webview. Features that are not available in the Lua standard libraries.
+
+There are plenty of valuable C modules for various tasks such as _LuaFileSystem_, _luasocket_ and _luv_, even the Lua standard libraries provide some operating system features.
+Building upon a specific module may restrict the usage and portability. The idea is to abstract dependent external modules and to provide at least 2 implementations including a pure Lua one if possible.
+Accessing OS features is not enough, a higher level language is required to provide complex features such as HTTP client and server, Worker.
+
+The luajls module library exposes a set of APIs. The APIs are inspired by JavaScript and Java due to their similarity and their large usage.
+The goal is to facilitate the learning and also the usage in combination with JavaScript for example when using an HTTP server or a WebView.
+The goal is to implement already existing, well-known APIs for example the handling of asynchronous tasks uses the Promise/A+ specification which is now part of JavaScript.
+The APIs support asynchronous operations to ease the development of complex features such as HTTP server.
+
+
 ### LuaRocks
 
 luajls, with Lua 5.3, can be installed with [LuaRocks](https://luarocks.org/), depending on your needs you could pick one of the following module:
@@ -63,8 +80,9 @@ luajls, with Lua 5.3, can be installed with [LuaRocks](https://luarocks.org/), d
 
 The installation on Windows is quite difficult and painful, I recommend you to download the binaries.
 
+
 ## What do you want to do?
 
 See the [web site](http://javalikescript.free.fr/lua/) or the [API documentation](http://javalikescript.free.fr/lua/docs/).
 
-Download [binaries](http://javalikescript.free.fr/lua/download.php) or access the [source code](https://github.com/javalikescript/luajls).
+Download [binaries](https://github.com/javalikescript/luajls/releases/latest) or access the [source code](https://github.com/javalikescript/luajls).

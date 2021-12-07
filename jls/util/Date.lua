@@ -29,7 +29,7 @@ end
 -- The Date provides a way to manipulate date and time.
 -- The Date represents the number of milliseconds since epoch, 1970-01-01T00:00:00 UTC.
 -- @type Date
-local Date = require('jls.lang.class').create(function(date)
+return require('jls.lang.class').create(function(date)
 
   --- Creates a new Date.
   -- @function Date:new
@@ -268,95 +268,95 @@ local Date = require('jls.lang.class').create(function(date)
     return LocalDateTime:new(self.field.year, self.field.month, self.field.day,
       self.field.hour, self.field.min, self.field.sec, self.field.ms)
   end
+end, function(Date)
+
+  Date.computeTimezoneOffset = computeTimezoneOffset
+
+  --- Returns the number of milliseconds since epoch, 1970-01-01T00:00:00 UTC.
+  -- @treturn number the number of milliseconds since epoch
+  function Date.now()
+    return system.currentTimeMillis()
+  end
+
+  function Date.UTC(...)
+    local d = Date:new(...)
+    return d:getTime() + (d:getTimezoneOffset() * 60000)
+  end
+
+  function Date.fromLocalDateTime(dt, utc)
+    if utc then
+      return Date:new(Date.UTC(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
+        dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond()))
+    end
+    return Date:new(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
+      dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond())
+  end
+
+  local function formatTime(f, t, utc)
+    if t then
+      t = t // 1000
+    else
+      t = os.time()
+    end
+    if utc then
+      f = '!'..f
+    end
+    return os.date(f, t)
+  end
+
+  function Date.iso(t, utc)
+    return formatTime('%Y-%m-%dT%H:%M:%S', t, utc)
+  end
+
+  function Date.datestamp(t, utc)
+    return formatTime('%Y%m%d', t, utc)
+  end
+
+  function Date.timestamp(t, utc)
+    return formatTime('%Y%m%d%H%M%S', t, utc)
+  end
+
+  local function parseISOString(s, lenient)
+    local pattern
+    if lenient then
+      pattern = '^(%d%d%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)(.*)$'
+    else
+      pattern = '^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d)%:(%d%d)%:(%d%d)(.*)$'
+    end
+    local year, month, day, hour, min, sec, rs = string.match(s, pattern)
+    if not year then
+      return nil
+    end
+    local ms
+    if rs then
+      ms = string.match(rs, '^%.(%d%d%d)Z?$')
+    end
+    return tonumber(year), tonumber(month), tonumber(day),
+      tonumber(hour), tonumber(min), tonumber(sec), tonumber(ms) or 0
+  end
+
+  function Date.fromISOString(s, utc, lenient)
+    if utc then
+      return Date.UTC(parseISOString(s, lenient))
+    end
+    return Date:new(parseISOString(s, lenient)):getTime()
+  end
+
+  function Date.fromTimestamp(s, utc)
+    local year, month, day, hour, min, sec = string.match(s, '^(%d%d%d%d)(%d%d)(%d%d)(%d%d)(%d%d)(%d%d)$')
+    if not year then
+      return nil
+    end
+    year = tonumber(year)
+    month = tonumber(month)
+    day = tonumber(day)
+    hour = tonumber(hour)
+    min = tonumber(min)
+    sec = tonumber(sec)
+    if utc then
+      return Date.UTC(year, month, day, hour, min, sec)
+    end
+    return Date:new(year, month, day, hour, min, sec):getTime()
+  end
+
 end)
-
-Date.computeTimezoneOffset = computeTimezoneOffset
-
---- Returns the number of milliseconds since epoch, 1970-01-01T00:00:00 UTC.
--- @treturn number the number of milliseconds since epoch
-function Date.now()
-  return system.currentTimeMillis()
-end
-
-function Date.UTC(...)
-  local d = Date:new(...)
-  return d:getTime() + (d:getTimezoneOffset() * 60000)
-end
-
-function Date.fromLocalDateTime(dt, utc)
-  if utc then
-    return Date:new(Date.UTC(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
-      dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond()))
-  end
-  return Date:new(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
-    dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond())
-end
-
-local function formatTime(f, t, utc)
-  if t then
-    t = t // 1000
-  else
-    t = os.time()
-  end
-  if utc then
-    f = '!'..f
-  end
-  return os.date(f, t)
-end
-
-function Date.iso(t, utc)
-  return formatTime('%Y-%m-%dT%H:%M:%S', t, utc)
-end
-
-function Date.datestamp(t, utc)
-  return formatTime('%Y%m%d', t, utc)
-end
-
-function Date.timestamp(t, utc)
-  return formatTime('%Y%m%d%H%M%S', t, utc)
-end
-
-local function parseISOString(s, lenient)
-  local pattern
-  if lenient then
-    pattern = '^(%d%d%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)(.*)$'
-  else
-    pattern = '^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d)%:(%d%d)%:(%d%d)(.*)$'
-  end
-  local year, month, day, hour, min, sec, rs = string.match(s, pattern)
-  if not year then
-    return nil
-  end
-  local ms
-  if rs then
-    ms = string.match(rs, '^%.(%d%d%d)Z?$')
-  end
-  return tonumber(year), tonumber(month), tonumber(day),
-    tonumber(hour), tonumber(min), tonumber(sec), tonumber(ms) or 0
-end
-
-function Date.fromISOString(s, utc, lenient)
-  if utc then
-    return Date.UTC(parseISOString(s, lenient))
-  end
-  return Date:new(parseISOString(s, lenient)):getTime()
-end
-
-function Date.fromTimestamp(s, utc)
-  local year, month, day, hour, min, sec = string.match(s, '^(%d%d%d%d)(%d%d)(%d%d)(%d%d)(%d%d)(%d%d)$')
-  if not year then
-    return nil
-  end
-  year = tonumber(year)
-  month = tonumber(month)
-  day = tonumber(day)
-  hour = tonumber(hour)
-  min = tonumber(min)
-  sec = tonumber(sec)
-  if utc then
-    return Date.UTC(year, month, day, hour, min, sec)
-  end
-  return Date:new(year, month, day, hour, min, sec):getTime()
-end
-
-return Date

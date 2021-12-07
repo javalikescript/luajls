@@ -1,6 +1,6 @@
 ## Overview
 
-Luajls is a standard library for [Lua](https://www.lua.org/).
+Luajls is a standard library to build standalone [Lua](https://www.lua.org/) applications.
 
 The library provides an abstract interface to the underlying operating system, such as file system and network.
 The jls Lua library includes a set of jls Lua modules providing an API to abstract the host platform.
@@ -20,17 +20,28 @@ and the [Lua C libraries repository](https://github.com/javalikescript/luaclibs)
 
 The following packages are available.
 
-* _jls.io_
-File system manipulation, file channel, pipe, serial
 * _jls.lang_
-Base modules including class definition, module loading, logging, event loop, promise, process
+Base modules including class definition, module loading, logging, event loop, promise, process, thread
+* _jls.io_
+File system manipulation, file I/O, pipe, serial, streams
 * _jls.net_
 Network modules including TCP and UDP socket, HTTP, MQTT WebSocket client and server
 * _jls.util_
-Utility modules for date and time, JSON format, deflate, ZIP file and WebView
+Utility modules for List, Mapn date and time, JSON and XML formats, deflate, ZIP file, worker and WebView
 
 
-## Name Convention
+## Main principles
+
+This set of modules or libraries are meant to be simple, composable.
+The conventions are meant to organize and help understanting these libraries.
+
+When the implementation is based on a dependent Lua module, its name is suffixed by a minus character followed by the dependent Lua module name.
+By example, to provide the file system APIs luajls could use the _luafilesystem_, named _lfs_, or the _luv_ dependency.
+There are two corresponding bridge implementations _fs-lfs_ and _fs-luv_ exposing the same APIs.
+The main Lua jls module named _fs_ will load the first available module.
+
+
+## Name convention
 
 The naming convention used is the following:
 Classes should be nouns in upper camel case, such as Vehicle, Bus.
@@ -41,13 +52,3 @@ Private fields and methods should start with an underscore.
 Acronyms should be treated as normal words, such as Html, Url.
 
 Source code should be indented using 2 spaces.
-
-## Main principles
-
-This set of modules or libraries are meant to be simple, composable.
-The conventions are meant to organize and help understanting these libraries.
-
-When the implementation is based on a dependent Lua module, its name is suffixed by a minus character followed by the dependent Lua module.
-By example, to provide the file system APIs luajls could use the _luafilesystem_, named _lfs_, or the _luv_ dependency.
-There are two corresponding bridge implementations _fs-lfs_ and _fs-luv_ exposing the same APIs.
-The main Lua jls module named _fs_ will load the first available module.

@@ -14,7 +14,7 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Creates a new ProcessBuilder.
   -- @function ProcessBuilder:new
-  -- @tparam string ... Process executable path and arguments
+  -- @tparam string ... the process executable path and arguments
   -- @return a new ProcessBuilder
   -- @usage
   --local pb = ProcessBuilder:new('ls', '-ltr')
@@ -23,6 +23,10 @@ return require('jls.lang.class').create(function(processBuilder)
     self:command(...)
   end
 
+  --- Sets the process executable path and arguments.
+  -- With no parameter the function returns the process executable path and arguments.
+  -- @tparam string ... the process executable path and arguments as strings
+  -- @return this ProcessBuilder
   function processBuilder:command(...)
     local argCount = select('#', ...)
     if argCount == 0 then
@@ -36,15 +40,22 @@ return require('jls.lang.class').create(function(processBuilder)
     return self
   end
 
+  --- Sets the process working directory.
+  -- With no parameter the function returns the process working directory.
+  -- @tparam string dir the process working directory.
+  -- @return this ProcessBuilder
   function processBuilder:directory(dir)
     if dir then
       self.dir = dir
       return self
-    else
-      return self.dir
     end
+    return self.dir
   end
 
+  --- Sets the process environment.
+  -- With no parameter the function returns the process environment.
+  -- @tparam table env the process environment.
+  -- @return this ProcessBuilder
   function processBuilder:environment(env)
     if env then
       self.env = env
@@ -54,21 +65,51 @@ return require('jls.lang.class').create(function(processBuilder)
     end
   end
 
+  --- Redirects the process standard input.
+  -- With no parameter the function returns the redirection.
+  -- @tparam jls.io.Pipe fd the redirection.
+  -- @return this ProcessBuilder
   function processBuilder:redirectInput(fd)
-    self.stdin = fd.fd
+    if fd == nil then
+      return self.stdin
+    elseif type(fd) == 'table' and fd.fd then
+      self.stdin = fd.fd
+      return self
+    end
+    error('Invalid redirection argument')
   end
 
+  --- Redirects the process standard output.
+  -- With no parameter the function returns the redirection.
+  -- @tparam jls.io.Pipe fd the redirection.
+  -- @return this ProcessBuilder
   function processBuilder:redirectOutput(fd)
-    self.stdout = fd.fd
+    if fd == nil then
+      return self.stdout
+    elseif type(fd) == 'table' and fd.fd then
+      self.stdout = fd.fd
+      return self
+    end
+    error('Invalid redirection argument')
   end
 
+  --- Redirects the process standard error.
+  -- With no parameter the function returns the redirection.
+  -- @tparam jls.io.Pipe fd the redirection.
+  -- @return this ProcessBuilder
   function processBuilder:redirectError(fd)
-    self.stderr = fd.fd
+    if fd == nil then
+      return self.stderr
+    elseif type(fd) == 'table' and fd.fd then
+      self.stderr = fd.fd
+      return self
+    end
+    error('Invalid redirection argument')
   end
 
   --- Starts this ProcessBuilder.
   -- @tparam[opt] function onexit A function that will be called with the exit code when the process ended.
-  -- @treturn jls.lang.ProcessHandle A @{jls.lang.ProcessHandle|handle} of the new process
+  -- @treturn jls.lang.ProcessHandle The @{jls.lang.ProcessHandle|handle} of the new process
   function processBuilder:start(onexit)
     local pid = processLib.spawn(self, onexit)
     if pid and pid > 0 then
@@ -79,6 +120,8 @@ return require('jls.lang.class').create(function(processBuilder)
 
 end, function(ProcessBuilder)
 
+  --- Returns the current working directory.
+  -- @treturn string the current working directory.
   function ProcessBuilder.getExecutablePath()
     return processLib.exePath()
   end

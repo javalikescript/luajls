@@ -3,6 +3,8 @@ Provide serial input/output communication.
 
 Note: The only implementation is based on libuv
 
+TODO Switch to a channel based implementation to avoid the libuv restriction
+
 @module jls.io.Serial
 @pragma nostrip
 ]]
