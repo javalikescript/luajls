@@ -317,14 +317,14 @@ return class.create(function(channel, _, Channel)
       data = string.pack('>Bs4', MT_CONNECT, self.publicKey)..data
       self.publicKey = nil
     end
-    local _, req = self.stream:write(data, wcb)
-    if not req then
+    local _, req, err = self.stream:write(data, wcb)
+    if not req and err then
       if not wcb and logger:isLoggable(logger.FINE) then
-        logger:fine('channel write error')
+        logger:fine('channel write error, '..tostring(err))
       end
       self:close(false)
     end
-    return p, req
+    return p, req, err
   end
 
   function channel:writeCloseMessage(callback)

@@ -37,6 +37,7 @@ return require('jls.lang.class').create(function(selector)
   end
 
   function selector:register(socket, mode, streamHandler, writeData, writeCallback, ip, port)
+    local wf
     local context = self.contt[socket]
     local computedMode = 0
     if context then
@@ -52,7 +53,6 @@ return require('jls.lang.class').create(function(selector)
       computedMode = computedMode | MODE_RECV
     end
     if writeData and writeCallback then
-      local wf
       if socket.sendto then
         wf = {
           buffer = writeData,
@@ -116,7 +116,8 @@ return require('jls.lang.class').create(function(selector)
     else
       self.contt[socket] = nil
     end
-    return
+    -- return a cancellable request as available with libuv
+    return wf
   end
 
   function selector:unregister(socket, mode)

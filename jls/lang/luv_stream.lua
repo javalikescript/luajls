@@ -65,6 +65,7 @@ return {
     if not req and cb then
       cb(err or 'unknown error')
     end
+    -- TODO invert request and error?
     return d, req, err
   end,
 }

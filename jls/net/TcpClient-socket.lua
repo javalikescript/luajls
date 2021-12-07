@@ -22,7 +22,7 @@ return require('jls.lang.class').create('jls.net.Tcp-socket', function(tcpClient
     else
       cb(nil, self)
     end
-    return d
+    return d, err
   end
 
   function tcpClient:write(data, callback)
@@ -30,31 +30,38 @@ return require('jls.lang.class').create('jls.net.Tcp-socket', function(tcpClient
       logger:debug('tcpClient:write('..tostring(string.len(data))..')')
     end
     local cb, d = Promise.ensureCallback(callback)
+    local req, err
     if self.tcp then
-      self.selector:register(self.tcp, nil, nil, data, cb)
+      req = self.selector:register(self.tcp, nil, nil, data, cb)
     else
-      cb('closed')
+      err = 'closed'
+      cb(err)
     end
-    return d
+    return d, req, err
   end
 
   function tcpClient:readStart(cb)
     logger:debug('tcpClient:readStart(?)')
     local stream = StreamHandler.ensureStreamHandler(cb)
+    local err
     if self.tcp then
       self.selector:register(self.tcp, nil, stream)
     else
-      stream:onError('closed')
+      err = 'closed'
+      stream:onError(err)
     end
-    return self
+    return not err, err
   end
 
   function tcpClient:readStop()
     logger:debug('tcpClient:readStop()')
+    local err
     if self.tcp then
       self.selector:unregister(self.tcp, Selector.MODE_RECV)
+    else
+      err = 'closed'
     end
-    return self
+    return not err, err
   end
 
   function tcpClient:setTcpNoDelay(on)
