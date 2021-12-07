@@ -1,7 +1,7 @@
 local lu = require('luaunit')
 
 local Thread = require('jls.lang.Thread')
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 -- (export JLS_REQUIRES=\!luv; lua tests/full/thread.lua)
 --for name, mod in pairs(package.loaded) do if mod == Thread and name ~= 'jls.lang.Thread' then print('Thread library is '..name) end end

@@ -3,7 +3,7 @@ local lu = require('luaunit')
 local dns = require('jls.net.dns')
 local logger = require('jls.lang.logger')
 
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 local function assertAddressInfo(host, addr, family)
   local infos = {}

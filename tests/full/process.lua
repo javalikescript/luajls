@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 local logger = require('jls.lang.logger')
 

@@ -1,7 +1,6 @@
 local lu = require('luaunit')
 
-local logger = require('jls.lang.logger')
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 local Channel = require('jls.util.Channel')
 
 function Test_channel()

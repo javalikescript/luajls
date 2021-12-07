@@ -3,7 +3,7 @@ local lu = require('luaunit')
 local UdpSocket = require('jls.net.UdpSocket')
 local logger = require('jls.lang.logger')
 
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 function Test_UdpSocket()
   local host, port = '225.0.0.37', 12345

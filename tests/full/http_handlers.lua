@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')

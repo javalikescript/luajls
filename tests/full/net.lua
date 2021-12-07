@@ -4,7 +4,7 @@ local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 local TEST_PORT = 3002
 

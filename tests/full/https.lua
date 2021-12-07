@@ -6,7 +6,7 @@ local HttpExchange = require('jls.net.http.HttpExchange')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 
 local loader = require('jls.lang.loader')
-local loop = loader.load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 local TcpClientLuv = loader.getRequired('jls.net.TcpClient-luv')
 local TcpClientSocket = loader.getRequired('jls.net.TcpClient-socket')
 local luaSocketLib = loader.tryRequire('socket')

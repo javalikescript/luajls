@@ -1,7 +1,7 @@
 local lu = require('luaunit')
 
 local logger = require('jls.lang.logger')
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 local mqtt = require('jls.net.mqtt')
 
 function Test_pubsub()

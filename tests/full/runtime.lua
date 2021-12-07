@@ -1,7 +1,7 @@
 local lu = require('luaunit')
 
 local runtime = require('jls.lang.runtime')
-local loop = require('jls.lang.loader').load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 local LUA_EXE_PATH = require('jls.lang.ProcessBuilder').getExecutablePath()
 

@@ -1,9 +1,8 @@
 local lu = require('luaunit')
 
-local loader = require('jls.lang.loader')
 local logger = require('jls.lang.logger')
 local Worker = require('jls.util.Worker')
-local loop = loader.load('loop', 'tests', false, true)
+local loop = require('jls.lang.loopWithTimeout')
 
 local function assertPostReceive(withData, scheme)
   local received = nil
