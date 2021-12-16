@@ -82,68 +82,105 @@ return require('jls.lang.class').create(function(localDateTime, _, LocalDateTime
     return self
   end
 
+  --- Returns true is this date is in a leap year.
+  -- @treturn boolean true is this date is in a leap year.
   function localDateTime:isLeapYear()
     return isLeapYear(self.year)
   end
 
-  function localDateTime:getMonth() -- 1-12
+  --- Returns the month of this date.
+  -- @treturn number the month from 1 to 12.
+  function localDateTime:getMonth()
     return self.month
   end
 
+  --- Sets the month of this date.
+  -- @tparam number value the month.
+  -- @return this date.
   function localDateTime:setMonth(value)
     self.month = value
     return self
   end
 
-  function localDateTime:getDayOfMonth() -- 1-31
+  --- Returns the day of month of this date.
+  -- @treturn number the day of month from 1 to 31.
+  function localDateTime:getDayOfMonth()
     return self.day
   end
 
+  --- Sets the day of month of this date.
+  -- @tparam number value the day of month.
+  -- @return this date.
   function localDateTime:setDayOfMonth(value)
     self.day = value
     return self
   end
 
-  function localDateTime:getDayOfWeek() -- 1-7, Sunday is 1
+  --- Returns the day of week of this date.
+  -- @treturn number the day of week from 1 to 7, 1 for Sunday.
+  function localDateTime:getDayOfWeek()
     return computeTotalDays(self.year, self.month, self.day) % 7 + 1
   end
 
+  --- Returns the hour of this date.
+  -- @treturn number the hour.
   function localDateTime:getHour()
     return self.hour
   end
 
+  --- Sets the hour of this date.
+  -- @tparam number value the hour.
+  -- @return this date.
   function localDateTime:setHour(value)
     self.hour = value
     return self
   end
 
+  --- Returns the minute of this date.
+  -- @treturn number the minute.
   function localDateTime:getMinute()
     return self.min
   end
 
+  --- Sets the minute of this date.
+  -- @tparam number value the minute.
+  -- @return this date.
   function localDateTime:setMinute(value)
     self.min = value
     return self
   end
 
+  --- Returns the second of this date.
+  -- @treturn number the second.
   function localDateTime:getSecond()
     return self.sec
   end
 
+  --- Sets the second of this date.
+  -- @tparam number value the second.
+  -- @return this date.
   function localDateTime:setSecond(value)
     self.sec = value
     return self
   end
 
+  --- Returns the milli-second of this date.
+  -- @treturn number the milli-second.
   function localDateTime:getMillisecond()
     return self.ms
   end
 
+  --- Sets the milli-second of this date.
+  -- @tparam number value the milli-second.
+  -- @return this date.
   function localDateTime:setMillisecond(value)
     self.ms = value
     return self
   end
 
+  --- Adds year to this date.
+  -- @tparam number value the number of year to add.
+  -- @return this date.
   function localDateTime:plusYears(value)
     self.year = self.year + value
     return self
