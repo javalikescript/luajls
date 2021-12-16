@@ -408,11 +408,11 @@ function memprof.createReport(withDetails)
   visitTableValues(registry, registry, filterIn(_G, LUA_GLOBALS), false)
   -- TODO stack local
   local details = {
-    a_registry = createReportForTableValues(registry, filterNotNumber(filterNotIn(debug.getregistry(), LUA_REGISTRY_NAMES)), true),
-    b_packages = createReportForTableValues(registry, filterNotIn(package.loaded, LUA_PACKAGES), true),
-    c_globals = createReportForTableValues(registry, filterNotIn(_G, LUA_GLOBALS), true),
-    d_locals = createReportForTableValues(registry, getMainLocals(3), true),
-    --e_stacks = createReportForTableValues(registry, getStackLocals(3), true),
+    a_registry = createReportForTableValues(registry, filterNotNumber(filterNotIn(debug.getregistry(), LUA_REGISTRY_NAMES))),
+    b_packages = createReportForTableValues(registry, filterNotIn(package.loaded, LUA_PACKAGES)),
+    c_globals = createReportForTableValues(registry, filterNotIn(_G, LUA_GLOBALS)),
+    d_locals = createReportForTableValues(registry, getMainLocals(3)),
+    --e_stacks = createReportForTableValues(registry, getStackLocals(3)),
   }
   return {
     date = os.date('%Y-%m-%dT%H:%M:%S'),
@@ -443,6 +443,8 @@ function memprof.printReport(write, withGc, withDetails, format)
     table.insert(lines, '')
     data = table.concat(lines, '\n')
     lines = nil
+  else
+    error('Invalid format "'..tostring(format)..'"')
   end
   write = write or io.write
   write(data..'\n')
