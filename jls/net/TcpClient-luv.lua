@@ -31,20 +31,25 @@ local read_start, read_stop, write = luv_stream.read_start, luv_stream.read_stop
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local StreamHandler = require('jls.io.streams.StreamHandler')
 
 local isWindowsOS = false
 if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
   isWindowsOS = true
 end
 
+--[[
+  When a process writes to a socket that has received an RST, the SIGPIPE signal is sent to the process.
+  The default action of this signal is to terminate the process, so the process must catch the signal to avoid being involuntarily terminated.
+]]
 if not isWindowsOS and not os.getenv('JLS_DO_NOT_IGNORE_SIGPIPE') then
-  -- lua socket core installs a handler to ignore sigpipe in order to avoid crash
-  -- signal(SIGPIPE, SIG_IGN);
-  if pcall(require, 'socket.core') then
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('TcpClient-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
-    end
+  if logger:isLoggable(logger.FINE) then
+    logger:fine('TcpClient-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
+  end
+  local linux = pcall(require, 'linux')
+  if linux then
+    linux.signal('SIGPIPE', 'SIG_IGN')
+  else
+    pcall(require, 'socket.core')
   end
 end
 
