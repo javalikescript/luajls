@@ -9,6 +9,7 @@ local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local File = require('jls.io.File')
 local Path = require('jls.io.Path')
 local URL = require('jls.net.URL')
+local ZipFile = require('jls.util.zip.ZipFile')
 
 --[[
 lua examples\httpClient.lua -loglevel fine -maxRedirectCount 3 -out.headers true
@@ -67,6 +68,10 @@ local options = tables.createArgumentTable(system.getArguments(), {
             type = 'boolean',
             default = true
           },
+          unzipTo = {
+            title = 'Directory to unzip the received ZIP file',
+            type = 'string',
+          },
         },
       },
       maxRedirectCount = {
@@ -100,6 +105,21 @@ if options.out.file and (options.out.headers or options.out.body) then
   responseStreamHandler = FileStreamHandler:new(outFile, options.out.overwrite, nil, true)
 end
 
+local unzipTo
+if options.out.unzipTo then
+  local unzipToDir = File:new(options.out.unzipTo)
+  if unzipToDir:isDirectory() then
+    unzipTo = unzipToDir
+    if not outFile then
+      outFile = File:new(unzipTo, 'tmp.zip')
+      responseStreamHandler = FileStreamHandler:new(outFile, true, nil, true)
+    end
+  else
+    print('Invalid directory to unzip to, "'..unzipToDir:getPath()..'"')
+    os.exit(1)
+  end
+end
+
 local client = HttpClient:new(options)
 
 logger:finer('connecting client')
@@ -127,6 +147,10 @@ end):next(function(remainingBuffer)
 end):next(function()
   logger:finer('closing client')
   client:close()
+  if outFile and outFile:isFile() and unzipTo then
+    ZipFile.unzipTo(outFile, unzipTo)
+    outFile:delete()
+  end
 end, function(err)
   print('error: ', err)
   client:close()
