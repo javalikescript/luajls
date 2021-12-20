@@ -45,8 +45,8 @@ if not isWindowsOS and not os.getenv('JLS_DO_NOT_IGNORE_SIGPIPE') then
   if logger:isLoggable(logger.FINE) then
     logger:fine('TcpClient-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
   end
-  local linux = pcall(require, 'linux')
-  if linux then
+  local state, linux = pcall(require, 'linux')
+  if state then
     linux.signal('SIGPIPE', 'SIG_IGN')
   else
     pcall(require, 'socket.core')
