@@ -11,6 +11,65 @@ local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpExchange = require('jls.net.http.HttpExchange')
+local URL = require('jls.net.URL')
+
+local DIRECTORY_STYLE = [[<style>
+a {
+  text-decoration: none;
+  color: inherit;
+}
+a:hover {
+  text-decoration: underline;
+}
+a.dir {
+  font-weight: bold;
+}
+</style>
+]]
+
+local DELETE_SCRIPT = [[
+<script>
+function delFile(e) {
+  var filename = e.target.previousElementSibling.getAttribute('href');
+  if (window.confirm('Delete file "' + decodeURIComponent(filename) + '"?')) {
+    fetch(filename, {
+      method: "DELETE"
+    }).then(function() {
+      window.location.reload();
+    });
+  }
+}
+</script>
+]]
+
+local PUT_SCRIPT = [[
+<input type="file" multiple onchange="putFiles(this.files)" />
+<script>
+function stopEvent(e) {
+  e.preventDefault();
+  e.stopPropagation();
+} 
+function putFiles(files) {
+  files = Array.prototype.slice.call(files);
+  Promise.all(files.map(function(file) {
+    return fetch(file.name, {
+      method: "PUT",
+      body: file
+    });
+  })).then(function() {
+    window.location.reload();
+  });
+}
+if (window.File && window.FileReader && window.FileList && window.Blob) {
+  document.addEventListener("dragover", stopEvent);
+  document.addEventListener("drop", function(e) {
+    stopEvent(e);
+    putFiles(e.dataTransfer.files);
+  });
+  document.querySelector("input[type=file]").style.display = "none";
+}
+</script>
+]]
 
 --- A FileHttpHandler class.
 -- @type FileHttpHandler
@@ -55,13 +114,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     local files = {}
     for _, file in ipairs(dir:listFiles()) do
       local name = file:getName()
-      local isDirectory = file:isDirectory()
-      if isDirectory then
-        name = name..'/'
-      end
       table.insert(files, {
         name = name,
-        isDirectory = isDirectory
+        isDir = file:isDirectory(),
+        size = file:length(),
+        --time = file:lastModified(),
       })
     end
     return files
@@ -77,12 +134,38 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       response:setContentType(HttpExchange.CONTENT_TYPES.json)
     else
       local buffer = StringBuffer:new()
+      buffer:append('<html><head><meta charset="UTF-8">\n')
+      buffer:append(DIRECTORY_STYLE)
+      buffer:append('</head><body>\n')
       if showParent then
-        buffer:append('<a href="..">..</a><br/>\n')
+        buffer:append('<a href=".." class="dir">..</a><br/>\n')
       end
       for _, file in ipairs(files) do
-        buffer:append('<a href="', file.name, '">', file.name, '</a><br/>\n')
+        buffer:append('<a href="', URL.encodeURIComponent(file.name))
+        if file.isDir then
+          buffer:append('/"')
+        else
+          buffer:append('"')
+          if file.size then
+            buffer:append(' title="', file.size, ' bytes"')
+          end
+        end
+        if file.isDir then
+          buffer:append(' class="dir"')
+        end
+        buffer:append('>', file.name, '</a>\n')
+        if self.allowDelete and not file.isDir then
+          buffer:append('<a href="#" title="delete" onclick="delFile(event)">&#x2715;</a>\n')
+        end
+        buffer:append('<br/>\n')
       end
+      if self.allowCreate then
+        buffer:append(PUT_SCRIPT)
+      end
+      if self.allowDelete then
+        buffer:append(DELETE_SCRIPT)
+      end
+      buffer:append('</body></html>\n')
       body = buffer:toString()
       response:setContentType(HttpExchange.CONTENT_TYPES.html)
     end
@@ -182,6 +265,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     local path = self:getPath(httpExchange)
     local isDirectoryPath = string.sub(path, -1) == '/'
     local filePath = isDirectoryPath and string.sub(path, 1, -2) or path
+    filePath = URL.decodePercent(filePath)
     if not HttpExchange.isValidSubPath(path) then
       HttpExchange.forbidden(httpExchange)
       return
