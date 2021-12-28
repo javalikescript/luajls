@@ -187,6 +187,7 @@ end, function(HttpExchange)
   HttpExchange.CONTENT_TYPES = {
     bin = 'application/octet-stream',
     css = 'text/css',
+    ico = 'image/vnd.microsoft.icon',
     js = 'application/javascript',
     json = 'application/json',
     htm = 'text/html',

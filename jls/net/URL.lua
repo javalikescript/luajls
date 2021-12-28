@@ -270,15 +270,15 @@ return require('jls.lang.class').create(function(url, _, URL)
     end))
   end
 
-  function URL.encodeURIComponent(value, all)
+  function URL.encodeURIComponent(value)
     return encodePercent(value, "[^%a%d%-_%.!~%*'%(%)]")
   end
 
-  function URL.encodeURI(value, all)
+  function URL.encodeURI(value)
     return encodePercent(value, "[^%a%d%-%._~;,/%?:@&=%+%$!%*'%(%)#]")
   end
 
-  function URL.encodePercent(value, all)
+  function URL.encodePercent(value)
     return encodePercent(value, '[^%a%d%-%._~]')
   end
 

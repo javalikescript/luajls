@@ -12,6 +12,7 @@ return {
   exePath = luvLib.exepath,
   getPid = luvLib.os_getpid,
   kill = function(pid, sig)
+    -- See process_kill
     return luvLib.kill(pid, sig or 'sigint')
   end,
   --[[
