@@ -2,21 +2,17 @@ local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
-local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpHandler = require('jls.net.http.HttpHandler')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local ZipFileHttpHandler = require('jls.net.http.handler.ZipFileHttpHandler')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
 local WebDavHttpHandler = require('jls.net.http.handler.WebDavHttpHandler')
-local json = require('jls.util.json')
 local tables = require('jls.util.tables')
-local TableList = require('jls.util.TableList')
 local URL = require('jls.net.URL')
 local base64 = require('jls.util.base64')
 local Scheduler = require('jls.util.Scheduler')
 local EventPublisher = require("jls.util.EventPublisher")
-local StringBuffer = require('jls.lang.StringBuffer')
 local system = require('jls.lang.system')
 
 local CONFIG_SCHEMA = {
@@ -60,6 +56,11 @@ local CONFIG_SCHEMA = {
       title = 'The root directory to serve',
       type = 'string',
       default = '.'
+    },
+    permissions = {
+      title = 'The root directory permissions',
+      type = 'string',
+      default = 'rl'
     },
     endpoints = {
       type = 'array',
@@ -106,6 +107,12 @@ local CONFIG_SCHEMA = {
         },
       },
     },
+    loglevel = {
+      title = 'The log level',
+      type = 'string',
+      default = 'WARN',
+      enum = {'ERROR', 'WARN', 'INFO', 'CONFIG', 'FINE', 'FINER', 'FINEST', 'DEBUG', 'ALL'},
+    },
   },
 }
 
@@ -116,13 +123,23 @@ local config = tables.createArgumentTable(system.getArguments(), {
   schema = CONFIG_SCHEMA
 });
 
+logger:setLevel(config.loglevel)
+
+local scriptDir = File:new(arg[0] or './na.lua'):getParentFile()
+local faviconFile = File:new(scriptDir, 'favicon.ico')
+
 local endpoints = config.endpoints
 if not endpoints or #endpoints == 0 then
   endpoints = {
     {path = '/admin/stop', target = 'lua:event:publishEvent("terminate")'},
-    {path = '/files/', target = 'file:'..config.dir, permissions = 'rl'},
-    {path = '/', target = 'data:text/html;charset=utf-8,<!DOCTYPE html><html><head><title>Welcome</title></head><body>'..
-      '<p>Welcome !</p><p><a href="admin/stop">Stop the server</a></p><p><a href="files/">Explore files</a></p></body></html>'},
+    {path = '/favicon.ico', target = 'file:'..faviconFile:getPath()},
+    {path = '/files/', target = 'file:'..config.dir, permissions = config.permissions},
+    {path = '/', target = 'data:text/html;charset=utf-8,'..[[<!DOCTYPE html>
+<html><head><title>Welcome</title></head><body>
+<p>Welcome !</p>
+<p><a href="admin/stop">Stop the server</a></p>
+<p><a href="files/">Explore files</a></p>
+</body></html>]]},
   }
 end
 
@@ -165,15 +182,27 @@ for _, endpoint in ipairs(endpoints) do
     if scheme == 'file' or scheme == 'zip' or scheme == 'webdav' then
       local targetFile = File:new(specificPart)
       if targetFile:exists() then
-        local handler
-        if scheme == 'zip' then
+        local handler, path
+        if scheme == 'zip' and targetFile:isFile() then
           handler = ZipFileHttpHandler:new(targetFile)
-        elseif scheme == 'webdav' then
+        elseif scheme == 'webdav' and targetFile:isDirectory() then
           handler = WebDavHttpHandler:new(targetFile, endpoint.permissions)
-        else
+        elseif scheme == 'file' and targetFile:isDirectory() then
           handler = FileHttpHandler:new(targetFile, endpoint.permissions)
+        elseif scheme == 'file' and targetFile:isFile() then
+          handler = HttpHandler:new(function(_, exchange)
+            HttpExchange.ok(exchange, targetFile:readAll(), FileHttpHandler.guessContentType(targetFile:getName()))
+          end)
+          path = endpoint.path
         end
-        httpServer:createContext(endpoint.path..'(.*)', handler)
+        if not path then
+          path = endpoint.path..'(.*)'
+        end
+        if handler then
+          httpServer:createContext(path, handler)
+        else
+          logger:warn('invalid endpoint target "'..tostring(endpoint.target)..'"')
+        end
       else
         logger:warn('target endpoint not found "'..targetFile:getPath()..'"')
       end

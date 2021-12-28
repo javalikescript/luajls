@@ -1,11 +1,9 @@
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
-local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
-local json = require('jls.util.json')
 local tables = require('jls.util.tables')
 local system = require('jls.lang.system')
 
