@@ -99,7 +99,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   -- @treturn boolean the size of this file entry or 0.
   function file:length()
     local st = self:stat()
-    if st ~= nil then
+    if st ~= nil and st.mode == 'file' then
       return st.size
     end
     return 0
