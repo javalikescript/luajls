@@ -1,6 +1,11 @@
---- Provide a delayed stream handler.
--- @module jls.io.streams.DelayedStreamHandler
--- @pragma nostrip
+--[[--
+Provide a delayed stream handler.
+
+This class allows to buffer a stream while the sub handler is not available.
+
+@module jls.io.streams.DelayedStreamHandler
+@pragma nostrip
+]]
 
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
@@ -23,6 +28,9 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
     self.closed = false
   end
 
+  --- Sets the sub handler.
+  -- The buffered and future data will be passed to the sub handler.
+  -- @tparam StreamHandler handler the handler to use
   function delayedStreamHandler:setStreamHandler(handler)
     if not self.handler then
       if self.error then

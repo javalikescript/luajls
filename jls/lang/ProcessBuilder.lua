@@ -1,6 +1,11 @@
---- This class enables to create a native process.
--- @module jls.lang.ProcessBuilder
--- @pragma nostrip
+--[[--
+This class enables to create a native process.
+
+Note: The only full implementation is based on libuv
+
+@module jls.lang.ProcessBuilder
+@pragma nostrip
+]]
 
 --local Path = require('jls.io.Path')
 local ProcessHandle = require('jls.lang.ProcessHandle')
@@ -67,7 +72,7 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Redirects the process standard input.
   -- With no parameter the function returns the redirection.
-  -- @tparam jls.io.Pipe fd the redirection.
+  -- @param fd the file descriptor to redirect from.
   -- @return this ProcessBuilder
   function processBuilder:redirectInput(fd)
     if fd == nil then
@@ -81,8 +86,12 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Redirects the process standard output.
   -- With no parameter the function returns the redirection.
-  -- @tparam jls.io.Pipe fd the redirection.
+  -- @param fd the file descriptor to redirect to.
   -- @return this ProcessBuilder
+  -- @usage
+  --local fd = FileDescriptor.openSync(tmpFile, 'w')
+  --local pb = ProcessBuilder:new({'lua', '-e', 'io.write("Hello")'})
+  --pb:redirectOutput(fd)
   function processBuilder:redirectOutput(fd)
     if fd == nil then
       return self.stdout
@@ -95,8 +104,12 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Redirects the process standard error.
   -- With no parameter the function returns the redirection.
-  -- @tparam jls.io.Pipe fd the redirection.
+  -- @param fd the file descriptor to redirect to.
   -- @return this ProcessBuilder
+  -- @usage
+  --local pb = ProcessBuilder:new({'lua', '-e', 'io.stderr:write("Hello")'})
+  --local pipe = Pipe:new()
+  --pb:redirectError(pipe)
   function processBuilder:redirectError(fd)
     if fd == nil then
       return self.stderr

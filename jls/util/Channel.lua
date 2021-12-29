@@ -1,5 +1,36 @@
---- Provide the Channel class.
--- @module jls.util.Channel
+--[[--
+Provide the Channel class.
+
+Provides a local message passing interface suitable for process and thread event based message passing.
+
+The messages are sent and received as string on a channel.
+The goal is to abstract the message transport implementation, that can internally be a queue, a pipe or a socket.
+
+The channel resource is represented by an opaque string and can be generated automatically.
+Internally using URI with authentication keys, pipe://pub.priv@local/p12345 or tcp://pub.priv@localhost:12345.
+
+This interface is used for worker that abstract the thread.
+
+@module jls.util.Channel
+@pragma nostrip
+
+@usage
+local channelServer = Channel:new()
+channelServer:acceptAndClose():next(function(acceptedChannel)
+  acceptedChannel:receiveStart(function(message)
+    print(message)
+    acceptedChannel:close()
+  end)
+end)
+local channel = Channel:new()
+channelServer:bind():next(function()
+  local name = channelServer:getName() -- after bind the server provides a name for connection
+  return channel:connect(name)
+end):next(function()
+  channel:writeMessage('Hello')
+end)
+event:loop()
+]]
 
 local logger = require('jls.lang.logger')
 local class = require('jls.lang.class')
@@ -62,12 +93,6 @@ local SCHEMES = {
 }
 
 --- The Channel class.
--- Provides a local message passing interface suitable for process and thread event based message passing.
--- The messages are sent and received as string on a channel.
--- The goal is to abstract the message transport implementation, that can internally be a queue, a pipe or a socket.
--- The channel resource is represented by an opaque string and can be generated automatically.
--- Internally using URI with authentication keys, pipe://pub.priv@local/p12345 or tcp://pub.priv@localhost:12345.
--- This interface is used for worker that abstract the thread.
 -- @type Channel
 return class.create(function(channel, _, Channel)
 

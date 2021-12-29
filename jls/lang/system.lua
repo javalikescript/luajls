@@ -1,7 +1,11 @@
---- Provides access to data and operations of the underlying OS.
--- Access to environnement variables and default standard file handles.
--- Operation such as the exit method, the garbage collection and the ability to load native library.
--- @module jls.lang.system
+--[[--
+Provides access to data and operations of the underlying OS.
+
+Access to environnement variables and default standard file handles.
+Operation such as the exit method and the garbage collection.
+
+@module jls.lang.system
+]]
 
 local sysLib = require('jls.lang.sys')
 local loader = require('jls.lang.loader')

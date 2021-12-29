@@ -2,7 +2,10 @@
 Provide WebView class.
 
 This class allow to display HTML content in a window.
-The WebView highly depends on the underlying OS. Opening multiple WebView windows is not supported.
+
+The WebView highly depends on the underlying OS.
+Opening multiple WebView windows is not supported.
+
 A webview requires a thread to run its own event loop, which is not compatible with the base event loop.
 This class provide helpers to start webview in a dedicated thread so that the base event loop can be used.
 

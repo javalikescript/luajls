@@ -416,9 +416,10 @@ local function upgrade(exchange, open, accept, protocol)
   end
 end
 
---- WebSocket HTTP handler.
+--- WebSocket HTTP upgrade handler.
 -- The open attribute must be set to a function that will be called with the new accepted WebSockets.
 -- @param exchange the HTTP exchange to handle.
+-- @function upgradeHandler
 local function upgradeHandler(exchange)
   local context = exchange:getContext()
   local open = context:getAttribute('open')
@@ -427,7 +428,13 @@ local function upgradeHandler(exchange)
   upgrade(exchange, open, accept, protocol)
 end
 
+--- An HTTP handler to upgrade the connection and accept web sockets.
+-- @type WebSocketUpgradeHandler
 local WebSocketUpgradeHandler = class.create('jls.net.http.HttpHandler', function(webSocketUpgradeHandler)
+  --- Creates a new WebSocketUpgradeHandler.
+  -- @function WebSocketUpgradeHandler:new
+  -- @tparam[opt] string protocol The protocol.
+  -- @return a new WebSocketUpgradeHandler
   function webSocketUpgradeHandler:initialize(protocol)
     self.openFn = function(...)
       self:onOpen(...)
