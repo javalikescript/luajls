@@ -8,7 +8,7 @@ local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpResponse = require('jls.net.http.HttpResponse')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpExchange class wraps the HTTP request and response.
@@ -281,7 +281,7 @@ end, function(HttpExchange)
         return true
       end
     elseif type(method) == 'table' then
-      if TableList.contains(method, requestMethod) then
+      if List.contains(method, requestMethod) then
         return true
       end
     end

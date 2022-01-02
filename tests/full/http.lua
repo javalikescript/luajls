@@ -5,7 +5,7 @@ local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
 local http = require('jls.net.http')
 local strings = require('jls.util.strings')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 local HttpHandler = require('jls.net.http.HttpHandler')
 
@@ -608,7 +608,7 @@ function Test_HttpServer_keep_alive()
   lu.assertEquals(server.t_requestCount, 2)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
   local bodies = strings.split(client.t_receivedData, 'HTTP/1%.')
-  logger:finest('http client received '..TableList.join(bodies, '+'))
+  logger:finest('http client received '..List.join(bodies, '+'))
   lu.assertEquals(#bodies, 3)
 end
 

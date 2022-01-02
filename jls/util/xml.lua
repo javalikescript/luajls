@@ -8,7 +8,7 @@
 local XmlParser = require('XmlParser') -- xml2lua parser
 local class = require('jls.lang.class')
 local StringBuffer = require('jls.lang.StringBuffer')
---local TableList = require('jls.util.TableList')
+--local List = require('jls.util.List')
 
 local function getLocalName(qName)
   local prefix, localName = string.match(qName, '^([^:]+):.+$')

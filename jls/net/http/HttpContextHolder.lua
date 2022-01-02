@@ -3,7 +3,7 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 local HttpContext = require('jls.net.http.HttpContext')
 local HttpFilter = require('jls.net.http.HttpFilter')
 
@@ -47,10 +47,10 @@ return require('jls.lang.class').create(function(httpContextHolder)
     if type(pathOrContext) == 'string' then
       local context = self:findContext(pathOrContext)
       if context then
-        TableList.removeFirst(self.contexts, context)
+        List.removeFirst(self.contexts, context)
       end
     elseif HttpContext:isInstance(pathOrContext) then
-      TableList.removeAll(self.contexts, pathOrContext)
+      List.removeAll(self.contexts, pathOrContext)
     end
   end
 
@@ -69,7 +69,7 @@ return require('jls.lang.class').create(function(httpContextHolder)
   end
 
   function httpContextHolder:removeFilter(filter)
-    TableList.removeAll(self.filters, filter)
+    List.removeAll(self.filters, filter)
   end
 
   function httpContextHolder:removeAllFilters()

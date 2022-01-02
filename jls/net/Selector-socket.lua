@@ -2,7 +2,7 @@ local luaSocketLib = require('socket')
 
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 
 -- this module only work with scheduler based event
 if event ~= require('jls.lang.event-') then
@@ -85,10 +85,10 @@ return require('jls.lang.class').create(function(selector)
       addMode = mode ~ keepMode
       local subMode = context.mode ~ keepMode
       if subMode & MODE_RECV == MODE_RECV then
-        TableList.removeFirst(self.recvt, socket)
+        List.removeFirst(self.recvt, socket)
       end
       if subMode & MODE_SEND == MODE_SEND then
-        TableList.removeFirst(self.sendt, socket)
+        List.removeFirst(self.sendt, socket)
       end
     else
       self.contt[socket] = context
@@ -130,8 +130,8 @@ return require('jls.lang.class').create(function(selector)
         self:register(socket, context.mode & (0xf ~ mode))
       end
     else
-      TableList.removeFirst(self.recvt, socket)
-      TableList.removeFirst(self.sendt, socket)
+      List.removeFirst(self.recvt, socket)
+      List.removeFirst(self.sendt, socket)
       self.contt[socket] = nil
     end
   end

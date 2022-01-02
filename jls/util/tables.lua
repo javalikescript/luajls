@@ -2,7 +2,7 @@
 -- @module jls.util.tables
 
 local StringBuffer = require('jls.lang.StringBuffer')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 local Map = require('jls.util.Map')
 
 local tables = {}
@@ -32,7 +32,7 @@ function tables.stringify(value, space)
     if valueType == 'table' then
       local subPrefix = prefix..indent
       sb:append('{')
-      if TableList.isList(value) then
+      if List.isList(value) then
         -- it looks like a list
         for _, v in ipairs(value) do
           sb:append(subPrefix)
@@ -44,7 +44,7 @@ function tables.stringify(value, space)
         -- The order in which the indices are enumerated is not specified
         for k, v in pairs(value) do
           sb:append(subPrefix)
-          if type(k) == 'string' and TableList.isName(k) then
+          if type(k) == 'string' and List.isName(k) then
             sb:append(k)
           else
             sb:append('[')
@@ -556,7 +556,7 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
       end
       if schema.required then
         for _, required in ipairs(schema.required) do
-          if not TableList.contains(keys, required) then
+          if not List.contains(keys, required) then
             return nil, onError('MISSING_PROPERTY', schema, value, path, required)
           end
         end
@@ -732,7 +732,7 @@ function tables.createArgumentTable(arguments, options)
       if currentValue == true or currentValue == nil then
         value = argument
       elseif type(currentValue) == 'table' then
-        if TableList.isList(currentValue) then
+        if List.isList(currentValue) then
           table.insert(currentValue, argument)
         else
           value = argument

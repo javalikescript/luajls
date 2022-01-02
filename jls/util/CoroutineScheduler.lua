@@ -3,7 +3,7 @@
 
 local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 
 --- A CoroutineScheduler class.
 -- A CoroutineScheduler provides a way to coordinate mutliple coroutines.
@@ -62,7 +62,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   end
 
   function coroutineScheduler:unschedule(schedule)
-    TableList.removeFirst(self.schedules, schedule)
+    List.removeFirst(self.schedules, schedule)
   end
 
   function coroutineScheduler:countSchedules()
@@ -76,7 +76,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   end
 
   function coroutineScheduler:isScheduled(schedule)
-    return TableList.contains(self.schedules, schedule)
+    return List.contains(self.schedules, schedule)
   end
 
   function coroutineScheduler:hasSchedule()

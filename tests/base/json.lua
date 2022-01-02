@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local json = require('jls.util.json')
 local Map = require('jls.util.Map')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 
 function Test_decode()
   local t = json.decode('{"aString": "Hello world !", "anInteger": 123, "aNumber": 1.23, "aBoolean": true, "aNull": null}')
@@ -32,7 +32,7 @@ end
 
 function Test_stringify_empty_table()
   lu.assertEquals(json.stringify({}), '[]') -- unspecified
-  lu.assertEquals(json.stringify(TableList:new()), '[]')
+  lu.assertEquals(json.stringify(List:new()), '[]')
   lu.assertEquals(json.stringify(Map:new()), '{}')
 end
 

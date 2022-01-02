@@ -8,7 +8,7 @@ export JLS_MEMORY_PROFILING=every:5
 lua -l jls.util.memprof examples/httpServer.lua
 ]]
 
-local buffer, class, Map, TableList
+local buffer, class, Map, List
 do
   local status
   status, buffer = pcall(require, 'buffer')
@@ -41,9 +41,9 @@ do
       end
     }
   end
-  status, TableList = pcall(require, 'jls.util.TableList')
+  status, List = pcall(require, 'jls.util.List')
   if not status then
-    TableList = {
+    List = {
       indexOf = function(l, v)
         for i, w in ipairs(l) do if w == v then return i; end; end; return 0
       end,
@@ -71,7 +71,7 @@ local LUA_PACKAGES = {
 local LUA_REGISTRY_NAMES = {
   'FILE*', '_CLIBS', '_LOADED', '_PRELOAD', '_IO_input', '_IO_output'
 }
-local LUA_GLOBALS = TableList.concat({'_G', '_VERSION', 'arg'}, LUA_FUNCTIONS, LUA_PACKAGES)
+local LUA_GLOBALS = List.concat({'_G', '_VERSION', 'arg'}, LUA_FUNCTIONS, LUA_PACKAGES)
 local LUA_SIZE_T_LEN = string.len(string.pack('T', 0))
 local LUA_NUMBER_LEN = string.len(string.pack('n', 0))
 
@@ -90,12 +90,12 @@ local function filtermap(t, fn)
 end
 local function filterIn(t, lvl)
   return filtermap(t, function(k)
-    return TableList.indexOf(lvl, k) > 0
+    return List.indexOf(lvl, k) > 0
   end)
 end
 local function filterNotIn(t, lvl)
   return filtermap(t, function(k)
-    return TableList.indexOf(lvl, k) == 0
+    return List.indexOf(lvl, k) == 0
   end)
 end
 local function filterNotNumber(t)
@@ -105,8 +105,8 @@ local function filterNotNumber(t)
 end
 
 local function filterListNotIn(l, lvl)
-  return TableList.filter(l, function(v)
-    return TableList.indexOf(lvl, v) == 0
+  return List.filter(l, function(v)
+    return List.indexOf(lvl, v) == 0
   end)
 end
 
@@ -184,7 +184,7 @@ local function visitObject(gr, lr, o, n, r)
   end
   if ro ~= nil then
     ro.refs = ro.refs + 1
-    if name and TableList.indexOf(ro.names, name) == 0 then
+    if name and List.indexOf(ro.names, name) == 0 then
       table.insert(ro.names, name)
     end
     return ro.sub_size + ro.size

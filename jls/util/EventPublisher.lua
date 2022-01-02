@@ -2,7 +2,7 @@
 -- @module jls.util.EventPublisher
 
 local logger = require('jls.lang.logger')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 local tables = require('jls.util.tables')
 
 --- The EventPublisher class.
@@ -50,7 +50,7 @@ return require('jls.lang.class').create(function(eventPublisher)
       end
     end
     if type(eventFn) == 'function' then
-      if TableList.contains(handlers, eventFn) then
+      if List.contains(handlers, eventFn) then
         eventFn = function(...)
           fn(...)
         end
@@ -92,7 +92,7 @@ return require('jls.lang.class').create(function(eventPublisher)
     local handlers = self.eventHandlers[name]
     if handlers then
       if key then
-        unsubscribed = TableList.removeFirst(handlers, key)
+        unsubscribed = List.removeFirst(handlers, key)
         if #handlers == 0 then
           self.eventHandlers[name] = nil
         end

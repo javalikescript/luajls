@@ -3,7 +3,7 @@
 
 local json = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
 local StringBuffer = require('jls.lang.StringBuffer')
-local TableList = require('jls.util.TableList')
+local List = require('jls.util.List')
 local Map = require("jls.util.Map")
 
 -- TODO json libs should takes empty array and empty object as argument to be able to keep format.
@@ -81,7 +81,7 @@ function json.stringify(value, space)
       sb:append('null')
     elseif valueType == 'table' then
       local subPrefix = prefix..indent
-      local isList, size = TableList.isList(val)
+      local isList, size = List.isList(val)
       if size == 0 then
         -- we cannot decide whether empty tables should be array or object
         -- cjson defaults empty tables to object
