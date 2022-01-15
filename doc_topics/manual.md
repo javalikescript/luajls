@@ -612,12 +612,11 @@ This section presents the classes that extend the Lua basic types.
 The StringBuffer class represents a mutable string, optimizing the addition of strings in a buffer by avoiding the use of intermediary concatenated string.
 
 ```lua
-local List = require('jls.util.List')
-local list = List:new('a', 'b')
-local newList = list:map(function(v, i)
-  return v..tostring(i)
-end)
--- {'a1', 'b2'}
+local StringBuffer = require('jls.lang.StringBuffer')
+local buffer = StringBuffer:new('a', 'b')
+buffer:append('c', 'd')
+print(buffer:toString())
+-- prints 'abcd'
 ```
 
 ### Table List
