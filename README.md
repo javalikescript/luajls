@@ -53,22 +53,6 @@ Lua, luajls and all the dependencies are available in the [Lua C libraries repos
 As luajls is composed of Lua modules, you need to adapt the environment variables LUA_PATH and LUA_CPATH to include the luajls home directory.
 
 
-## Motivations and reasoning
-
-The motivation is to facilitate the development of complex standalone applications.
-
-Building standalone application requires to use operating system features such as file system, network, timers, processes, theads, inter-process communication, webview. Features that are not available in the Lua standard libraries.
-
-There are plenty of valuable C modules for various tasks such as _LuaFileSystem_, _luasocket_ and _luv_, even the Lua standard libraries provide some operating system features.
-Building upon a specific module may restrict the usage and portability. The idea is to abstract dependent external modules and to provide at least 2 implementations including a pure Lua one if possible.
-Accessing OS features is not enough, a higher level language is required to provide complex features such as HTTP client and server, Worker.
-
-The luajls module library exposes a set of APIs. The APIs are inspired by JavaScript and Java due to their similarity and their large usage.
-The goal is to facilitate the learning and also the usage in combination with JavaScript for example when using an HTTP server or a WebView.
-The goal is to implement already existing, well-known APIs for example the handling of asynchronous tasks uses the Promise/A+ specification which is now part of JavaScript.
-The APIs support asynchronous operations to ease the development of complex features such as HTTP server.
-
-
 ### LuaRocks
 
 luajls, with Lua 5.3, can be installed with [LuaRocks](https://luarocks.org/), depending on your needs you could pick one of the following module:
@@ -85,6 +69,8 @@ The installation on Windows is quite difficult and painful, I recommend you to d
 
 ## What do you want to do?
 
-See the [web site](http://javalikescript.free.fr/lua/) or the [API documentation](http://javalikescript.free.fr/lua/docs/).
+Read the [user manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md) or the [API documentation](http://javalikescript.free.fr/lua/docs/).
 
 Download [binaries](https://github.com/javalikescript/luajls/releases/latest) or access the [source code](https://github.com/javalikescript/luajls).
+
+Go to the [web site](http://javalikescript.free.fr/lua/).

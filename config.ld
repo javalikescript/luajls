@@ -3,7 +3,29 @@ file = "jls"
 project = "JLS"
 title = "Lua JLS 0.5"
 description = "Lua JLS"
-full_description = "The jls Lua libraries provide abstraction interfaces for general-purpose scripting"
+full_description = [[
+The Lua JLS library provide abstraction interfaces for general-purpose scripting.
+
+## Contents
+
+* @{manual.md.Audience|Audience}
+* @{manual.md.Overview|Overview}
+* @{manual.md.General_Considerations|General Considerations}
+* @{manual.md.Namespace_and_Modules|Namespace and Modules}
+* @{manual.md.Object_Oriented_Programming|Object Oriented Programming}
+* @{manual.md.Concurrent_Programming|Concurrent Programming}
+* @{manual.md.Event_Loop|Event Loop}
+* @{manual.md.File_System|File System}
+* @{manual.md.Network_Socket|Network Socket}
+* @{manual.md.Hypertext_Transfer_Protocol__HTTP_|Hypertext Transfer Protocol (HTTP)}
+* @{manual.md.Inter_Process_Communication|Inter-Process Communication}
+* @{manual.md.Process|Process}
+* @{manual.md.Thread|Thread}
+* @{manual.md.Basic_Classes|Basic Classes}
+* @{manual.md.Data_Exchange_Formats|Data Exchange Formats}
+* @{manual.md.User_Interface|User Interface}
+
+]]
 --no_summary = true
 --no_space_before_args = true 
 --sort = true
@@ -11,5 +33,4 @@ full_description = "The jls Lua libraries provide abstraction interfaces for gen
 --no_lua_ref = true
 topics = "doc_topics"
 package = "jls"
---format = "discount"
 format = "markdown"
