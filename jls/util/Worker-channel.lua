@@ -6,87 +6,46 @@ local Thread = require('jls.lang.Thread')
 local Channel = require('jls.util.Channel')
 local json = require('jls.util.json')
 
+local MT_STRING = Channel.MESSAGE_TYPE_USER
+local MT_JSON = Channel.MESSAGE_TYPE_USER + 1
+local MT_ERROR = Channel.MESSAGE_TYPE_USER + 2
+
+local function postMessage(channel, message)
+  if type(message) == 'string' then
+    return channel:writeMessage(message, MT_STRING)
+  end
+  return channel:writeMessage(json.encode(message), MT_JSON)
+end
+
+local function newThreadChannel(fn, data, scheme)
+  local chunk = string.dump(fn)
+  if logger:isLoggable(logger.FINEST) then
+    logger:finest('newThreadChannel() code >>'..tostring(chunk)..'<<')
+  end
+  local jsonData = data and json.encode(data) or nil
+  local thread = Thread:new(function(...)
+    require('jls.util.Worker-channel').initializeWorkerThread(...)
+    require('jls.lang.event'):loop()
+  end)
+  if logger:isLoggable(logger.FINER) then
+    logger:finer('workerServer:newThreadChannel()')
+  end
+  local channelServer = Channel:new()
+  local acceptPromise = channelServer:acceptAndClose()
+  return channelServer:bind(nil, scheme):next(function()
+    local channelName = channelServer:getName()
+    thread:start(channelName, chunk, jsonData):ended():next(function()
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('workerServer thread ended')
+      end
+    end)
+    return acceptPromise
+  end)
+end
+
 return class.create(function(worker, _, Worker)
 
-  local function newThreadChannel(fn, data, scheme)
-    local chunk = string.dump(fn)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('newThreadChannel() code >>'..tostring(chunk)..'<<')
-    end
-    local jsonData = data and json.encode(data) or nil
-    local thread = Thread:new(function(...)
-      require('jls.util.Worker-channel').initializeWorkerThread(...)
-      require('jls.lang.event'):loop()
-    end)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('workerServer:newThreadChannel()')
-    end
-    local channelServer = Channel:new()
-    local acceptPromise = channelServer:acceptAndClose()
-    return channelServer:bind(nil, scheme):next(function()
-      local channelName = channelServer:getName()
-      thread:start(channelName, chunk, jsonData):ended():next(function()
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('workerServer thread ended')
-        end
-      end)
-      return acceptPromise
-    end)
-  end
-
-  local MT_STRING = Channel.MESSAGE_TYPE_USER
-  local MT_JSON = Channel.MESSAGE_TYPE_USER + 1
-
-  local function postMessage(channel, message)
-    if type(message) == 'string' then
-      return channel:writeMessage(message, MT_STRING)
-    end
-    return channel:writeMessage(json.encode(message), MT_JSON)
-  end
-
-  function worker:handleMessage(payload, messageType)
-    if messageType == MT_STRING then
-      self:onMessage(payload)
-    elseif messageType == MT_JSON then
-      local value = json.decode(payload)
-      if value == json.null then
-        value = nil
-      end
-      self:onMessage(value)
-    end
-  end
-
-  function worker:initialize(workerFn, workerData, scheme, channel)
-    if type(workerFn) == 'function' then
-      self.pendingMessages = {}
-      newThreadChannel(workerFn, workerData, scheme):next(function(ch)
-        ch:receiveStart(function(payload, messageType)
-          self:handleMessage(payload, messageType)
-        end)
-        self._channel = ch
-        function self:postMessage(message)
-          return postMessage(ch, message)
-        end
-        self:postPendingMessages()
-        --channel:onClose():next(function() self:close() end)
-      end)
-    elseif channel then
-      self._channel = channel
-      channel:receiveStart(function(payload, messageType)
-        self:handleMessage(payload, messageType)
-      end)
-      function self:postMessage(message)
-        return postMessage(channel, message)
-      end
-      --channel:onClose():next(function() wkr:close() end)
-    end
-  end
-
   function Worker.initializeWorkerThread(channelName, chunk, jsonData)
-    local fn, err = load(chunk, nil, 'b')
-    if not fn then
-      error('Unable to load chunk due to "'..tostring(err)..'"')
-    end
     local channel = Channel:new()
     channel:connect(channelName):catch(function(reason)
       logger:fine('Unable to connect thread channel due to '..tostring(reason))
@@ -99,7 +58,78 @@ return class.create(function(worker, _, Worker)
     if logger:isLoggable(logger.FINER) then
       logger:finer('Thread channel "'..tostring(channelName)..'" connected')
     end
-    fn(Worker:new(nil, nil, nil, channel), jsonData and json.decode(jsonData))
+    local fn, err = load(chunk, nil, 'b')
+    if fn then
+      local status, reason = pcall(fn, Worker:new(nil, nil, nil, channel), jsonData and json.decode(jsonData))
+      if status then
+        logger:finer('Worker initialized')
+      else
+        local message = 'Worker initialization failure, "'..tostring(reason)..'"'
+        logger:fine(message)
+        channel:writeMessage(message, MT_ERROR)
+      end
+    else
+      channel:writeMessage('Unable to load chunk due to "'..tostring(err)..'"', MT_ERROR)
+    end
+  end
+
+  function worker:initialize(workerFn, workerData, scheme, channel)
+    if type(workerFn) == 'function' then
+      self.pendingMessages = {}
+      newThreadChannel(workerFn, workerData, scheme):next(function(ch)
+        self._channel = ch
+        self:resume()
+        --ch:onClose():next(function() self:close() end)
+      end)
+    elseif channel then
+      self._channel = channel
+      channel:receiveStart(function(payload, messageType)
+        self:handleMessage(payload, messageType)
+      end)
+      function self:postMessage(message)
+        return postMessage(channel, message)
+      end
+      --channel:onClose():next(function() wkr:close() end)
+    else
+      error('Invalid arguments')
+    end
+  end
+
+  function worker:handleMessage(payload, messageType)
+    if messageType == MT_STRING then
+      self:onMessage(payload)
+    elseif messageType == MT_JSON then
+      local value = json.decode(payload)
+      if value == json.null then
+        value = nil
+      end
+      self:onMessage(value)
+    elseif messageType == MT_ERROR then
+      logger:fine('Worker error: '..tostring(payload))
+      self:close()
+    else
+      logger:warn('Unexpected message type '..tostring(messageType))
+    end
+  end
+
+  function worker:pause()
+    if not self.pendingMessages then
+      self.pendingMessages = {}
+      self._channel:receiveStop()
+      self.postMessage = nil
+    end
+  end
+
+  function worker:resume()
+    if self.pendingMessages then
+      self._channel:receiveStart(function(payload, messageType)
+        self:handleMessage(payload, messageType)
+      end)
+      function self:postMessage(message)
+        return postMessage(self._channel, message)
+      end
+      self:postPendingMessages()
+    end
   end
 
   function worker:postPendingMessages(reason)

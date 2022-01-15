@@ -39,6 +39,8 @@ w:postMessage('John')
         return Promise.resolve()
       end
       fn(w, data)
+    else
+      error('Invalid arguments')
     end
   end
 
@@ -51,6 +53,12 @@ w:postMessage('John')
   --- Receives a message from the worker.
   -- @param message the message to handle
   function worker:onMessage(message)
+  end
+
+  function worker:pause()
+  end
+
+  function worker:resume()
   end
 
   --- Closes the worker.
