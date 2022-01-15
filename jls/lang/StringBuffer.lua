@@ -8,7 +8,7 @@
 return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
 
   --- Creates a new StringBuffer.
-  -- @tparam[opt] string value the initial value.
+  -- @tparam[opt] string ... The initial values.
   -- @function StringBuffer:new
   function stringBuffer:initialize(...)
     self:clear()

@@ -36,6 +36,7 @@ return require('jls.lang.class').create(function(list, _, List)
   end
 
   --- Creates a new List.
+  -- @param[opt] ... The values to add to the list.
   -- @function List:new
   function list:initialize(...)
     if ... then
@@ -68,6 +69,7 @@ return require('jls.lang.class').create(function(list, _, List)
 
   --- Adds a new element at the end of this list.
   -- @param value The element to add at the end of this list.
+  -- @param[opt] ... Additional values to add.
   -- @treturn jls.util.List this list.
   function list:add(value, ...)
     if value == nil then

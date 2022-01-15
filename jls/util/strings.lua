@@ -28,6 +28,7 @@ end
 
 --- Returns a list of strings cut at each length.
 -- @tparam string value The string to split.
+-- @tparam number ... The ordered lengths to cut.
 -- @treturn table a list of strings cut at each pattern.
 function strings.cuts(value, ...)
   local lengthList = {...}

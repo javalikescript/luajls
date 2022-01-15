@@ -12,11 +12,11 @@ Streams classes are mainly used by @{jls.net.TcpClient|TCP} @{jls.net.UdpSocket|
 @pragma nostrip
 
 @usage
-local std = StreamHandler:new(function(self, data)
+local std = StreamHandler:new(function(_, data)
   if data then
     io.stdout:write(data)
   end
-end, function(self, err)
+end, function(_, err)
   io.stderr:write(err or 'Stream error')
 end)
 
@@ -98,11 +98,8 @@ local StreamHandler = class.create(function(streamHandler)
 end)
 
 -- This class allows to stream to two streams.
--- @type BiStreamHandler
 local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, super)
 
-  -- Creates a @{StreamHandler} with two streams.
-  -- @function BiStreamHandler:new
   function biStreamHandler:initialize(firstStream, secondStream)
     super.initialize(self)
     self.firstStream = StreamHandler.ensureStreamHandler(firstStream)
@@ -133,11 +130,8 @@ local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, su
 end)
 
 -- This class allows to stream to multiple streams.
--- @type MultipleStreamHandler
 local MultipleStreamHandler = class.create(StreamHandler, function(multipleStreamHandler, super)
 
-  -- Creates a @{StreamHandler} with multiple streams.
-  -- @function MultipleStreamHandler:new
   function multipleStreamHandler:initialize(...)
     super.initialize(self)
     self.streams = {...}
@@ -205,7 +199,7 @@ StreamHandler.CallbackStreamHandler = CallbackStreamHandler
 
 --- Returns a StreamHandler.
 -- @param sh a callback function or a StreamHandler.
--- @return a StreamHandler.
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.ensureStreamHandler(sh)
   if type(sh) == 'function' then
     return CallbackStreamHandler:new(sh)
@@ -216,7 +210,7 @@ function StreamHandler.ensureStreamHandler(sh)
   end
 end
 
---- Fills the specified StreamHandler with the specified data.
+--- Fills the specified stream handler with the specified data.
 -- This is shortcut for sh:onData(data); sh:onData(nil)
 -- @tparam StreamHandler sh the StreamHandler to fill.
 -- @tparam string data the data to process.
@@ -227,10 +221,17 @@ function StreamHandler.fill(sh, data)
   sh:onData(nil)
 end
 
+--- Creates a stream handler with two handlers.
+-- @tparam StreamHandler firstStream The first stream handlers.
+-- @tparam StreamHandler secondStream The second stream handlers.
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.bi(...)
   return BiStreamHandler:new(...)
 end
 
+--- Creates a stream handler with multiple handlers.
+-- @tparam StreamHandler ... The stream handlers.
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.multiple(...)
   local firstStream, secondStream, thirdStream = ...
   if thirdStream then

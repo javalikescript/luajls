@@ -41,6 +41,7 @@ return require('jls.lang.class').create(function(thread)
   --- Starts this Thread.
   -- The arguments will be passed to the thread function.
   -- If the thread is already running then nothing is done.
+  -- @param[opt] ... The thread function arguments.
   -- @treturn jls.lang.Thread this thread.
   function thread:start(...)
     if self.t then

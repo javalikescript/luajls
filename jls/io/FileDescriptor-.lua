@@ -19,8 +19,8 @@ print(data)
 fileDesc:closeSync()
 
 -- asynchronous
-FileDescriptor.open('file_name.txt', 'r'):then(function(fileDesc)
-  return fileDesc:read(1024):then(function(data)
+FileDescriptor.open('file_name.txt', 'r'):next(function(fileDesc)
+  return fileDesc:read(256):next(function(data)
     print(data)
     fileDesc:close()
   end)

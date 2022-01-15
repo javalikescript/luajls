@@ -123,7 +123,7 @@ return require('jls.lang.class').create(function(map)
     return keys
   end
 
-  --- Returns an iterator suitable for the generic "for" loop.
+  --- Returns an iterator sorted and suitable for the generic "for" loop.
   -- @tparam[opt] function comp The comparison function.
   -- @return an iterator.
   function map:spairs(comp)
@@ -142,6 +142,7 @@ end, function(Map)
 
   --- Sets all key-values of the specified tables to the target table.
   -- @tparam table target The table to update.
+  -- @tparam table ... The tables to get key-values from.
   -- @treturn table the target table.
   function Map.assign(target, ...)
     local sources = {...}
