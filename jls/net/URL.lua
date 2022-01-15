@@ -1,34 +1,34 @@
---- Represents an URL.
--- @module jls.net.URL
+--- Represents an Uniform Resource Locator.
+-- @module jls.net.Url
 -- @pragma nostrip
 
 --local logger = require("jls.lang.logger")
 local StringBuffer = require('jls.lang.StringBuffer')
 
---- The URL class represents an Uniform Resource Locator.
+--- The Url class represents an Uniform Resource Locator.
 -- see https://tools.ietf.org/html/rfc1738
--- @type URL
-return require('jls.lang.class').create(function(url, _, URL)
+-- @type Url
+return require('jls.lang.class').create(function(url, _, Url)
 
-  --- Creates a new URL.
-  -- @function URL:new
-  -- @param protocol The protocol or the URL as a string or the URL as a table.
+  --- Creates a new Url.
+  -- @function Url:new
+  -- @param protocol The protocol or the Url as a string or the Url as a table.
   -- @tparam[opt] string host The host name.
   -- @tparam[opt] string port The port number.
-  -- @tparam[opt] string file The file part of the URL.
-  -- @return a new URL
+  -- @tparam[opt] string file The file part of the Url.
+  -- @return a new Url
   -- @usage
-  --local url = URL:new('http://somehost:1234/some/path')
+  --local url = Url:new('http://somehost:1234/some/path')
   --url:getHost() -- returns "somehost"
   function url:initialize(protocol, host, port, file)
     if not host then
       if type(protocol) == 'string' then
         self.s = protocol
-        self.t = assert(URL.parse(protocol))
+        self.t = assert(Url.parse(protocol))
       elseif type(protocol) == 'table' then
         self.t = protocol
       else
-        error('Invalid URL argument ('..type(protocol)..')')
+        error('Invalid Url argument ('..type(protocol)..')')
       end
     else
       self.t = {
@@ -40,41 +40,41 @@ return require('jls.lang.class').create(function(url, _, URL)
     end
   end
 
-  --- Returns this URL scheme.
-  -- @return this URL scheme.
+  --- Returns this Url scheme.
+  -- @return this Url scheme.
   function url:getProtocol()
     return self.t.scheme
   end
 
-  --- Returns this URL userInfo.
-  -- @return this URL userInfo.
-  function url:	getUserInfo()
+  --- Returns this Url userInfo.
+  -- @return this Url userInfo.
+  function url:getUserInfo()
     if self.t.password then
       return self.t.username..':'..self.t.password
     end
     return self.t.username
   end
 
-  --- Returns this URL hostname.
-  -- @return this URL hostname.
+  --- Returns this Url hostname.
+  -- @return this Url hostname.
   function url:getHost()
     return self.t.host
   end
 
-  --- Returns this URL port.
-  -- @return this URL port.
+  --- Returns this Url port.
+  -- @return this Url port.
   function url:getPort()
     return self.t.port
   end
 
-  --- Returns this URL path.
-  -- @return this URL path.
+  --- Returns this Url path.
+  -- @return this Url path.
   function url:getPath()
     return self.t.path
   end
 
-  --- Returns this URL query.
-  -- @return this URL query.
+  --- Returns this Url query.
+  -- @return this Url query.
   function url:getQuery()
     return self.t.query
   end
@@ -98,11 +98,11 @@ return require('jls.lang.class').create(function(url, _, URL)
     return self.t.fragment
   end
 
-  --- Returns the string value representing this URL.
-  -- @return the string value representing this URL.
+  --- Returns the string value representing this Url.
+  -- @return the string value representing this Url.
   function url:toString()
     if not self.s then
-      self.s = URL.format(self.t)
+      self.s = Url.format(self.t)
     end
     return self.s
   end
@@ -147,13 +147,13 @@ return require('jls.lang.class').create(function(url, _, URL)
     end
     local host, port = parseHostPort(hostport)
     if not host then
-      return nil, 'Invalid common URL, bad host and port part ("'..scheme..specificPart..'")'
+      return nil, 'Invalid common Url, bad host and port part ("'..scheme..specificPart..'")'
     end
     tUrl.host = host
     if #port > 0 then
       port = tonumber(port)
       if not port then
-        return nil, 'Invalid common URL, bad port ("'..scheme..specificPart..'")'
+        return nil, 'Invalid common Url, bad port ("'..scheme..specificPart..'")'
       end
       tUrl.port = port
     end
@@ -183,11 +183,11 @@ return require('jls.lang.class').create(function(url, _, URL)
     return tUrl
   end
 
-  --- Returns the URL corresponding to the specified string.
+  --- Returns the Url corresponding to the specified string.
   -- The table contains the keys: scheme, host, port, path, query, userinfo, username, password.
   -- @tparam string sUrl The string to parse.
-  -- @treturn table a table representing the URL or nil.
-  function URL.parse(sUrl)
+  -- @treturn table a table representing the Url or nil.
+  function Url.parse(sUrl)
     -- scheme:[//[username[:password]@]host[:port]][/path][?query][#fragment]
     local scheme, specificPart = string.match(sUrl, '^([%w][%w%+%.%-]*):(.*)$')
     if not scheme then
@@ -200,13 +200,13 @@ return require('jls.lang.class').create(function(url, _, URL)
     return parseCommon(scheme, specificPart)
   end
 
-  --- Returns the URL corresponding to the specified string.
-  -- @tparam string sUrl The URL as a string.
-  -- @treturn jls.net.URL the URL or nil.
-  function URL.fromString(sUrl)
-    local tUrl = URL.parse(sUrl)
+  --- Returns the Url corresponding to the specified string.
+  -- @tparam string sUrl The Url as a string.
+  -- @treturn jls.net.Url the Url or nil.
+  function Url.fromString(sUrl)
+    local tUrl = Url.parse(sUrl)
     if tUrl then
-      return URL:new(tUrl)
+      return Url:new(tUrl)
     end
     return nil
   end
@@ -254,10 +254,10 @@ return require('jls.lang.class').create(function(url, _, URL)
     return sUrl
   end
 
-  --- Returns the string value representing the specified URL.
-  -- @tparam table tUrl The URL as a table.
-  -- @return the string value representing the URL.
-  function URL.format(tUrl)
+  --- Returns the string value representing the specified Url.
+  -- @tparam table tUrl The Url as a table.
+  -- @return the string value representing the Url.
+  function Url.format(tUrl)
     if tUrl.scheme == 'http' or tUrl.scheme == 'https' then
       return formatHttp(tUrl)
     end
@@ -270,19 +270,19 @@ return require('jls.lang.class').create(function(url, _, URL)
     end))
   end
 
-  function URL.encodeURIComponent(value)
+  function Url.encodeURIComponent(value)
     return encodePercent(value, "[^%a%d%-_%.!~%*'%(%)]")
   end
 
-  function URL.encodeURI(value)
+  function Url.encodeURI(value)
     return encodePercent(value, "[^%a%d%-%._~;,/%?:@&=%+%$!%*'%(%)#]")
   end
 
-  function URL.encodePercent(value)
+  function Url.encodePercent(value)
     return encodePercent(value, '[^%a%d%-%._~]')
   end
 
-  function URL.decodePercent(value)
+  function Url.decodePercent(value)
     return (string.gsub(value, '%%(%x%x)', function(v)
       local n = tonumber(v, 16)
       if n < 256 then
