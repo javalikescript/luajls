@@ -35,8 +35,8 @@ body > iframe {
 }
 </style></head><body>
   <div>
-    <a href="docs/luajls.html" target="iframe">Luajls</a>,
-    <a href="docs/index.html" target="iframe">documentation</a>
+    <a href="docs/index.html" target="iframe">Luajls API</a>,
+    <a href="docs/topics/manual.md.html" target="iframe">user manual</a>
     -
     <a href="docs/lua/contents.html" target="iframe">Lua reference</a>
     -
@@ -44,13 +44,7 @@ body > iframe {
     -
     <a href="docs/luaunit.html" target="iframe">LuaUnit</a>
   </div>
-  <iframe name="iframe" src="welcome.html"></iframe>
-</body></html>
-]]
-
-local welcome = [[<!DOCTYPE html>
-<html><body>
-  <h2>Welcome !</h2>
+  <iframe name="iframe" src="docs/index.html"></iframe>
 </body></html>
 ]]
 
@@ -60,12 +54,11 @@ local devDir = File:new('../luaclibs')
 
 WebView.open('http://localhost:0/index.html', {
   title = 'Luajls Doc',
-  width = 800,
-  height = 600,
+  width = 1024,
+  height = 768,
   resizable = true,
   contexts = {
-    ['/index.html'] = contentHandler(content),
-    ['/welcome.html'] = contentHandler(welcome)
+    ['/index.html'] = contentHandler(content)
   }
 }):next(function(webview)
   local httpServer = webview:getHttpServer()
