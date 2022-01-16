@@ -4,6 +4,8 @@ luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.
 
 The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access. The modules support asynchronous I/O based on event loops.
 
+<img src="./luajls.svg">
+
 The main targeted operating systems are Linux and Windows.
 
 ## What are the features?
@@ -52,19 +54,7 @@ Lua, luajls and all the dependencies are available in the [Lua C libraries repos
 
 As luajls is composed of Lua modules, you need to adapt the environment variables LUA_PATH and LUA_CPATH to include the luajls home directory.
 
-
-### LuaRocks
-
-luajls, with Lua 5.3, can be installed with [LuaRocks](https://luarocks.org/), depending on your needs you could pick one of the following module:
-* [luajls](https://luarocks.org/modules/javalikescript/luajls) module is only composed of Lua modules.
-* [luajls-lfs](https://luarocks.org/modules/javalikescript/luajls-lfs) module adds C module dependencies, mainly luafilesystem and luasocket.
-  Prerequisites on Linux
-  `sudo apt install luarocks lua5.3 lua5.3-dev libz-dev`
-* [luajls-luv](https://luarocks.org/modules/javalikescript/luajls-luv) module adds C module dependencies, mainly libuv and openssl.
-  Prerequisites on Linux
-  `sudo apt install luarocks lua5.3 lua5.3-dev libz-dev cmake libssl-dev`
-
-The installation on Windows is quite difficult and painful, I recommend you to download the binaries.
+luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescript/luajls).
 
 
 ## What do you want to do?
@@ -72,5 +62,3 @@ The installation on Windows is quite difficult and painful, I recommend you to d
 Read the [user manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md) or the [API documentation](http://javalikescript.free.fr/lua/docs/).
 
 Download [binaries](https://github.com/javalikescript/luajls/releases/latest) or access the [source code](https://github.com/javalikescript/luajls).
-
-Go to the [web site](http://javalikescript.free.fr/lua/).
