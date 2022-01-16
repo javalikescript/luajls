@@ -35,10 +35,9 @@ body > iframe {
 }
 </style></head><body>
   <div>
-    <a href="docs/index.html" target="iframe">Luajls API</a>,
-    <a href="docs/topics/manual.md.html" target="iframe">user manual</a>
+    <a href="docs/index.html" target="iframe">luajls</a>
     -
-    <a href="docs/lua/contents.html" target="iframe">Lua reference</a>
+    <a href="docs/lua/contents.html" target="iframe">Lua</a>
     -
     <a href="docs/ldoc.html" target="iframe">LDoc</a>
     -
@@ -53,7 +52,7 @@ local scriptDir = scriptFile:getParentFile()
 local devDir = File:new('../luaclibs')
 
 WebView.open('http://localhost:0/index.html', {
-  title = 'Luajls Doc',
+  title = 'Lua JLS Documentation',
   width = 1024,
   height = 768,
   resizable = true,
