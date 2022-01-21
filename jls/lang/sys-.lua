@@ -12,8 +12,7 @@ return {
     local t = os_time() + (millis / 1000)
     while os_time() < t do end
   end,
+  -- TODO move getenv/setenv to process or to env
   getenv = os.getenv,
-  setenv = function(name, value)
-    error('not available')
-  end,
+  setenv = require('jls.lang.setenv'),
 }

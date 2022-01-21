@@ -14,7 +14,5 @@ return {
     luaSocketLib.sleep(millis / 1000)
   end,
   getenv = os.getenv,
-  setenv = function(name, value)
-    error('not available')
-  end,
+  setenv = require('jls.lang.setenv'),
 }
