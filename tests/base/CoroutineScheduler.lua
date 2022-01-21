@@ -33,7 +33,10 @@ function Test_schedule_daemon()
     end, true)
     scheduler:run()
     lu.assertEquals(v, 3)
-    lu.assertEquals(vd, 3)
+    lu.assertEquals(vd, 4)
+    scheduler:run()
+    lu.assertEquals(v, 3)
+    lu.assertEquals(vd, 5)
 end
 
 os.exit(lu.LuaUnit.run())

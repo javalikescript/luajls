@@ -124,7 +124,12 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     local currentTime = startTime
     local nextTime = startTime + 3600000 -- one hour
     local count = 0
-    for i, schedule in ipairs(self.schedules) do
+    local i = 1
+    while true do
+      local schedule = self.schedules[i]
+      if not schedule then
+        break
+      end
       local crStatus = coroutine.status(schedule.cr)
       if crStatus == 'dead' then
         schedule = nil
@@ -167,8 +172,8 @@ return require('jls.lang.class').create(function(coroutineScheduler)
         if not schedule.daemon then
           count = count + 1
         end
+        i = i + 1
       else
-        -- FIXME The next schedule will be skipped
         table.remove(self.schedules, i)
       end
     end
