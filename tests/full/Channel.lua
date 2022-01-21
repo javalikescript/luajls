@@ -1,9 +1,11 @@
 local lu = require('luaunit')
 
+local loader = require('jls.lang.loader')
+local event = require('jls.lang.event')
 local loop = require('jls.lang.loopWithTimeout')
 local Channel = require('jls.util.Channel')
 
-function Test_channel()
+local function test_channel(scheme)
   local receivedMessage
   local channelServer = Channel:new()
   local channel = Channel:new()
@@ -27,7 +29,7 @@ function Test_channel()
       acceptedChannel:close(false)
     end)
   end)
-  channelServer:bind():next(function()
+  channelServer:bind(false, scheme):next(function()
     local name = channelServer:getName()
     return channel:connect(name)
   end):next(function()
@@ -39,6 +41,18 @@ function Test_channel()
     lu.fail('Timeout reached')
   end
   lu.assertEquals(receivedMessage, 'Hello')
+end
+
+function Test_channel_pipe()
+  if event ~= loader.getRequired('jls.lang.event-luv') then
+    print('/!\\ skipping pipe test')
+    lu.success()
+  end
+  test_channel('pipe')
+end
+
+function Test_channel_tcp()
+  test_channel('tcp')
 end
 
 os.exit(lu.LuaUnit.run())

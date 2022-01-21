@@ -42,7 +42,7 @@ local event = require('jls.lang.event')
 
 local DEFAULT_SCHEME = os.getenv('JLS_CHANNEL_DEFAULT_SCHEME')
 if not DEFAULT_SCHEME then
-  if loader.tryRequire('jls.io.Pipe') then
+  if event == loader.getRequired('jls.lang.event-luv') then
     DEFAULT_SCHEME = 'pipe'
   else
     DEFAULT_SCHEME = 'tcp'
