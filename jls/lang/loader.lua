@@ -13,8 +13,8 @@ local function tryRequire(name)
   if status then
     return mod
   end
-  if logger:isLoggable(logger.DEBUG) then
-    logger:debug('tryRequire() fails to load module "'..name..'" due to "'..mod..'"')
+  if logger:isLoggable(logger.FINEST) then
+    logger:finest('tryRequire() fails to load module "'..name..'" due to "'..mod..'"')
   end
   return nil
 end
@@ -55,8 +55,8 @@ local function singleRequirer(name)
   return function()
     if module == NOT_LOADED then
       module = tryRequire(name)
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('singleRequirer() fails to load module "'..name..'"')
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('singleRequirer() fails to load module "'..name..'"')
       end
     end
     return module
@@ -86,10 +86,10 @@ local BASE_REQUIRE = require
 local jlsRequires = os.getenv('JLS_REQUIRES')
 if jlsRequires and jlsRequires ~= '' then
   local jlsObviates = {}
-  local isDebugLoggable = logger:isLoggable(logger.DEBUG)
+  local isDebugLoggable = logger:isLoggable(logger.FINEST)
   require = function(name)
     if isDebugLoggable then
-      logger:debug('require("'..tostring(name)..'")')
+      logger:finest('require("'..tostring(name)..'")')
     end
     if jlsObviates[name] then
       error('The module "'..tostring(name)..'" is deactivated via JLS_REQUIRES')
@@ -102,18 +102,18 @@ if jlsRequires and jlsRequires ~= '' then
   end
   package.loaded[reentrancyKey] = true
   if isDebugLoggable then
-    logger:debug('loads modules from JLS_REQUIRES: "'..jlsRequires..'"')
+    logger:finest('loads modules from JLS_REQUIRES: "'..jlsRequires..'"')
   end
   for name in string.gmatch(jlsRequires, '[^,%s]+') do
     local nname = string.match(name, '!(.+)$')
     if nname then
       jlsObviates[nname] = true
       if isDebugLoggable then
-        logger:debug('obviated module "'..nname..'"')
+        logger:finest('obviated module "'..nname..'"')
       end
     else
       if isDebugLoggable then
-        logger:debug('preload required module "'..name..'"')
+        logger:finest('preload required module "'..name..'"')
       end
       local mod = tryRequire(name)
       if not mod then
@@ -135,6 +135,7 @@ Requires one of the specified Lua modules.
 The order is: the first already loaded module then
 the first module whose name ends by an already loaded module.
 If no module could be loaded then an error is raised.
+If there is only one module then the base module shall be the same.
 @param ... the ordered names of the module eligible to load
 @return the loaded module
 @function requireOne
@@ -142,26 +143,38 @@ If no module could be loaded then an error is raised.
 return require('jls.lang.loader').requireOne('jls.io.fs-luv', 'jls.io.fs-lfs')
 ]]
 local function requireOne(...)
-  local arg = {...}
+  local args = {...}
+  if #args == 1 then
+    local name = args[1]
+    local bname = string.match(name, '^(.+)%-[^%-]*$')
+    if not bname then
+      error('Invalid module name "'..tostring(name)..'"')
+    end
+    local mod = require(bname)
+    if mod ~= package.loaded[name] then
+      error('Bad module loaded, "'..bname..'" is not "'..name..'"')
+    end
+    return mod
+  end
   -- look for the first already loaded module
-  for _, name in ipairs(arg) do
+  for _, name in ipairs(args) do
     local mod = package.loaded[name]
     if mod then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('requireOne() found loaded module "'..name..'"')
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('requireOne() found loaded module "'..name..'"')
       end
       return mod
     end
   end
   -- try to load the first module whose name ends by an already loaded module
   local names = {}
-  for _, name in ipairs(arg) do
+  for _, name in ipairs(args) do
     local sname = string.match(name, '%-([^%-]+)$')
     if sname and package.loaded[sname] then
       local mod = tryRequire(name)
       if mod then
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('requireOne() loads module "'..name..'" because "'..sname..'" is already loaded')
+        if logger:isLoggable(logger.FINEST) then
+          logger:finest('requireOne() loads module "'..name..'" because "'..sname..'" is already loaded')
         end
         return mod
       end
@@ -173,13 +186,13 @@ local function requireOne(...)
   for _, name in ipairs(names) do
     local mod = tryRequire(name)
     if mod then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('requireOne() loads module "'..name..'"')
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('requireOne() loads module "'..name..'"')
       end
       return mod
     end
   end
-  error('No suitable module found in "'..table.concat(arg, '", "')..'"')
+  error('No suitable module found in "'..table.concat(args, '", "')..'"')
 end
 
 --- Requires the Lua object specified by its path.
@@ -227,8 +240,8 @@ end
 -- @tparam string name the name of the module to unload
 -- @function unload
 local function unload(name)
-  if logger:isLoggable(logger.DEBUG) then
-    logger:debug('unload("'..name..'")')
+  if logger:isLoggable(logger.FINEST) then
+    logger:finest('unload("'..name..'")')
   end
   package.loaded[name] = nil
 end
