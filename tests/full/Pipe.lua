@@ -1,11 +1,14 @@
 local lu = require('luaunit')
 
+local loader = require('jls.lang.loader')
+local event = require('jls.lang.event')
 local loop = require('jls.lang.loopWithTimeout')
 local logger = require('jls.lang.logger')
-local Pipe = require('jls.lang.loader').tryRequire('jls.io.Pipe')
+local Pipe = loader.tryRequire('jls.io.Pipe')
 
 function Test_default()
-  if not Pipe then
+  if event ~= loader.getRequired('jls.lang.event-luv') then
+    print('/!\\ skipping default test')
     lu.success()
   end
   local received
