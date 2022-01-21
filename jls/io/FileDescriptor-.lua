@@ -29,7 +29,16 @@ end)
 
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
+local event = require('jls.lang.event')
 local Path = require('jls.io.Path')
+
+local function deferCallback(cb, err, res)
+  if cb then
+    event:setTimeout(function()
+      cb(err, res)
+    end)
+  end
+end
 
 --- A FileDescriptor class.
 -- A FileDescriptor instance represents a file handle.
@@ -71,7 +80,10 @@ return require('jls.lang.class').create(function(fileDescriptor)
   -- nil if the end of file is reached.
   function fileDescriptor:readSync(size, offset)
     if offset and offset >= 0 then
-      self.fd:seek('set', offset)
+      local pos, err = self.fd:seek('set', offset)
+      if not pos then
+        return nil, err
+      end
     end
     return self.fd:read(size)
   end
@@ -116,7 +128,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
   function fileDescriptor:close(callback)
     local cb, d = Promise.ensureCallback(callback)
     self:closeSync()
-    cb()
+    deferCallback(cb)
     return d
   end
 
@@ -125,7 +137,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
   function fileDescriptor:flush(callback)
     local cb, d = Promise.ensureCallback(callback)
     self:flushSync()
-    cb()
+    deferCallback(cb)
     return d
   end
 
@@ -155,7 +167,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
     end
     local cb, d = Promise.ensureCallback(callback)
     local data = self:readSync(size, offset)
-    cb(nil, data)
+    deferCallback(cb, nil, data)
     return d
   end
 
@@ -172,7 +184,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
     end
     local cb, d = Promise.ensureCallback(callback)
     local _, err = self:writeSync(data, offset)
-    cb(err)
+    deferCallback(cb, err)
     return d
   end
 
@@ -186,7 +198,7 @@ end, function(FileDescriptor)
   function FileDescriptor.openSync(path, mode)
     mode = mode or 'r'
     mode = mode..'b'
-    local fd, err = io.open(Path.asPathName(path), mode)
+    local fd, err = io.open(Path.asNormalizedPath(path), mode)
     if fd then
       return FileDescriptor:new(fd)
     end
@@ -200,8 +212,9 @@ end, function(FileDescriptor)
   -- @return a promise that resolves to a new FileDescriptor.
   function FileDescriptor.open(path, mode, callback)
     local cb, d = Promise.ensureCallback(callback)
-    local fd, err = FileDescriptor.openSync(Path.asPathName(path), mode)
-    cb(err, fd)
+    local fd, err = FileDescriptor.openSync(Path.asNormalizedPath(path), mode)
+    deferCallback(cb, err, fd)
     return d
   end
+
 end)

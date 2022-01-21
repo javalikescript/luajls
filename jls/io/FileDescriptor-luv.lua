@@ -116,7 +116,7 @@ end, function(FileDescriptor)
 
   function FileDescriptor.openSync(path, mode)
     mode = mode or 'r'
-    local fd, err = luvLib.fs_open(Path.asPathName(path), mode, OPEN_MODE)
+    local fd, err = luvLib.fs_open(Path.asNormalizedPath(path), mode, OPEN_MODE)
     if fd then
       return FileDescriptor:new(fd)
     end
@@ -126,7 +126,7 @@ end, function(FileDescriptor)
   function FileDescriptor.open(path, mode, callback)
     mode = mode or 'r'
     local cb, d = Promise.ensureCallback(callback)
-    luvLib.fs_open(Path.asPathName(path), mode, OPEN_MODE, function(err, fd)
+    luvLib.fs_open(Path.asNormalizedPath(path), mode, OPEN_MODE, function(err, fd)
       if fd and not err then
         cb(nil, FileDescriptor:new(fd))
       else
