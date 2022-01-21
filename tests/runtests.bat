@@ -15,10 +15,10 @@ IF %ARG%==-a SET ALL=yes
 IF %ARG%==all SET ALL=yes
 IF %ARG%==-b SET BASE=yes
 IF %ARG%==base SET BASE=yes
-IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs
-IF %ARG%==socket SET JLS_REQUIRES=!luv
+IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs,!llthreads,!win32,!winapi,!luachild
+IF %ARG%==noluv SET JLS_REQUIRES=!luv
 IF %ARG%==nossl SET JLS_REQUIRES=!openssl
-IF %ARG%==none SET JLS_REQUIRES=!buffer,!cjson,!lfs,!socket,!llthreads,!lpeg,!luv,!openssl,!webview,!win32,!winapi,!zlib
+IF %ARG%==none SET JLS_REQUIRES=!buffer,!cjson,!lfs,!socket,!llthreads,!lpeg,!luv,!openssl,!webview,!win32,!winapi,!zlib,!luachild
 GOTO :args
 
 :main

@@ -1,13 +1,9 @@
 local luaSocketLib = require('socket')
 
 local logger = require('jls.lang.logger')
-local event = require('jls.lang.event')
+local loader = require('jls.lang.loader')
+local event = loader.requireOne('jls.lang.event-')
 local List = require('jls.util.List')
-
--- this module only work with scheduler based event
-if event ~= require('jls.lang.event-') then
-  error('Conflicting event libraries')
-end
 
 local function socketToString(client)
   --local ip, port = client:getpeername()

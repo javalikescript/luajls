@@ -6,13 +6,28 @@ then
   lua=lua5.4
 fi
 
-#export JLS_REQUIRES=\!luv,\!lfs,\!cjson,\!dkjson,\!socket
+#LUA_CPATH=none
+
+#JLS_REQUIRES=\!luv
+#JLS_REQUIRES=\!lfs,\!cjson,\!socket,\!linux,\!luachild,\!winapi
+
+folders="base full"
+if test "$LUA_CPATH" = "none"
+then
+  folders="base"
+fi
 
 $lua -v
 
+#lua="$lua -lluacov"
+
+### To generate coverage stats then report
+## lua -lluacov tests/base/class.lua
+## lua ../luaclibs/luacov/src/bin/luacov jls
+
 errorcount=0
 testcount=0
-for d in base full
+for d in $folders
 do
   for f in tests/$d/*.lua
   do

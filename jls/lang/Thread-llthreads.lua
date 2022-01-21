@@ -1,14 +1,10 @@
 local llthreadsLib = require('llthreads')
 
 local Promise = require('jls.lang.Promise')
-local event = require('jls.lang.event')
+local loader = require('jls.lang.loader')
+local event = loader.requireOne('jls.lang.event-')
 
-local tables = require('jls.lang.loader').tryRequire('jls.util.tables')
-
--- this module only work with scheduler based event
-if event ~= require('jls.lang.event-') then
-  error('Conflicting event libraries')
-end
+local tables = loader.tryRequire('jls.util.tables')
 
 return require('jls.lang.class').create(function(thread)
 
