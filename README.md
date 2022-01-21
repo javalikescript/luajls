@@ -4,7 +4,7 @@ luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.
 
 The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access. The modules support asynchronous I/O based on event loops.
 
-<img src="./luajls.svg">
+<img src="./luajls.svg" alt="luajls stands on the shoulders of giants">
 
 The main targeted operating systems are Linux and Windows.
 

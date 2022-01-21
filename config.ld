@@ -23,9 +23,9 @@ The luajls library provides abstraction interfaces for general-purpose scripting
     * @{manual.md.Network_Socket|Network Socket}
     * @{manual.md.Hypertext_Transfer_Protocol__HTTP_|Hypertext Transfer Protocol (HTTP)}
 * Process and Thread
-    * @{manual.md.Inter_Process_Communication|Inter-Process Communication}
     * @{manual.md.Process|Process}
     * @{manual.md.Thread|Thread}
+    * @{manual.md.Inter_Process_Communication|Inter-Process Communication}
 * Utilities
     * @{manual.md.Basic_Classes|Basic Classes}
     * @{manual.md.Data_Exchange_Formats|Data Exchange Formats}

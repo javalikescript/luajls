@@ -8,15 +8,16 @@ It is presumed that the reader has a good knowledge of Lua, please consult the L
 
 ## Overview
 
-Luajls is a standard library to build standalone [Lua](https://www.lua.org/) applications.
+luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.org/) applications.
 
-The library provides an abstract interface to the underlying operating system, such as file system and network.
-The jls Lua library includes a set of jls Lua modules providing an API to abstract the host platform.
-The jls Lua library also provides interface for general purpose libraries such as _SSL_, _JSON_, _ZIP_, _JPEG_.
+The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access. The modules support asynchronous I/O based on an event loop.
+
+The modules expose an API to abstract the host platform and general purpose libraries such as _SSL_, _JSON_, _XML_, _ZIP_.
 The main targeted OSes are _Linux_ and _Windows_.
 
 The only required dependency is Lua 5.4
-Optional dependencies are Lua modules such as _luafilesystem_, _luasocket_, _luv_, _lua-openssl_, _lua-cjson_.
+
+Optional dependencies are C and Lua modules such as _luafilesystem_, _luasocket_, _luv_, _lua-openssl_, _lua-cjson_.
 By example, the file system manipulation requires one of the _luafilesystem_ or the _luv_ dependent module.
 
 See [Lua JLS repository](https://github.com/javalikescript/luajls)
@@ -35,10 +36,10 @@ There are plenty of valuable C modules for various tasks such as _LuaFileSystem_
 Building upon a specific module may restrict the usage and portability. The idea is to abstract dependent external modules and to provide at least 2 implementations including a pure Lua one if possible.
 Accessing OS features is not enough, a higher level language is required to provide complex features such as HTTP client and server, Worker.
 
-The luajls module library exposes a set of APIs. The APIs are inspired by JavaScript and Java due to their similarity and their large usage.
+The luajls module library exposes a set of APIs. These APIs are inspired by JavaScript and Java due to their similarity and their large usage.
 The goal is to facilitate the learning and also the usage in combination with JavaScript for example when using an HTTP server or a WebView.
-The goal is to implement already existing, well-known APIs for example the handling of asynchronous tasks uses the Promise/A+ specification which is now part of JavaScript.
-The APIs support asynchronous operations to ease the development of complex features such as HTTP server.
+The goal is to expose already existing, well-known APIs for example the handling of asynchronous tasks uses the Promise/A+ specification which is now part of JavaScript.
+The APIs support asynchronous operations to ease the development with complex features such as an HTTP server or a graphical user interface.
 
 
 ### Main Principles
@@ -46,21 +47,28 @@ The APIs support asynchronous operations to ease the development of complex feat
 This set of modules or libraries are meant to be simple, composable.
 The conventions are meant to organize and help understanting these libraries.
 
-When the implementation is based on a dependent Lua module, its name is suffixed by a minus character followed by the dependent Lua module name.
-By example, to provide the file system APIs luajls could use the _luafilesystem_, named _lfs_, or the _luv_ dependency.
-There are two corresponding bridge implementations _fs-lfs_ and _fs-luv_ exposing the same APIs.
-The main Lua jls module named _fs_ will load the first available module.
+When the implementation is based on a dependent Lua module, its name is suffixed by a minus `'-'` character followed by the dependent Lua module name.
+By example, to provide the file system API luajls could use the _luafilesystem_, named _lfs_, or the _luv_ dependency.
+There are two corresponding bridge implementations _fs-lfs_ and _fs-luv_ exposing the same API.
+The main module named _fs_ will load the first available module.
 
 
 ### Name Convention
 
 The library uses the following naming convention:
-Classes are nouns in upper camel case, such as _Vehicle_, _Bus_.
-Methods are verbs in lower camel case, such as _getColor_, _setRegistrationYear_.
-Instances, variables and package names are also written in lower camel case, such as _myCar_, _aBus_.
-Constants are written in uppercase characters separated by underscores, such as _MAX_HEIGHT_.
-Private fields and methods starts with an underscore.
-Acronyms are treated as normal words, such as _Html_, _Url_.
+
+* Classes are nouns in upper camel case,
+such as _Vehicle_, _Bus_
+* Methods are verbs in lower camel case,
+such as _getColor_, _setRegistrationYear_
+* Instances, variables and package names are also written in lower camel case,
+such as _myCar_, _aBus_
+* Constants are written in uppercase characters separated by underscores,
+such as *MAX_HEIGHT*
+* Private fields and methods starts with an underscore,
+such as *_internal*
+* Acronyms are treated as normal words,
+such as _Html_, _Url_
 
 Source code is indented using 2 spaces.
 
@@ -103,7 +111,7 @@ local urlTable = Url.parse('http://www.lua.org/')
 print(urlTable.host) -- prints 'www.lua.org'
 ```
 
-A class can implement an initialize method that will be called for new instances.
+A class can implement an _initialize_ method that will be called for new instances.
 A class can implement prototype methods shared among all its instances.
 
 ```lua
@@ -469,11 +477,97 @@ require('jls.lang.event'):loop()
 
 # Process and Thread
 
+## Process
+
+The library provides classes to launch and interact with processes.
+
+```lua
+local ProcessBuilder = require('jls.lang.ProcessBuilder')
+local pb = ProcessBuilder:new('lua', '-e', 'os.exit(11)')
+pb:start()
+```
+
+You could redirect the output to a file descriptor.
+
+```lua
+local ProcessBuilder = require('jls.lang.ProcessBuilder')
+local FileDescriptor = require('jls.io.FileDescriptor')
+local pb = ProcessBuilder:new('lua', '-e', 'print("Hello")')
+local fd = FileDescriptor.openSync('output.tmp', 'w')
+pb:redirectOutput(fd)
+local ph = pb:start()
+fd:close()
+```
+
+
+## Thread
+
+A thread allows to execute a Lua function concurrently.
+Using threads allows to execute blocking or long processing operations without blocking the main thread.
+
+You could pass parameters to the thread function and retrieve the function return value.
+It is not possible to share variables with a thread, so you should take care to not use variable defined outside the thread function.
+
+```lua
+local Thread = require('jls.lang.Thread')
+Thread:new(function(value)
+  return 'Hi '..tostring(value)
+end):start('John'):ended():next(function(res)
+  print('trhead return value:', res)
+end)
+require('jls.lang.event'):loop()
+```
+
+The Worker class allows to process background tasks, on a dedicated thread.
+The two side of the worker can send and receive messages.
+
+```lua
+local Worker = require('jls.util.Worker')
+local worker = Worker:new(function(w)
+  function w:onMessage(message)
+    w:postMessage('Hi '..tostring(message))
+  end
+end)
+function worker:onMessage(message)
+  print('received from worker:', message)
+  self:close()
+end
+worker:postMessage('John')
+require('jls.lang.event'):loop()
+```
+
+
 ## Inter-Process Communication
 
 ### Pipe
 
 A pipe allows to communicate between processes or threads.
+
+#### Anonymous Pipe
+
+You could redirect the process standard output to a pipe.
+
+```lua
+local ProcessBuilder = require('jls.lang.ProcessBuilder')
+local Pipe = require('jls.io.Pipe')
+local pb = ProcessBuilder:new('lua', '-e', 'print("Hello")')
+local p = Pipe:new()
+pb:redirectOutput(p)
+local ph = pb:start()
+local outputData
+p:readStart(function(err, data)
+  if data then
+    print('Process output:', data)
+  else
+    p:close()
+  end
+end)
+require('jls.lang.event'):loop()
+```
+
+#### Named Pipe
+
+Named pipes are only available with the _luv_ module.
 
 ```lua
 local Pipe = require('jls.io.Pipe')
@@ -530,72 +624,6 @@ end):next(function()
   channel:writeMessage('Hello')
 end)
 event:loop()
-```
-
-## Process
-
-The library provides classes to launch and interact with processes.
-
-```lua
-local ProcessBuilder = require('jls.lang.ProcessBuilder')
-local pb = ProcessBuilder:new('lua', '-e', 'os.exit(11)')
-pb:start()
-```
-
-You could redirect the output to a file descriptor or a pipe.
-
-```lua
-local ProcessBuilder = require('jls.lang.ProcessBuilder')
-local Pipe = require('jls.io.Pipe')
-local pb = ProcessBuilder:new('lua', '-e', 'print("Hello")')
-local p = Pipe:new()
-pb:redirectOutput(p)
-local ph = pb:start()
-local outputData
-p:readStart(function(err, data)
-  if data then
-    print('Process output:', data)
-  else
-    p:close()
-  end
-end)
-require('jls.lang.event'):loop()
-```
-
-## Thread
-
-A thread allows to execute a Lua function concurrently.
-Using threads allows to execute blocking or long processing operations without blocking the main thread.
-
-You could pass parameters to the thread function and retrieve the function return value.
-It is not possible to share variables with a thread, so you should take care to not use variable defined outside the thread function.
-
-```lua
-local Thread = require('jls.lang.Thread')
-Thread:new(function(value)
-  return 'Hi '..tostring(value)
-end):start('John'):ended():next(function(res)
-  print('trhead return value:', res)
-end)
-require('jls.lang.event'):loop()
-```
-
-The Worker class allows to process background tasks, on a dedicated thread.
-The two side of the worker can send and receive messages.
-
-```lua
-local Worker = require('jls.util.Worker')
-local worker = Worker:new(function(w)
-  function w:onMessage(message)
-    w:postMessage('Hi '..tostring(message))
-  end
-end)
-function worker:onMessage(message)
-  print('received from worker:', message)
-  self:close()
-end
-worker:postMessage('John')
-require('jls.lang.event'):loop()
 ```
 
 
