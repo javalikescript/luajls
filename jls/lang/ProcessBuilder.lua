@@ -148,8 +148,13 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Starts this ProcessBuilder.
   -- @treturn jls.lang.ProcessHandle The @{jls.lang.ProcessHandle|handle} of the new process
-  function processBuilder:start()
-    return ProcessHandle.build(self)
+  function processBuilder:start(callback)
+    local processHandle = ProcessHandle.build(self)
+    -- for compatibility
+    if processHandle and type(callback) == 'function' then
+      processHandle:ended():next(callback)
+    end
+    return processHandle
   end
 
 end, function(ProcessBuilder)
