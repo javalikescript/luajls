@@ -62,6 +62,7 @@ return require('jls.lang.class').create(function(processHandle)
 end, function(ProcessHandle)
 
   --- Returns a new ProcessHandle with the specified Process ID.
+  -- @tparam number pid the process identifier.
   -- @return a new ProcessHandle with the specified Process ID.
   function ProcessHandle.of(pid)
     return ProcessHandle:new(pid)

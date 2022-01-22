@@ -1,7 +1,7 @@
 -- See https://stevedonovan.github.io/ldoc/manual/doc.md.html
 file = "jls"
 project = "luajls"
-title = "Lua JLS 0.5"
+title = "Lua JLS 0.6"
 description = "luajls documentation"
 full_description = [[
 The luajls library provides abstraction interfaces for general-purpose scripting.

@@ -4,7 +4,7 @@ Provide pipe and named pipe abstraction.
 The Pipe class provides inter-process stream communication.
 The Pipe class also provides named pipe.
 
-Note: The only implementation is based on libuv
+Note: Named pipes are only available with the _luv_ module.
 
 @module jls.io.Pipe
 @pragma nostrip
@@ -116,12 +116,12 @@ return class.create(function(pipe, _, Pipe)
     return read_start(self.fd, stream)
   end
 
-  --- Stops reading data on this client.
+  --- Stops reading data on this pipe.
   function pipe:readStop()
     return read_stop(self.fd)
   end
 
-  --- Writes data on this client.
+  --- Writes data on this pipe.
   -- @tparam string data the data to write.
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
