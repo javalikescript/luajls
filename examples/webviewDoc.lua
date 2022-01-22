@@ -10,7 +10,7 @@ local function contentHandler(body)
   end
 end
 
-local content = [[<!DOCTYPE html>
+local contentHeader = [[<!DOCTYPE html>
 <html><head lang="en">
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 <meta charset="UTF-8">
@@ -33,19 +33,25 @@ body > iframe {
   height: calc(100% - 1.5rem);
   border: 0;
 }
-</style></head><body>
-  <div>
-    <a href="docs/index.html" target="iframe">luajls</a>
-    -
-    <a href="docs/lua/contents.html" target="iframe">Lua</a>
-    -
-    <a href="docs/ldoc.html" target="iframe">LDoc</a>
-    -
-    <a href="docs/luaunit.html" target="iframe">LuaUnit</a>
-  </div>
-  <iframe name="iframe" src="docs/index.html"></iframe>
-</body></html>
+</style></head>
 ]]
+
+local frames = {
+  {name = 'luajls', href = 'docs/index.html', path = ''},
+  {name = 'Lua', href = 'docs/lua/contents.html', path = ''},
+  {name = 'LDoc', href = 'docs/ldoc.html', path = ''},
+  {name = 'LuaUnit', href = 'docs/luaunit.html', path = ''},
+  {name = 'LuaCov', href = 'docs/luacov/index.html', path = ''},
+}
+
+local contentBody = '<body><div>'
+for i, frame in ipairs(frames) do
+  if i > 1 then
+    contentBody = contentBody..' - '
+  end
+  contentBody = contentBody..'<a href="'..frame.href..'" target="iframe">'..frame.name..'</a>'
+end
+contentBody = contentBody..'</div><iframe name="iframe" src="docs/index.html"></iframe></body>'
 
 local scriptFile = File:new(arg[0]):getAbsoluteFile()
 local scriptDir = scriptFile:getParentFile()
@@ -57,7 +63,7 @@ WebView.open('http://localhost:0/index.html', {
   height = 768,
   resizable = true,
   contexts = {
-    ['/index.html'] = contentHandler(content)
+    ['/index.html'] = contentHandler(contentHeader..contentBody..'</html>')
   }
 }):next(function(webview)
   local httpServer = webview:getHttpServer()
@@ -65,6 +71,7 @@ WebView.open('http://localhost:0/index.html', {
   if devDir:isDirectory() then
     httpServer:createContext('/docs/(.*)', FileHttpHandler:new('./doc'))
     httpServer:createContext('/docs/lua/(.*)', FileHttpHandler:new(File:new(devDir, 'lua/doc')))
+    httpServer:createContext('/docs/luacov/(.*)', FileHttpHandler:new(File:new(devDir, 'luacov/docs')))
   else
     httpServer:createContext('/docs/(.*)', ZipFileHttpHandler:new(File:new(scriptDir, '../docs.zip')))
   end
