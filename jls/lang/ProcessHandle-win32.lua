@@ -16,14 +16,14 @@ return require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(p
   function processHandle:ended()
     if not self.endPromise then
       self.endPromise = Promise:new(function(resolve, reject)
-        event:setTask(function()
-          local status, code = win32Lib.WaitProcessId(self.pid, 0, true)
+        event:setTask(function(timeoutMs)
+          local status, code = win32Lib.WaitProcessId(self.pid, timeoutMs, true)
           if status == win32Lib.constants.WAIT_OBJECT_0 then
             resolve(code)
             return false
           end
           return true
-        end, 500)
+        end, -1)
       end)
     end
     return self.endPromise
