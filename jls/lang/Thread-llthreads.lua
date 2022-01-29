@@ -83,7 +83,7 @@ return require('jls.lang.class').create(function(thread)
             end
             self.t = nil
             return false
-          end, 500)
+          end)
         end)
       end
       return self._endPromise

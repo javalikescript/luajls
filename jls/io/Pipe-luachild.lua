@@ -62,7 +62,7 @@ return class.create(function(pipe, _, Pipe)
     local size = 1024
     self.readTaskId = event:setTask(function()
       if self.readFd then
-        local data, err, errnum = self.readFd:read(size)
+        local data, err, errnum = self.readFd:read(size) -- will block on Windows
         if data then
           cb(nil, data)
           return true
@@ -73,7 +73,7 @@ return class.create(function(pipe, _, Pipe)
       self.readTaskId = nil
       cb()
       return false
-    end, 500)
+    end)
   end
 
   function pipe:readStop()

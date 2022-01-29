@@ -28,8 +28,6 @@ return require('jls.lang.class').create(function(selector)
     self.recvt = {}
     self.sendt = {}
     self.eventTask = nil
-    self.minSelectTimeout = 0.5
-    self.maxSelectTimeout = 15
   end
 
   function selector:register(socket, mode, streamHandler, writeData, writeCallback, ip, port)
@@ -68,8 +66,8 @@ return require('jls.lang.class').create(function(selector)
       computedMode = computedMode | MODE_SEND
     end
     mode = mode or computedMode
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:register('..socketToString(socket)..', '..tostring(context.mode)..'=>'..tostring(mode)..')')
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:register('..socketToString(socket)..', '..tostring(context.mode)..'=>'..tostring(mode)..')')
       --logger:traceback()
     end
     if mode == context.mode then
@@ -89,7 +87,7 @@ return require('jls.lang.class').create(function(selector)
     else
       self.contt[socket] = context
       socket:settimeout(0) -- do not block
-      --logger:debug('selector:register(), '..tostring(context)..' as '..tostring(self.contt[socket]))
+      --logger:finest('selector:register(), '..tostring(context)..' as '..tostring(self.contt[socket]))
     end
     if mode > 0 then
       if addMode & MODE_RECV == MODE_RECV then
@@ -101,11 +99,7 @@ return require('jls.lang.class').create(function(selector)
       context.mode = mode
       if not self.eventTask or not event:hasTimer(self.eventTask) then
         self.eventTask = event:setTask(function(timeoutMs)
-          local timeoutSec = self.maxSelectTimeout
-          if timeoutMs and timeoutMs > 0 then
-            timeoutSec = math.max(math.min(timeoutMs / 1000, self.maxSelectTimeout), self.minSelectTimeout)
-          end
-          self:select(timeoutSec)
+          self:select(timeoutMs / 1000)
           return not self:isEmpty()
         end, -1)
       end
@@ -117,8 +111,8 @@ return require('jls.lang.class').create(function(selector)
   end
 
   function selector:unregister(socket, mode)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:unregister('..socketToString(socket)..', '..tostring(mode)..')')
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:unregister('..socketToString(socket)..', '..tostring(mode)..')')
     end
     if mode then
       local context = self.contt[socket]
@@ -133,16 +127,16 @@ return require('jls.lang.class').create(function(selector)
   end
 
   function selector:unregisterAndClose(socket)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:unregisterAndClose('..socketToString(socket)..')')
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:unregisterAndClose('..socketToString(socket)..')')
     end
     self:unregister(socket)
     socket:close()
   end
 
   function selector:close(socket, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:close('..socketToString(socket)..')')
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:close('..socketToString(socket)..')')
     end
     local context = self.contt[socket]
     if context and context.mode & MODE_SEND == MODE_SEND then
@@ -165,45 +159,45 @@ return require('jls.lang.class').create(function(selector)
 
   function selector:isEmpty()
     local count = #self.recvt + #self.sendt
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:isEmpty() => '..tostring(count == 0)..' ('..tostring(count)..')')
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:isEmpty() => '..tostring(count == 0)..' ('..tostring(count)..')')
       for i, socket in ipairs(self.recvt) do
-        logger:debug(' recvt['..tostring(i)..'] '..socketToString(socket))
+        logger:finest(' recvt['..tostring(i)..'] '..socketToString(socket))
       end
       for i, socket in ipairs(self.sendt) do
-        logger:debug(' sendt['..tostring(i)..'] '..socketToString(socket))
+        logger:finest(' sendt['..tostring(i)..'] '..socketToString(socket))
       end
     end
     return count == 0
   end
 
   function selector:select(timeout)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:select('..tostring(timeout)..'s) recvt: '..tostring(#self.recvt)..' sendt: '..tostring(#self.sendt))
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:select('..tostring(timeout)..'s) recvt: '..tostring(#self.recvt)..' sendt: '..tostring(#self.sendt))
     end
     local canrecvt, cansendt, selectErr = luaSocketLib.select(self.recvt, self.sendt, timeout)
     if selectErr then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('selector:select() error "'..tostring(selectErr)..'"')
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('selector:select() error "'..tostring(selectErr)..'"')
       end
       if selectErr == 'timeout' then
         return true
       end
       return nil, selectErr
     end
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('selector:select() canrecvt: '..tostring(#canrecvt)..' cansendt: '..tostring(#cansendt))
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('selector:select() canrecvt: '..tostring(#canrecvt)..' cansendt: '..tostring(#cansendt))
     end
     -- process canrecvt sockets
     for _, socket in ipairs(canrecvt) do
       local context = self.contt[socket]
       if context and context.streamHandler then
         if type(context.streamHandler) == 'function' then
-          logger:debug('selector:select() accepting')
+          logger:finest('selector:select() accepting')
           context.streamHandler()
         else
           local size = context.streamHandler.bufferSize or BUFFER_SIZE
-          logger:debug('selector:select() receiving '..tostring(size)..' on '..socketToString(socket))
+          logger:finest('selector:select() receiving '..tostring(size)..' on '..socketToString(socket))
           local content, recvErr, partial = socket:receive(size)
           if content then
             context.streamHandler:onData(content)
@@ -226,8 +220,8 @@ return require('jls.lang.class').create(function(selector)
           end
         end
       else
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('selector unregistered socket '..socketToString(socket)..' will be closed')
+        if logger:isLoggable(logger.FINEST) then
+          logger:finest('selector unregistered socket '..socketToString(socket)..' will be closed')
         end
         self:unregisterAndClose(socket)
       end
@@ -236,8 +230,8 @@ return require('jls.lang.class').create(function(selector)
     for _, socket in ipairs(cansendt) do
       local context = self.contt[socket]
       if context and #context.writet > 0 then
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('selector:select() sending on '..socketToString(socket))
+        if logger:isLoggable(logger.FINEST) then
+          logger:finest('selector:select() sending on '..socketToString(socket))
         end
         local wf = context.writet[1]
         if socket.sendto then
@@ -253,8 +247,8 @@ return require('jls.lang.class').create(function(selector)
               -- the connection was closed before the transmission was completed
               wf.callback('closed')
             elseif sendErr ~= 'timeout' then
-              if logger:isLoggable(logger.DEBUG) then
-                logger:debug('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
+              if logger:isLoggable(logger.FINEST) then
+                logger:finest('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
               end
               wf.callback(sendErr)
             end
@@ -263,8 +257,8 @@ return require('jls.lang.class').create(function(selector)
             wf.callback()
             if #context.writet == 0 then
               if context.closeCallback then
-                if logger:isLoggable(logger.DEBUG) then
-                  logger:debug('selector close socket '..socketToString(socket))
+                if logger:isLoggable(logger.FINEST) then
+                  logger:finest('selector close socket '..socketToString(socket))
                 end
                 self:unregisterAndClose(socket)
                 context.closeCallback()
@@ -282,8 +276,8 @@ return require('jls.lang.class').create(function(selector)
               -- the connection was closed before the transmission was completed
               wf.callback('closed')
             elseif sendErr ~= 'timeout' then
-              if logger:isLoggable(logger.DEBUG) then
-                logger:debug('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
+              if logger:isLoggable(logger.FINEST) then
+                logger:finest('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
               end
               wf.callback(sendErr) -- TODO discard all write futures
             end
@@ -295,8 +289,8 @@ return require('jls.lang.class').create(function(selector)
             wf.callback()
             if #context.writet == 0 then
               if context.closeCallback then
-                if logger:isLoggable(logger.DEBUG) then
-                  logger:debug('selector close socket '..socketToString(socket))
+                if logger:isLoggable(logger.FINEST) then
+                  logger:finest('selector close socket '..socketToString(socket))
                 end
                 self:unregisterAndClose(socket)
                 context.closeCallback()
@@ -307,8 +301,8 @@ return require('jls.lang.class').create(function(selector)
           end
         end
       else
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('selector unregistered socket '..socketToString(socket)..' will be closed')
+        if logger:isLoggable(logger.FINEST) then
+          logger:finest('selector unregistered socket '..socketToString(socket)..' will be closed')
         end
         self:unregisterAndClose(socket)
       end
