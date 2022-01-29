@@ -14,6 +14,7 @@ serialWorker:close()
 ]]
 
 local function initWorker(w)
+  local protectedCall = require('jls.lang.protectedCall')
   local json = require('jls.util.json')
   local StreamHandler = require('jls.io.streams.StreamHandler')
   local lastFn
@@ -28,7 +29,7 @@ local function initWorker(w)
     end
     if flags & 1 == 1 then
       if payload ~= 'null' then
-        data = json.decode(payload)
+        data = json.decode(payload) -- TODO protect or use parse
       end
     else
       data = payload
@@ -43,7 +44,7 @@ local function initWorker(w)
         end
       end)
     end
-    local status, result, reason = pcall(fn, data, sh)
+    local status, result, reason = protectedCall(fn, data, sh)
     flags = 0
     if status then
       if not result and reason then

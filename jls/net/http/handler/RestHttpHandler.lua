@@ -4,6 +4,7 @@
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
+local protectedCall = require('jls.lang.protectedCall')
 local json = require('jls.util.json')
 local strings = require('jls.util.strings')
 local HttpMessage = require('jls.net.http.HttpMessage')
@@ -220,7 +221,7 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
 
   function restHttpHandler:handleNow(exchange)
     local path = exchange:getRequestArguments()
-    local status, result = pcall(restPart, self.handlers, exchange, path)
+    local status, result = protectedCall(restPart, self.handlers, exchange, path)
     if status then
       if Promise.isPromise(result) then
         return result:next(function(r)

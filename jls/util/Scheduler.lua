@@ -7,6 +7,7 @@ local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local List = require('jls.util.List')
 local Date = require('jls.util.Date')
+local protectedCall = require('jls.lang.protectedCall')
 
 
 --- The Schedule class.
@@ -372,7 +373,7 @@ local Scheduler = class.create(function(scheduler)
   end
 
   function scheduler:runScheduleAt(t, date)
-    local status, err = pcall(function ()
+    local status, err = protectedCall(function ()
       t.fn(date:getTime())
     end)
     if not status then

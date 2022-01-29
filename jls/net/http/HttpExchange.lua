@@ -4,6 +4,7 @@
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
+local protectedCall = require('jls.lang.protectedCall')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
@@ -142,9 +143,9 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       logger:finer('httpExchange:handleRequest() "'..self.request:getTarget()..'"')
     end
     self.context = context
-    local status, result = xpcall(function ()
+    local status, result = protectedCall(function ()
       return context:handleExchange(self)
-    end, debug.traceback)
+    end)
     if status then
       -- always return a promise
       if Promise:isInstance(result) then
