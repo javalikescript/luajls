@@ -4,16 +4,22 @@ local Promise = require('jls.lang.Promise')
 
 return require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(processHandle)
 
-  function processHandle:isAlive()
-    local id, status, code = linuxLib.waitpid(self.pid)
-    if id == self.pid then
-      if status then
-        self.code = code
-      else
+  function processHandle:waitExitCode(timeoutMs)
+    local id, kind, code = linuxLib.waitpid(self.pid, 0, timeoutMs or -1)
+    if id then
+      if kind == 'timeout' then
         return true
+      elseif kind == 'exit' then
+      elseif kind == 'signal' then
+        code = code + 128
       end
+      self.code = code
     end
     return false
+  end
+
+  function processHandle:isAlive()
+    return self:waitExitCode(0)
   end
 
   function processHandle:destroy()
@@ -23,20 +29,13 @@ return require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(p
   function processHandle:ended()
     if not self.endPromise then
       self.endPromise = Promise:new(function(resolve, reject)
-        event:setTask(function()
-          local id, status, code = linuxLib.waitpid(self.pid)
-          if id == self.pid then
-            if status then
-              self.code = code
-              resolve(code)
-              return false
-            else
-              return true
-            end
+        event:setTask(function(timeoutMs)
+          if self:waitExitCode(timeoutMs) then
+            return true
           end
-          reject('unable to retrieve exit code')
+          resolve(self.code)
           return false
-        end, 500)
+        end, -1)
       end)
     end
     return self.endPromise
