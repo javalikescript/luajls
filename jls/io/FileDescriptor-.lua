@@ -27,6 +27,7 @@ FileDescriptor.open('file_name.txt', 'r'):next(function(fileDesc)
 end)
 ]]
 
+local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
@@ -68,9 +69,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
     self.fd:flush()
   end
 
-  function fileDescriptor:statSync()
-    error('Not available')
-  end
+  fileDescriptor.statSync = class.notImplementedFunction
 
   --- Reads the specified data from this file descriptor.
   -- @tparam number size The size of the data to read.
@@ -141,9 +140,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
     return d
   end
 
-  function fileDescriptor:stat(callback)
-    error('Not available')
-  end
+  fileDescriptor.stat = class.notImplementedFunction
 
   --- Reads the specified data from this file descriptor.
   -- @tparam number size The size of the data to read.

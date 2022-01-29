@@ -2,6 +2,7 @@
 -- @module jls.lang.ProcessHandle
 -- @pragma nostrip
 
+local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local formatCommandLine = require('jls.lang.formatCommandLine')
 
@@ -23,7 +24,7 @@ end
 
 --- A ProcessHandle class.
 -- @type ProcessHandle
-return require('jls.lang.class').create(function(processHandle)
+return class.create(function(processHandle)
 
   function processHandle:initialize(pid)
     self.pid = pid
@@ -70,9 +71,8 @@ end, function(ProcessHandle)
 
   --- Returns the Process ID of the current process.
   -- @treturn number the Process ID of the current process.
-  function ProcessHandle.getCurrentPid()
-    error('not available')
-  end
+  -- @function ProcessHandle.getCurrentPid
+  ProcessHandle.getCurrentPid = class.notImplementedFunction
 
   ProcessHandle.getPid = ProcessHandle.getCurrentPid
 
