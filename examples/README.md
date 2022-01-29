@@ -10,3 +10,6 @@ Could be used to get or post requests to an HTTP server.
 An HTTP proxy
 Could be used as an explicit proxy, supports connect.
 Allows filtering and HTTP traffic monitoring.
+
+A WebView with documentation
+Could be used to browse the luajls documentation, including Lua reference, LDoc, LuaUnit and LuaCov.
