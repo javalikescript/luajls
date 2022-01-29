@@ -239,6 +239,12 @@ local Logger = require('jls.lang.class').create(function(logger)
   function logger:finest(message)
     self:log(FINEST, message)
   end
+
+  -- shortcuts
+  for k, v in pairs(LEVEL) do
+    logger[k] = v
+  end
+
 end)
 
 Logger.LEVEL = LEVEL
@@ -266,11 +272,6 @@ end
 
 -- the module is the default instance of Logger
 local logger = Logger:new()
-
--- shortcuts
-for k, v in pairs(LEVEL) do
-  logger[k] = v
-end
 
 --logger.Logger = Logger -- use logger:getClass()
 

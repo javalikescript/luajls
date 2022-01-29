@@ -26,10 +26,17 @@ local Map = require("jls.util.Map")
 --require('jls.util.json').decode('{"aString":"Hello world !"}') -- Returns {aString = 'Hello world !'}
 
 --- Returns the value representing the specified string.
+-- Raises an error if the value cannot be parsed.
 -- @tparam string jsonString The JSON string to parse.
 -- @return the parsed value.
 -- @function parse
-json.parse = json.decode
+function json.parse(value)
+  local parsedValue = json.decode(value)
+  if parsedValue == json.null then
+    return nil
+  end
+  return parsedValue
+end
 
 local escapeMap = { ['\b'] = '\\b', ['\f'] = '\\f', ['\n'] = '\\n', ['\r'] = '\\r', ['\t'] = '\\t', ['"'] = '\\"', ['\\'] = '\\\\', ['/'] = '\\/', }
 local escapePattern = '[%c"\\]'
@@ -139,7 +146,6 @@ function json.stringify(value, space)
     end
   end
   stringify(value, '')
-  --print(xpcall(stringify, debug.traceback, value, ''))
   return sb:toString()
 end
 

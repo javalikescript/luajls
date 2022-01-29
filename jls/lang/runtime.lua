@@ -38,21 +38,22 @@ runtime.exec = loader.lazyFunction(function(ProcessBuilder)
   return runtime.exec
 end, 'jls.lang.ProcessBuilder')
 
-local function applyExecuteCallback(cb, anyCode, status, kind, code)
-  if anyCode then
-    cb(nil, {
-      code = math.floor(code),
-      kind = kind
-    })
-  elseif status then
-    cb()
-  else
-    cb('Execute fails with '..tostring(kind)..' code '..tostring(code))
-  end
-end
-
 runtime.execute = loader.lazyFunction(function(Promise, Thread)
-  --- Executes the specified command line in a separate thread.
+
+  local function applyExecuteCallback(cb, anyCode, status, kind, code)
+    if anyCode then
+      cb(nil, {
+        code = math.floor(code),
+        kind = kind
+      })
+    elseif status then
+      cb()
+    else
+      cb('Execute fails with '..tostring(kind)..' code '..tostring(code))
+    end
+  end
+
+    --- Executes the specified command line in a separate thread.
   -- The promise will be rejected if the process exit code is not zero.
   -- The error is a table with a code and a kind fields.
   -- @tparam string command The command-line to execute.
@@ -64,6 +65,7 @@ runtime.execute = loader.lazyFunction(function(Promise, Thread)
       callback = anyCode
       anyCode = false
     end
+    -- TODO We may use a serial worker to avoid creating a thread for each execution
     local cb, d = Promise.ensureCallback(callback)
     if Thread then
       Thread:new(function(cmd)

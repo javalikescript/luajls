@@ -37,7 +37,10 @@ return require('jls.lang.class').create(function(httpContextHolder)
     if type(path) ~= 'string' then
       error('Invalid context path "'..tostring(path)..'"')
     end
-    local context = HttpContext:new(path, handler, ...)
+    return self:addContext(HttpContext:new(path, handler, ...))
+  end
+
+  function httpContextHolder:addContext(context)
     table.insert(self.contexts, context)
     table.sort(self.contexts, compareByIndex)
     return context
