@@ -5,6 +5,10 @@
 
 local logger = require('jls.lang.logger')
 local CoroutineScheduler = require('jls.util.CoroutineScheduler')
+local protectedCall = require('jls.lang.protectedCall')
+
+local TASK_DELAY_MS = os.getenv('JLS_EVENT_TASK_DELAY_MS')
+TASK_DELAY_MS = TASK_DELAY_MS and tonumber(TASK_DELAY_MS) or 500
 
 --- An Event class.
 -- @type Event
@@ -14,6 +18,7 @@ return require('jls.lang.class').create(function(event)
   -- @function Event:new
   function event:initialize()
     self.scheduler = CoroutineScheduler:new()
+    self.scheduler.maxWait = TASK_DELAY_MS
   end
 
   --[[--
@@ -26,8 +31,16 @@ return require('jls.lang.class').create(function(event)
     -- something that have to be done once in 1 second
   end, 1000)
   ]]
-  function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as function arguments
-    return self.scheduler:schedule(callback, false, delayMs or 0) -- as opaque timer id
+  function event:setTimeout(callback, delayMs, ...)
+    local args = table.pack(...)
+    return self.scheduler:schedule(function()
+      local status, err = protectedCall(callback, table.unpack(args))
+      if not status then
+        if logger:isLoggable(logger.WARN) then
+          logger:warn('event:setTimeout() callback in error "'..err..'"')
+        end
+      end
+    end, false, delayMs or 0) -- as opaque timer id
   end
 
   --- Unregisters a timer.
@@ -48,25 +61,25 @@ return require('jls.lang.class').create(function(event)
     intervalId:clearInterval(intervalId)
   end, 1000)
   ]]
-  function event:setInterval(callback, delayMs) -- TODO Use extra arguments as function arguments
-    return self.scheduler:schedule(function()
+  function event:setInterval(callback, delayMs, ...)
+    local args = table.pack(...)
+    return self.scheduler:schedule(function(at)
       while true do
-        local status, err = pcall(callback)
+        local status, err = protectedCall(callback, table.unpack(args))
         if not status then
           if logger:isLoggable(logger.WARN) then
-            logger:warn('event:setInterval() callback on error "'..err..'"')
+            logger:warn('event:setInterval() callback in error "'..err..'"')
           end
         end
-        coroutine.yield(delayMs)
+        at = coroutine.yield(at + delayMs)
       end
     end, false, delayMs) -- as opaque timer id
   end
 
   --- Unregisters a timer.
   -- @param timer the timer as returned by the setTimeout or setInterval method.
-  function event:clearInterval(timer)
-    self.scheduler:unschedule(timer)
-  end
+  -- @function event:clearInterval
+  event.clearInterval = event.clearTimeout
 
   -- Returns true if the specified timer id is still registered.
   -- @param timer the timer as returned by the setTimeout or setInterval method.
@@ -76,19 +89,23 @@ return require('jls.lang.class').create(function(event)
   end
 
   -- Registers a timer which executes a function until completion.
+  -- A negative delay indicate that the task is able to wait, the callback will receive the maximum delay,
+  -- the maximum delay could be 0 when the task should not wait.
   -- @tparam function callback A function that is executed repeatedly.
-  -- @tparam[opt=0] number delayMs The time, in milliseconds, the timer should wait between to execution.
+  -- @tparam[opt] number delayMs The time, in milliseconds, the timer should wait between two executions.
   -- @return An opaque value identifying the timer that can be used to cancel it.
   function event:setTask(callback, delayMs)
     if logger:isLoggable(logger.DEBUG) then
       logger:debug('event:setTask('..tostring(callback)..', '..tostring(delayMs)..')')
     end
-    local taskSchedule
-    taskSchedule = self.scheduler:schedule(function()
+    if type(delayMs) ~= 'number' then
+      delayMs = TASK_DELAY_MS
+    end
+    return self.scheduler:schedule(function(_, _, timeout)
       while true do
-        local status, err = pcall(callback, delayMs and delayMs < 0 and self.scheduler:getWaitTime(taskSchedule) or nil)
+        local status, result = protectedCall(callback, timeout)
         if status then
-          if not err then
+          if not result then
             if logger:isLoggable(logger.DEBUG) then
               logger:debug('event:setTask() callback ends')
             end
@@ -96,13 +113,13 @@ return require('jls.lang.class').create(function(event)
           end
         else
           if logger:isLoggable(logger.WARN) then
-            logger:warn('event:setTask() callback on error "'..err..'"')
+            logger:warn('event:setTask() callback in error "'..result..'"')
           end
+          break
         end
-        coroutine.yield(delayMs or 0)
+        _, _, timeout = coroutine.yield(delayMs)
       end
-    end, false)
-    return taskSchedule -- as opaque timer id
+    end, false, math.min(delayMs, 0)) -- as opaque timer id
   end
 
   -- Sets the timer daemon flag.

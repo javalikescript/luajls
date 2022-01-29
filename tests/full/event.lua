@@ -51,4 +51,21 @@ function Test_setInterval()
   lu.assertAlmostEquals(count, 5, 2)
 end
 
+function Test_setTask()
+  if event ~= package.loaded['jls.lang.event-'] then
+    print('/!\\ skipping setTask test')
+    lu.success()
+  end
+  local count = 0
+  event:setTask(function()
+    count = count + 1
+    if count >= 4 then
+      return false
+    end
+    return true
+  end, 100)
+  event:loop()
+  lu.assertEquals(count, 4)
+end
+
 os.exit(lu.LuaUnit.run())

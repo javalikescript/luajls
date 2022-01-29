@@ -1,37 +1,19 @@
 local luvLib = require('luv')
+local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
+local protectedCall = require('jls.lang.protectedCall')
 
-return require('jls.lang.class').create(function(event)
+return class.create(function(event)
 
   function event:onError(err)
     logger:warn('Event failed due to "'..tostring(err)..'"')
   end
 
-  function event:setTimeout(callback, delayMs) -- TODO Use extra arguments as function arguments
+  local function newTimer(callback, timeoutMs, repeatMs, ...)
+    local args = table.pack(...)
     local timer = luvLib.new_timer()
-    timer:start(delayMs or 0, 0, function ()
-      timer:close()
-      --local status, err = pcall(callback)
-      local status, err = xpcall(callback, debug.traceback)
-      if not status then
-        if logger:isLoggable(logger.WARN) then
-          logger:warn('event:setTimeout() callback on error "'..err..'"')
-        end
-      end
-    end)
-    return timer -- as opaque id
-  end
-
-  function event:clearTimeout(timer)
-    timer:stop()
-    timer:close()
-  end
-
-  function event:setInterval(callback, delayMs) -- TODO Use extra arguments as function arguments
-    local timer = luvLib.new_timer()
-    timer:start(delayMs, delayMs, function ()
-      --local status, err = pcall(callback)
-      local status, err = xpcall(callback, debug.traceback)
+    timer:start(timeoutMs, repeatMs, function()
+      local status, err = protectedCall(callback, table.unpack(args))
       if not status then
         if logger:isLoggable(logger.WARN) then
           logger:warn('event:setInterval() callback on error "'..err..'"')
@@ -41,10 +23,22 @@ return require('jls.lang.class').create(function(event)
     return timer -- as opaque id
   end
 
-  function event:clearInterval(timer)
+  function event:setTimeout(callback, delayMs, ...)
+    return newTimer(callback, delayMs or 0, 0, ...)
+  end
+
+  function event:clearTimeout(timer)
     timer:stop()
     timer:close()
   end
+
+  function event:setInterval(callback, delayMs, ...)
+    return newTimer(callback, delayMs, delayMs, ...)
+  end
+
+  event.setTask = class.notImplementedFunction
+
+  event.clearInterval = event.clearTimeout
 
   function event:daemon(timer, daemon)
     if daemon then
@@ -79,7 +73,6 @@ return require('jls.lang.class').create(function(event)
 
   function event:runOnce()
     self:loop('once')
-    --luvLib.run('once')
   end
 
   function event:close()
