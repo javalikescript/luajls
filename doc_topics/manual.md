@@ -20,6 +20,8 @@ The only required dependency is Lua 5.4
 Optional dependencies are C and Lua modules such as _luafilesystem_, _luasocket_, _luv_, _lua-openssl_, _lua-cjson_.
 By example, the file system manipulation requires one of the _luafilesystem_ or the _luv_ dependent module.
 
+The recommended dependency is *luv* as you will have access to the *io*, *lang* and *net* packages.
+
 See [Lua JLS repository](https://github.com/javalikescript/luajls)
 and the [Lua C libraries repository](https://github.com/javalikescript/luaclibs)
 
