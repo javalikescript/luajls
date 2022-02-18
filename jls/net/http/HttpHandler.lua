@@ -16,6 +16,7 @@ end)
 ]]
 
 local Promise = require('jls.lang.Promise')
+local protectedCall = require('jls.lang.protectedCall')
 
 --- A HttpHandler class.
 -- The handler is called when the request headers are available.
@@ -55,6 +56,52 @@ end, function(HttpHandler)
           return r
         end
       end)
+    end)
+  end
+
+  local function chainHandlers(handlers, condition, exchange, index, cb)
+    local handler = handlers[index]
+    if not handler then
+      exchange:getClass().notFound(exchange) -- Not found
+      cb()
+      return
+    end
+    local checkCondition = function()
+      if condition(exchange) then
+        chainHandlers(handlers, condition, exchange, index + 1, cb)
+      else
+        cb()
+      end
+    end
+    local status, result = protectedCall(handler.handle, handler, exchange)
+    if status then
+      if Promise:isInstance(result) then
+        result:next(checkCondition, function(reason)
+          cb(reason or 'Error')
+        end)
+      else
+        checkCondition()
+      end
+    else
+      cb(result or 'Error')
+    end
+  end
+
+  local function chainCondition(exchange)
+    return exchange:getResponse():getStatusCode() == 403
+  end
+
+  -- Returns an handler that chain the specified handlers
+  function HttpHandler.chain(...)
+    local handlers = {...}
+    local condition = chainCondition
+    if type(handlers[1]) == 'function' then
+      condition = table.remove(handlers, 1)
+    end
+    return HttpHandler:new(function(_, exchange)
+      local p, cb = Promise.createWithCallback()
+      chainHandlers(handlers, condition, exchange, 1, cb)
+      return p
     end)
   end
 
