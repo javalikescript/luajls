@@ -79,6 +79,21 @@ local function lazyFunction(providerFn, ...)
   end
 end
 
+--- Adds a method by requiring its dependencies on first call.
+-- @tparam table m the module owning the method
+-- @tparam string key the method name
+-- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found.
+-- @treturn funtion the function returned by the providerFn parameter.
+-- @function lazyMethod
+local function lazyMethod(m, key, providerFn, ...)
+  local names = {...}
+  m[key] = function(...)
+    local fn = providerFn(requireList(names, true))
+    m[key] = fn
+    return fn(...)
+  end
+end
+
 local BASE_REQUIRE = require
 
 -- The JLS_REQUIRES environment variable enables to pre load native/non jls modules
@@ -323,6 +338,7 @@ return {
   singleRequirer = singleRequirer,
   requireList = requireList,
   lazyFunction = lazyFunction,
+  lazyMethod = lazyMethod,
   requireByPath = requireByPath,
   unload = unload,
   unloadAll = unloadAll,
