@@ -191,7 +191,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
   function httpMessage:readBody(stream, buffer, callback)
     local cb, promise = Promise.ensureCallback(callback)
-    logger:fine('httpMessage:readBody()')
+    logger:finest('httpMessage:readBody()')
     local chunkFinder = nil
     local transferEncoding = self:getHeader(HttpMessage.CONST.HEADER_TRANSFER_ENCODING)
     if transferEncoding then
@@ -203,8 +203,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       end
     end
     local length = self:getContentLength()
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('httpMessage:readBody() content length is '..tostring(length))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('httpMessage:readBody() content length is '..tostring(length))
     end
     if length and length <= 0 then
       self.bodyStreamHandler:onData(nil)
@@ -213,8 +213,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     end
     if length and buffer then
       local bufferLength = #buffer
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpMessage:readBody() remaining buffer #'..tostring(bufferLength))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('httpMessage:readBody() remaining buffer #'..tostring(bufferLength))
       end
       if bufferLength >= length then
         local remainingBuffer = nil
@@ -238,8 +238,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
         return promise
       end
       length = -1
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpMessage:readBody() connection: '..tostring(connection))
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('httpMessage:readBody() connection: '..tostring(connection))
       end
       if not HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
         cb('Content length value, chunked transfer encoding or connection close expected')

@@ -89,8 +89,8 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
   end
 
   function headerStreamHandler:read(tcpClient, buffer)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('headerStreamHandler:read(?, #'..tostring(buffer and #buffer)..')')
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('headerStreamHandler:read(?, #'..tostring(buffer and #buffer)..')')
     end
     if self.onCompleted then
       error('Read in progress')
@@ -99,8 +99,8 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
       local c
       local partHandler = ChunkedStreamHandler:new(self, '\r\n', true, self.maxLineLength)
       function self:onCompleted(err)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('headerStreamHandler:read() onCompleted('..tostring(err)..')')
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('headerStreamHandler:read() onCompleted('..tostring(err)..')')
         end
         self.onCompleted = nil
         if c then

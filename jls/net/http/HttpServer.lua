@@ -87,34 +87,34 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
       logger:finer('httpServer:onAccept() request headers processed')
       return request:readBody(client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
-      logger:fine('httpServer:onAccept() body done')
+      logger:finer('httpServer:onAccept() body done')
       exchange:notifyRequestBody()
       remainingBuffer = remainingBodyBuffer
       if requestHeadersPromise then
         return requestHeadersPromise
       end
     end):next(function()
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() request "'..requestToString(exchange)..'" processed')
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('httpServer:onAccept() request '..requestToString(exchange)..' processed')
       end
       keepAlive = exchange:applyKeepAlive()
       exchange:prepareResponseHeaders()
       return exchange:getResponse():writeHeaders(client)
     end):next(function()
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() response headers "'..requestToString(exchange)..'" done')
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('httpServer:onAccept() response headers '..requestToString(exchange)..' done')
       end
       -- post filter
       --exchange:prepareResponseBody()
       return exchange:getResponse():writeBody(client)
     end):next(function()
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() response body "'..requestToString(exchange)..'" done')
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('httpServer:onAccept() response body '..requestToString(exchange)..' done')
       end
       if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange:removeClient()
         if c then
-          logger:fine('httpServer:onAccept() keeping client alive')
+          logger:finer('httpServer:onAccept() keeping client alive')
           exchange:close()
           return self:onAccept(c, remainingBuffer)
         end
@@ -123,7 +123,7 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
     end, function(err)
       if not hsh:isEmpty() then
         if logger:isLoggable(logger.FINE) then
-          logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on "'..requestToString(exchange)..'"')
+          logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on '..requestToString(exchange))
         end
         if hsh:getErrorStatus() and not client:isClosed() then
           HttpExchange.response(exchange, hsh:getErrorStatus())
