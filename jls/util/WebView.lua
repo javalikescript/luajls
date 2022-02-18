@@ -373,9 +373,7 @@ end, function(WebView)
     local wsPromise
     return httpServer:bind(tUrl.host, tUrl.port):next(function()
       if type(options.contexts) == 'table' then
-        for path, handler in pairs(options.contexts) do
-          httpServer:createContext(path, handler)
-        end
+        httpServer:addContexts(options.contexts)
       end
       if tUrl.port == 0 then
         tUrl.port = select(2, httpServer:getAddress())
@@ -479,9 +477,13 @@ You could specify an HTTP URL with a port to 0 to indicate that an HTTP server s
 @usage
 local WebView = require('jls.util.WebView')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
-WebView.open('http://localhost:0/index.html'):next(function(webview)
+WebView.open('http://localhost:0/index.html', {
+  contexts = {
+    ['/(.*)'] = FileHttpHandler:new('htdocs')
+  }
+}):next(function(webview)
   local httpServer = webview:getHttpServer()
-  httpServer:createContext('/(.*)', FileHttpHandler:new('htdocs'))
+  print('HTTP Server bound on port '..tostring(select(2, httpServer:getAddress())))
 end)
 ]]
   function WebView.open(url, title, width, height, resizable, debug, fn, data)

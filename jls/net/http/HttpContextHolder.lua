@@ -31,7 +31,6 @@ return require('jls.lang.class').create(function(httpContextHolder)
   -- @tparam string path The path of the context.
   -- @param handler The @{jls.net.http.HttpHandler|handler} or a handler function.
   --   The function takes one argument which is the @{HttpExchange} and will be called when the body is available.
-  -- @tparam[opt] table attributes the optional context attributes
   -- @return the new context
   function httpContextHolder:createContext(path, handler, ...)
     if type(path) ~= 'string' then
@@ -44,6 +43,24 @@ return require('jls.lang.class').create(function(httpContextHolder)
     table.insert(self.contexts, context)
     table.sort(self.contexts, compareByIndex)
     return context
+  end
+
+  --- Adds the specified contexts.
+  -- It could be a mix of contexts or pair of path, handler to create.
+  -- @tparam table contexts The contexts to add.
+  -- @return the new context
+  function httpContextHolder:addContexts(contexts)
+    for _, context in ipairs(contexts) do
+      if HttpContext:isInstance(context) then
+        self:addContext(context)
+      end
+    end
+    for path, handler in pairs(contexts) do
+      if type(path) == 'string' then
+        self:createContext(path, handler)
+      end
+    end
+    return self
   end
 
   function httpContextHolder:removeContext(pathOrContext)
