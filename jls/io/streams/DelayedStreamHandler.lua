@@ -21,7 +21,6 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
       logger:finest('delayedStreamHandler:initialize()')
     end
     super.initialize(self)
-    self.handler = nil
     self.buffer = StringBuffer:new()
     self.error = nil
     self.ended = false
@@ -32,7 +31,7 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
   -- The buffered and future data will be passed to the sub handler.
   -- @tparam StreamHandler handler the handler to use
   function delayedStreamHandler:setStreamHandler(handler)
-    if not self.handler then
+    if handler and not self.handler then
       if self.error then
         handler:onError(self.error)
       else
