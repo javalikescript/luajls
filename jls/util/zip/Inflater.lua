@@ -1,9 +1,6 @@
 --- Provide decompression using the ZLIB library.
 -- @module jls.util.zip.Inflater
 
-local logger = require('jls.lang.logger')
-local StreamHandler = require('jls.io.streams.StreamHandler')
-
 local zLib = require('zlib')
 
 --- The Inflater class.
@@ -64,18 +61,9 @@ return require('jls.lang.class').create(function(inflater)
 
 end, function(Inflater)
 
-  function Inflater.inflateStream(stream, windowBits)
-    local cb = StreamHandler.ensureCallback(stream)
-    local inflater = Inflater:new(windowBits)
-    return StreamHandler:new(function(err, data)
-      if err then
-        return cb(err)
-      end
-      if data then
-        return cb(nil, inflater:inflate(data))
-      end
-      return cb()
-    end)
-  end
+  -- for compatibility, deprecated
+  require('jls.lang.loader').lazyMethod(Inflater, 'inflateStream', function(deflate)
+    return deflate.decodeStream
+  end, 'jls.util.codec.deflate')
 
 end)

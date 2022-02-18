@@ -1,6 +1,17 @@
 local lu = require('luaunit')
 
-local base64 = require('jls.util.base64')
+local base64 = require('jls.util.codec.base64')
+
+local function unpcall(status, ...)
+  if status then
+    return ...
+  end
+  return nil, ...
+end
+
+local function safe(fn, ...)
+  unpcall(xpcall(fn, debug.traceback, ...))
+end
 
 function Test_decode()
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQh'), 'Hello world!')
@@ -9,12 +20,13 @@ function Test_decode()
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQgIQ'), 'Hello world !')
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQgICE'), 'Hello world  !')
   lu.assertEquals(base64.decode(''), '')
+  lu.assertEquals(base64.decode('SGVsbG8 gd29\nybG\r\nQgIQ=='), 'Hello world !')
 end
 
 function Test_decode_error()
-  lu.assertIsNil(base64.decode('SGVsbG8gd29ybGQh='))
-  lu.assertIsNil(base64.decode('SGVs-G8gd29ybGQh='))
-  lu.assertIsNil(base64.decode('='))
+  lu.assertIsNil(safe(base64.decode, 'SGVsbG8gd29ybGQh='))
+  lu.assertIsNil(safe(base64.decode, 'SGVs-G8gd29ybGQh='))
+  lu.assertIsNil(safe(base64.decode, '='))
 end
 
 function Test_encode()
@@ -40,6 +52,47 @@ function Test_encode_decode()
   assertEncodeDecode('ab')
   assertEncodeDecode('abc')
   assertEncodeDecode('Hello world !')
+end
+
+local function randomChars(len)
+  if len <= 10 then
+    local bytes = {}
+    for _ = 1, len do
+      table.insert(bytes, math.random(0, 255))
+    end
+    return string.char(table.unpack(bytes))
+  end
+  local parts = {}
+  for _ = 1, len // 10 do
+    table.insert(parts, randomChars(10))
+  end
+  table.insert(parts, len % 10)
+  return table.concat(parts)
+end
+
+local function time(fn, ...)
+  local system = require('jls.lang.system')
+  local startMillis = system.currentTimeMillis()
+  collectgarbage('collect')
+  collectgarbage('stop')
+  local gcCountBefore = math.floor(collectgarbage('count') * 1024)
+  fn(...)
+  local endMillis = system.currentTimeMillis()
+  local gcCountAfter = math.floor(collectgarbage('count') * 1024)
+  collectgarbage('restart')
+  return endMillis - startMillis, gcCountAfter - gcCountBefore
+end
+
+function _Test_encode_decode_perf()
+  local samples = {}
+  for _ = 1, 10000 do
+    table.insert(samples, randomChars(math.random(5, 500)))
+  end
+  print(time(function()
+    for _, s in ipairs(samples) do
+      lu.assertEquals(base64.decode(base64.encode(s)), s)
+    end
+  end))
 end
 
 os.exit(lu.LuaUnit.run())

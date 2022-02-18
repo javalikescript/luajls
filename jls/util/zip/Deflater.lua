@@ -1,9 +1,6 @@
 --- Provide compression using the ZLIB library.
 -- @module jls.util.zip.Deflater
 
-local logger = require('jls.lang.logger')
-local StreamHandler = require('jls.io.streams.StreamHandler')
-
 local zLib = require('zlib')
 
 --- The Deflater class.
@@ -69,19 +66,9 @@ return require('jls.lang.class').create(function(deflater)
 
 end, function(Deflater)
 
-  function Deflater.deflateStream(stream, compressionLevel, windowBits)
-    local cb = StreamHandler.ensureCallback(stream)
-    local deflater = Deflater:new(compressionLevel, windowBits)
-    return StreamHandler:new(function(err, data)
-      if err then
-        return cb(err)
-      end
-      if data then
-        return cb(nil, deflater:deflate(data))
-      end
-      cb(nil, deflater:finish())
-      cb()
-    end)
-  end
+  -- for compatibility, deprecated
+  require('jls.lang.loader').lazyMethod(Deflater, 'deflateStream', function(deflate)
+    return deflate.encodeStream
+  end, 'jls.util.codec.deflate')
 
 end)

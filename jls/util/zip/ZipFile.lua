@@ -11,6 +11,7 @@ local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
 local StreamHandler = require('jls.io.streams.StreamHandler')
+local inflateStream = require('jls.util.codec.deflate').decodeStream -- Inflater.inflateStream
 
 -- ----------------------------------------------------------------------
 -- TODO Replace Struct by string.pack, string.packsize, and string.unpack
@@ -650,7 +651,7 @@ return class.create(function(zipFile, _, ZipFile)
 
   --- Returns the content of the specified entry.
   -- @param entry the entry
-  -- @tparam[opt] StreamHandler stream an optional stream that will be called with the content.
+  -- @tparam[opt] StreamHandler stream an optional @{jls.io.streams.StreamHandler} that will be called with the content.
   -- @tparam[opt] boolean async true to get the consent asynchronously.
   -- @treturn string the entry content
   function zipFile:getContent(entry, stream, async)
@@ -663,7 +664,7 @@ return class.create(function(zipFile, _, ZipFile)
     if entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_STORED then
       self:readRawContentParts(entry, stream, async)
     elseif entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED then
-      self:readRawContentParts(entry, Inflater.inflateStream(stream, INFLATER_WINDOW_BITS), async)
+      self:readRawContentParts(entry, inflateStream(stream, INFLATER_WINDOW_BITS), async)
     else
       stream:onError('Unsupported method ('..tostring(entry:getMethod())..')')
     end
