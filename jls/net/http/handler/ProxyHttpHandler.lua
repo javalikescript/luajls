@@ -110,7 +110,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     if self.isReverse then
       local baseUrl = self:getBaseUrl(httpExchange)
       if baseUrl then
-        local path = httpExchange:getRequestArguments()
+        local path = httpExchange:getRequestPath()
         if path then
           return URL.fromString(baseUrl..string.gsub(path, '^/*', '/'))
         end

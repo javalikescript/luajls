@@ -23,7 +23,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(zip
     end
     local response = httpExchange:getResponse()
     local zipFile = self.zipFile
-    local path = httpExchange:getRequestArguments()
+    local path = httpExchange:getRequestPath()
     local entry = zipFile:getEntry(path)
     if entry and not entry:isDirectory() then
       response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')

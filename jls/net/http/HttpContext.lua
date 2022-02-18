@@ -14,7 +14,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   -- The handler will be called when the request headers have been received if specified.
   -- The handler will be called when the body has been received if no response has been set.
   -- @tparam string path the context path
-  -- @tparam function handler the context handler
+  -- @tparam[opt] function handler the context handler
   --   the function takes one argument which is an @{HttpExchange}.
   -- @tparam[opt] table attributes the optional context attributes
   -- @function HttpContext:new
@@ -25,6 +25,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     else
       error('Invalid context path, type is '..type(path))
     end
+    self.repl = '%1'
     self.index = string.len(path)
     self:setHandler(handler or HttpContext.notFoundHandler)
   end
@@ -46,8 +47,22 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self
   end
 
+  --- Returns the context path.
+  -- @treturn string the context path.
   function httpContext:getPath()
     return string.sub(self.pattern, 2, -2)
+  end
+
+  function httpContext:getPathReplacement()
+    return self.repl
+  end
+
+  --- Sets the path replacement, default is '%1'.
+  -- @param repl the replacement compliant with the string.gsub function
+  -- @return this context
+  function httpContext:setPathReplacement(repl)
+    self.repl = repl
+    return self
   end
 
   function httpContext:setIndex(index)
@@ -65,7 +80,14 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return string.match(path, self.pattern)
   end
 
-  function httpContext:matchRequest(path, request)
+  --- Returns the target path of the specified path.
+  -- It consists in the first captured value, or the 
+  -- @treturn string the first captured value, nil if there is no captured value.
+  function httpContext:replacePath(path)
+    return string.gsub(path, self.pattern, self.repl)
+  end
+
+  function httpContext:matchRequest(path)
     if string.match(path, self.pattern) then
       return true
     end
@@ -77,7 +99,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   function httpContext:copyContext()
-    return HttpContext:new(self:getPath(), self:getHandler(), self:getAttributes())
+    return HttpContext:new(self:getPath(), self:getHandler()):setAttributes(self:getAttributes()):setPathReplacement(self:getPathReplacement())
   end
 
   function httpContext:close()

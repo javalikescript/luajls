@@ -26,7 +26,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
 
   function tableHttpHandler:handle(httpExchange)
     local method = httpExchange:getRequestMethod()
-    local path = httpExchange:getRequestArguments()
+    local path = httpExchange:getRequestPath()
     local tp = self.path..string.gsub(path, '/$', '')
     if logger:isLoggable(logger.FINE) then
       logger:fine('httpHandler.table(), method: "'..method..'", path: "'..tp..'"')

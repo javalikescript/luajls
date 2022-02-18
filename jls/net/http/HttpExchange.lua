@@ -65,6 +65,12 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self.context:getArguments(self:getRequest():getTargetPath())
   end
 
+  --- Returns the request path as replaced by the context.
+  -- @treturn string the request path.
+  function httpExchange:getRequestPath()
+    return self.context:replacePath(self:getRequest():getTargetPath())
+  end
+
   --- Returns a promise that resolves once the request body is available.
   -- @tparam[opt] boolean buffer true to indicate that the request body must be bufferred.
   -- @treturn jls.lang.Promise a promise that resolves once the request body is available.
@@ -143,9 +149,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       logger:finer('httpExchange:handleRequest() "'..self.request:getTarget()..'"')
     end
     self.context = context
-    local status, result = protectedCall(function ()
-      return context:handleExchange(self)
-    end)
+    local status, result = protectedCall(context.handleExchange, context, self)
     if status then
       -- always return a promise
       if Promise:isInstance(result) then

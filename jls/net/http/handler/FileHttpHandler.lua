@@ -254,7 +254,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   end
 
   function fileHttpHandler:getPath(httpExchange)
-    return httpExchange:getRequestArguments()
+    return httpExchange:getRequestPath()
   end
 
   function fileHttpHandler:isValidPath(httpExchange, path)

@@ -220,7 +220,7 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
   end
 
   function restHttpHandler:handleNow(exchange)
-    local path = exchange:getRequestArguments()
+    local path = exchange:getRequestPath()
     local status, result = protectedCall(restPart, self.handlers, exchange, path)
     if status then
       if Promise.isPromise(result) then
