@@ -175,36 +175,14 @@ function StreamHandler.ensureCallback(cb, lazy)
   end
 end
 
--- This class allows to wrap a callback function into a stream.
-local CallbackStreamHandler = class.create(StreamHandler, function(callbackStreamHandler)
-
-  -- Creates a @{StreamHandler} based on a callback.
-  -- @tparam function cb the callback
-  -- @function CallbackStreamHandler:new
-  function callbackStreamHandler:initialize(cb)
-    --super.initialize(self, cb)
-    self.cb = cb
-  end
-
-  callbackStreamHandler.onData = onDataCallback
-  callbackStreamHandler.onError = onErrorCallback
-
-  function callbackStreamHandler:toCallback()
-    return self.cb
-  end
-
-end)
-
-StreamHandler.CallbackStreamHandler = CallbackStreamHandler
-
 --- Returns a StreamHandler.
 -- @param sh a callback function or a StreamHandler.
 -- @treturn StreamHandler a StreamHandler.
 function StreamHandler.ensureStreamHandler(sh)
-  if type(sh) == 'function' then
-    return CallbackStreamHandler:new(sh)
-  elseif StreamHandler:isInstance(sh) then
+  if StreamHandler:isInstance(sh) then
     return sh
+  elseif type(sh) == 'function' then
+    return StreamHandler:new(sh)
   else
     error('Invalid argument (type is '..type(sh)..')')
   end

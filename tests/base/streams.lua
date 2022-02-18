@@ -1,6 +1,10 @@
 local lu = require('luaunit')
 
-local streams = require('jls.io.streams')
+local StreamHandler = require('jls.io.streams.StreamHandler')
+local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
+local LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler')
+local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
+local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
 
 local function assertStreamHandling(s, t)
   lu.assertIsNil(t.dataCaptured)
@@ -18,8 +22,20 @@ local function cleanCaptureStreamHandler(cs)
   return cs
 end
 
+local function assertCaptureStreamHandler(cs, dl, el)
+  lu.assertEquals(cs._captured.data_list, dl or {})
+  lu.assertEquals(cs._captured.error_list, el or {})
+  return cs
+end
+
+local function assertThenCleanCaptureStreamHandler(cs, dl, el)
+  assertCaptureStreamHandler(cs, dl, el)
+  cleanCaptureStreamHandler(cs)
+  return cs
+end
+
 local function createCaptureStreamHandler()
-  return cleanCaptureStreamHandler(streams.StreamHandler:new(function(self, data)
+  return cleanCaptureStreamHandler(StreamHandler:new(function(self, data)
     table.insert(self._captured.data_list, data ~= nil and data)
   end, function(self, err)
     table.insert(self._captured.error_list, err ~= nil and err)
@@ -28,7 +44,7 @@ end
 
 function Test_streamHandler()
   local t = {}
-  local s = streams.StreamHandler:new(function(_, data)
+  local s = StreamHandler:new(function(_, data)
     t.dataCaptured = data
     t.errCaptured = nil
   end, function(_, err)
@@ -38,18 +54,9 @@ function Test_streamHandler()
   assertStreamHandling(s, t)
 end
 
-function Test_streamHandler_callback()
-  local t = {}
-  local s = streams.StreamHandler:new(function(err, data)
-    t.dataCaptured = data
-    t.errCaptured = err
-  end)
-  assertStreamHandling(s, t)
-end
-
 function Test_callback()
   local t = {}
-  local s = streams.CallbackStreamHandler:new(function(err, data)
+  local s = StreamHandler:new(function(err, data)
     t.dataCaptured = data
     t.errCaptured = err
   end)
@@ -58,7 +65,7 @@ end
 
 function Test_buffered()
   local cs = createCaptureStreamHandler()
-  local s = streams.BufferedStreamHandler:new(cs)
+  local s = BufferedStreamHandler:new(cs)
   lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
   s:onData('Hello')
   lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
@@ -70,7 +77,7 @@ end
 
 function Test_limited()
   local cs = createCaptureStreamHandler()
-  local s = streams.LimitedStreamHandler:new(cs, 10)
+  local s = LimitedStreamHandler:new(cs, 10)
   lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
   s:onData('Hello')
   lu.assertEquals(cs._captured, {data_list = {'Hello'}, error_list = {}})
@@ -80,7 +87,7 @@ end
 
 function Test_chunked()
   local cs = createCaptureStreamHandler()
-  local s = streams.ChunkedStreamHandler:new(cs, '\n')
+  local s = ChunkedStreamHandler:new(cs, '\n')
   lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
   s:onData('Hello')
   lu.assertEquals(cs._captured, {data_list = {}, error_list = {}})
@@ -95,7 +102,7 @@ end
 function Test_multiple()
   local cs1 = createCaptureStreamHandler()
   local cs2 = createCaptureStreamHandler()
-  local s = streams.StreamHandler.multiple(cs1, cs2)
+  local s = StreamHandler.multiple(cs1, cs2)
   lu.assertEquals(cs1._captured, {data_list = {}, error_list = {}})
   lu.assertEquals(cs2._captured, {data_list = {}, error_list = {}})
   s:onData('Hello')
@@ -109,6 +116,30 @@ function Test_multiple()
   s:onError('Ouch')
   lu.assertEquals(cs1._captured, {data_list = {}, error_list = {'Ouch'}})
   lu.assertEquals(cs2._captured, {data_list = {}, error_list = {'Ouch'}})
+end
+
+function Test_block()
+  local cs = createCaptureStreamHandler()
+  local s = BlockStreamHandler:new(cs, 4)
+  assertCaptureStreamHandler(cs)
+  s:onData('Hello world !')
+  assertThenCleanCaptureStreamHandler(cs, {'Hell', 'o wo', 'rld '})
+  s:onData()
+  assertCaptureStreamHandler(cs, {'!', false})
+end
+
+function Test_block_multiple()
+  local cs = createCaptureStreamHandler()
+  local s = BlockStreamHandler:new(cs, 3, true)
+  assertCaptureStreamHandler(cs)
+  s:onData('Hello ')
+  assertThenCleanCaptureStreamHandler(cs, {'Hello '})
+  s:onData('wor')
+  assertThenCleanCaptureStreamHandler(cs, {'wor'})
+  s:onData('ld !')
+  assertThenCleanCaptureStreamHandler(cs, {'ld '})
+  s:onData()
+  assertCaptureStreamHandler(cs, {'!', false})
 end
 
 os.exit(lu.LuaUnit.run())

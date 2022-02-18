@@ -13,11 +13,20 @@ return require('jls.lang.class').create(StreamHandler, function(wrappedStreamHan
   -- @function WrappedStreamHandler:new
   function wrappedStreamHandler:initialize(handler)
     super.initialize(self)
-    self.handler = handler or StreamHandler.null
+    self:setStreamHandler(handler)
   end
 
   function wrappedStreamHandler:getStreamHandler()
     return self.handler
+  end
+
+  function wrappedStreamHandler:setStreamHandler(handler)
+    if handler then
+      self.handler = StreamHandler.ensureStreamHandler(handler)
+    else
+      self.handler = StreamHandler.null
+    end
+    return self
   end
 
   function wrappedStreamHandler:onData(data)
