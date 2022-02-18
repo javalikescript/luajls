@@ -43,11 +43,7 @@ return require('jls.lang.class').create(function(map)
   -- @param key The key of the entry to delete.
   -- @treturn boolean true if an antry has been deleted.
   function map:delete(key)
-    if self[key] == nil then
-      return false
-    end
-    self[key] = nil
-    return true
+    return self:remove(key) ~= nil
   end
 
   --- Removes and returns the entry with the specified key.
@@ -55,10 +51,9 @@ return require('jls.lang.class').create(function(map)
   -- @return the entry removed or nil.
   function map:remove(key)
     local value = self[key]
-    if value == nil then
-      return false
+    if value ~= nil then
+      self[key] = nil
     end
-    self[key] = nil
     return value
   end
 
@@ -80,6 +75,15 @@ return require('jls.lang.class').create(function(map)
   function map:clear()
     for k in pairs(self) do
       self[k] = nil
+    end
+    return self
+  end
+
+  function map:deleteValues(value)
+    for k, v in pairs(self) do
+      if v == value then
+        self[k] = nil
+      end
     end
     return self
   end
@@ -157,6 +161,7 @@ end, function(Map)
   Map.compareKey = compareKey
 
   Map.delete = Map.prototype.delete
+  Map.deleteValues = Map.prototype.deleteValues
   Map.remove = Map.prototype.remove
   Map.size = Map.prototype.size
   Map.keys = Map.prototype.keys
