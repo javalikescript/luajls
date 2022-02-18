@@ -2,6 +2,9 @@
 -- @module jls.lang.StringBuffer
 -- @pragma nostrip
 
+-- TODO rename as StringBuilder
+-- TODO create a StringBuffer
+
 --- A StringBuffer class.
 -- The StringBuffer optimizes the addition of strings in a buffer by avoiding the use of intermediary concatenated string.
 -- @type StringBuffer

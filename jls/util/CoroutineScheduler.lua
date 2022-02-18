@@ -6,7 +6,7 @@ local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local List = require('jls.util.List')
 
---logger = logger:getClass():new(logger.FINEST)
+--logger = logger:getClass():new(logger.FINE)
 
 local TWENTY_FIVE_DAYS_MS = 1000*60*60*24*25
 
@@ -148,8 +148,13 @@ return require('jls.lang.class').create(function(coroutineScheduler)
           end
           local resumeStatus, resumeResult = coroutine.resume(schedule.cr, at, currentTime, timeout)
           local ct = system.currentTimeMillis()
-          if logger:isLoggable(logger.FINEST) then
-            logger:finest('Schedule time is '..tostring(ct - currentTime))
+          if logger:isLoggable(logger.FINE) then
+            local st = ct - currentTime
+            if st > 100 then
+              logger:fine('Schedule time was '..tostring(st))
+            else
+              logger:finest('Schedule time was '..tostring(st))
+            end
           end
           currentTime = ct
           if resumeStatus then
@@ -205,7 +210,11 @@ return require('jls.lang.class').create(function(coroutineScheduler)
         tostring(hasTimeout)..', sleep: '..tostring(nextTime - currentTime))
     end
     if nextTime > currentTime and not hasTimeout and not noWait then
-      system.sleep(nextTime - currentTime)
+      local st = nextTime - currentTime
+      if st > 100 and logger:isLoggable(logger.FINE) then
+        logger:fine('Scheduler sleep time was '..tostring(st))
+      end
+      system.sleep(st)
     end
     return true
   end

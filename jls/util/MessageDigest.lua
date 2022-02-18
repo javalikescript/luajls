@@ -16,7 +16,7 @@ return require('jls.lang.class').create(function(messageDigest)
   function messageDigest:initialize(alg)
     if type(alg) == 'string' then
       self.md = require('jls.util.md.'..alg)
-    elseif type(alg) == 'table' and type(alg.digest) == 'function' then
+    elseif type(alg) == 'table' and type(alg.new) == 'function' then
       self.md = alg
     else
       error('Bad algorithm type')

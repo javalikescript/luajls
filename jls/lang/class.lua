@@ -94,9 +94,9 @@ local function cloneInstance(instance)
   end
 end
 
-local function toString(instance)
-  return instance:toString()
-end
+--local function toString(instance)
+--  return instance:toString()
+--end
 
 --[[--
 Creates a new instance of the specified class.

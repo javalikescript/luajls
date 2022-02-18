@@ -117,6 +117,10 @@ return class.create(function(serialWorker)
     self:wakeup()
   end
 
+  function serialWorker:isWorking()
+    return self.workCallback
+  end
+
   function serialWorker:wakeup()
     if not self.workCallback then
       local work = table.remove(self.works, 1)

@@ -2,6 +2,7 @@
 -- @module jls.lang.runtime
 
 local loader = require('jls.lang.loader')
+local Path = require('jls.io.Path')
 
 local runtime = {}
 
@@ -28,10 +29,10 @@ runtime.exec = loader.lazyFunction(function(ProcessBuilder)
     end
     local pb = ProcessBuilder:new(command)
     if env then
-      pb:environment(env)
+      pb:setEnvironment(env)
     end
     if dir then
-      pb:directory(dir) -- FIXME dir is a file
+      pb:setDirectory(Path.asNormalizedPath(dir))
     end
     return pb:start()
   end
@@ -53,7 +54,7 @@ runtime.execute = loader.lazyFunction(function(Promise, Thread)
     end
   end
 
-    --- Executes the specified command line in a separate thread.
+  --- Executes the specified command line in a separate thread.
   -- The promise will be rejected if the process exit code is not zero.
   -- The error is a table with a code and a kind fields.
   -- @tparam string command The command-line to execute.

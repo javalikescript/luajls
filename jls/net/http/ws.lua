@@ -46,19 +46,20 @@ local function hashWebSocketKey(key)
   return base64.encode(md:digest(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
 end
 
+local math_random = math.random
 local string_char = string.char
 local string_byte = string.byte
 
 local function randomChars(len)
   local buffer = ''
   for _ = 1, len do
-    buffer = buffer..string_char(math.random(0, 255))
+    buffer = buffer..string_char(math_random(0, 255))
   end
   return buffer
 end
 
 local function generateMask()
-  return string_char(math.random(1, 255), math.random(1, 255), math.random(1, 255), math.random(1, 255))
+  return string_char(math_random(1, 255), math_random(1, 255), math_random(1, 255), math_random(1, 255))
 end
 
 local function applyMask(mask, payload)
