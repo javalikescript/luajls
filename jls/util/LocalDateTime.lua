@@ -44,7 +44,7 @@ local WEEK_DAYS = {
 }
 
 --- The LocalDateTime class.
--- The LocalDateTime provides a way to manipulate local date and time.
+-- The LocalDateTime provides a way to manipulate local date and time with milli seconds precision.
 -- @type LocalDateTime
 return require('jls.lang.class').create(function(localDateTime, _, LocalDateTime)
 
@@ -238,12 +238,28 @@ return require('jls.lang.class').create(function(localDateTime, _, LocalDateTime
   end
 
   function localDateTime:plusSeconds(value)
-    local newValue = self.sec + value
-    if newValue >= 60 then
-      self:plusMinutes(newValue // 60)
-      self.sec = newValue % 60
+    local mt = math.type(value)
+    if mt == 'integer' then
+      local newValue = self.sec + math.floor(value)
+      if newValue >= 60 then
+        self:plusMinutes(newValue // 60)
+        self.sec = newValue % 60
+      else
+        self.sec = newValue
+      end
+    elseif mt == 'float' then
+      self:plusMillis(math.floor(value * 1000))
+    end
+    return self
+  end
+
+  function localDateTime:plusMillis(value)
+    local newValue = self.ms + math.floor(value)
+    if newValue >= 1000 then
+      self:plusSeconds(newValue // 1000)
+      self.ms = newValue % 1000
     else
-      self.sec = newValue
+      self.ms = newValue
     end
     return self
   end
@@ -278,14 +294,20 @@ return require('jls.lang.class').create(function(localDateTime, _, LocalDateTime
   end
 
   function localDateTime:toDateString()
-    return string.format('%04d-%02d-%02dT%02d:%02d:%02d', self.year, self.month, self.day)
+    return string.format('%04d-%02d-%02d', self.year, self.month, self.day)
   end
 
-  function localDateTime:toTimeString()
+  function localDateTime:toTimeString(withMillis)
+    if self.ms > 0 or withMillis then
+      return string.format('%02d:%02d:%02d.%03d', self.hour, self.min, self.sec, self.ms)
+    end
     return string.format('%02d:%02d:%02d', self.hour, self.min, self.sec)
   end
 
-  function localDateTime:toString()
+  function localDateTime:toString(withMillis)
+    if self.ms > 0 or withMillis then
+      return string.format('%04d-%02d-%02dT%02d:%02d:%02d.%03d', self.year, self.month, self.day, self.hour, self.min, self.sec, self.ms)
+    end
     return string.format('%04d-%02d-%02dT%02d:%02d:%02d', self.year, self.month, self.day, self.hour, self.min, self.sec)
   end
 

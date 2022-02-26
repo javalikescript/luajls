@@ -54,6 +54,17 @@ end
 function Test_plusSeconds()
   lu.assertEquals(LocalDateTime:new(2017, 12, 4, 14, 1, 17):plusSeconds(1):toString(), '2017-12-04T14:01:18')
   lu.assertEquals(LocalDateTime:new(2017, 12, 4, 14, 1, 17):plusSeconds(70):toString(), '2017-12-04T14:02:27')
+  lu.assertEquals(LocalDateTime:new(2017, 12, 4, 14, 1, 17):plusSeconds(111.11):toString(), '2017-12-04T14:03:08.110')
+  lu.assertEquals(LocalDateTime:new():plusSeconds(111.11):toTimeString(), '00:01:51.110')
+end
+
+function Test_plusMillis()
+  lu.assertEquals(LocalDateTime:new():plusMillis(60000):toTimeString(), '00:01:00')
+  lu.assertEquals(LocalDateTime:new():plusMillis(111111):toTimeString(), '00:01:51.111')
+end
+
+function Test_toDateString()
+  lu.assertEquals(LocalDateTime:new(2017, 12, 4, 14, 1, 17):toDateString(), '2017-12-04')
 end
 
 os.exit(lu.LuaUnit.run())
