@@ -522,6 +522,10 @@ local function returnNil()
   return nil
 end
 
+local function isNearInteger(value)
+  return math.abs(value - math.floor(value + 0.5)) < 0.0000001
+end
+
 local function getSchemaValue(schema, value, translateValues, onError, path)
   if type(schema) ~= 'table' then
     return nil, onError('MISSING_SCHEMA', schema, value, path)
@@ -673,7 +677,7 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
     or schema.exclusiveMaximum and value >= schema.exclusiveMaximum then
       return nil, onError('INVALID_NUMBER_RANGE', schema, value, path)
     end
-    if schema.multipleOf and value % schema.multipleOf ~= 0 then
+    if schema.multipleOf and not isNearInteger(value / schema.multipleOf) then
       return nil, onError('INVALID_NUMBER_MULTIPLE', schema, value, path)
     end
   end
