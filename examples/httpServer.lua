@@ -15,6 +15,8 @@ local Scheduler = require('jls.util.Scheduler')
 local EventPublisher = require("jls.util.EventPublisher")
 local system = require('jls.lang.system')
 
+-- see https://openjdk.java.net/jeps/408
+
 local CONFIG_SCHEMA = {
   title = 'HTTP server',
   type = 'object',
@@ -58,7 +60,7 @@ local CONFIG_SCHEMA = {
       default = '.'
     },
     permissions = {
-      title = 'The root directory permissions',
+      title = 'The root directory permissions, use rlw to enable file upload',
       type = 'string',
       default = 'rl'
     },
@@ -121,7 +123,7 @@ local config = tables.createArgumentTable(system.getArguments(), {
   emptyPath = 'dir',
   helpPath = 'help',
   schema = CONFIG_SCHEMA
-});
+})
 
 logger:setLevel(config.loglevel)
 
