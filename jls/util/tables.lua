@@ -452,10 +452,13 @@ end
 
 function tables.getSchemaByPath(schema, path, separator)
   local key, resultSchema, remainingPath = getPathKeyAndSchema(schema, path, separator)
-  if remainingPath and resultSchema then
-    return tables.getSchemaByPath(resultSchema, remainingPath, separator)
+  if remainingPath then
+    if resultSchema then
+      return tables.getSchemaByPath(resultSchema, remainingPath, separator)
+    end
+  else
+    return resultSchema, schema, key
   end
-  return resultSchema, schema, key
 end
 
 local function mapSchemasByPath(schema, paths, path, separator)
@@ -684,7 +687,7 @@ end
 -- @tparam boolean translateValues true to parse string values and populate objects, default is false.
 -- @tparam function onError a function that will be called when a validation error has been found.
 -- the function is called with the arguments: code, schema, value, path.
--- @treturn table the value validated against the schema.
+-- @return the value validated against the schema.
 function tables.getSchemaValue(schema, value, translateValues, onError)
   return getSchemaValue(schema, value, translateValues, onError or returnError, '')
 end
@@ -694,17 +697,39 @@ end
 local ARGUMENT_PATH_SEPARATOR = '.'
 local ARGUMENT_DEFAULT_PATH = '0'
 
--- Returns a table containing an entry for each argument name.
+local function loadJsonFile(path)
+  local File = require('jls.io.File')
+  local file = File:new(path)
+  if file:exists() then
+    local json = require('jls.util.json')
+    return json.decode(file:readAll())
+  end
+end
+
+local function loadIfString(name)
+  if type(name) == 'string' then
+    return require('jls.lang.loader').load(name, package.path)
+  end
+  return name
+end
+
+--- Returns a table containing an entry for each argument name.
 -- An entry contains a string or a list of string.
 -- An argument name starts with a comma ('-').
 -- @tparam string arguments the command line containing the arguments.
 -- @tparam[opt] table options the options.
--- @tparam[opt] string options.emptyPath the path used for arguments without name, default is zero ('0').
--- @tparam[opt] table options.schema the schema to validate the argument table.
--- @tparam[opt] string options.helpPath the path used to print the help from the schema.
 -- @tparam[opt] string options.separator the path separator, default is the dot ('.').
+-- @tparam[opt] string options.emptyPath the path used for arguments without name, default is zero ('0').
+-- @tparam[opt] table options.defaultValues the default values, could be a module name.
+-- @tparam[opt] string options.helpPath the path used to print the help from the schema.
+-- @tparam[opt] string options.help the help text to display.
+-- @tparam[opt] string options.configPath the path for a configuration file.
+-- @tparam[opt] function options.configLoader the function to load the configuration file, could be a module name.
+-- @tparam[opt] table options.schema the schema to validate the argument table, could be a module name.
 -- @tparam[opt] boolean options.keepComma true to keep leading commas from argument names.
+-- @tparam[opt] string options.argumentPattern the pattern used to match the argument name, default is '^-+(.+)$'.
 -- @treturn table the arguments as a table.
+-- @treturn table the custom arguments from command line and configuration file.
 function tables.createArgumentTable(arguments, options)
   if type(options) ~= 'table' then
     options = {}
@@ -712,16 +737,22 @@ function tables.createArgumentTable(arguments, options)
   local separator = options.separator or ARGUMENT_PATH_SEPARATOR
   local emptyPath = options.emptyPath or ARGUMENT_DEFAULT_PATH
   local argumentPattern = options.argumentPattern or '^-+(.+)$'
+  local argumentPrefix = options.argumentPrefix or '-'
   local keepComma = options.keepComma == true
   local t = {}
   local name = emptyPath
+  local schema = loadIfString(options.schema)
+  if schema and type(schema) ~= 'table' then
+    error('Invalid schema type')
+  end
+  local defaultValues = loadIfString(options.defaultValues)
+  if defaultValues and type(defaultValues) ~= 'table' then
+    error('Invalid default values type')
+  end
   for _, argument in ipairs(arguments) do
     local argumentName = string.match(argument, argumentPattern)
-    if argumentName and name ~= emptyPath and tonumber(argument) then
-      -- Do not accept negative number as argument
-      argumentName = nil
-    end
-    if argumentName then
+    -- Do not accept number as argument name, number is value only
+    if argumentName and not tonumber(argument) then
       name = keepComma and argument or argumentName
       if tables.getPath(t, name, nil, separator) == nil then
         tables.setPath(t, name, true, separator)
@@ -746,22 +777,55 @@ function tables.createArgumentTable(arguments, options)
       name = emptyPath
     end
   end
-  if type(options.defaultValues) == 'table' then
-    tables.merge(t, options.defaultValues)
-  end
-  if options.schema then
-    if options.helpPath and tables.getPath(t, options.helpPath, nil, separator) == true then
-      local schemaPaths = tables.mapSchemasByPath(options.schema, '', separator)
-      local buffer = StringBuffer:new()
-      if options.schema.title then
-        print(tostring(options.schema.title))
+  -- Load configuration file, if specified and found
+  if options.configPath then
+    local configPath = tables.getPath(t, options.configPath, nil, separator)
+    if not configPath and defaultValues then
+      configPath = tables.getPath(defaultValues, options.configPath, nil, separator)
+    end
+    if not configPath and schema then
+      local configSchema = tables.getSchemaByPath(schema, options.configPath, separator)
+      if configSchema then
+        configPath = configSchema.default
       end
-      if options.schema.description then
-        print(tostring(options.schema.description))
+    end
+    if configPath then
+      local configLoader = loadIfString(options.configLoader) or loadJsonFile
+      if type(configLoader) ~= 'function' then
+        error('Invalid config loader type')
+      end
+      local status, result = pcall(configLoader, configPath)
+      if not status then
+        print('Invalid configuration file "'..configPath..'", '..tostring(result))
+        os.exit(1)
+      end
+      if result then
+        tables.merge(t, result, true)
+      end
+    end
+  end
+  local ct = tables.deepCopy(t)
+  -- Merge default values
+  if defaultValues then
+    tables.merge(t, defaultValues, true)
+  end
+  -- Display help
+  if options.helpPath and tables.getPath(t, options.helpPath, nil, separator) == true then
+    if options.help then
+      print(options.help)
+    end
+    if schema then
+      local schemaPaths = tables.mapSchemasByPath(schema, '', separator)
+      local buffer = StringBuffer:new()
+      if schema.title then
+        print(tostring(schema.title))
+      end
+      if schema.description then
+        print(tostring(schema.description))
       end
       print('Arguments:')
       for path, s in Map.spairs(schemaPaths) do
-        buffer:append('  -', path)
+        buffer:append('  ', argumentPrefix, path)
         if s.default ~= nil then
           buffer:append(' =', tables.stringify(s.default))
         end
@@ -780,38 +844,26 @@ function tables.createArgumentTable(arguments, options)
         print(buffer:toString())
         buffer:clear()
       end
-      os.exit(0)
     end
-    local st, serr = tables.getSchemaValue(options.schema, t, true)
+    if defaultValues then
+      print('Default values:')
+      local valuesByPath = tables.mapValuesByPath(defaultValues, '', separator)
+      for path, v in Map.spairs(valuesByPath) do
+        print('  '..argumentPrefix..string.sub(path, 2)..' ='..tostring(v))
+      end
+    end
+    os.exit(0)
+  end
+  -- Validate using schema and add schema default values
+  if schema then
+    local st, serr = tables.getSchemaValue(schema, t, true)
     if serr then
       print(serr)
       os.exit(22)
     end
-    local configPath = options.configPath and tables.getPath(st, options.configPath, nil, separator)
-    if configPath then
-      local File = require('jls.io.File')
-      local configFile = File:new(configPath)
-      if configFile:exists() then
-        local json = require('jls.util.json')
-        local status, result = pcall(json.decode, configFile:readAll())
-        if not status then
-          print('Invalid configuration file "'..configFile:getPath()..'"')
-          os.exit(1)
-        end
-        local ct, cerr = tables.getSchemaValue(options.schema, result)
-        if cerr then
-          print('Invalid configuration file "'..configFile:getPath()..'", '..tostring(cerr))
-          os.exit(22)
-        end
-        tables.merge(st, ct)
-      elseif tables.getPath(t, options.configPath, nil, separator) then
-        print('Configuration file "'..configFile:getPath()..'" not found')
-        os.exit(22)
-      end
-    end
     t = st
   end
-  return t
+  return t, ct
 end
 
 function tables.getArgument(t, name, defaultValue, index, asString, separator)
