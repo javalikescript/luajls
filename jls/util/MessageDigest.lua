@@ -1,4 +1,5 @@
 --- Provide MessageDigest class.
+-- Available algorithms are sha1, md5, Crc32.
 -- @module jls.util.MessageDigest
 
 --- The MessageDigest class.

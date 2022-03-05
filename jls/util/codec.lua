@@ -1,15 +1,15 @@
 --- Provide codec functions.
+-- Available algorithms are base64, deflate, gzip, hex.
 -- @module jls.util.codec
 
 local codec = {}
 
 local CODEC_MAP = {}
 
---[[
-  A codec exposes the following function: decodeStream(sh), encodeStream(sh), decode(d), encode(d)
-  Functions may be omited decode() have a default implementation using decodeStream()
-]]
-function codec.getCodec(alg, ...)
+--- Returns a codec.
+-- @tparam string alg the name of the encoding or decoding algorithm
+-- @return the codec
+function codec.getCodec(alg)
   if type(alg) == 'string' then
     -- TODO wrapped required codec if there are missing methods
     return CODEC_MAP[alg] or require('jls.util.codec.'..alg)
@@ -24,21 +24,33 @@ function codec.registerCodec(alg, m)
   return m
 end
 
+--- Returns the decoded data.
+-- @tparam string alg the name of the decoding algorithm
+-- @tparam string data the data to decode
+-- @treturn string the decoded data
 function codec.decode(alg, data, ...)
   return codec.getCodec(alg).decode(data, ...)
 end
 
+--- Returns the encoded data.
+-- @tparam string alg the name of the encoding algorithm
+-- @tparam string data the data to encode
+-- @treturn string the encoded data
 function codec.encode(alg, data, ...)
   return codec.getCodec(alg).encode(data, ...)
 end
 
+--- Returns an decoding @{jls.io.streams.StreamHandler}.
+-- @tparam string alg the name of the decoding algorithm
+-- @tparam StreamHandler sh the wrapped stream that will handle the decoded data
+-- @treturn StreamHandler the stream handler that will decode data
 function codec.decodeStream(alg, sh, ...)
   return codec.getCodec(alg).decodeStream(sh, ...)
 end
 
 --- Returns an encoding @{jls.io.streams.StreamHandler}.
--- @tparam string alg the name of the encoding or decoding algorithm
--- @tparam StreamHandler stream the wrapped stream that will handle the encoded data
+-- @tparam string alg the name of the encoding algorithm
+-- @tparam StreamHandler sh the wrapped stream that will handle the encoded data
 -- @treturn StreamHandler the stream handler that will encode data
 function codec.encodeStream(alg, sh, ...)
   return codec.getCodec(alg).encodeStream(sh, ...)
