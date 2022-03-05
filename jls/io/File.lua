@@ -269,11 +269,10 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   -- @tparam number maxSize the maximum file size to read
   -- @treturn string the content of this file or nil.
   function file:readAll(maxSize)
-    local fd, err = FileDescriptor.openSync(self.npath)
-    if not fd then
-      return nil, err
+    local st = self:stat()
+    if st == nil then
+      return nil, 'File not found'
     end
-    local st = fd:statSync()
     if st.mode ~= 'file' then
       return nil, 'Not a file'
     end
@@ -282,6 +281,10 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     end
     if st.size > (maxSize or (2^27)) then
       return nil, 'File too big'
+    end
+    local fd, err = FileDescriptor.openSync(self.npath)
+    if not fd then
+      return nil, err
     end
     local content = nil
     content = fd:readSync(st.size)
