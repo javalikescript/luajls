@@ -220,6 +220,11 @@ function StreamHandler.multiple(...)
   return firstStream
 end
 
+function StreamHandler.create(name, ...)
+  local shc = require(string.upper(string.sub(name, 1, 1))..string.sub(name, 2)..'StreamHandler')
+  return shc:new(...)
+end
+
 --- The standard stream writing data to standard output and error to standard error.
 StreamHandler.std = StreamHandler:new(function(err, data)
   if err then
