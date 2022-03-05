@@ -277,7 +277,7 @@ end
 
 --- Loads a module using a specific path.
 -- @tparam string name the name of the module to load
--- @tparam[opt] string path the path of the module to load
+-- @tparam[opt] string path the path of the module to load, could be package.path
 -- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @tparam[opt] boolean asRequire true to be compatible with require by using package.loaded
 -- @return the loaded module or nil if an error occured
@@ -285,22 +285,33 @@ end
 local function load(name, path, try, asRequire)
   if asRequire then
     local m = package.loaded[name]
-    if m then
+    if m ~= nil then
       return m
     end
   end
-  local directorySeparator = string.sub(package.config, 1, 1)
-  local fullname = name
-  if path then
-    fullname = path..directorySeparator..name
+  local filename
+  if path and string.find(path, '%?') then
+    filename = package.searchpath(name, path)
+  else
+    local directorySeparator = string.sub(package.config, 1, 1)
+    filename = string.gsub(name, '%.', directorySeparator)..'.lua'
+    if path then
+      filename = path..directorySeparator..filename
+    end
   end
-  local filename = string.gsub(fullname, '%.', directorySeparator)..'.lua'
   local fn, err = loadfile(filename, 't')
   if fn then
-    local status, modOrErr = pcall(fn)
-    if status and modOrErr ~= nil then
+    local status, modOrErr = pcall(fn, name, filename)
+    if status then
       if asRequire then
-        package.loaded[name] = modOrErr
+        if package.loaded[name] ~= nil then
+          modOrErr = package.loaded[name]
+        else
+          if modOrErr == nil then
+            modOrErr = true
+          end
+          package.loaded[name] = modOrErr
+        end
       end
       return modOrErr
     end
