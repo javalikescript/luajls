@@ -18,6 +18,7 @@ end
 local fs = require('jls.io.fs')
 
 local Path = require('jls.io.Path')
+local FileDescriptor = require('jls.io.FileDescriptor')
 --local logger = require('jls.lang.logger')
 
 --- A File class.
@@ -160,7 +161,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     if type(dest) == 'string' then
       dest = File:new(dest)
     end
-    return os.rename(self.npath, dest.npath)
+    return fs.rename(self.npath, dest.npath)
   end
 
   --- Deletes this file entry.
@@ -174,7 +175,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     if st.mode == 'directory' then
       return fs.rmdir(self.npath)
     else
-      return os.remove(self.npath)
+      return fs.unlink(self.npath)
     end
     error('Cannot delete this file')
   end
@@ -254,7 +255,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
 
   -- listRoots() getFreeSpace() getTotalSpace() getUsableSpace()
 
-  --- Returns the lines of this file.
+  -- Returns the lines of this file.
   -- @treturn table an array containing all the line of this file.
   function file:readAllLines()
     local t = {}
@@ -265,14 +266,26 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   end
 
   --- Returns the content of this file.
-  -- @treturn string the content of this file.
-  function file:readAll()
-    local fd = io.open(self.npath, 'rb')
-    local content = nil
-    if fd then
-      content = fd:read('a')
-      fd:close()
+  -- @tparam number maxSize the maximum file size to read
+  -- @treturn string the content of this file or nil.
+  function file:readAll(maxSize)
+    local fd, err = FileDescriptor.openSync(self.npath)
+    if not fd then
+      return nil, err
     end
+    local st = fd:statSync()
+    if st.mode ~= 'file' then
+      return nil, 'Not a file'
+    end
+    if st.size == 0 then
+      return ''
+    end
+    if st.size > (maxSize or (2^27)) then
+      return nil, 'File too big'
+    end
+    local content = nil
+    content = fd:readSync(st.size)
+    fd:closeSync()
     return content
   end
 
@@ -280,32 +293,25 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   -- @param data the data to write as a string or an array of string
   -- @tparam boolean append true to indicate that the data should be appended to this file
   function file:write(data, append)
-    local mode = 'wb'
-    if append then
-      mode = 'ab'
+    local fd, err = FileDescriptor.openSync(self.npath, append and 'a' or 'w')
+    if not fd then
+      return nil, err
     end
-    local fd = io.open(self.npath, mode)
-    if fd then
-      if type(data) == 'string' then
-        fd:write(data)
-      elseif type(data) == 'table' then
-        for _, d in ipairs(data) do
-          fd:write(d)
-        end
-      else
-        fd:write(tostring(data))
+    if type(data) == 'string' then
+      fd:writeSync(data)
+    elseif type(data) == 'table' then
+      for _, d in ipairs(data) do
+        fd:writeSync(d)
       end
-      fd:close()
+    else
+      fd:writeSync(tostring(data))
     end
+    fd:closeSync()
   end
 
   function file:copyTo(dest)
     local f = File.asFile(dest)
-    -- TODO use async and window buffer
-    local content = self:readAll()
-    if content then
-      f:write(content)
-    end
+    return fs.copyfile(self.npath, f.npath)
   end
 
   -- Returns a File.

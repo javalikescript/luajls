@@ -34,6 +34,9 @@ return {
     return luvLib.fs_mkdir(path, NEW_DIR_MODE)
   end,
   rmdir = luvLib.fs_rmdir,
+  unlink = luvLib.fs_unlink,
+  rename = luvLib.fs_rename,
+  copyfile = luvLib.fs_copyfile,
   dir = function(path)
     local req = luvLib.fs_scandir(path)
     return function()
