@@ -121,9 +121,9 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
       return true
     end
     local isDenied = matchAny(self.denyList, host)
-    self:log(exchange, isDenied and 'denied' or 'unknown', host)
     if isDenied then
       HttpExchange.forbidden(exchange)
+      self:log(exchange, 'denied', host)
       return false
     end
     if self.acceptUnkown then
@@ -131,6 +131,7 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
       return true
     end
     HttpExchange.forbidden(exchange)
+    self:log(exchange, 'forbidden', host)
     return false
   end
 
@@ -214,6 +215,17 @@ local CONFIG_SCHEMA = {
         },
       },
     },
+    loglevel = {
+      title = 'The log level',
+      type = 'string',
+      default = 'WARN',
+      enum = {'ERROR', 'WARN', 'INFO', 'CONFIG', 'FINE', 'FINER', 'FINEST', 'DEBUG', 'ALL'},
+    },
+    globalLoglevel = {
+      title = 'The log level',
+      type = 'string',
+      enum = {'ERROR', 'WARN', 'INFO', 'CONFIG', 'FINE', 'FINER', 'FINEST', 'DEBUG', 'ALL'},
+    },
   },
 }
 
@@ -224,13 +236,19 @@ local config = tables.createArgumentTable(system.getArguments(), {
   schema = CONFIG_SCHEMA
 });
 
+if config.globalLoglevel and config.loglevel ~= config.globalLoglevel then
+  logger:setLevel(config.globalLoglevel)
+  logger = logger:getClass():new()
+end
+logger:setLevel(config.loglevel)
+
 local httpServer = HttpServer:new()
 httpServer:bind(config.server.address, config.server.port):next(function()
   logger:info('Proxy server bound to "'..config.server.address..'" on port '..tostring(config.server.port))
   local proxyHandler = ProxyHandler:new(config.proxy)
   httpServer:createContext('(.*)', proxyHandler)
   event:setInterval(function()
-    logger:fine('Proxy saved')
+    logger:finer('Proxy saved')
     proxyHandler:save(config.proxy)
   end, math.floor(config.heartbeat * 1000))
 

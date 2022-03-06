@@ -1,9 +1,9 @@
---- Provide color functions.
+-- Provide color functions.
 -- @module jls.util.color
 
 local color = {}
 
---- Transforms a color expressed with hue, saturation and value to red, green and blue.
+-- Transforms a color expressed with hue, saturation and value to red, green and blue.
 -- @tparam number h the hue value from 0 to 1.
 -- @tparam number s the saturation value from 0 to 1.
 -- @tparam number v the value from 0 to 1.

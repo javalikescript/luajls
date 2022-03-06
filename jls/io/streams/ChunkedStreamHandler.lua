@@ -111,7 +111,7 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
   end
 
   function ChunkedStreamHandler.createPatternFinder(pattern, plain)
-    return function(_, buffer)
+    return function(_, buffer, length)
       local ib, ie = string.find(buffer, pattern, 1, plain)
       if ib then
         return ib - 1, ie + 1

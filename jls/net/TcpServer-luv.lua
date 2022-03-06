@@ -17,7 +17,7 @@ end
 -- @type TcpServer
 return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpServer, super)
 
-  function tcpServer:close(callback)
+    function tcpServer:close(callback)
     if logger:isLoggable(logger.FINER) then
       logger:finer('tcpServer:close()')
     end
@@ -26,10 +26,13 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpServer, s
       local server = self
       super.close(self, function(err)
         if err then
-          server.tcp2:close()
-          return cb(err)
+          server.tcp2:close(false)
+          if cb then
+            cb(err)
+          end
+        else
+          server.tcp2:close(cb)
         end
-        server.tcp2:close(cb)
       end)
       return d
     end
