@@ -493,6 +493,7 @@ local SCHEMA_ERRORS = {
   INCOMPATIBLE_VALUE_TYPE = 'Incompatible value type',
   CANNOT_PARSE_VALUE = 'Cannot parse value',
   INVALID_CONST_VALUE = 'Invalid const value',
+  INVALID_ENUM_VALUE = 'Invalid enum value',
   INVALID_INTEGER_VALUE = 'Invalid integer value',
   INVALID_STRING_LENGTH = 'Invalid string length value',
   INVALID_STRING_PATTERN = 'Invalid string pattern value',
@@ -513,7 +514,7 @@ local function returnError(code, schema, value, path, tip)
     message = message..', value is "'..tostring(value)..'"('..valueType..')'
   end
   if schema and valueType ~= schema.type then
-    message = message..', expected type is '..schema.type
+    message = message..', expected type is '..tostring(schema.type)
   end
   return message
 end
@@ -538,7 +539,10 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
     -- TODO support type list
     return nil, onError('INVALID_SCHEMA_TYPE', schema, value, path)
   elseif value == nil then
-    return schema.default
+    if translateValues then
+      return schema.default or schema.const
+    end
+    return nil
   elseif type(value) == 'table' then
     -- TODO patternProperties
     if schemaType == 'object' then
@@ -585,20 +589,22 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
     local t = {}
     if schemaType == 'array' then
       local itemSchema = schema.items
-      if not itemSchema then
+      if itemSchema then
+        for i, v in ipairs(value) do
+          local sv, err = getSchemaValue(itemSchema, v, true, onError, path..'['..tostring(i)..']')
+          if err then
+            return nil, err
+          end
+          t[i] = sv
+        end
+      else
         return value
       end
-      for i, v in ipairs(value) do
-        local sv, err = getSchemaValue(itemSchema, v, true, onError, path..'['..tostring(i)..']')
-        if err then
-          return nil, err
-        end
-        t[i] = sv
-      end
     else -- object
-      if schema.properties then
+      local propSchema = schema.properties
+      if propSchema then
         for k, v in pairs(value) do
-          local propertySchema = schema.properties[k]
+          local propertySchema = propSchema[k]
           if propertySchema then
             local sp = tostring(k)
             if path ~= '' then
@@ -613,15 +619,19 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
             t[k] = v
           end
         end
-        for k, propertySchema in pairs(schema.properties) do
+        for k, propertySchema in pairs(propSchema) do
           if value[k] == nil then
             if propertySchema.default ~= nil then
               t[k] = propertySchema.default
+            elseif propertySchema.const ~= nil then
+              t[k] = propertySchema.const
             elseif propertySchema.type == 'object' then
               t[k] = getSchemaValue(propertySchema, {}, true, returnNil, path)
             end
           end
         end
+      else
+        return value
       end
     end
     return t
@@ -661,8 +671,11 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
       return nil, onError('INCOMPATIBLE_VALUE_TYPE', schema, value, path)
     end
   end
-  if schema.const and value ~= schema.const then
+  if schema.const ~= nil and value ~= schema.const then
     return nil, onError('INVALID_CONST_VALUE', schema, value, path)
+  end
+  if schema.enum ~= nil and not List.contains(schema.enum, value) then
+    return nil, onError('INVALID_ENUM_VALUE', schema, value, path)
   end
   if schemaType == 'string' then
     if schema.minLength and #value < schema.minLength or schema.maxLength and #value > schema.maxLength then
@@ -684,12 +697,12 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
   return value
 end
 
--- Returns the value validated by the JSON schema or nil.
+--- Returns the value validated by the JSON schema or nil.
 -- See https://json-schema.org/
 -- @tparam table schema the JSON schema.
 -- @param value the value to get from.
--- @tparam boolean translateValues true to parse string values and populate objects, default is false.
--- @tparam function onError a function that will be called when a validation error has been found.
+-- @tparam[opt] boolean translateValues true to parse string values and populate objects, default is false.
+-- @tparam[opt] function onError a function that will be called when a validation error has been found.
 -- the function is called with the arguments: code, schema, value, path.
 -- @return the value validated against the schema.
 function tables.getSchemaValue(schema, value, translateValues, onError)
@@ -712,6 +725,11 @@ end
 
 local function loadIfString(name)
   if type(name) == 'string' then
+    local path = package.searchpath(name, string.gsub(package.path, '%.lua', '.json'))
+    print('loadIfString', name, path)
+    if path then
+      return loadJsonFile(path)
+    end
     return require('jls.lang.loader').load(name, package.path)
   end
   return name
