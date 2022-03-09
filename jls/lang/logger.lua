@@ -16,8 +16,8 @@ The JLS\_LOGGER\_LEVEL environment variable could be used to indicate the log le
 local logger = require('jls.lang.logger')
 logger:info('Some usefull information message')
 
-if logger:isLoggable(logger.DEBUG) then
-  logger:debug('Some debug message')
+if logger:isLoggable(logger.FINE) then
+  logger:fine('Some fine message')
 end
 
 @module jls.lang.logger
