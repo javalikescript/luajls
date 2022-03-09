@@ -4,6 +4,7 @@
 
 --local logger = require("jls.lang.logger")
 local StringBuffer = require('jls.lang.StringBuffer')
+local Map = require('jls.util.Map')
 
 --- The Url class represents an Uniform Resource Locator.
 -- see https://tools.ietf.org/html/rfc1738
@@ -240,18 +241,48 @@ return require('jls.lang.class').create(function(url, _, Url)
     elseif tUrl.path then
       buffer:append(tUrl.path)
     end
-    return buffer:toString()
+    return buffer
+  end
+
+  local function formatQuery(buffer, query, keyValues)
+    local needAmp = false
+    if query then
+      buffer:append('?')
+      buffer:append(query)
+      needAmp = true
+    end
+    if type(keyValues) == 'table' then
+      for key, value in Map.spairs(keyValues) do
+        if needAmp then
+          buffer:append('&')
+        else
+          buffer:append('?')
+          needAmp = true
+        end
+        buffer:append(Url.encodeURIComponent(key))
+        buffer:append('=')
+        buffer:append(Url.encodeURIComponent(value))
+      end
+    end
+    return buffer
   end
 
   local function formatHttp(tUrl)
-    local sUrl = formatCommon(tUrl)
-    if tUrl.query then
-      sUrl = sUrl..'?'..tUrl.query
-    end
+    local buffer = formatCommon(tUrl)
+    formatQuery(buffer, tUrl.query, tUrl.queryValues)
     if tUrl.fragment then
-      sUrl = sUrl..'#'..tUrl.fragment
+      buffer:append('#')
+      buffer:append(tUrl.fragment)
     end
-    return sUrl
+    return buffer
+  end
+
+  --- Returns the query representing the key value pairs including the question mark.
+  -- @tparam table keyValues the key value pairs.
+  -- @tparam[opt] string query the base query to add key values.
+  -- @return the query representing the key value pairs.
+  function Url.mapToQuery(keyValues, query)
+    return formatQuery(StringBuffer:new(), query, keyValues):toString()
   end
 
   --- Returns the string value representing the specified Url.
@@ -259,9 +290,9 @@ return require('jls.lang.class').create(function(url, _, Url)
   -- @return the string value representing the Url.
   function Url.format(tUrl)
     if tUrl.scheme == 'http' or tUrl.scheme == 'https' then
-      return formatHttp(tUrl)
+      return formatHttp(tUrl):toString()
     end
-    return formatCommon(tUrl)
+    return formatCommon(tUrl):toString()
   end
 
   local function encodePercent(value, pattern)
