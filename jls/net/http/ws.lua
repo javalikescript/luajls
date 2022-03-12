@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
+local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -343,19 +344,19 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
     return client:connect():next(function()
       return client:sendReceive()
     end):next(function(response)
-      if response:getStatusCode() == HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('webSocket:open() Switching protocols')
-        end
-        -- TODO Check accept key
-        self.tcp = client:getTcpClient()
-      else
+      if response:getStatusCode() ~= HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
         client:close()
-        logger:warn('webSocket:open() bad status code '..tostring(response:getStatusCode()))
+        return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
       end
-    end, function(err)
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('webSocket:open() Switching protocols')
+      end
+      -- TODO Check accept key
+      self.tcp = client:getTcpClient()
+    end, function(reason)
       client:close()
-      logger:warn('webSocket:open() error '..tostring(err))
+      logger:fine('webSocket:open() error: "'..tostring(reason)..'"')
+      return Promise.reject(reason)
     end)
   end
 
