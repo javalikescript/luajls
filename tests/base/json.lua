@@ -96,4 +96,9 @@ function Test_stringify_parse()
   end
 end
 
+function Test_stringify_parse()
+  local s = '["Hello world !",123,1.23,true,null,false]'
+  lu.assertEquals(json.stringify(json.parse(s)), s)
+end
+
 os.exit(lu.LuaUnit.run())

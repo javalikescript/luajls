@@ -84,7 +84,7 @@ function json.stringify(value, space)
   end
   local function stringify(val, prefix)
     local valueType = type(val)
-    if value == json.null then
+    if val == json.null then
       sb:append('null')
     elseif valueType == 'table' then
       local subPrefix = prefix..indent
@@ -142,7 +142,7 @@ function json.stringify(value, space)
     elseif valueType == 'boolean' then
       sb:append(val and 'true' or 'false')
     else
-      error('Invalid value type '..valueType)
+      error('Invalid value type '..valueType..' ('..tostring(val)..')')
     end
   end
   stringify(value, '')
