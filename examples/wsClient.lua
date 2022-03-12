@@ -24,7 +24,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
         pattern = '^wss?://.+$',
       },
       read = {
-        title = 'Read and print incoming messages',
+        title = 'Read and print incoming text messages',
         type = 'boolean',
         default = true
       },

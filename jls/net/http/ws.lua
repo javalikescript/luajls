@@ -5,6 +5,7 @@
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
+local StringBuffer = require('jls.lang.StringBuffer')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
 local base64 = require('jls.util.base64')
@@ -91,13 +92,13 @@ end
 
 local function read2BytesHeader(buffer)
   local b1, b2 = string_byte(buffer, 1, 2)
-  local fin = (b1 >> 7) == 0x01
+  local fin = (b1 & 0x80) == 0x80
   local rsv = (b1 >> 4) & 0x07
   local opcode = b1 & 0x0f
-  local mask = (b2 >> 7) == 0x01
+  local mask = (b2 & 0x80) == 0x80
   local len = b2 & 0x7f
-  if logger:isLoggable(logger.FINER) then
-    logger:finer('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
+  if logger:isLoggable(logger.FINEST) then
+    logger:finest('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
   end
   -- Payload length:  7 bits, 7+16 bits, or 7+64 bits
   -- If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
@@ -173,6 +174,8 @@ local WebSocketBase = class.create(function(webSocketBase)
     -- A client MUST mask all frames that it sends to the server
     -- A client MUST NOT mask any frames that it sends to the client
     self.mask = client == true
+    self.contOpCode = 0
+    self.contBuffer = StringBuffer:new()
   end
 
   function webSocketBase:onReadError(err)
@@ -200,16 +203,64 @@ local WebSocketBase = class.create(function(webSocketBase)
     end
   end
 
-  function webSocketBase:onReadFrame(fin, opcode, payload)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('webSocketBase:onReadFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(#payload)..')')
+  function webSocketBase:onPong(data)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webSocketBase:onPong("'..tostring(data)..'")')
     end
-    if fin then
-      if opcode == CONST.OP_CODE_TEXT_FRAME then
-        self:onTextMessage(payload)
-      elseif opcode == CONST.OP_CODE_BINARY_FRAME then
-        self:onBinaryMessage(payload)
+  end
+
+  function webSocketBase:onReadFrameFin(opcode, payload)
+    if opcode == CONST.OP_CODE_TEXT_FRAME then
+      self:onTextMessage(payload)
+    elseif opcode == CONST.OP_CODE_BINARY_FRAME then
+      self:onBinaryMessage(payload)
+    end
+  end
+
+  function webSocketBase:handleExtension(fin, opcode, payload, rsv)
+    if rsv == 0 then
+      return payload
+    end
+    return nil
+  end
+
+  function webSocketBase:onReadFrame(fin, opcode, payload, rsv)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('webSocketBase:onReadFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(#payload)..', '..tostring(rsv)..')')
+    end
+    local appData = self:handleExtension(fin, opcode, payload, rsv)
+    if not appData then
+      logger:warn('webSocketBase:readStart() unsupported extension, '..tostring(rsv))
+      self:readStop()
+      self:close(false)
+      return
+    end
+    if opcode == CONST.OP_CODE_CONTINUATION then
+      self.contBuffer:append(appData)
+      if fin then
+        self:onReadFrameFin(self.contOpCode, self.contBuffer:toString())
+        self.contBuffer:clear()
+        self.contOpCode = 0
       end
+    elseif opcode == CONST.OP_CODE_TEXT_FRAME or opcode == CONST.OP_CODE_BINARY_FRAME then
+      if fin then
+        self:onReadFrameFin(opcode, appData)
+      else
+        self.contOpCode = opcode
+        self.contBuffer:clear()
+        self.contBuffer:append(appData)
+      end
+    elseif opcode == CONST.OP_CODE_PING then
+      self:sendFrame(true, CONST.OP_CODE_PONG, self.mask, appData)
+    elseif opcode == CONST.OP_CODE_PONG then
+      self:onPong(appData)
+    elseif opcode == CONST.OP_CODE_CLOSE then
+      self:readStop()
+      self:close(false)
+    else
+      logger:warn('webSocketBase:onReadFrame() unsupported op code: '..tostring(opcode))
+      self:readStop()
+      self:close(false)
     end
   end
 
@@ -232,7 +283,7 @@ local WebSocketBase = class.create(function(webSocketBase)
           if bufferLength < 2 then
             break
           end
-          local fin, opcode, len, sizeLength, maskLength = read2BytesHeader(buffer)
+          local fin, opcode, len, sizeLength, maskLength, rsv = read2BytesHeader(buffer)
           local headerLength = 2 + sizeLength + maskLength
           if bufferLength < headerLength then
             break
@@ -241,32 +292,29 @@ local WebSocketBase = class.create(function(webSocketBase)
           if sizeLength > 0 then
               len = 0
               for i = idx, idx + sizeLength - 1 do
-                  len = (len * 256) + string_byte(data, i)
+                  len = (len * 256) + string_byte(buffer, i)
               end
               idx = idx + sizeLength
           end
           local maskChars
           if maskLength > 0 then
-              maskChars = string.sub(data, idx, idx + maskLength - 1)
+              maskChars = string.sub(buffer, idx, idx + maskLength - 1)
               idx = idx + maskLength
           end
           local frameLength = headerLength + len
           if bufferLength < frameLength then
             break
           end
-          local payload = string.sub(data, idx, idx + len - 1)
+          local payload = string.sub(buffer, idx, idx + len - 1)
           if maskChars then
               payload = applyMask(maskChars, payload)
           end
-          local remainingBuffer
           if bufferLength == frameLength then
-            remainingBuffer = ''
+            buffer = ''
           else
-            remainingBuffer = string.sub(buffer, frameLength + 1)
-            buffer = string.sub(buffer, 1, frameLength)
+            buffer = string.sub(buffer, frameLength + 1)
           end
-          self:onReadFrame(fin, opcode, payload)
-          buffer = remainingBuffer
+          self:onReadFrame(fin, opcode, payload, rsv)
         end
       end
     end)
