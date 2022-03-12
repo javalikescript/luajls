@@ -163,7 +163,7 @@ return require('jls.lang.class').create(function(httpClient)
     end
     local u = URL:new(url)
     local target = u:getFile()
-    self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss' or u:getPort() == 443
+    self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
     self.host = u:getHost()
     self.port = u:getPort()
     self.target = target
