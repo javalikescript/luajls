@@ -434,7 +434,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
       self:onPong()
     elseif packetType == CONTROL_PACKET_TYPE.SUBACK then
       local packetId = decodeUInt16(data, offset)
-      local returnCodes = string.byte(data, offset + 2)
+      local returnCodes = table.pack(string.byte(data, offset + 2, len))
       if logger:isLoggable(logger.FINER) then
         logger:finer('subscribed('..tostring(packetId)..', #'..tostring(#returnCodes)..')')
       end
@@ -455,7 +455,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   end
 
   function mqttClient:onPong()
-    logger:info('mqttClient:onPong()')
+    logger:fine('mqttClient:onPong()')
   end
 
   function mqttClient:onPacketId(packetId, reason, value)
@@ -575,6 +575,10 @@ local function topicFilterToPattern(filter)
   if filter == '#' then
     return '^[^%$].*$'
   end
+  -- escape magic characters except +
+  filter = string.gsub(filter, '[%^%$%(%)%%%.%[%]%*%-%?]', function(c)
+    return '%'..c
+  end)
   -- TODO check for + or # used outside a / level
   return '^'..string.gsub(string.gsub(string.gsub(filter, '^%+', '[^%$/][^/]*'), '%+', '[^/]+'), '/%#$', '.*')..'$'
 end
@@ -702,6 +706,9 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
       self:unregisterClient()
       self:close()
     elseif packetType == CONTROL_PACKET_TYPE.PINGREQ then
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('Ping from client "'..tostring(self.clientId)..'"')
+      end
       self:writePacket(CONTROL_PACKET_TYPE.PINGRESP)
     else
       super.onReadPacket(self, packetType, packetFlags, data, offset, len)

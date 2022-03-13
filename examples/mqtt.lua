@@ -30,6 +30,10 @@ Allows to start a MQTT broker.]],
         title = 'The message to publish, disable the subscribe',
         type = 'string'
       },
+      pub = {
+        title = 'The message to publish after subscribed',
+        type = 'string'
+      },
       subscribe = {
         title = 'The topic to subscribe to, the topic and message are print to stdout',
         type = 'string',
@@ -59,6 +63,11 @@ Allows to start a MQTT broker.]],
       },
       ping = {
         title = 'sends a ping, disable publish/subscribe',
+        type = 'boolean',
+        default = false
+      },
+      connect = {
+        title = 'connects and close, disable publish/subscribe',
         type = 'boolean',
         default = false
       },
@@ -100,6 +109,11 @@ local function client()
       else
         mqttClient:subscribe(options.subscribe, options.qos):next(function()
           print('subscribed', options.subscribe)
+          if options.pub then
+            mqttClient:publish(options.topic, options.pub, options):next(function()
+              print('pub', options.topic)
+            end)
+          end
         end)
       end
     end)
