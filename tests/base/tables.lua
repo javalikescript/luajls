@@ -208,7 +208,8 @@ function Test_getSchemaValue_object()
     type = 'object',
     properties = {
       name = {
-        type = 'string'
+        type = 'string',
+        default = 'Def'
       },
       count = {
         type = 'integer',
@@ -218,6 +219,12 @@ function Test_getSchemaValue_object()
         type = 'boolean',
         default = false
       },
+      s = {
+        type = 'string'
+      },
+      n = {
+        type = 'number'
+      },
     }
   }
   lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Bag', count = 3, available = true}, true),
@@ -225,6 +232,7 @@ function Test_getSchemaValue_object()
   lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Tea', count = '2', available = 'false'}, true),
     {name = 'Tea', count = 2, available = false})
   lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Cup'}, true), {name = 'Cup', count = 1, available = false})
+  lu.assertEquals(getSchemaValueOrFail(schema, {}, true), {name = 'Def', count = 1, available = false})
 end
 
 function Test_createArgumentTableWithCommas()
