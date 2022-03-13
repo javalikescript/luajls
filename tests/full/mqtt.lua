@@ -5,39 +5,49 @@ local loop = require('jls.lang.loopWithTimeout')
 local mqtt = require('jls.net.mqtt')
 
 function Test_pubsub()
-  local hostname, port = 'localhost', 1883
+  local hostname, port = 'localhost', 0
   local topicName, payload = 'test', 'Hello world!'
   local topicNameReceived, payloadReceived
 
   local mqttServer = mqtt.MqttServer:new()
   local mqttClientSub = mqtt.MqttClient:new()
-  function mqttClientSub:onPublish(topicName, payload, dup, qos, retain)
-    logger:info('mqttClientSub:onPublish('..tostring(topicName)..')')
-    topicNameReceived = topicName
-    payloadReceived = payload
+  function mqttClientSub:onMessage(tn, pl)
+    logger:info('mqttClientSub:onMessage('..tostring(tn)..')')
+    topicNameReceived = tn
+    payloadReceived = pl
     self:close()
     mqttServer:close()
   end
   local mqttClientPub = mqtt.MqttClient:new()
   logger:info('mqttServer:bind()')
-  mqttServer:bind():next(function()
+  mqttServer:bind(nil, port):next(function()
+    if port == 0 then
+      port = select(2, mqttServer:getAddress())
+      logger:info('mqttServer bound on '..tostring(port))
+    end
     logger:info('mqttClientSub:connect()')
-    return mqttClientSub:connect()
+    return mqttClientSub:connect(hostname, port)
   end):next(function()
     logger:info('mqttClientSub:subscribe()')
     mqttClientSub:subscribe(topicName, 0)
     logger:info('mqttClientPub:connect()')
-    return mqttClientPub:connect()
+    return mqttClientPub:connect(hostname, port)
   end):next(function()
     logger:info('mqttClientPub:publish()')
     return mqttClientPub:publish(topicName, payload)
   end):next(function()
     logger:info('mqttClientPub:close()')
     mqttClientPub:close()
+  end):catch(function(reason)
+    logger:warn('something goes wrong '..tostring(reason))
+    mqttServer:close()
+    mqttClientPub:close()
+    mqttClientSub:close()
   end)
   if not loop(function()
     mqttServer:close()
     mqttClientPub:close()
+    mqttClientSub:close()
   end) then
     lu.fail('Timeout reached')
   end

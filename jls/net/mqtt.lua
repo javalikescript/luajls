@@ -740,12 +740,16 @@ local MqttServer = class.create(function(mqttServer)
 
   --- Binds this server to the specified address and port number.
   -- @tparam string node the address, the address could be an IP address or a host name.
-  -- @tparam number port the port number.
+  -- @tparam[opt] number port the port number, 0 to let the system automatically choose a port, default is 1883.
   -- @tparam[opt] number backlog the accept queue size, default is 32.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the server is bound.
   function mqttServer:bind(node, port, backlog, callback)
     return self.tcpServer:bind(node or '::', port or 1883, backlog, callback)
+  end
+
+  function mqttServer:getAddress()
+    return self.tcpServer:getLocalName()
   end
 
   --- Closes this server.

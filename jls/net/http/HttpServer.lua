@@ -150,6 +150,7 @@ return require('jls.lang.class').create('jls.net.http.HttpContextHolder', functi
   function httpServer:getAddress()
     return self.tcpServer:getLocalName()
   end
+
   --- Closes this server.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the server is closed.

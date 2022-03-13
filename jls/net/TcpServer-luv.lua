@@ -89,7 +89,7 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpServer, s
 
   --- Binds this server to the specified address and port number.
   -- @tparam string node the address, the address could be an IP address or a host name.
-  -- @tparam number port the port number.
+  -- @tparam number port the port number, 0 to let the system automatically choose a port.
   -- @tparam[opt] number backlog the accept queue size, default is 32.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the server is bound.
