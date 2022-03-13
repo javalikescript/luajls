@@ -149,4 +149,12 @@ function json.stringify(value, space)
   return sb:toString()
 end
 
+function json.require(name)
+  local File = require('jls.io.File')
+  local jsonpath = string.gsub(package.path, '%.lua', '.json')
+  local path = assert(package.searchpath(name, jsonpath))
+  local file = File:new(path)
+  return json.decode(file:readAll())
+end
+
 return json
