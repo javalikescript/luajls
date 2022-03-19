@@ -65,7 +65,7 @@ return require('jls.lang.class').create(function(httpContextHolder)
 
   function httpContextHolder:removeContext(pathOrContext)
     if type(pathOrContext) == 'string' then
-      local context = self:findContext(pathOrContext)
+      local context = self:getContext(pathOrContext)
       if context then
         List.removeFirst(self.contexts, context)
       end
@@ -107,6 +107,15 @@ return require('jls.lang.class').create(function(httpContextHolder)
   function httpContextHolder:setParentContextHolder(parent)
     self.parentContextHolder = parent
     return self
+  end
+
+  function httpContextHolder:getContext(path)
+    for _, context in ipairs(self.contexts) do
+      if context:getPath() == path then
+        return context
+      end
+    end
+    return nil
   end
 
   function httpContextHolder:findContext(path, request)
