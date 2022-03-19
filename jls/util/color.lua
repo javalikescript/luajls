@@ -35,7 +35,7 @@ function color.hsvToRgb(h, s, v)
   return r + m, g + m, b + m
 end
 
---- Transforms a color expressed with red, green and blue to hue, saturation and value.
+-- Transforms a color expressed with red, green and blue to hue, saturation and value.
 -- @tparam number r the red component value from 0 to 1.
 -- @tparam number g the green component value from 0 to 1.
 -- @tparam number b the blue component value from 0 to 1.
