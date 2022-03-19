@@ -97,12 +97,19 @@ function Test_setPath_list()
 end
 
 local function assertMergePath(t, p, v, nt)
-  tables.mergePath(t, p, v)
+  local rt = table.pack(tables.mergePath(t, p, v))
   lu.assertEquals(t, nt)
+  return table.unpack(rt)
 end
 
 function Test_mergePath_flat()
   assertMergePath({a = {b = true}}, 'a', {c = true}, {a = {b = true, c = true}})
+end
+
+function Test_mergePath_empty()
+  local v = {}
+  local r = assertMergePath({a = {b = true}}, 'a/c', v, {a = {b = true, c = {}}})
+  lu.assertIs(r, v)
 end
 
 local function assertRemovePath(t, p, nt)

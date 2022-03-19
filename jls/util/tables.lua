@@ -316,7 +316,7 @@ function tables.setPath(t, path, value, separator)
     return tables.setPath(v, remainingPath, value, separator)
   end
   t[key] = value
-  return v
+  return v, t, key
 end
 
 function tables.mergePath(t, path, value, keep, separator)
@@ -332,9 +332,9 @@ function tables.mergePath(t, path, value, keep, separator)
   end
   if type(v) ~= 'table' then
     t[key] = value
-  else
-    tables.merge(t[key], value, keep)
+    return value
   end
+  tables.merge(v, value, keep)
   return v
 end
 
@@ -357,7 +357,7 @@ function tables.removePath(t, path, separator)
   else
     t[key] = nil
   end
-  return value
+  return value, t, key
 end
 
 local function mapValuesByPath(t, paths, path, separator)
