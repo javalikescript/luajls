@@ -172,7 +172,7 @@ local WebSocketBase = class.create(function(webSocketBase)
   function webSocketBase:initialize(tcp, client)
     self.tcp = tcp
     -- A client MUST mask all frames that it sends to the server
-    -- A client MUST NOT mask any frames that it sends to the client
+    -- A server MUST NOT mask any frames that it sends to the client
     self.mask = client == true
     self.contOpCode = 0
     self.contBuffer = StringBuffer:new()
@@ -188,7 +188,17 @@ local WebSocketBase = class.create(function(webSocketBase)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is closed.
   function webSocketBase:close(callback)
-    return self.tcp:close(callback)
+    if self.tcp then
+      local tcp = self.tcp
+      self.tcp = nil
+      return tcp:close(callback)
+    end
+    if callback == nil then
+      return Promise.resolve()
+    end
+    if callback then
+      callback()
+    end
   end
 
   function webSocketBase:onTextMessage(message)
@@ -206,6 +216,12 @@ local WebSocketBase = class.create(function(webSocketBase)
   function webSocketBase:onPong(data)
     if logger:isLoggable(logger.FINE) then
       logger:fine('webSocketBase:onPong("'..tostring(data)..'")')
+    end
+  end
+
+  function webSocketBase:onClose()
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webSocketBase:onClose()')
     end
   end
 
@@ -257,6 +273,7 @@ local WebSocketBase = class.create(function(webSocketBase)
     elseif opcode == CONST.OP_CODE_CLOSE then
       self:readStop()
       self:close(false)
+      self:onClose()
     else
       logger:warn('webSocketBase:onReadFrame() unsupported op code: '..tostring(opcode))
       self:readStop()
@@ -339,7 +356,7 @@ local WebSocketBase = class.create(function(webSocketBase)
     if logger:isLoggable(logger.FINER) then
       logger:finer('webSocketBase:sendTextMessage("'..tostring(message)..'")')
     end
-    return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, message, callback)
+    return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, tostring(message), callback)
   end
 
 end)
@@ -369,7 +386,7 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
   -- @tparam string url A table describing the client options.
   -- @return a new WebSocket
   function webSocket:initialize(url, protocols)
-    super.initialize(self, true)
+    super.initialize(self, nil, true)
     self.url = url
     self.protocols = protocols
   end
