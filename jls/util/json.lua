@@ -67,6 +67,9 @@ end
 -- @return the encoded string.
 -- @function stringify
 function json.stringify(value, space)
+  if value == nil then
+    return 'null'
+  end
   local sb = StringBuffer:new()
   local indent = ''
   if type(space) == 'number' and space > 1 then
