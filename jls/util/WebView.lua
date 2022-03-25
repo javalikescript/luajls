@@ -371,7 +371,7 @@ end, function(WebView)
     local HttpServer = require('jls.net.http.HttpServer')
     local httpServer = HttpServer:new()
     local wsPromise
-    return httpServer:bind(tUrl.host, tUrl.port):next(function()
+    return httpServer:bind(options.bindAny and '::' or tUrl.host, tUrl.port):next(function()
       if type(options.contexts) == 'table' then
         httpServer:addContexts(options.contexts)
       end
