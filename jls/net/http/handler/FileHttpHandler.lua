@@ -235,12 +235,16 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         HttpExchange.forbidden(httpExchange)
       end
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
-      if isDirectoryPath then
-        file:mkdir() -- TODO Handle errors
+      if self.allowUpdate or not file:exists() then
+        if isDirectoryPath then
+          file:mkdir() -- TODO Handle errors
+        else
+          self:receiveFile(httpExchange, file)
+        end
+        HttpExchange.ok(httpExchange)
       else
-        self:receiveFile(httpExchange, file)
+        HttpExchange.forbidden(httpExchange)
       end
-      HttpExchange.ok(httpExchange)
     elseif method == HTTP_CONST.METHOD_DELETE and self.allowDelete then
       if self.allowDeleteRecursive then
         file:deleteRecursive() -- TODO Handle errors

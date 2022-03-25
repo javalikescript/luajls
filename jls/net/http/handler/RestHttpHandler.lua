@@ -51,13 +51,13 @@ local function prepareHandlers(handlers)
         end
         info.args = {} -- to force processing query filters
       end
-      p, q = string.match(path, '^(.*)%((%a[%a%d_,%s]*)%)$')
+      p, q = string.match(path, '^(.*)%(([%a_][%a%d_,%s]*)%)$')
       if p then
         path = p
         info.args = strings.split(q, '%s*,%s*')
       end
     end
-    local capture = string.match(path, '^{(%a[%a%d_]*)}$')
+    local capture = string.match(path, '^{([%a_][%a%d_]*)}$')
     if capture then
       path = REST_ANY
       addAt(infosByPath, REST_ALL, {
