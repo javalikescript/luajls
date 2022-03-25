@@ -16,9 +16,9 @@ return require('jls.lang.class').create(function(messageDigest)
   --md:digest('The quick brown fox jumps over the lazy dog')
   function messageDigest:initialize(alg)
     if type(alg) == 'string' then
-      self.md = require('jls.util.md.'..alg)
+      self.mdClass = require('jls.util.md.'..alg)
     elseif type(alg) == 'table' and type(alg.new) == 'function' then
-      self.md = alg
+      self.mdClass = alg
     else
       error('Bad algorithm type')
     end
@@ -26,16 +26,16 @@ return require('jls.lang.class').create(function(messageDigest)
 
   --- Resets this MessageDigest.
   function messageDigest:reset()
-    self.mdc = self.md:new()
+    self.mdInstance = self.mdClass:new()
   end
 
   --- Updates the digest using the specified string.
   -- @tparam string m a message to update the digest.
   function messageDigest:update(m)
-    if not self.mdc then
+    if not self.mdInstance then
       self:reset()
     end
-    self.mdc:update(m)
+    self.mdInstance:update(m)
   end
 
   --- Completes and returns the digest.
@@ -45,14 +45,14 @@ return require('jls.lang.class').create(function(messageDigest)
     if m then
       self:update(m)
     end
-    return self.mdc:final(true)
+    return self.mdInstance:final(true)
   end
 
   --- Returns the digest using the specified string.
   -- @tparam string m a message to compute the digest.
   -- @treturn string the message digest result.
   function messageDigest:digest(m)
-    return self.md:digest(m)
+    return self.mdClass:digest(m)
   end
 
 end)
