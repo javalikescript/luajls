@@ -14,8 +14,8 @@ function Test_Crc32_updates()
 end
 
 function Test_Crc32_digest()
-  assertHexEquals(Crc32.digest('123456789'), 0xCBF43926)
-  assertHexEquals(Crc32.digest('The quick brown fox jumps over the lazy dog'), 0x414FA339)
+  assertHexEquals(Crc32:digest('123456789'), 0xCBF43926)
+  assertHexEquals(Crc32:digest('The quick brown fox jumps over the lazy dog'), 0x414FA339)
 end
 
 os.exit(lu.LuaUnit.run())
