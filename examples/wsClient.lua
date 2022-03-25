@@ -35,7 +35,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
       loglevel = {
         title = 'The log level',
         type = 'string',
-        default = 'WARN',
+        default = 'warn',
         enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
       },
     }
