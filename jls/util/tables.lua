@@ -25,24 +25,36 @@ end
 -- @treturn string a string representing the specifed table value.
 function tables.stringify(value, space)
   local sb = StringBuffer:new()
-  local indent = space or ''
-  local newline = space and '\n' or ''
+  local indent = ''
+  if type(space) == 'number' and space > 1 then
+    indent = string.rep(' ', space)
+  elseif type(space) == 'string' then
+    indent = space
+  end
+  local newline, equal
+  if indent == '' then
+    newline = ''
+    equal = '='
+  else
+    newline = '\n'
+    equal = ' = '
+  end
   local function stringify(value, prefix)
     local valueType = type(value)
     if valueType == 'table' then
       local subPrefix = prefix..indent
-      sb:append('{')
+      sb:append('{', newline)
       if List.isList(value) then
         -- it looks like a list
         for _, v in ipairs(value) do
           sb:append(subPrefix)
           stringify(v, subPrefix)
-          sb:append(',')
+          sb:append(',', newline)
         end
       else
         -- it looks like a map
         -- The order in which the indices are enumerated is not specified
-        for k, v in pairs(value) do
+        for k, v in Map.spairs(value) do
           sb:append(subPrefix)
           if type(k) == 'string' and List.isName(k) then
             sb:append(k)
@@ -51,9 +63,9 @@ function tables.stringify(value, space)
             stringify(k, subPrefix)
             sb:append(']')
           end
-          sb:append('=')
+          sb:append(equal)
           stringify(v, subPrefix)
-          sb:append(',')
+          sb:append(',', newline)
         end
       end
       sb:append('}')
