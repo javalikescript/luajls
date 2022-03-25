@@ -224,14 +224,17 @@ return require('jls.lang.class').create(Path, function(file, _, File)
 
   --- Returns an array of files in the directory represented by this file.
   -- @treturn table An array of files or nil.
-  function file:listFiles()
+  function file:listFiles(filter)
     local filenames = self:list()
     if not filenames then
       return nil
     end
     local files = {}
     for _, filename in ipairs(filenames) do
-      table.insert(files, File:new(self.path, filename))
+      local e = File:new(self.path, filename)
+      if not filter or filter(e) then
+        table.insert(files, e)
+      end
     end
     return files
   end
