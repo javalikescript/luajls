@@ -1,169 +1,21 @@
 --- Provide ZIP file utility.
 -- ZIP files are archives that allow to store and compress multiple files.
+-- Note that CRC32 is not computed nor verified.
 -- @module jls.util.zip.ZipFile
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local Struct = require('jls.util.Struct')
+local md = require('jls.util.MessageDigest'):new('Crc32')
 local inflateStream = require('jls.util.codec.deflate').decodeStream -- Inflater.inflateStream
 
--- ----------------------------------------------------------------------
--- TODO Replace Struct by string.pack, string.packsize, and string.unpack
--- ----------------------------------------------------------------------
-local Struct = require('jls.lang.class').create(function(struct)
-
-  local TYPE_ID = {
-    Char = 100,
-    SignedByte = 101,
-    UnsignedByte = 102,
-    SignedShort = 201,
-    UnsignedShort = 202,
-    SignedInt = 401,
-    UnsignedInt = 402,
-    SignedLong = 801,
-    UnsignedLong = 802
-  }
-
-  local TYPE_SIZE = {
-    Char = 1,
-    SignedByte = 1,
-    UnsignedByte = 1,
-    SignedShort = 2,
-    UnsignedShort = 2,
-    SignedInt = 4,
-    UnsignedInt = 4,
-    SignedLong = 8,
-    UnsignedLong = 8
-  }
-
-  -- Creates a new Struct.
-  -- @function Struct:new
-  -- @tparam table structDef the structure definition as field-type key-value pairs
-  -- @tparam string byteOrder bigEndian or littleEndian
-  -- @return a new Struct
-  function struct:initialize(structDef, byteOrder)
-    self.struct = {}
-    self.byteOrder = '>'
-    self:setOrder(byteOrder)
-    local position = 0
-    for i, def in ipairs(structDef) do
-      local id = TYPE_ID[def.type]
-      if not id then
-        error('Invalid Struct definition type "'..tostring(def.type)..'" at index '..tostring(i))
-      end
-      local length = def.length or 1
-      local size = TYPE_SIZE[def.type] * length
-      table.insert(self.struct, {
-        id = id,
-        length = length,
-        name = def.name,
-        position = position,
-        size = size,
-        type = def.type
-      })
-      position = position + size
-    end
-    local format = self:getOrder()
-    for _, def in ipairs(self.struct) do
-      local f
-      if def.id == TYPE_ID.Char then
-        f = 'c'..tostring(def.length)
-      elseif def.id == TYPE_ID.SignedByte then
-        f = 'i1'
-      elseif def.id == TYPE_ID.UnsignedByte then
-        f = 'I1'
-      elseif def.id == TYPE_ID.SignedShort then
-        f = 'i2'
-      elseif def.id == TYPE_ID.UnsignedShort then
-        f = 'I2'
-      elseif def.id == TYPE_ID.SignedInt then
-        f = 'i4'
-      elseif def.id == TYPE_ID.UnsignedInt then
-        f = 'I4'
-      end
-      format = format..f
-    end
-    self.format = format;
-    self.size = string.packsize(self.format);
-    if self.size ~= position then
-      error('Internal size error ('..tostring(self.size)..'~='..tostring(position)..')')
-    end
-  end
-
-  function struct:getOrder()
-    return self.byteOrder
-  end
-
-  -- Sets the byte order.
-  -- @tparam string byteOrder bigEndian or littleEndian
-  function struct:setOrder(byteOrder)
-    local bo = '='
-    if type(byteOrder) == 'string' then
-      bo = string.lower(string.sub(byteOrder, 1, 1))
-      if bo == 'b' then
-        bo = '>'
-      elseif bo == 'l' then
-        bo = '<'
-      end
-    end
-    self.byteOrder = bo
-    return self
-  end
-
-  -- Returns the size of this Struct that is the total size of its fields.
-  -- @treturn number the size of this Struct.
-  function struct:getSize()
-    return self.size
-  end
-
-  function struct:getPackFormat()
-    return self.format
-  end
-
-  -- Decodes the specifed byte array as a string.
-  -- @tparam string s the value to decode as a string
-  -- @treturn table the decoded values.
-  function struct:fromString(s)
-    local t = {}
-    local values = table.pack(string.unpack(self:getPackFormat(), s))
-    for i, def in ipairs(self.struct) do
-      t[def.name] = values[i]
-    end
-    return t
-  end
-
-  -- Encodes the specifed values provided as a table.
-  -- @tparam string t the values to encode as a table
-  -- @treturn string the encoded values as a string.
-  function struct:toString(t, strict)
-    local values = {}
-    for i, def in ipairs(self.struct) do
-      local value = t[def.name]
-      if not value then
-        if strict then
-          error('Missing value for field "'..tostring(def.name)..'" at index '..tostring(i))
-        end
-        if def.id == TYPE_ID.Char then
-          value = ''
-        else
-          value = 0
-        end
-      end
-      table.insert(values, value)
-    end
-    return string.pack(self:getPackFormat(), table.unpack(values))
-  end
-
-end)
--- ----------------------------------------------------------------------
--- End of Struct class
--- ----------------------------------------------------------------------
 
 local ZipEntry = class.create(function(zipEntry)
 
@@ -238,6 +90,10 @@ local ZipEntry = class.create(function(zipEntry)
     return self.compressedSize
   end
 
+  function zipEntry:getCrc32()
+    return self.crc
+  end
+
   function zipEntry:getSize()
     return self.size
   end
@@ -278,52 +134,52 @@ return class.create(function(zipFile, _, ZipFile)
 
   ZipFile.STRUCT = {
     EndOfCentralDirectoryRecord = Struct:new({
-      {name = 'signature', type = 'UnsignedInt'},
-      {name = 'diskNumber', type = 'UnsignedShort'},
-      {name = 'centralDirectoryDiskNumber', type = 'UnsignedShort'},
-      {name = 'diskEntryCount', type = 'UnsignedShort'},
-      {name = 'entryCount', type = 'UnsignedShort'},
-      {name = 'size', type = 'UnsignedInt'},
-      {name = 'offset', type = 'UnsignedInt'},
-      {name = 'commentLength', type = 'UnsignedShort'}
-    }, 'le'),
+      {name = 'signature', type = 'I4'},
+      {name = 'diskNumber', type = 'I2'},
+      {name = 'centralDirectoryDiskNumber', type = 'I2'},
+      {name = 'diskEntryCount', type = 'I2'},
+      {name = 'entryCount', type = 'I2'},
+      {name = 'size', type = 'I4'},
+      {name = 'offset', type = 'I4'},
+      {name = 'commentLength', type = 'I2'}
+    }, '<'),
     DataDescriptor = Struct:new({
-      {name = 'crc32', type = 'UnsignedInt'},
-      {name = 'compressedSize', type = 'UnsignedInt'},
-      {name = 'uncompressedSize', type = 'UnsignedInt'}
-    }, 'le'),
+      {name = 'crc32', type = 'I4'},
+      {name = 'compressedSize', type = 'I4'},
+      {name = 'uncompressedSize', type = 'I4'}
+    }, '<'),
     LocalFileHeader = Struct:new({
-      {name = 'signature', type = 'UnsignedInt'},
-      {name = 'versionNeeded', type = 'UnsignedShort'},
-      {name = 'generalPurposeBitFlag', type = 'UnsignedShort'},
-      {name = 'compressionMethod', type = 'UnsignedShort'},
-      {name = 'lastModFileTime', type = 'UnsignedShort'},
-      {name = 'lastModFileDate', type = 'UnsignedShort'},
-      {name = 'crc32', type = 'UnsignedInt'},
-      {name = 'compressedSize', type = 'UnsignedInt'},
-      {name = 'uncompressedSize', type = 'UnsignedInt'},
-      {name = 'filenameLength', type = 'UnsignedShort'},
-      {name = 'extraFieldLength', type = 'UnsignedShort'}
-    }, 'le'),
+      {name = 'signature', type = 'I4'},
+      {name = 'versionNeeded', type = 'I2'},
+      {name = 'generalPurposeBitFlag', type = 'I2'},
+      {name = 'compressionMethod', type = 'I2'},
+      {name = 'lastModFileTime', type = 'I2'},
+      {name = 'lastModFileDate', type = 'I2'},
+      {name = 'crc32', type = 'I4'},
+      {name = 'compressedSize', type = 'I4'},
+      {name = 'uncompressedSize', type = 'I4'},
+      {name = 'filenameLength', type = 'I2'},
+      {name = 'extraFieldLength', type = 'I2'}
+    }, '<'),
     FileHeader = Struct:new({
-      {name = 'signature', type = 'UnsignedInt'},
-      {name = 'versionMadeBy', type = 'UnsignedShort'},
-      {name = 'versionNeeded', type = 'UnsignedShort'},
-      {name = 'generalPurposeBitFlag', type = 'UnsignedShort'},
-      {name = 'compressionMethod', type = 'UnsignedShort'},
-      {name = 'lastModFileTime', type = 'UnsignedShort'},
-      {name = 'lastModFileDate', type = 'UnsignedShort'},
-      {name = 'crc32', type = 'UnsignedInt'},
-      {name = 'compressedSize', type = 'UnsignedInt'},
-      {name = 'uncompressedSize', type = 'UnsignedInt'},
-      {name = 'filenameLength', type = 'UnsignedShort'},
-      {name = 'extraFieldLength', type = 'UnsignedShort'},
-      {name = 'fileCommentLength', type = 'UnsignedShort'},
-      {name = 'diskNumberStart', type = 'UnsignedShort'},
-      {name = 'internalFileAttributes', type = 'UnsignedShort'},
-      {name = 'externalFileAttributes', type = 'UnsignedInt'},
-      {name = 'relativeOffset', type = 'UnsignedInt'}
-    }, 'le')
+      {name = 'signature', type = 'I4'},
+      {name = 'versionMadeBy', type = 'I2'},
+      {name = 'versionNeeded', type = 'I2'},
+      {name = 'generalPurposeBitFlag', type = 'I2'},
+      {name = 'compressionMethod', type = 'I2'},
+      {name = 'lastModFileTime', type = 'I2'},
+      {name = 'lastModFileDate', type = 'I2'},
+      {name = 'crc32', type = 'I4'},
+      {name = 'compressedSize', type = 'I4'},
+      {name = 'uncompressedSize', type = 'I4'},
+      {name = 'filenameLength', type = 'I2'},
+      {name = 'extraFieldLength', type = 'I2'},
+      {name = 'fileCommentLength', type = 'I2'},
+      {name = 'diskNumberStart', type = 'I2'},
+      {name = 'internalFileAttributes', type = 'I2'},
+      {name = 'externalFileAttributes', type = 'I4'},
+      {name = 'relativeOffset', type = 'I4'}
+    }, '<')
   }
 
   local function readEntries(fd, fileLength)
@@ -338,6 +194,9 @@ return class.create(function(zipFile, _, ZipFile)
       -- the header may have a comment
       size = 1024
       offset = fileLength - size
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('readEntries() bad Central Directory Record signature, searching at '..tostring(offset))
+      end
       local buffer = fd:readSync(size, offset)
       local index = string.find(buffer, 'PK\x05\x06', 1, true)
       if index then
@@ -345,11 +204,14 @@ return class.create(function(zipFile, _, ZipFile)
         header = ZipFile.STRUCT.EndOfCentralDirectoryRecord:fromString(string.sub(buffer, index))
       end
       if header.signature ~= ZipFile.CONSTANT.END_CENTRAL_DIR_SIGNATURE then
-        return nil, 'Invalid zip file, Bad Central Directory Record signature (0x'..string.format('%08x', header.signature)..')'
+        return nil, 'Invalid zip file, bad Central Directory Record signature (0x'..string.format('%08x', header.signature)..')'
       end
     end
     if logger:isLoggable(logger.FINER) then
       logger:finer('readEntries() EOCDR size: '..tostring(size)..' offset: '..tostring(offset))
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('eocdRecord: '..require('jls.util.tables').stringify(header, 2))
+      end
     end
     local entryCount = header.entryCount
     size = ZipFile.STRUCT.FileHeader:getSize()
@@ -361,6 +223,9 @@ return class.create(function(zipFile, _, ZipFile)
       local fileHeader = ZipFile.STRUCT.FileHeader:fromString(fd:readSync(size, offset))
       if fileHeader.signature ~= ZipFile.CONSTANT.FILE_HEADER_SIGNATURE then
         return nil, 'Invalid zip file, Bad File Header signature (0x'..string.format('%08x', fileHeader.signature)..') for entry '..tostring(i)
+      end
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('FileHeader: '..require('jls.util.tables').stringify(fileHeader, 2))
       end
       offset = offset + size
       local filename = ''
@@ -378,7 +243,7 @@ return class.create(function(zipFile, _, ZipFile)
       table.insert(entries, entry)
       --entries[filename] = entry
       if logger:isLoggable(logger.FINER) then
-        logger:finer('readEntries() entry: '..tostring(i)..' offset: '..tostring(offset)..' filename: #'..tostring(fileHeader.filenameLength)..' comment: #'..tostring(fileHeader.fileCommentLength))
+        logger:finer('readEntries() entry: '..tostring(i)..' at: '..tostring(offset)..' filename: '..filename..' offset: '..tostring(entry:getOffset())..' comment: #'..tostring(fileHeader.fileCommentLength))
       end
     end
     if logger:isLoggable(logger.FINER) then
@@ -390,17 +255,21 @@ return class.create(function(zipFile, _, ZipFile)
   --- Creates a new ZipFile with the specified file or filename.
   -- @tparam File file the zip file.
   -- @tparam[opt] boolean create true to indicate that the zip file shall be created
+  -- @tparam[opt] boolean overwrite true to indicate that the zip file shall be overwrited
   -- @function ZipFile:new
-  function zipFile:initialize(file, create)
+  function zipFile:initialize(file, create, overwrite)
     local f = File.asFile(file)
     if create == nil then
       create = not f:exists()
     end
     if logger:isLoggable(logger.FINER) then
-      logger:finer('ZipFile:new("'..f:getPath()..'", '..tostring(create)..')')
+      logger:finer('ZipFile:new("'..f:getPath()..'", '..tostring(create)..', '..tostring(overwrite)..')')
     end
     local fd, entries, err
     if create then
+      if not overwrite and f:exists() then
+        error('The zip file "'..f:getPath()..'" exists')
+      end
       fd, err = FileDescriptor.openSync(f, 'w')
       entries = {}
       self.offset = 0
@@ -428,14 +297,29 @@ return class.create(function(zipFile, _, ZipFile)
 
   --- Closes this ZIP file
   function zipFile:close()
+    if logger:isLoggable(logger.FINER) then
+      logger:finest('zipFile:close()')
+    end
     if self.writable then
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('writing '..tostring(#self.entries)..' entries at '..tostring(self.offset))
+      end
+      local startOffset = self.offset
+      local size = 0
       for _, entry in ipairs(self.entries) do
         local name = entry:getName() or ''
+        if logger:isLoggable(logger.FINER) then
+          logger:finest('writing entry "'..name..'" at '..tostring(startOffset + size))
+        end
         local extra = entry:getExtra() or ''
         local comment = entry:getComment() or ''
         local localFileHeader = entry:getLocalFileHeader()
         local fileHeader = {
           signature = ZipFile.CONSTANT.FILE_HEADER_SIGNATURE,
+          --versionMadeBy = 0, -- MS-DOS and can be read by PKZIP
+          versionNeeded = 20,
+          internalFileAttributes = localFileHeader.compressedSize == 0 and 0 or 1,
+          --externalFileAttributes = 0,
           relativeOffset = entry:getOffset() or 0,
           fileCommentLength = #comment
         }
@@ -444,22 +328,41 @@ return class.create(function(zipFile, _, ZipFile)
             fileHeader[k] = v
           end
         end
-        local rawFileHeader = ZipFile.STRUCT.FileHeader:toString(fileHeader)
+        if logger:isLoggable(logger.FINEST) then
+          logger:finest('FileHeader: '..require('jls.util.tables').stringify(fileHeader, 2))
+        end
+          local rawFileHeader = ZipFile.STRUCT.FileHeader:toString(fileHeader)
         self.fd:writeSync(rawFileHeader)
         self.fd:writeSync(name)
-        if extra and #extra > 0 then
+        if #extra > 0 then
           self.fd:writeSync(extra)
         end
-        if comment and #comment > 0 then
+        if #comment > 0 then
           self.fd:writeSync(comment)
         end
+        size = size + ZipFile.STRUCT.FileHeader:getSize() + #name + #extra + #comment
       end
-      local rawEOCDR = ZipFile.STRUCT.EndOfCentralDirectoryRecord:toString({
+      local eocdRecord = {
         signature = ZipFile.CONSTANT.END_CENTRAL_DIR_SIGNATURE,
         entryCount = #self.entries,
-        offset = self.offset
-      })
+        diskEntryCount = #self.entries,
+        offset = startOffset,
+        size = size
+      }
+      if logger:isLoggable(logger.FINEST) then
+        logger:finest('EndOfCentralDirectoryRecord: '..require('jls.util.tables').stringify(eocdRecord, 2))
+      end
+      local rawEOCDR = ZipFile.STRUCT.EndOfCentralDirectoryRecord:toString(eocdRecord)
       self.fd:writeSync(rawEOCDR)
+      self.offset = self.offset + size + ZipFile.STRUCT.EndOfCentralDirectoryRecord:getSize()
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('writing EndOfCentralDirectoryRecord of size '..tostring(size)..' total file size '..tostring(self.offset))
+        if logger:isLoggable(logger.FINEST) then
+          for k, v in pairs(ZipFile.STRUCT) do
+            logger:finest(k..' size: '..tostring(v:getSize()))
+          end
+        end
+      end
     end
     if self.fd then
       self.fd:closeSync()
@@ -476,18 +379,21 @@ return class.create(function(zipFile, _, ZipFile)
 
   function zipFile:addFile(file, name, comment, extra)
     local f = File.asFile(file)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('zipFile:addFile("'..f:getName()..'", "'..tostring(name)..'")')
+    end
     local date = Date:new(f:lastModified())
     local lastModFileDate = (math.max(date:getYear() - 1980, 0) << 9) | ((date:getMonth()) << 5) | date:getDay()
     local lastModFileTime = (date:getHours() << 11) | (date:getMinutes() << 5) | (date:getSeconds() // 2)
     name = name or f:getName()
-    local entry = ZipEntry:new(name, comment, extra)
     local rawContent
     if f:isDirectory() then
       rawContent = ''
-      name = name + '/'
+      name = name..'/'
     else
       rawContent = f:readAll()
     end
+    local entry = ZipEntry:new(name, comment, extra)
     local uncompressedSize = #rawContent
     local method = ZipFile.CONSTANT.COMPRESSION_METHOD_STORED
     if uncompressedSize > 200 then
@@ -495,8 +401,15 @@ return class.create(function(zipFile, _, ZipFile)
       local deflater = Deflater:new(nil, -15)
       rawContent = deflater:deflate(rawContent, 'finish')
     end
+    local compressedSize = #rawContent
     local crc32 = 0
-    -- TODO Compute crc32
+    if false and compressedSize > 0 then
+      -- The 'magic number' for the CRC is 0xdebb20e3. The proper CRC pre and post conditioning is used, meaning that the CRC register is pre-conditioned with all ones (a starting value of 0xffffffff) and the value is post-conditioned by taking the one's complement of the CRC residual.
+      crc32 = md:digest(rawContent)
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('crc32 is '..tostring(crc32))
+      end
+    end
     extra = extra or ''
     local localFileHeader = {
       signature = ZipFile.CONSTANT.LOCAL_FILE_HEADER_SIGNATURE,
@@ -505,24 +418,30 @@ return class.create(function(zipFile, _, ZipFile)
       lastModFileTime = lastModFileTime,
       lastModFileDate = lastModFileDate,
       crc32 = crc32,
-      compressedSize = #rawContent,
+      compressedSize = compressedSize,
       uncompressedSize = uncompressedSize,
       filenameLength = #name,
       extraFieldLength = #extra,
     }
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('localFileHeader: '..require('jls.util.tables').stringify(localFileHeader, 2))
+    end
     entry:setOffset(self.offset)
     entry:setLocalFileHeader(localFileHeader)
     local rawLocalFileHeader = ZipFile.STRUCT.LocalFileHeader:toString(localFileHeader)
     self.fd:writeSync(rawLocalFileHeader)
     self.fd:writeSync(name)
-    if extra and #extra > 0 then
+    if #extra > 0 then
       self.fd:writeSync(extra)
     end
-    if uncompressedSize > 0 then
+    if compressedSize > 0 then
       self.fd:writeSync(rawContent)
     end
-    self.offset = self.offset + ZipFile.STRUCT.LocalFileHeader:getSize() + #name + #extra + #rawContent
+    self.offset = self.offset + ZipFile.STRUCT.LocalFileHeader:getSize() + #name + #extra + compressedSize
     table.insert(self.entries, entry)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('added at '..tostring(entry:getOffset())..'-'..tostring(self.offset)..', '..tostring(#self.entries)..' entries')
+    end
   end
 
   --- Returns the entry for the specified name.
@@ -555,6 +474,9 @@ return class.create(function(zipFile, _, ZipFile)
     if localFileHeader.signature ~= ZipFile.CONSTANT.LOCAL_FILE_HEADER_SIGNATURE then
       return nil, 'Invalid zip file, Bad Local File Header signature'
     end
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('localFileHeader: '..require('jls.util.tables').stringify(localFileHeader, 2))
+    end
     offset = offset + size + localFileHeader.filenameLength + localFileHeader.extraFieldLength
     return localFileHeader, offset
   end
@@ -564,7 +486,10 @@ return class.create(function(zipFile, _, ZipFile)
     if not localFileHeader then
       return nil, offset or 'Cannot read LocalFileHeader'
     end
-    local rawContent = self.fd:readSync(localFileHeader.compressedSize, offset)
+    local rawContent, err = self.fd:readSync(localFileHeader.compressedSize, offset)
+    if not rawContent then
+      return nil, err or 'Cannot read raw content'
+    end
     return rawContent, localFileHeader
   end
 
@@ -759,18 +684,22 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  function ZipFile.zipTo(file, directoryOrFiles, path)
+  function ZipFile.zipTo(file, directoryOrFiles, overwrite, path)
+    if type(directoryOrFiles) == 'string' then
+      directoryOrFiles = File.asFile(directoryOrFiles)
+    end
     if File:isInstance(directoryOrFiles) then
       if directoryOrFiles:isDirectory() then
-        return ZipFile.zipTo(file, directoryOrFiles:listFiles())
+        return ZipFile.zipTo(file, directoryOrFiles:listFiles(), overwrite)
       end
-      return ZipFile.zipTo(file, {directoryOrFiles})
+      return ZipFile.zipTo(file, {directoryOrFiles}, overwrite)
     end
     if logger:isLoggable(logger.FINER) then
       logger:finer('ZipFile.zipTo()')
     end
-    local zFile = ZipFile:new(file, true)
+    local zFile = ZipFile:new(file, true, overwrite)
     addFiles(zFile, path or '', directoryOrFiles)
     zFile:close()
   end
+
 end)
