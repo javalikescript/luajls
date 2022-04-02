@@ -91,19 +91,12 @@ return require('jls.lang.class').create(function(path, _, Path)
   --local configurationPath = Path:new('work/configuration.json')
   --configurationPath:getParent() -- returns 'work'
   function path:getParent()
-    local npath = Path.normalizePath(self.path)
-    local prefix, rel = Path.getPathPrefix(npath)
+    local prefix, rel = Path.getPathPrefix(self.npath)
     if rel == '' then
       return nil
     end
-    local parent = string.match(rel, '^(.+)[/\\][^/\\]+$')
-    if parent then
-      return prefix..parent
-    end
-    if prefix == '' then
-      return nil
-    end
-    return prefix
+    local sep = string.match(self.path, '[/\\]') or Path.separator
+    return Path.normalizePath(self.npath..sep..'..', sep)
   end
 
   --- Returns the parent of this path as a Path.
@@ -123,6 +116,14 @@ return require('jls.lang.class').create(function(path, _, Path)
   -- @treturn boolean true when this path is absolute, false otherwise.
   function path:isAbsolute()
     return Path.getPathPrefix(self.npath) ~= ''
+  end
+
+  function path:relativize(path)
+    local rpath = Path.relativizePath(self, path)
+    if rpath then
+      return Path:new(rpath)
+    end
+    return nil
   end
 
 end, function(Path)
@@ -167,7 +168,7 @@ end, function(Path)
       if string.find(rel, '[/\\]%.%.?[/\\]') then
         local ss = {}
         for s in string.gmatch(rel, '[^/\\]+') do
-          if s == '..' and #ss > 0 then
+          if s == '..' and #ss > 0 and ss[#ss] ~= '..' then
             table.remove(ss)
           elseif s ~= '.' and s ~= '' then
             table.insert(ss, s)
@@ -183,6 +184,24 @@ end, function(Path)
       end
     end
     return pathname
+  end
+
+  function Path.relativizePath(basePath, path)
+    local nBasePath = Path.asNormalizedPath(basePath)
+    local npath = Path.asNormalizedPath(path)
+    if nBasePath == '.' or nBasePath == '' then
+      return npath
+    end
+    local basePrefix = Path.getPathPrefix(nBasePath)
+    local prefix = Path.getPathPrefix(npath)
+    if basePrefix == prefix then
+      if string.find(npath, nBasePath, 1, true) then
+        local rel = string.sub(npath, #nBasePath + 1)
+        return string.gsub(rel, '^[/\\]*', '')
+      end
+    end
+    -- TODO handle more complex paths
+    error('Unable to found relative path')
   end
 
   function Path.extractExtension(pathname)
