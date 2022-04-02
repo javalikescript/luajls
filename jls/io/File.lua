@@ -223,6 +223,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   end
 
   --- Returns an array of files in the directory represented by this file.
+  -- @tparam[opt] function filter a filter function that will be called on each file.
   -- @treturn table An array of files or nil.
   function file:listFiles(filter)
     local filenames = self:list()
@@ -239,15 +240,15 @@ return require('jls.lang.class').create(Path, function(file, _, File)
     return files
   end
 
-  function file:forEachFile(fn, recursive)
+  function file:forEachFile(fn, recursive, filter)
     if not self:isDirectory() then
       return
     end
     for _, f in ipairs(self:listFiles()) do
       local r
       if recursive and f:isDirectory() then
-        r = f:forEachFile(fn, recursive)
-      else
+        r = f:forEachFile(fn, recursive, filter)
+      elseif not filter or filter(f) then
         r = fn(self, f)
       end
       if r then

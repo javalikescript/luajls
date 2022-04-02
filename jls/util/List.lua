@@ -263,7 +263,17 @@ return require('jls.lang.class').create(function(list, _, List)
 
   List.irpairs = irpairs
 
-  List.filter = List.prototype.filter
+  function List.filter(l, filterFn, unfilteredList)
+    local filtered = {}
+    for i, v in ipairs(l) do
+      if filterFn(v, i, l) then
+        table.insert(filtered, v)
+      elseif unfilteredList then
+        table.insert(unfilteredList, v)
+      end
+    end
+    return filtered, unfilteredList
+  end
 
   List.contains = List.prototype.contains
 

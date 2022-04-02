@@ -102,7 +102,7 @@ local jlsRequires = os.getenv('JLS_REQUIRES')
 if jlsRequires and jlsRequires ~= '' then
   local jlsObviates = {}
   local isDebugLoggable = logger:isLoggable(logger.FINEST)
-  require = function(name)
+  local function restrictedRequire(name)
     if isDebugLoggable then
       logger:finest('require("'..tostring(name)..'")')
     end
@@ -136,8 +136,8 @@ if jlsRequires and jlsRequires ~= '' then
       end
     end
   end
-  if next(jlsObviates) == nil then
-    require = BASE_REQUIRE
+  if next(jlsObviates) ~= nil then
+    require = restrictedRequire
   end
   package.loaded[reentrancyKey] = nil
   jlsRequires = nil
