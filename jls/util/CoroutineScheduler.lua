@@ -3,7 +3,7 @@
 -- @module jls.util.CoroutineScheduler
 
 local logger = require('jls.lang.logger')
-local system = require('jls.lang.system')
+local sysLib = require('jls.lang.sys')
 local List = require('jls.util.List')
 
 --logger = logger:getClass():new(logger.FINE)
@@ -51,10 +51,10 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     end
     if type(at) == 'number' then
       if at >= 0 and at < TWENTY_FIVE_DAYS_MS then
-        at = system.currentTimeMillis() + at
+        at = sysLib.timems() + at
       end
     else
-      at = system.currentTimeMillis()
+      at = sysLib.timems()
     end
     local schedule = {
       at = at,
@@ -100,7 +100,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('coroutineScheduler:runOnce('..tostring(noWait)..') #'..tostring(#self.schedules))
     end
-    local startTime = system.currentTimeMillis()
+    local startTime = sysLib.timems()
     local currentTime = startTime
     local nextTime = startTime + self.maxSleep
     local count = 0
@@ -147,7 +147,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
             end
           end
           local resumeStatus, resumeResult = coroutine.resume(schedule.cr, at, currentTime, timeout)
-          local ct = system.currentTimeMillis()
+          local ct = sysLib.timems()
           if logger:isLoggable(logger.FINE) then
             local st = ct - currentTime
             if st > 100 then
@@ -214,7 +214,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
       if st > 100 and logger:isLoggable(logger.FINE) then
         logger:fine('Scheduler sleep time was '..tostring(st))
       end
-      system.sleep(st)
+      sysLib.sleep(st)
     end
     return true
   end
