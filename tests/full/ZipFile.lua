@@ -63,12 +63,12 @@ function Tests:test_Struct_to_from()
   --lu.assertEquals(res, exp)
   --lu.assertIsNil(res)
   local struct = Struct:new({
-    {name = 'aUInt8', type = 'UnsignedByte'},
-    {name = 'aInt8', type = 'SignedByte'},
-    {name = 'aUInt16', type = 'UnsignedShort'},
-    {name = 'aInt16', type = 'SignedShort'},
-    {name = 'aUInt32', type = 'UnsignedInt'},
-    {name = 'aInt32', type = 'SignedInt'}
+    {name = 'aUInt8', type = 'B'},
+    {name = 'aInt8', type = 'b'},
+    {name = 'aUInt16', type = 'H'},
+    {name = 'aInt16', type = 'h'},
+    {name = 'aUInt32', type = 'I4'},
+    {name = 'aInt32', type = 'i4'}
   })
   local t = {
     aUInt8 = 1,
