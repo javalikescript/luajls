@@ -23,7 +23,7 @@ end
 -- @tparam table value The table to convert.
 -- @tparam[opt] string space The indent value to use.
 -- @treturn string a string representing the specifed table value.
-function tables.stringify(value, space)
+function tables.stringify(value, space, lenient)
   local sb = StringBuffer:new()
   local indent = ''
   if type(space) == 'number' and space > 1 then
@@ -39,9 +39,19 @@ function tables.stringify(value, space)
     newline = '\n'
     equal = ' = '
   end
+  local stack = {}
   local function stringify(value, prefix)
     local valueType = type(value)
     if valueType == 'table' then
+      if stack[value] then
+        if lenient then
+          return '"_0_CYCLE"'
+        else
+          --print('buffer:', sb:toString())
+          error('cycle detected')
+        end
+      end
+      stack[value] = true
       local subPrefix = prefix..indent
       sb:append('{', newline)
       if List.isList(value) then
@@ -68,13 +78,18 @@ function tables.stringify(value, space)
           sb:append(',', newline)
         end
       end
-      sb:append('}')
+      sb:append(prefix, '}')
+      stack[value] = nil
     elseif valueType == 'string' then
       sb:append(string.format('%q', value))
     elseif valueType == 'number' or valueType == 'boolean' then
       sb:append(tostring(value))
     else
-      error('Invalid type '..valueType)
+      if lenient then
+        sb:append(string.format('%q', valueType))
+      else
+        error('Invalid type '..valueType)
+      end
     end
   end
   stringify(value, '')
