@@ -163,6 +163,16 @@ function tables.merge(target, source, keep)
   return target
 end
 
+function tables.forEach(t, fn)
+  for key, value in pairs(t) do
+    if type(value) == 'table' then
+      tables.forEach(value, fn)
+    else
+      fn(key, value, t)
+    end
+  end
+  return t
+end
 
 --- Returns a table containing the differences between the two specified tables.
 -- The additions or modifications are availables, the same values are discarded
