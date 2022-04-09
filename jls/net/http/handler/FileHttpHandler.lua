@@ -11,7 +11,7 @@ local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpExchange = require('jls.net.http.HttpExchange')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 
 local DIRECTORY_STYLE = [[<style>
 a {
@@ -155,7 +155,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         buffer:append('<a href=".." class="dir">..</a><br/>\n')
       end
       for _, file in ipairs(files) do
-        buffer:append('<a href="', URL.encodeURIComponent(file.name))
+        buffer:append('<a href="', Url.encodeURIComponent(file.name))
         if file.isDir then
           buffer:append('/"')
         else
@@ -288,7 +288,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     local path = self:getPath(httpExchange)
     local isDirectoryPath = string.sub(path, -1) == '/'
     local filePath = isDirectoryPath and string.sub(path, 1, -2) or path
-    filePath = URL.decodePercent(filePath)
+    filePath = Url.decodePercent(filePath)
     if not HttpExchange.isValidSubPath(path) then
       HttpExchange.forbidden(httpExchange)
       return

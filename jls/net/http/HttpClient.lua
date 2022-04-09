@@ -4,7 +4,7 @@
 
 local logger = require('jls.lang.logger')
 local TcpClient = require('jls.net.TcpClient')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpResponse = require('jls.net.http.HttpResponse')
@@ -161,7 +161,7 @@ return require('jls.lang.class').create(function(httpClient)
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpClient:setUrl('..tostring(url)..')')
     end
-    local u = URL:new(url)
+    local u = Url:new(url)
     local target = u:getFile()
     self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
     self.host = u:getHost()
@@ -198,7 +198,7 @@ return require('jls.lang.class').create(function(httpClient)
         end)
       else
         -- see RFC 7230 5.3.2. absolute-form
-        local url = URL.format({
+        local url = Url.format({
           scheme = 'http',
           host = self.host,
           port = self.port,

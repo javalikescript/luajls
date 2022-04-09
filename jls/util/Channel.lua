@@ -36,7 +36,7 @@ local logger = require('jls.lang.logger')
 local class = require('jls.lang.class')
 local loader = require('jls.lang.loader')
 local Promise = require('jls.lang.Promise')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local strings = require('jls.util.strings')
 local event = require('jls.lang.event')
 
@@ -54,7 +54,7 @@ local SCHEMES = {
     bind = function(self, userinfo)
       local Pipe = require('jls.io.Pipe')
       local pipeName = Pipe.generateUniqueName('JLS')
-      self.name = URL.format({
+      self.name = Url.format({
         scheme = 'pipe',
         userinfo = userinfo,
         host = 'local',
@@ -76,7 +76,7 @@ local SCHEMES = {
       self.stream = TcpServer:new()
       return self.stream:bind(nil, 0):next(function()
         local host, port = self.stream:getLocalName()
-        self.name = URL.format({
+        self.name = Url.format({
           scheme = 'tcp',
           userinfo = userinfo,
           host = host,
@@ -229,7 +229,7 @@ return class.create(function(channel, _, Channel)
       logger:finest('channel['..tostring(self)..']:connect("'..tostring(name)..'")')
     end
     self:checkStream(true)
-    local t = URL.parse(name)
+    local t = Url.parse(name)
     if t and t.userinfo then
       local privateKey, publicKey = string.match(t.userinfo, '^([^%.]+)%.([^%.]+)$')
       if privateKey and publicKey then

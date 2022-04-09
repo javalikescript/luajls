@@ -8,7 +8,7 @@ local tables = require('jls.util.tables')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local File = require('jls.io.File')
 local Path = require('jls.io.Path')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local ZipFile = require('jls.util.zip.ZipFile')
 
 --[[
@@ -97,7 +97,7 @@ local outFile
 if options.out.file and (options.out.headers or options.out.body) then
   outFile = File:new(options.out.file)
   if outFile:isDirectory() and options.url then
-    local u = URL:new(options.url)
+    local u = Url:new(options.url)
     local p = Path:new(u:getPath())
     outFile = File:new(outFile, p:getName())
   end

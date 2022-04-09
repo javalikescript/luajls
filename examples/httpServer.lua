@@ -10,7 +10,7 @@ local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local ZipFileHttpHandler = require('jls.net.http.handler.ZipFileHttpHandler')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
 local WebDavHttpHandler = require('jls.net.http.handler.WebDavHttpHandler')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local tables = require('jls.util.tables')
 local base64 = require('jls.util.base64')
 local Scheduler = require('jls.util.Scheduler')
@@ -313,7 +313,7 @@ end
 
 for _, endpoint in ipairs(endpoints) do
   local scheme, specificPart = string.match(endpoint.target, '^([%w][%w%+%.%-]*):(.*)$')
-  --local targetUri = URL.fromString(endpoint.target)
+  --local targetUri = Url.fromString(endpoint.target)
   if scheme then
     if scheme == 'file' or scheme == 'zip' or scheme == 'webdav' then
       local targetFile = File:new(specificPart)
@@ -360,7 +360,7 @@ for _, endpoint in ipairs(endpoints) do
           mediaType = string.gsub(mediaType, ';base64$', '')
           body = base64.decode(body)
         else
-          body = URL.decodePercent(body)
+          body = Url.decodePercent(body)
         end
         httpServer:createContext(endpoint.path, HttpHandler:new(function(_, exchange)
           HttpExchange.ok(exchange, body, mediaType or 'text/plain;charset=US-ASCII')

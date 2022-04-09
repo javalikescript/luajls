@@ -6,7 +6,7 @@
 local logger = require('jls.lang.logger')
 local Date = require('jls.util.Date')
 local xml = require("jls.util.xml")
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
@@ -67,7 +67,7 @@ local function getFileResponse(propfind, file, baseHref, isChild)
   end
   return {
     name = 'response',
-    {name = 'href', URL.encodeURI(href)},
+    {name = 'href', Url.encodeURI(href)},
     propstat,
   }
 end
@@ -165,9 +165,9 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
         logger:fine('destination: "'..tostring(destination)..'", overwrite: '..tostring(overwrite))
       end
       if string.find(destination, '://') then
-        destination = URL:new(destination):getPath()
+        destination = Url:new(destination):getPath()
       end
-      destination = URL.decodePercent(destination)
+      destination = Url.decodePercent(destination)
       if logger:isLoggable(logger.FINE) then
         logger:fine('destination: '..tostring(destination))
       end

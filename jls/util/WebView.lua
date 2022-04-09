@@ -20,7 +20,7 @@ local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
 local Thread = require('jls.lang.Thread')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local Channel = require('jls.util.Channel')
 
 -- workaround 2 issues: webview/GTK is changing the locale and cjson do not support such change
@@ -378,7 +378,7 @@ end, function(WebView)
       if tUrl.port == 0 then
         tUrl.port = select(2, httpServer:getAddress())
       end
-      local url = URL.format(tUrl)
+      local url = Url.format(tUrl)
       if options.callback == true then
         local strings = require('jls.util.strings')
         local ws = require('jls.net.http.ws')
@@ -389,7 +389,7 @@ end, function(WebView)
         end
         tUrl.scheme = 'ws'
         tUrl.path = wsPath
-        options.data = URL.format(tUrl)
+        options.data = Url.format(tUrl)
         local wsCb
         wsPromise, wsCb = Promise.createWithCallback()
         httpServer:createContext(strings.escape(wsPath), ws.upgradeHandler, {open = function(newWebSocket)
@@ -491,7 +491,7 @@ end)
     if options.fn then
       return openInThread(url, options)
     end
-    local tUrl = URL.parse(url)
+    local tUrl = Url.parse(url)
     if tUrl and tUrl.scheme == 'http' and tUrl.host and (tUrl.port == 0 or options.bind) then
       return openInThreadWithHttpServer(tUrl, options)
     end

@@ -9,7 +9,7 @@ local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
 local DelayedStreamHandler = require('jls.io.streams.DelayedStreamHandler')
 local Promise = require('jls.lang.Promise')
-local URL = require('jls.net.URL')
+local Url = require('jls.net.Url')
 local TcpClient = require('jls.net.TcpClient')
 
 --- A ProxyHttpHandler class.
@@ -112,12 +112,12 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       if baseUrl then
         local path = httpExchange:getRequestPath()
         if path then
-          return URL.fromString(baseUrl..string.gsub(path, '^/*', '/'))
+          return Url.fromString(baseUrl..string.gsub(path, '^/*', '/'))
         end
       end
     else
       local target = httpExchange:getRequest():getTarget()
-      local targetUrl = URL.fromString(target)
+      local targetUrl = Url.fromString(target)
       if targetUrl and targetUrl:getProtocol() ~= 'http' then
         return nil
       end
