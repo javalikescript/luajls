@@ -19,6 +19,7 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
 
   function promiseStreamHandler:reset()
     self.promise, self.promiseCallback = Promise.createWithCallback()
+    self.size = 0
   end
 
   -- Returns a Promise that resolves once the stream is closed.
@@ -29,15 +30,17 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
 
   function promiseStreamHandler:onData(data)
     local result = self.handler:onData(data)
-    if not data then
-      self.promiseCallback()
+    if data then
+      self.size = self.size + #data
+    else
+      self.promiseCallback(nil, self.size)
     end
     return result
   end
 
   function promiseStreamHandler:onError(err)
     self.handler:onError(err)
-    self.promiseCallback(err)
+    self.promiseCallback(err or 'Error')
   end
 
   function promiseStreamHandler:close()
