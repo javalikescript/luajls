@@ -7,6 +7,9 @@ local TcpServer = require('jls.net.TcpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
+local List = require('jls.util.List')
+local HttpContext = require('jls.net.http.HttpContext')
+local HttpFilter = require('jls.net.http.HttpFilter')
 
 local function requestToString(exchange)
   local request = exchange:getRequest()
@@ -18,8 +21,12 @@ local function requestToString(exchange)
   return '?'
 end
 
+local function compareByIndex(a, b)
+  return a:getIndex() > b:getIndex()
+end
+
 --[[-- An HTTP server.
-The HttpServer inherits from @{HttpContextHolder}.
+The basic HTTP 1.1 server implementation.
 @usage
 local event = require('jls.lang.event')
 local HttpServer = require('jls.net.http.HttpServer')
@@ -37,18 +44,154 @@ end)
 event:loop()
 @type HttpServer
 ]]
-return require('jls.lang.class').create('jls.net.http.HttpContextHolder', function(httpServer, super)
+return require('jls.lang.class').create(function(httpServer)
 
   --- Creates a new HTTP server.
   -- @function HttpServer:new
   -- @return a new HTTP server
   function httpServer:initialize(tcp)
-    super.initialize(self)
+    self.contexts = {}
+    self.filters = {}
+    self.parentContextHolder = nil
+    self.notFoundContext = HttpContext:new('not found', HttpContext.notFoundHandler)
     self.tcpServer = tcp or TcpServer:new()
     self.tcpServer.onAccept = function(_, client)
       self:onAccept(client)
     end
     self.pendings = {}
+  end
+
+  --- Creates a @{jls.net.http.HttpContext|context} in this server with the specified path and using the specified handler.
+  -- The path is a Lua pattern that match the full path, take care of escaping the magic characters ^$()%.[]*+-?.
+  -- You could use the @{jls.util.strings}.escape() function.
+  -- The path is absolute and starts with a slash '/'.
+  -- @tparam string path The path of the context.
+  -- @param handler The @{jls.net.http.HttpHandler|handler} or a handler function.
+  --   The function takes one argument which is the @{HttpExchange} and will be called when the body is available.
+  -- @return the new context
+  function httpServer:createContext(path, handler, ...)
+    if type(path) ~= 'string' then
+      error('Invalid context path "'..tostring(path)..'"')
+    end
+    return self:addContext(HttpContext:new(path, handler, ...))
+  end
+
+  function httpServer:addContext(context)
+    table.insert(self.contexts, context)
+    table.sort(self.contexts, compareByIndex)
+    return context
+  end
+
+  --- Adds the specified contexts.
+  -- It could be a mix of contexts or pair of path, handler to create.
+  -- @tparam table contexts The contexts to add.
+  -- @return the new context
+  function httpServer:addContexts(contexts)
+    for _, context in ipairs(contexts) do
+      if HttpContext:isInstance(context) then
+        self:addContext(context)
+      end
+    end
+    for path, handler in pairs(contexts) do
+      if type(path) == 'string' then
+        self:createContext(path, handler)
+      end
+    end
+    return self
+  end
+
+  function httpServer:removeContext(pathOrContext)
+    if type(pathOrContext) == 'string' then
+      local context = self:getContext(pathOrContext)
+      if context then
+        List.removeFirst(self.contexts, context)
+      end
+    elseif HttpContext:isInstance(pathOrContext) then
+      List.removeAll(self.contexts, pathOrContext)
+    end
+  end
+
+  function httpServer:removeAllContexts()
+    self.contexts = {}
+  end
+
+  function httpServer:addFilter(filter)
+    if type(filter) == 'function' then
+      filter = HttpFilter:new(filter)
+    elseif not HttpFilter:isInstance(filter) then
+      error('Invalid filter argument, type is '..type(filter))
+    end
+    table.insert(self.filters, filter)
+    return filter
+  end
+
+  function httpServer:removeFilter(filter)
+    List.removeAll(self.filters, filter)
+  end
+
+  function httpServer:removeAllFilters()
+    self.filters = {}
+  end
+
+  function httpServer:getFilters()
+    return self.filters
+  end
+
+  function httpServer:getParentContextHolder()
+    return self.parentContextHolder
+  end
+
+  function httpServer:setParentContextHolder(parent)
+    self.parentContextHolder = parent
+    return self
+  end
+
+  function httpServer:getContext(path)
+    for _, context in ipairs(self.contexts) do
+      if context:getPath() == path then
+        return context
+      end
+    end
+    return nil
+  end
+
+  function httpServer:findContext(path, request)
+    for _, context in ipairs(self.contexts) do
+      if context:matchRequest(path, request) then
+        return context
+      end
+    end
+    return nil
+  end
+
+  function httpServer:getMatchingContext(path, request)
+    local context = self:findContext(path, request)
+    if not context then
+      if self.parentContextHolder then
+        context = self.parentContextHolder:findContext(path, request) or self.notFoundContext
+      else
+        context = self.notFoundContext
+      end
+    end
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('httpServer:getMatchingContext("'..path..'") => "'..context:getPath()..'"')
+    end
+    return context
+  end
+
+  function httpServer:closeContexts()
+    for _, context in ipairs(self.contexts) do
+      context:close()
+    end
+  end
+
+  -- TODO Remove
+  function httpServer:toHandler()
+    return function(httpExchange)
+      local request = httpExchange:getRequest()
+      local context = self:getMatchingContext(request:getTargetPath())
+      return httpExchange:handleRequest(context)
+    end
   end
 
   function httpServer:preFilter(exchange)

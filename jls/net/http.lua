@@ -13,7 +13,7 @@ return {
   Client = require('jls.net.http.HttpClient'),
   Context = HttpContext,
   Handler = HttpHandler,
-  ContextHolder = require('jls.net.http.HttpContextHolder'),
+  ContextHolder = HttpServer,
   getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure'),
   Server = HttpServer
 }
