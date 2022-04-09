@@ -123,6 +123,20 @@ local function newInstance(class, ...)
 end
 
 --[[--
+Returns the name of the specified class.
+@param class the class to look for.
+@treturn string the class name
+]]
+local function getName(class)
+  for name, c in pairs(package.loaded) do
+    if c == class then
+      return name
+    end
+  end
+  return nil
+end
+
+--[[--
 Indicates whether or not the specified subclass is the same or a sub class of the specified class.
 @param class The class to check with.
 @param subclass The class to be checked.
@@ -212,6 +226,21 @@ local function defineClass(class, defineInstanceFn, defineClassFn)
 end
 
 --[[--
+Modifies the specified instance.
+This method allows to override class methods for a specific instance.
+@param instance the instance to modify.
+@tparam function fn the function that will be called with the instance and its prototype
+@return the modified instance
+]]
+local function modifyInstance(instance, fn)
+  local class = getClass(instance)
+  if not class then
+    error('No class found for the specified instance')
+  end
+  return fn(instance, class.prototype)
+end
+
+--[[--
 Returns a new class inheriting from specified base class.
 The class is implemented using the specified functions by calling @{define}.
 The class has a @{newInstance|new} method to create new instance and a @{isInstance} method to check compatibility.
@@ -284,5 +313,7 @@ return {
   isInstance = isInstance,
   makeInstance = makeInstance,
   newInstance = newInstance,
+  modifyInstance = modifyInstance,
+  getName = getName,
   notImplementedFunction = notImplementedFunction
 }
