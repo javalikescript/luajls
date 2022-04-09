@@ -45,11 +45,11 @@ function tables.stringify(value, space, lenient)
     if valueType == 'table' then
       if stack[value] then
         if lenient then
-          return '"_0_CYCLE"'
-        else
-          --print('buffer:', sb:toString())
-          error('cycle detected')
+          sb:append('"_0_CYCLE"')
+          return
         end
+        --print('buffer:', sb:toString())
+        error('cycle detected')
       end
       stack[value] = true
       local subPrefix = prefix..indent
