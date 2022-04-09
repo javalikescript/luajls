@@ -2,6 +2,8 @@
 -- Available algorithms are base64, deflate, gzip, hex.
 -- @module jls.util.codec
 
+--local class = require('jls.lang.class')
+
 local codec = {}
 
 local CODEC_MAP = {}
@@ -11,10 +13,13 @@ local CODEC_MAP = {}
 -- @return the codec
 function codec.getCodec(alg)
   if type(alg) == 'string' then
+    local cd = CODEC_MAP[alg] or require('jls.util.codec.'..alg)
+    -- TODO codec should be an instance
+    --if class.isClass(cd) then
+    --  return cd:new(...)
+    --end
     -- TODO wrapped required codec if there are missing methods
-    return CODEC_MAP[alg] or require('jls.util.codec.'..alg)
-  elseif type(alg) == 'table' then
-    return alg
+    return cd
   end
   error('Algorithm not found')
 end

@@ -50,6 +50,7 @@ return require('jls.lang.class').create(function(struct)
 
   --- Encodes the specifed values provided as a table.
   -- @tparam string t the values to encode as a table
+  -- @tparam[opt] boolean strict true to indicate that all the value are expected
   -- @treturn string the encoded values as a string.
   function struct:toString(t, strict)
     local values = {}
