@@ -154,6 +154,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       -- always return a promise
       if Promise:isInstance(result) then
         return result:catch(function(reason)
+          logger:warn('HttpExchange error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(reason)..'"')
           self:resetResponseToError(reason)
         end)
       end

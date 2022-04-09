@@ -110,16 +110,30 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     return FileHttpHandler.guessContentType(file)
   end
 
+  function fileHttpHandler:getFileMetadata(file)
+    if file:exists() then
+      return {
+        isDir = file:isDirectory(),
+        size = file:length(),
+        time = file:lastModified(),
+      }
+    end
+  end
+
+  function fileHttpHandler:setFileStreamHandler(httpExchange, file, sh, md)
+    FileStreamHandler.readAll(file, sh)
+  end
+
+  function fileHttpHandler:getFileStreamHandler(httpExchange, file)
+    return FileStreamHandler:new(file, true)
+  end
+
   function fileHttpHandler:listFiles(dir)
     local files = {}
     for _, file in ipairs(dir:listFiles()) do
-      local name = file:getName()
-      table.insert(files, {
-        name = name,
-        isDir = file:isDirectory(),
-        size = file:length(),
-        --time = file:lastModified(),
-      })
+      local md = self:getFileMetadata(file)
+      md.name = file:getName()
+      table.insert(files, md)
     end
     return files
   end
@@ -182,33 +196,31 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     return file
   end
 
-  function fileHttpHandler:handleGetFile(httpExchange, file)
+  function fileHttpHandler:handleGetFile(httpExchange, file, md)
     local response = httpExchange:getResponse()
     response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
     response:setContentType(self:getContentType(file))
     response:setCacheControl(false)
-    response:setContentLength(file:length())
+    response:setContentLength(md.size)
     if httpExchange:getRequestMethod() == HTTP_CONST.METHOD_GET then
-      self:sendFile(httpExchange, file)
+      response:onWriteBodyStreamHandler(function()
+        self:setFileStreamHandler(httpExchange, file, response:getBodyStreamHandler(), md)
+      end)
     end
   end
 
   function fileHttpHandler:receiveFile(httpExchange, file)
-    httpExchange:getRequest():setBodyStreamHandler(FileStreamHandler:new(file, true))
-  end
-
-  function fileHttpHandler:sendFile(httpExchange, file)
-    local response = httpExchange:getResponse()
-    response:onWriteBodyStreamHandler(function()
-      FileStreamHandler.readAll(file, response:getBodyStreamHandler())
-    end)
+    httpExchange:getRequest():setBodyStreamHandler(self:getFileStreamHandler(httpExchange, file))
   end
 
   function fileHttpHandler:handleGetHeadFile(httpExchange, file)
-    if file:isFile() then
-      self:handleGetFile(httpExchange, file)
-    elseif file:isDirectory() and self.allowList then
-      self:handleGetDirectory(httpExchange, file, true)
+    local md = self:getFileMetadata(file)
+    if md then
+      if md.isDir and self.allowList then
+        self:handleGetDirectory(httpExchange, file, true)
+      else
+        self:handleGetFile(httpExchange, file, md)
+      end
     else
       HttpExchange.notFound(httpExchange)
     end
@@ -216,6 +228,17 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
 
   function fileHttpHandler:prepareFile(httpExchange, file)
     return Promise.resolve()
+  end
+
+  function fileHttpHandler:createDirectory(file)
+    return file:mkdir()
+  end
+
+  function fileHttpHandler:deleteFile(file)
+    if self.allowDeleteRecursive then
+      return file:deleteRecursive()
+    end
+    return file:delete()
   end
 
   function fileHttpHandler:handleFile(httpExchange, file, isDirectoryPath)
@@ -237,7 +260,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
       if self.allowUpdate or not file:exists() then
         if isDirectoryPath then
-          file:mkdir() -- TODO Handle errors
+          self:createDirectory(file) -- TODO Handle errors
         else
           self:receiveFile(httpExchange, file)
         end
@@ -246,11 +269,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         HttpExchange.forbidden(httpExchange)
       end
     elseif method == HTTP_CONST.METHOD_DELETE and self.allowDelete then
-      if self.allowDeleteRecursive then
-        file:deleteRecursive() -- TODO Handle errors
-      else
-        file:delete() -- TODO Handle errors
-      end
+      self:deleteFile(file) -- TODO Handle errors
       HttpExchange.ok(httpExchange)
     else
       HttpExchange.methodNotAllowed(httpExchange)
