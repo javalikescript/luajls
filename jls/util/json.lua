@@ -85,11 +85,16 @@ function json.stringify(value, space)
     colon = ': '
     newline = '\n'
   end
+  local stack = {}
   local function stringify(val, prefix)
     local valueType = type(val)
     if val == json.null then
       sb:append('null')
     elseif valueType == 'table' then
+      if stack[val] then
+        error('cycle detected')
+      end
+      stack[val] = true
       local subPrefix = prefix..indent
       local isList, size = List.isList(val)
       if size == 0 then
@@ -138,6 +143,7 @@ function json.stringify(value, space)
         end
         sb:append(newline, prefix, '}')
       end
+      stack[val] = nil
     elseif valueType == 'string' then
       sb:append('"', encodeString(val), '"')
     elseif valueType == 'number' then
