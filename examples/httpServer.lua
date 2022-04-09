@@ -40,13 +40,11 @@ local function cipherFileHttpHandler(handler, endpoint)
       local content = file:readAll()
       if content then
         local md = struct:fromString(cipher.decode(content, endpoint.cipher.alg, endpoint.cipher.key))
-        logger:fine('readEncFileMetadata('..file:getName()..') '..tables.stringify(md, 2))
         return md
       end
     end
     function fileHttpHandler:writeEncFileMetadata(encFile, md)
       local file = self:getEncFileMetadata(encFile)
-      logger:fine('writeEncFileMetadata('..file:getName()..') md: '..tables.stringify(md, 2))
       file:write(cipher.encode(struct:toString(md), endpoint.cipher.alg, endpoint.cipher.key))
     end
     function fileHttpHandler:getFileMetadata(file)
@@ -67,7 +65,7 @@ local function cipherFileHttpHandler(handler, endpoint)
         end
       end
     end
-    function fileHttpHandler:listFiles(dir)
+    function fileHttpHandler:listFileMetadata(dir)
       local files = {}
       for _, file in ipairs(dir:listFiles()) do
         local md
@@ -179,6 +177,23 @@ local CONFIG_SCHEMA = {
           },
         },
       },
+      credentials = {
+        title = 'The credentials as name/password pairs for basic authentication',
+        type = 'array',
+        items = {
+          type = 'object',
+          properties = {
+            name = {
+              title = 'The user name',
+              type = 'string'
+            },
+            password = {
+              title = 'The user password',
+              type = 'string'
+            }
+          }
+        }
+      },
     },
     dir = {
       title = 'The root directory to serve',
@@ -288,6 +303,15 @@ end, function(err) -- could failed if address is in use or hostname cannot be re
   print('Cannot bind HTTP server, '..tostring(err))
   os.exit(1)
 end)
+
+if type(config.credentials) == 'table' and next(config.credentials) then
+  local BasicAuthenticationHttpFilter = require('jls.net.http.filter.BasicAuthenticationHttpFilter')
+  local namePasswordMap = {}
+  for _, credential in ipairs(config.credentials) do
+    namePasswordMap[credential.name] = credential.password
+  end
+  httpServer:addFilter(BasicAuthenticationHttpFilter:new(namePasswordMap, 'HTTP Server'))
+end
 
 eventPublisher:subscribeEvent('terminate', function()
   logger:info('Closing HTTP server')

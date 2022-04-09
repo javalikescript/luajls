@@ -128,7 +128,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     return FileStreamHandler:new(file, true)
   end
 
-  function fileHttpHandler:listFiles(dir)
+  function fileHttpHandler:listFileMetadata(dir)
     local files = {}
     for _, file in ipairs(dir:listFiles()) do
       local md = self:getFileMetadata(file)
@@ -140,7 +140,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
 
   function fileHttpHandler:handleGetDirectory(httpExchange, dir, showParent)
     local response = httpExchange:getResponse()
-    local files = self:listFiles(dir)
+    local files = self:listFileMetadata(dir)
     local body = ''
     local request = httpExchange:getRequest()
     if request:hasHeaderValue(HTTP_CONST.HEADER_ACCEPT, HttpExchange.CONTENT_TYPES.json) then

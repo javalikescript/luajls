@@ -11,18 +11,17 @@ local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 
-local function getFileResponse(propfind, file, baseHref, isChild)
-  local isDir = file:isDirectory()
+local function getFileResponse(propfind, md, baseHref, isChild)
   local href = baseHref
   if isChild then
-    href = href..file:getName()
-    if isDir then
+    href = href..md.name
+    if md.isDir then
       href = href..'/'
     end
   end
-  local getlastmodified = Date:new(file:lastModified()):toRFC822String(true)
+  local getlastmodified = Date:new(md.time):toRFC822String(true)
   local props
-  if isDir then
+  if md.isDir then
     props = {
       {name = 'creationdate'},
       {name = 'displayname'},
@@ -34,8 +33,8 @@ local function getFileResponse(propfind, file, baseHref, isChild)
     props = {
       {name = 'creationdate'},
       {name = 'displayname'},
-      {name = 'getcontentlength', tostring(file:length())},
-      {name = 'getcontenttype', FileHttpHandler.guessContentType(file)},
+      {name = 'getcontentlength', tostring(md.size)},
+      {name = 'getcontenttype', FileHttpHandler.guessContentType(md.name)},
       {name = 'getetag'}, -- TODO
       {name = 'getlastmodified', getlastmodified},
       {name = 'resourcetype'},
@@ -94,12 +93,13 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
     --response:setHeader('Content-Location', 'http://'..host..baseHref)
     local multistatus = {name = 'multistatus'}
     if not string.find(depth, ',noroot$') then
-      table.insert(multistatus, getFileResponse(propfind, file, baseHref, false))
+      local md = self:getFileMetadata(file)
+      table.insert(multistatus, getFileResponse(propfind, md, baseHref, false))
     end
     if string.find(depth, '^1') and file:isDirectory() then
-      local children = file:listFiles()
-      for _, child in ipairs(children) do
-        table.insert(multistatus, getFileResponse(propfind, child, baseHref, true))
+      local list = self:listFileMetadata(file)
+      for _, md in ipairs(list) do
+        table.insert(multistatus, getFileResponse(propfind, md, baseHref, true))
       end
     end
     local body = xml.encode(xml.setNamespace(multistatus, 'DAV:', 'D'))
