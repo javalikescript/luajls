@@ -14,11 +14,16 @@ return require('jls.lang.class').create(function(struct)
   function struct:initialize(structDef, byteOrder)
     self.struct = structDef or {}
     local format = byteOrder or '='
+    local fixedSize = true
     for _, def in ipairs(self.struct) do
-      format = format..def.type
+      local ct = string.gsub(def.type, '^S(%d+)$', 'c%1')
+      if string.find(ct, '^[sz]') then
+        fixedSize = false
+      end
+      format = format..ct
     end
     self.format = format
-    self.size = string.packsize(self.format)
+    self.size = fixedSize and string.packsize(self.format) or -1
   end
 
   --- Returns the size of this Struct that is the total size of its fields.
@@ -34,7 +39,11 @@ return require('jls.lang.class').create(function(struct)
     local t = {}
     local values = table.pack(string.unpack(self.format, s))
     for i, def in ipairs(self.struct) do
-      t[def.name] = values[i]
+      local value = values[i]
+      if string.find(def.type, '^S') then
+        value = string.gsub(value, '\0*$', '')
+      end
+      t[def.name] = value
     end
     return t
   end
@@ -50,7 +59,7 @@ return require('jls.lang.class').create(function(struct)
         if strict then
           error('Missing value for field "'..tostring(def.name)..'" at index '..tostring(i))
         end
-        if string.find(def.type, '^[csz]') then
+        if string.find(def.type, '^[csSz]') then
           value = ''
         else
           value = 0
