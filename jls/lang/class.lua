@@ -125,7 +125,8 @@ end
 --[[--
 Returns the name of the specified class.
 @param class the class to look for.
-@treturn string the class name
+@treturn string the class name or nil if the class is not in package.loaded
+@function getName
 ]]
 local function getName(class)
   for name, c in pairs(package.loaded) do
@@ -149,11 +150,24 @@ local Bus = class.create(Vehicle)
 Vehicle:isAssignableFrom(Bus) -- Returns true
 ]]
 local function isAssignableFrom(class, subclass)
-  while subclass do
+  while type(subclass) == 'table' do
     if subclass == class then
       return true
     end
     subclass = subclass.super
+  end
+  return false
+end
+
+--[[--
+Returns true if the specified value is a class.
+@param value The class to check.
+@return true if the specified value is a class, false otherwise.
+@function isClass
+]]
+local function isClass(value)
+  if type(value) == 'table' and type(value.new) == 'function' and value.prototype then
+    return true
   end
   return false
 end
@@ -175,6 +189,7 @@ end
 
 local ClassIndex = {
   new = newInstance,
+  getName = getName,
   isAssignableFrom = isAssignableFrom,
   isInstance = isInstance
 }
@@ -231,6 +246,7 @@ This method allows to override class methods for a specific instance.
 @param instance the instance to modify.
 @tparam function fn the function that will be called with the instance and its prototype
 @return the modified instance
+@function modifyInstance
 ]]
 local function modifyInstance(instance, fn)
   local class = getClass(instance)
@@ -315,5 +331,6 @@ return {
   newInstance = newInstance,
   modifyInstance = modifyInstance,
   getName = getName,
+  isClass = isClass,
   notImplementedFunction = notImplementedFunction
 }
