@@ -6,7 +6,7 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpHandler = require('jls.net.http.HttpHandler')
 
 --- The HttpContext class maps a path to a handler.
--- The HttpContext is used by the @{HttpServer} through the @{HttpContextHolder}.
+-- The HttpContext is used by the @{HttpServer}.
 -- @type HttpContext
 return require('jls.lang.class').create('jls.net.http.Attributes', function(httpContext, super, HttpContext)
 
@@ -26,7 +26,8 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       error('Invalid context path, type is '..type(path))
     end
     self.repl = '%1'
-    self.index = string.len(path)
+    --self.index = string.len(path)
+    self.index = string.len(string.gsub(string.gsub(path, '%%.', '_'), '%([^%)]+%)', ''))
     self:setHandler(handler or HttpContext.notFoundHandler)
   end
 
