@@ -2,6 +2,8 @@ local logger = require('jls.lang.logger')
 local class = require('jls.lang.class')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
+local StringBuffer = require('jls.lang.StringBuffer')
+local Path = require('jls.io.Path')
 local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
@@ -12,14 +14,21 @@ local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
 local WebDavHttpHandler = require('jls.net.http.handler.WebDavHttpHandler')
 local Url = require('jls.net.Url')
 local tables = require('jls.util.tables')
+local Map = require('jls.util.Map')
 local base64 = require('jls.util.base64')
 local Scheduler = require('jls.util.Scheduler')
 local EventPublisher = require("jls.util.EventPublisher")
 
 -- see https://openjdk.java.net/jeps/408
 
+local function getExtension(name)
+  local extension = Path.extractExtension(name)
+  return extension and string.lower(extension) or ''
+end
+
 local function cipherFileHttpHandler(handler, endpoint)
   local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
+  local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
   local cipher = require('jls.util.codec.cipher')
   local strings = require('jls.util.strings')
   local Struct = require('jls.util.Struct')
@@ -88,12 +97,17 @@ local function cipherFileHttpHandler(handler, endpoint)
       end
       return true
     end
-    function fileHttpHandler:setFileStreamHandler(httpExchange, file, sh, md)
+    function fileHttpHandler:setFileStreamHandler(httpExchange, file, sh, md, offset, length)
+      --FileStreamHandler.read(file, sh, offset, length)
       if md and md.encFile then
         file = md.encFile
         sh = cipher.decodeStream(sh, endpoint.cipher.alg, endpoint.cipher.key)
+        if offset and length then
+          sh = RangeStreamHandler:new(sh, offset, length)
+          offset, length = nil, nil
+        end
       end
-      super.setFileStreamHandler(self, httpExchange, file, sh)
+      super.setFileStreamHandler(self, httpExchange, file, sh, md, offset, length)
     end
     function fileHttpHandler:getFileStreamHandler(httpExchange, file)
       local time = system.currentTimeMillis()
@@ -236,6 +250,10 @@ local CONFIG_SCHEMA = {
         }
       },
     },
+    view = {
+      type = 'boolean',
+      default = false,
+    },
     scheduler = {
       type = 'object',
       additionalProperties = false,
@@ -267,6 +285,18 @@ local CONFIG_SCHEMA = {
   }
 }
 
+local videoExts = Map.add({}, 'mp4')
+local imageExts = Map.add({}, 'jpg', 'jpeg', 'png', 'gif')
+local viewExts = Map.assign({}, videoExts, imageExts)
+
+local VIEW_SCRIPT = [[<script>
+function viewFile(e) {
+  var href = e.target.previousElementSibling.getAttribute('href');
+  window.location = '/view' + window.location.pathname + href;
+}
+</script>
+]]
+
 local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
   emptyPath = 'dir',
@@ -288,7 +318,9 @@ if not endpoints or #endpoints == 0 then
     {path = '/', target = [[data:text/html;charset=utf-8,<!DOCTYPE html>
 <html><head><title>Welcome</title></head><body>
 <p>Welcome !</p>
-<p><a href="#" onclick="fetch('admin/stop', {method: 'POST'})">Stop the server</a></p>
+<p><a href="#" onclick="fetch('admin/stop', {method: 'POST'}).then(function() {
+  document.getElementsByTagName('body')[0].innerHTML = '<p>Bye !</p>';
+})">Stop the server</a></p>
 <p><a href="files/">Explore files</a></p>
 </body></html>]]},
   }
@@ -349,6 +381,20 @@ for _, endpoint in ipairs(endpoints) do
           handler = WebDavHttpHandler:new(targetFile, endpoint.permissions)
         elseif scheme == 'file' and targetFile:isDirectory() then
           handler = FileHttpHandler:new(targetFile, endpoint.permissions)
+          if config.view then
+            class.modifyInstance(handler, function(fileHttpHandler, super)
+              function fileHttpHandler:appendFileHtmlBody(buffer, file)
+                super.appendFileHtmlBody(self, buffer, file)
+                if viewExts[getExtension(file.name)] then
+                  buffer:append('<a href="#" title="view" onclick="viewFile(event)">&#x1f441;</a>\n')
+                end
+              end
+              function fileHttpHandler:appendDirectoryHtmlBody(buffer, files)
+                super.appendDirectoryHtmlBody(self, buffer, files)
+                buffer:append(VIEW_SCRIPT)
+              end
+            end)
+          end
         elseif scheme == 'file' and targetFile:isFile() then
           handler = HttpHandler:new(function(_, exchange)
             HttpExchange.ok(exchange, targetFile:readAll(), FileHttpHandler.guessContentType(targetFile:getName()))
@@ -407,6 +453,25 @@ for _, endpoint in ipairs(endpoints) do
   else
     logger:warn('unsupported endpoint target "'..tostring(endpoint.target)..'"')
   end
+end
+
+if config.view then
+  httpServer:createContext('/view(/.*)', HttpHandler:new(function(_, exchange)
+    local path = exchange:getRequestPath()
+    local extension = getExtension(path)
+    local response = exchange:getResponse()
+    local buffer = StringBuffer:new()
+    buffer:append('<!DOCTYPE html><html><body>')
+    if videoExts[extension] then
+      buffer:append('<video controls width="720"><source src="'..path..'" type="video/'..extension..'"></video>')
+    elseif imageExts[extension] then
+      buffer:append('<img width="720" src="'..path..'" />')
+    else
+      buffer:append('<p><a href="'..path..'">'..path..'</a></p>')
+    end
+    buffer:append('</body></html>')
+    response:setBody(buffer:toString())
+  end))
 end
 
 event:loop()
