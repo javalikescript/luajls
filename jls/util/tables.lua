@@ -346,6 +346,9 @@ function tables.setPath(t, path, value, separator)
   local v = t[key]
   if remainingPath and remainingPath ~= '' then
     if type(v) ~= 'table' then
+      if value == nil then
+        return
+      end
       -- if the entry does not exist or is not a table then create an intermediary table
       v = {}
       t[key] = v

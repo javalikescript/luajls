@@ -86,7 +86,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
       offset = -1 -- use offset by default
     end
     local cb, d = Promise.ensureCallback(callback)
-    luvLib.fs_read(self.fd, size, offset, function(err, data)
+    local status, err = luvLib.fs_read(self.fd, size, offset, function(err, data)
       if err then
         cb(err)
       else
@@ -97,6 +97,9 @@ return require('jls.lang.class').create(function(fileDescriptor)
         end
       end
     end)
+    if not status then
+      cb(err or 'fs_read')
+    end
     return d
   end
 

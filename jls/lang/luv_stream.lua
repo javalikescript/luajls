@@ -52,18 +52,25 @@ return {
   end,
   write = function(stream, data, callback)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('luv.write('..tostring(stream)..', '..tostring(string.len(data))..')')
+      logger:finest('luv.write('..tostring(stream)..', '..tostring(data and #data)..')')
     end
     local cb, d = Promise.ensureCallback(callback)
     local req, err
     if stream then
+      --if stream:is_closing() then
+      --  logger:warn('luv.write('..tostring(stream)..') is closing')
+      --end
       -- write returns a cancelable request
       req, err = stream:write(data, cb)
     else
       err = 'stream not available'
     end
-    if not req and cb then
-      cb(err or 'unknown error')
+    if not req then
+      if cb then
+        cb(err or 'unknown error')
+      else
+        logger:warn('luv.write('..tostring(stream)..') fail '..tostring(err))
+      end
     end
     -- TODO invert request and error?
     return d, req, err
