@@ -251,8 +251,8 @@ return require('jls.lang.class').create(function(httpServer)
       --exchange:prepareResponseBody()
       return exchange:getResponse():writeBody(client)
     end):next(function()
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:onAccept() response body '..requestToString(exchange)..' done')
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpServer:onAccept() response body '..requestToString(exchange)..' done '..tostring(exchange:getResponse():getStatusCode()))
       end
       if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange:removeClient()

@@ -299,12 +299,12 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
         cb(err)
       elseif data then
         len = len + #data
-        if logger:isLoggable(logger.FINER) then
+        if logger:isLoggable(logger.FINEST) then
           local message = 'httpMessage:writeBody() write #'..tostring(len)..'+'..tostring(#data)
-          if logger:isLoggable(logger.FINEST) then
-            logger:finest(message..' "'..tostring(data)..'"')
+          if logger:isLoggable(logger.DEBUG) then
+            logger:debug(message..' "'..tostring(data)..'"')
           else
-            logger:finer(message)
+            logger:finest(message)
           end
         end
         stream:write(data)
@@ -330,7 +330,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
     HTTP_OK = 200,
     HTTP_CREATED = 201,
-    HTTP_NO_CONTENT= 204,
+    HTTP_NO_CONTENT = 204,
+    HTTP_PARTIAL_CONTENT = 206,
 
     HTTP_MOVED_PERMANENTLY = 301,
     HTTP_FOUND = 302,
@@ -346,6 +347,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     HTTP_PRECONDITION_FAILED = 412,
     HTTP_PAYLOAD_TOO_LARGE = 413,
     HTTP_UNSUPPORTED_MEDIA_TYPE = 415,
+    HTTP_RANGE_NOT_SATISFIABLE = 416,
 
     HTTP_INTERNAL_SERVER_ERROR = 500,
 
@@ -395,6 +397,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     HEADER_CONTENT_TYPE = 'Content-Type',
     HEADER_TRANSFER_ENCODING = 'Transfer-Encoding',
     HEADER_LAST_MODIFIED = 'Last-Modified',
+    HEADER_RANGE = 'Range',
+    HEADER_CONTENT_RANGE = 'Content-Range',
   }
 
 end)

@@ -42,7 +42,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
 
   --- Configures this proxy as reverse proxy.
   -- This mode allows to serve distinct services on the same server or
-  -- server distinct servers on the same endpoint.
+  -- serve distinct servers on the same endpoint.
   -- @tparam[opt] string baseUrl a base URL to forward requests to.
   -- @treturn ProxyHttpHandler this proxy for chaining.
   function proxyHttpHandler:configureReverse(baseUrl)
