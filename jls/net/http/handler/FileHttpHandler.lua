@@ -3,15 +3,17 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local json = require('jls.util.json')
+local Promise = require('jls.lang.Promise')
+local StringBuffer = require('jls.lang.StringBuffer')
 local Path = require('jls.io.Path')
 local File = require('jls.io.File')
-local Promise = require('jls.lang.Promise')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
-local StringBuffer = require('jls.lang.StringBuffer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local Url = require('jls.net.Url')
+local json = require('jls.util.json')
+local Date = require('jls.util.Date')
 
 local DIRECTORY_STYLE = [[<style>
 a {
@@ -89,6 +91,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     else
       self.defaultFile = 'index.html'
     end
+    self.cacheControl = true
     if type(permissions) ~= 'string' then
       permissions = 'r'
     end
@@ -120,8 +123,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     end
   end
 
-  function fileHttpHandler:setFileStreamHandler(httpExchange, file, sh, md)
-    FileStreamHandler.readAll(file, sh)
+  function fileHttpHandler:setFileStreamHandler(httpExchange, file, sh, md, offset, length)
+    FileStreamHandler.read(file, sh, offset, length)
   end
 
   function fileHttpHandler:getFileStreamHandler(httpExchange, file)
@@ -131,11 +134,51 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   function fileHttpHandler:listFileMetadata(dir)
     local files = {}
     for _, file in ipairs(dir:listFiles()) do
-      local md = self:getFileMetadata(file)
-      md.name = file:getName()
-      table.insert(files, md)
+      local name = file:getName()
+      if string.find(name, '^[^%.]') then
+        local md = self:getFileMetadata(file)
+        md.name = name
+        table.insert(files, md)
+      end
     end
     return files
+  end
+
+  function fileHttpHandler:encodeFileHref(file)
+    return Url.encodeURIComponent(file.name)
+  end
+
+  function fileHttpHandler:appendFileHtmlBody(buffer, file)
+    buffer:append('<a href="', self:encodeFileHref(file))
+    if file.isDir then
+      buffer:append('/"')
+    else
+      buffer:append('"')
+      if file.size then
+        buffer:append(' title="', file.size, ' bytes"')
+      end
+    end
+    if file.isDir then
+      buffer:append(' class="dir"')
+    end
+    buffer:append('>', file.name, '</a>\n')
+  end
+
+  function fileHttpHandler:appendDirectoryHtmlBody(buffer, files)
+    for _, file in ipairs(files) do
+      self:appendFileHtmlBody(buffer, file)
+      if self.allowDelete and not file.isDir then
+        buffer:append('<a href="#" title="delete" onclick="delFile(event)">&#x2715;</a>\n')
+      end
+      buffer:append('<br/>\n')
+    end
+    if self.allowCreate then
+      buffer:append(PUT_SCRIPT)
+    end
+    if self.allowDelete then
+      buffer:append(DELETE_SCRIPT)
+    end
+    return buffer
   end
 
   function fileHttpHandler:handleGetDirectory(httpExchange, dir, showParent)
@@ -154,31 +197,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       if showParent then
         buffer:append('<a href=".." class="dir">..</a><br/>\n')
       end
-      for _, file in ipairs(files) do
-        buffer:append('<a href="', Url.encodeURIComponent(file.name))
-        if file.isDir then
-          buffer:append('/"')
-        else
-          buffer:append('"')
-          if file.size then
-            buffer:append(' title="', file.size, ' bytes"')
-          end
-        end
-        if file.isDir then
-          buffer:append(' class="dir"')
-        end
-        buffer:append('>', file.name, '</a>\n')
-        if self.allowDelete and not file.isDir then
-          buffer:append('<a href="#" title="delete" onclick="delFile(event)">&#x2715;</a>\n')
-        end
-        buffer:append('<br/>\n')
-      end
-      if self.allowCreate then
-        buffer:append(PUT_SCRIPT)
-      end
-      if self.allowDelete then
-        buffer:append(DELETE_SCRIPT)
-      end
+      self:appendDirectoryHtmlBody(buffer, files)
       buffer:append('</body></html>\n')
       body = buffer:toString()
       response:setContentType(HttpExchange.CONTENT_TYPES.html)
@@ -200,11 +219,40 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     local response = httpExchange:getResponse()
     response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
     response:setContentType(self:getContentType(file))
-    response:setCacheControl(false)
+    response:setLastModified(md.time)
+    response:setCacheControl(self.cacheControl)
     response:setContentLength(md.size)
+    response:setHeader('Accept-Ranges', 'bytes')
     if httpExchange:getRequestMethod() == HTTP_CONST.METHOD_GET then
+      local request = httpExchange:getRequest()
+      local range = request:getHeader('Range')
+      local offset, length
+      if range then
+        -- only support a single range
+        local first, last = string.match(range, '^bytes=(%d*)%-(%d*)%s*$')
+        first = first and tonumber(first)
+        last = last and tonumber(last)
+        if first and first < md.size or last and last < md.size then
+          offset = first or (md.size - last)
+          if first and last and first <= last then
+            length = last - first + 1
+          else
+            length = md.size - offset
+          end
+        end
+      end
+      if offset and length then
+        response:setStatusCode(HTTP_CONST.HTTP_PARTIAL_CONTENT, 'Partial')
+        response:setContentLength(length)
+        local contentRange = 'bytes '..tostring(offset)..'-'..tostring(offset + length - 1)..'/'..tostring(md.size)
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('Content-Range: '..contentRange..', from Range: '..range)
+        end
+        response:setHeader('Content-Range', contentRange)
+      end
       response:onWriteBodyStreamHandler(function()
-        self:setFileStreamHandler(httpExchange, file, response:getBodyStreamHandler(), md)
+        local sh = response:getBodyStreamHandler()
+        self:setFileStreamHandler(httpExchange, file, sh, md, offset, length)
       end)
     end
   end
@@ -271,6 +319,21 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     elseif method == HTTP_CONST.METHOD_DELETE and self.allowDelete then
       self:deleteFile(file) -- TODO Handle errors
       HttpExchange.ok(httpExchange)
+    elseif method == 'MOVE' and self.allowCreate and self.allowDelete then
+      local request = httpExchange:getRequest()
+      local destination = request:getHeader('destination')
+      if string.find(destination, '://') then
+        destination = Url:new(destination):getPath()
+      end
+      destination = Url.decodePercent(destination)
+      local destPath = httpExchange:getContext():getArguments(destination)
+      if destPath then
+        local destFile = self:findFile(destPath)
+        file:renameTo(destFile)
+        HttpExchange.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
+      else
+        HttpExchange.badRequest(httpExchange)
+      end
     else
       HttpExchange.methodNotAllowed(httpExchange)
     end
