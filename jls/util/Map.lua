@@ -142,6 +142,24 @@ return require('jls.lang.class').create(function(map)
     end, self
   end
 
+  --- Adds a new element to this map such as the key is also the value.
+  -- This method allows to use this map as a set.
+  -- @param value The element to add.
+  -- @param[opt] ... Additional values to add.
+  -- @treturn jls.util.Map this map.
+  function map:add(value, ...)
+    if value == nil then
+      error('Cannot add nil value')
+    end
+    self[value] = value
+    if ... then
+      for _, v in ipairs({...}) do
+        self[v] = v
+      end
+    end
+    return self
+  end
+
 end, function(Map)
 
   --- Sets all key-values of the specified tables to the target table.
@@ -168,5 +186,6 @@ end, function(Map)
   Map.values = Map.prototype.values
   Map.skeys = Map.prototype.skeys
   Map.spairs = Map.prototype.spairs
+  Map.add = Map.prototype.add
 
 end)
