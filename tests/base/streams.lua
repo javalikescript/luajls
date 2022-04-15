@@ -5,6 +5,7 @@ local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
+local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 
 local function assertStreamHandling(s, t)
   lu.assertIsNil(t.dataCaptured)
@@ -32,6 +33,17 @@ local function assertThenCleanCaptureStreamHandler(cs, dl, el)
   assertCaptureStreamHandler(cs, dl, el)
   cleanCaptureStreamHandler(cs)
   return cs
+end
+
+local function onData(s, ...)
+  for _, d in ipairs({...}) do
+    s:onData(d)
+  end
+end
+
+local function endData(s, ...)
+  onData(s, ...)
+  s:onData()
 end
 
 local function createCaptureStreamHandler()
@@ -140,6 +152,42 @@ function Test_block_multiple()
   assertThenCleanCaptureStreamHandler(cs, {'ld '})
   s:onData()
   assertCaptureStreamHandler(cs, {'!', false})
+end
+
+function Test_range()
+  local cs = createCaptureStreamHandler()
+  local s = RangeStreamHandler:new(cs, 0, 100)
+  assertCaptureStreamHandler(cs)
+  endData(s, 'Hello world !')
+  assertThenCleanCaptureStreamHandler(cs, {'Hello world !', false})
+
+  s = RangeStreamHandler:new(cs, 0, 100)
+  endData(s, 'Hell', 'o wo', 'rld ', '!')
+  assertThenCleanCaptureStreamHandler(cs, {'Hell', 'o wo', 'rld ', '!', false})
+
+  s = RangeStreamHandler:new(cs, 0, 5)
+  assertCaptureStreamHandler(cs)
+  endData(s, 'Hello world !')
+  assertThenCleanCaptureStreamHandler(cs, {'Hello', false})
+
+  s = RangeStreamHandler:new(cs, 2, 100)
+  assertCaptureStreamHandler(cs)
+  endData(s, 'Hello world !')
+  assertThenCleanCaptureStreamHandler(cs, {'llo world !', false})
+
+  s = RangeStreamHandler:new(cs, 2, 5)
+  assertCaptureStreamHandler(cs)
+  endData(s, 'Hello world !')
+  assertThenCleanCaptureStreamHandler(cs, {'llo w', false})
+
+  s = RangeStreamHandler:new(cs, 1, 100)
+  endData(s, 'Hell', 'o wo', 'rld ', '!')
+  assertThenCleanCaptureStreamHandler(cs, {'ell', 'o wo', 'rld ', '!', false})
+
+  s = RangeStreamHandler:new(cs, 2, 5)
+  assertCaptureStreamHandler(cs)
+  endData(s, 'Hell', 'o wo', 'rld ', '!')
+  assertThenCleanCaptureStreamHandler(cs, {'ll', 'o w', false})
 end
 
 os.exit(lu.LuaUnit.run())
