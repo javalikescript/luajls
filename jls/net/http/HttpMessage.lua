@@ -307,7 +307,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
             logger:finest(message)
           end
         end
-        stream:write(data)
+        return stream:write(data)
       else
         if logger:isLoggable(logger.FINER) then
           logger:finer('httpMessage:writeBody() done #'..tostring(len))
@@ -335,6 +335,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
     HTTP_MOVED_PERMANENTLY = 301,
     HTTP_FOUND = 302,
+    HTTP_NOT_MODIFIED = 304,
 
     HTTP_BAD_REQUEST = 400,
     HTTP_UNAUTHORIZED = 401,
