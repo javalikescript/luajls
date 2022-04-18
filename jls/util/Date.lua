@@ -24,6 +24,9 @@ local function computeTimezoneOffset(localField, gmField)
   return (day * 1440) + (localField.hour * 60 + localField.min) - (gmField.hour * 60 + gmField.min)
 end
 
+local RFC822_DAYS = {'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'}
+local RFC822_MONTHS = {'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'}
+
 
 --- The Date class.
 -- The Date provides a way to manipulate date and time.
@@ -214,7 +217,7 @@ return require('jls.lang.class').create(function(date)
 
   -- Returns the offset in minutes of this local date from UTC
   function date:getTimezoneOffset()
-    return computeTimezoneOffset(self.field, os.date('!*t', self:getTime() // 1000))
+    return computeTimezoneOffset(self.field, self:getUTCField())
   end
 
   function date:getTimezoneOffsetHourMin()
@@ -246,9 +249,6 @@ return require('jls.lang.class').create(function(date)
     local offsetHour, offsetMin = self:getTimezoneOffsetHourMin()
     return os.date('%Y-%m-%dT%H:%M:%S', t)..string.format('.%03d%+03d:%02d', self.field.ms, offsetHour, offsetMin)
   end
-
-  local RFC822_DAYS = {'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'}
-  local RFC822_MONTHS = {'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'}
 
   function date:toRFC822String(utc)
     -- Sun, 06 Nov 1994 08:49:37 GMT -- os.date('%a, %d %b %y %T %z')
@@ -340,6 +340,37 @@ end, function(Date)
       return Date.UTC(parseISOString(s, lenient))
     end
     return Date:new(parseISOString(s, lenient)):getTime()
+  end
+
+  local function parseRFC822Month(month)
+    month = string.upper(string.sub(month, 1, 1))..string.lower(string.sub(month, 2, 3))
+    for i, m in ipairs(RFC822_MONTHS) do
+      if m == month then
+        return i
+      end
+    end
+  end
+
+  function Date.fromRFC822String(s)
+    -- Thu, 01 Jan 1970 00:00:00 GMT
+    local wday, mday, month, year, hour, min, sec, tz = string.match(s, '(%a+),%s+(%d+)%s+(%a+)%s+(%d+)%s+(%d+):(%d+):(%d+)%s+([^%s]+)')
+    if not wday then
+      return nil
+    end
+    year = tonumber(year)
+    month = parseRFC822Month(month)
+    mday = tonumber(mday)
+    hour = tonumber(hour)
+    min = tonumber(min)
+    sec = tonumber(sec)
+    if not month then
+      return nil
+    end
+    if tz == 'GMT' then
+      return Date.UTC(year, month, mday, hour, min, sec)
+    end
+    -- FIXME check tz is not local
+    return Date:new(year, month, mday, hour, min, sec):getTime()
   end
 
   function Date.fromTimestamp(s, utc)
