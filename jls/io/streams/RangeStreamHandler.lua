@@ -35,11 +35,13 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
       if nextOffset <= self.last then
         return self.handler:onData(string.sub(data, i))
       end
-      self.handler:onData(string.sub(data, i, self.last - first + 1))
+      local handler = self.handler
+      self.handler = RangeStreamHandler.null
+      return RangeStreamHandler.fill(handler, string.sub(data, i, self.last - first + 1))
     end
-    self.handler:onData()
+    local handler = self.handler
     self.handler = RangeStreamHandler.null
-    return false
+    return handler:onData()
   end
 
 end)

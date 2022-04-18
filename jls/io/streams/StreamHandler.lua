@@ -30,7 +30,10 @@ local std = StreamHandler:new(function(err, data)
 end)
 ]]
 
+-- see https://streams.spec.whatwg.org/
+
 local class = require('jls.lang.class')
+local Promise = require('jls.lang.Promise')
 
 local function onDataCallback(self, data)
   return self.cb(nil, data)
@@ -65,7 +68,7 @@ local StreamHandler = class.create(function(streamHandler)
 
   --- The specified data is available for this stream.
   -- @param data the new data to process, nil to indicate the end of the stream.
-  -- @treturn boolean false to indicate that this handler has finish to process the stream.
+  -- @return an optional promise that will resolve when the data has been processed.
   function streamHandler:onData(data)
   end
 
@@ -107,14 +110,22 @@ local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, su
   end
 
   function biStreamHandler:onData(data)
-    local r
-    if self.firstStream:onData(data) == false then
-      r = false
+    local fr = self.firstStream:onData(data)
+    local sr = self.secondStream:onData(data)
+    if fr or sr then
+      local fp = Promise:isInstance(fr) and fr or nil
+      local sp = Promise:isInstance(sr) and sr or nil
+      if fp or sp then
+        if fp and sp then
+          return Promise.all({fp, sp})
+        end
+        return fp or sp
+      end
     end
-    if self.secondStream:onData(data) == false then
-      r = false
+    if fr ~= nil then
+      return fr
     end
-    return r
+    return sr
   end
 
   function biStreamHandler:onError(err)
@@ -125,38 +136,6 @@ local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, su
   function biStreamHandler:close()
     self.firstStream:close()
     self.secondStream:close()
-  end
-
-end)
-
--- This class allows to stream to multiple streams.
-local MultipleStreamHandler = class.create(StreamHandler, function(multipleStreamHandler, super)
-
-  function multipleStreamHandler:initialize(...)
-    super.initialize(self)
-    self.streams = {...}
-  end
-
-  function multipleStreamHandler:onData(data)
-    local r
-    for _, stream in ipairs(self.streams) do
-      if stream:onData(data) == false then
-        r = false
-      end
-    end
-    return r
-  end
-
-  function multipleStreamHandler:onError(err)
-    for _, stream in ipairs(self.streams) do
-      stream:onError(err)
-    end
-  end
-
-  function multipleStreamHandler:close()
-    for _, stream in ipairs(self.streams) do
-      stream:close()
-    end
   end
 
 end)
@@ -193,32 +172,27 @@ end
 -- @tparam StreamHandler sh the StreamHandler to fill.
 -- @tparam string data the data to process.
 function StreamHandler.fill(sh, data)
+  local r
   if data then
-    sh:onData(data)
+    r = sh:onData(data)
   end
-  sh:onData(nil)
+  if Promise:isInstance(r) then
+    return r:next(function()
+      return sh:onData(nil)
+    end)
+  end
+  return sh:onData(nil) or r
 end
 
 --- Creates a stream handler with two handlers.
 -- @tparam StreamHandler firstStream The first stream handlers.
 -- @tparam StreamHandler secondStream The second stream handlers.
 -- @treturn StreamHandler a StreamHandler.
-function StreamHandler.bi(...)
+function StreamHandler.tee(...)
   return BiStreamHandler:new(...)
 end
 
---- Creates a stream handler with multiple handlers.
--- @tparam StreamHandler ... The stream handlers.
--- @treturn StreamHandler a StreamHandler.
-function StreamHandler.multiple(...)
-  local firstStream, secondStream, thirdStream = ...
-  if thirdStream then
-    return MultipleStreamHandler:new(...)
-  elseif secondStream then
-    return BiStreamHandler:new(firstStream, secondStream)
-  end
-  return firstStream
-end
+StreamHandler.bi = StreamHandler.tee
 
 function StreamHandler.create(name, ...)
   local shc = require(string.upper(string.sub(name, 1, 1))..string.sub(name, 2)..'StreamHandler')

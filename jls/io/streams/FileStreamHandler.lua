@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 local Promise = require('jls.lang.Promise')
+local logger = require('jls.lang.logger')
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
 
@@ -88,11 +89,15 @@ end, function(FileStreamHandler)
         sh:onError(err)
         cb(err)
       else
-        if sh:onData(data) ~= false and data then
+        local dr = sh:onData(data)
+        if dr ~= false and data then
           local l = #data
           if length then
             length = length - l
-            if length <= 0 then
+            --if length > 1048576 and logger:isLoggable(logger.FINE) then
+            --  logger:logopt(logger.FINE, 'readCallback() remaining length '..tostring(length))
+            --end
+          if length <= 0 then
               l = 0
             elseif size > length then
               size = length
@@ -105,7 +110,19 @@ end, function(FileStreamHandler)
             if offset then
               offset = offset + l
             end
-            fd:read(size, offset, readCallback)
+            if Promise:isInstance(dr) then
+              dr:next(function()
+                fd:read(size, offset, readCallback)
+              end, function(drerr)
+                if logger:isLoggable(logger.FINE) then
+                  logger:fine('readCallback() onData() error, '..tostring(drerr))
+                end
+                sh:onError(drerr)
+                cb(drerr)
+              end)
+            else
+              fd:read(size, offset, readCallback)
+            end
           end
         else
           cb()

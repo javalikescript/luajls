@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.streams.StreamHandler')
 
 --- A LimitedStreamHandler class.
 -- This class allows to limit the stream to pass to the wrapped handler to a specified size.
@@ -43,13 +44,14 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
         self.buffer = string.sub(data, partLength + 1)
         part = string.sub(data, 1, partLength)
       end
+      --return StreamHandler.fill(self.handler, part)
       self.handler:onData(part)
       self.handler:onData(nil)
-      return false
+      return false -- TODO remove
     end
     -- propagate EOF
     self.handler:onData(nil)
-    return false
+    return false -- TODO remove
   end
 
 end)

@@ -84,14 +84,14 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
             break
           end
           if self:crunch(lastIndex, nextIndex) == false then
-            return false
+            return false -- TODO remove
           end
         end
       end
       if self.limit > 0 and self.length >= self.limit then
         while self.length >= self.limit do
           if self:crunch(self.limit) == false then
-            return false
+            return false -- TODO remove
           end
         end
       end

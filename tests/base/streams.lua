@@ -111,10 +111,10 @@ function Test_chunked()
   lu.assertEquals(cs._captured, {data_list = {'Hello world !', 'Hi', 'Bonjour', false}, error_list = {}})
 end
 
-function Test_multiple()
+function Test_tee()
   local cs1 = createCaptureStreamHandler()
   local cs2 = createCaptureStreamHandler()
-  local s = StreamHandler.multiple(cs1, cs2)
+  local s = StreamHandler.tee(cs1, cs2)
   lu.assertEquals(cs1._captured, {data_list = {}, error_list = {}})
   lu.assertEquals(cs2._captured, {data_list = {}, error_list = {}})
   s:onData('Hello')
