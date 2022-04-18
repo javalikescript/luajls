@@ -66,8 +66,8 @@ local writeLog = function(text)
   LOG_FILE:flush()
 end
 
-local formatLog = function(logger, level, message)
-  return os.date('%Y-%m-%dT%H:%M:%S', os.time())..' '..tostring(level)..' '..message
+local formatLog = function(logger, time, level, message)
+  return os.date('%Y-%m-%dT%H:%M:%S', time)..' '..tostring(level)..' '..message
 end
 
 
@@ -163,10 +163,18 @@ local Logger = require('jls.lang.class').create(function(logger)
   function logger:log(level, message)
     if level >= self.level then
       if type(message) == 'string' then
-        writeLog(formatLog(self, level, message))
+        writeLog(formatLog(self, os.time(), level, message))
       else
         dump(writeLog, message, 'value', 5, '', '  ', 0)
       end
+    end
+  end
+
+  function logger:logopt(level, message)
+    local time = os.time()
+    if time > (self.time or 0) then
+      self.time = time
+      self:log(level, message)
     end
   end
 
