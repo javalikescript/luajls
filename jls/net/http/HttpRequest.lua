@@ -2,6 +2,8 @@
 -- @module jls.net.http.HttpRequest
 -- @pragma nostrip
 
+local Date = require('jls.util.Date')
+
 --- The HttpRequest class represents an HTTP request.
 -- The HttpRequest class inherits from @{HttpMessage}.
 -- @type HttpRequest
@@ -67,6 +69,14 @@ return require('jls.lang.class').create('jls.net.http.HttpMessage', function(htt
 
   function httpRequest:getTargetQuery()
     return string.gsub(self.target, '^[^%?]*%??', '')
+  end
+
+  function httpRequest:getIfModifiedSince()
+    local value = self:getHeader('If-Modified-Since')
+    if type(value) == 'string' then
+      return Date.fromRFC822String(value)
+    end
+    return value
   end
 
 end)

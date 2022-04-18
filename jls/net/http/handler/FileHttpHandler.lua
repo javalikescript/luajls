@@ -91,7 +91,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     else
       self.defaultFile = 'index.html'
     end
-    self.cacheControl = true
+    self.cacheControl = 86400 -- one day
     if type(permissions) ~= 'string' then
       permissions = 'r'
     end
@@ -107,6 +107,15 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         logger:finest('  '..tostring(k)..': "'..tostring(v)..'"')
       end
     end
+  end
+
+  function fileHttpHandler:getCacheControl()
+    return self.cacheControl
+  end
+
+  function fileHttpHandler:setCacheControl(cacheControl)
+    self.cacheControl = cacheControl
+    return self
   end
 
   function fileHttpHandler:getContentType(file)
@@ -225,6 +234,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     response:setHeader('Accept-Ranges', 'bytes')
     if httpExchange:getRequestMethod() == HTTP_CONST.METHOD_GET then
       local request = httpExchange:getRequest()
+      local ifModifiedSince = request:getIfModifiedSince()
+      if ifModifiedSince and md.time and md.time <= ifModifiedSince then
+        response:setStatusCode(HTTP_CONST.HTTP_NOT_MODIFIED, 'Not modified')
+        return
+      end
       local range = request:getHeader('Range')
       local offset, length
       if range then
