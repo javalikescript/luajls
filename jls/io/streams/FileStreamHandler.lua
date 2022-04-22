@@ -2,8 +2,8 @@
 -- @module jls.io.streams.FileStreamHandler
 -- @pragma nostrip
 
-local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
+local Promise = require('jls.lang.Promise')
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
 
@@ -16,8 +16,9 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
   -- @tparam[opt] boolean overwrite true to indicate that existing file must be re created
   -- @tparam[opt] function onClose a function that will be called when the stream has ended
   -- @tparam[opt] boolean openOnData true to indicate that the file shall be opened on first data received
+  -- @tparam[opt] boolean sync true to indicate that the write shall be synchronous
   -- @function FileStreamHandler:new
-  function fileStreamHandler:initialize(file, overwrite, onClose, openOnData)
+  function fileStreamHandler:initialize(file, overwrite, onClose, openOnData, sync)
     self.file = File.asFile(file)
     if not overwrite and self.file:isFile() then
       error('File exists')
@@ -25,6 +26,7 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
     if type(onClose) == 'function' then
       self.onClose = onClose
     end
+    self.async = not sync
     if openOnData then
       self.openOnData = true
     else
@@ -54,7 +56,13 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
         self.openOnData = false
         self:openFile()
       end
-      self.fd:writeSync(data) -- TODO handle errors
+      if self.async then
+        return self.fd:write(data)
+      end
+      local status, err = self.fd:writeSync(data)
+      if not status then
+        self:onError(err)
+      end
     else
       self:close()
       self:onClose()
@@ -68,20 +76,24 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
 
   function fileStreamHandler:close()
     if self.fd then
-      self.fd:closeSync()
+      if self.async then
+        self.fd:close(false)
+      else
+        self.fd:closeSync()
+      end
       self.fd = nil
     end
   end
 
 end, function(FileStreamHandler)
 
-  local DEFAULT_BLOCK_SIZE = 4096
+  FileStreamHandler.DEFAULT_BLOCK_SIZE = 4096
 
   local function readFd(fd, sh, offset, length, size, callback)
     --logger:info('readFd(?, ?, '..tostring(offset)..', '..tostring(length)..', '..tostring(size)..')')
     local cb, d = Promise.ensureCallback(callback)
     if not size then
-      size = DEFAULT_BLOCK_SIZE
+      size = FileStreamHandler.DEFAULT_BLOCK_SIZE
     end
     local function readCallback(err, data)
       --logger:info('readCallback('..type(err)..', '..type(data)..')')
@@ -89,8 +101,8 @@ end, function(FileStreamHandler)
         sh:onError(err)
         cb(err)
       else
-        local dr = sh:onData(data)
-        if dr ~= false and data then
+        local r = sh:onData(data)
+        if data then
           local l = #data
           if length then
             length = length - l
@@ -110,15 +122,15 @@ end, function(FileStreamHandler)
             if offset then
               offset = offset + l
             end
-            if Promise:isInstance(dr) then
-              dr:next(function()
+            if Promise:isInstance(r) then
+              r:next(function()
                 fd:read(size, offset, readCallback)
-              end, function(drerr)
+              end, function(reason)
                 if logger:isLoggable(logger.FINE) then
-                  logger:fine('readCallback() onData() error, '..tostring(drerr))
+                  logger:fine('readCallback() onData() error, '..tostring(reason))
                 end
-                sh:onError(drerr)
-                cb(drerr)
+                sh:onError(reason)
+                cb(reason)
               end)
             else
               fd:read(size, offset, readCallback)
@@ -145,7 +157,7 @@ end, function(FileStreamHandler)
   -- @param stream The stream handler to use with the file content.
   -- @tparam[opt] number offset The offset.
   -- @tparam[opt] number length The length to read.
-  -- @tparam[opt] number size The read block size, default is 4096.
+  -- @tparam[opt] number size The read block size.
   -- @return a promise that resolves once the file has been fully read.
   function FileStreamHandler.read(file, stream, offset, length, size)
     local sh = FileStreamHandler.ensureStreamHandler(stream)
@@ -167,9 +179,8 @@ end, function(FileStreamHandler)
   end
 
   local function readFdSync(fd, sh, size)
-    --local sh = StreamHandler.ensureStreamHandler(stream)
     if not size then
-      size = DEFAULT_BLOCK_SIZE
+      size = FileStreamHandler.DEFAULT_BLOCK_SIZE
     end
     while true do
       local data, err = fd:readSync(size)
@@ -177,7 +188,13 @@ end, function(FileStreamHandler)
         sh:onError(err)
         break
       else
-        if sh:onData(data) == false or not data then
+        local r = sh:onData(data)
+        if Promise:isInstance(r) then
+          if logger:isLoggable(logger.WARN) then
+            logger:fine('readFdSync() unsupported onData() promise return')
+          end
+        end
+        if not data then
           break
         elseif #data == 0 then
           sh:onData()
@@ -190,7 +207,7 @@ end, function(FileStreamHandler)
   --- Reads synchronously the specified file using the stream handler.
   -- @param file The file to read.
   -- @param stream The stream handler to use with the file content.
-  -- @tparam[opt] number size The read block size, default is 4096.
+  -- @tparam[opt] number size The read block size.
   function FileStreamHandler.readSync(file, stream, size)
     local sh = FileStreamHandler.ensureStreamHandler(stream)
     local fd, err = FileDescriptor.openSync(file, 'r')

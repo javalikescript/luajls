@@ -34,15 +34,15 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
         end
         --error('Data after read completed')
       end
-      return false
+      return
     end
     if not line then
       if self.firstLine then
-        self:onError('No header')
+        self:onError('No header line')
       else
-        self:onError('Unexpected end of header')
+        self:onError('Unexpected end of headers')
       end
-      return false
+      return
     end
     -- decode header
     local l = string.len(line)
@@ -53,27 +53,22 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
       end
       self:onError('Too long header line '..tostring(l)..' (max is '..tostring(self.maxLineLength)..')', 413)
     elseif self.size >= self.maxSize then
-      self:onError('Too long headers '..tostring(self.size)..' (max is '..tostring(self.maxSize)..')', 413)
+      self:onError('Too much headers '..tostring(self.size)..' (max is '..tostring(self.maxSize)..')', 413)
     elseif l == 0 then
       self:onCompleted()
     else
       if self.firstLine then
+        self.firstLine = false
         self.message:setLine(line)
-        if string.find(self.message:getVersion(), '^HTTP/') then
-          self.firstLine = false
-          return true
-        else
+        if not string.find(self.message:getVersion(), '^HTTP/') then
           self:onError('Bad HTTP request line (Invalid version in "'..line..'")', 400)
         end
       else
-        if self.message:parseHeaderLine(line) then
-          return true
-        else
+        if not self.message:parseHeaderLine(line) then
           self:onError('Bad HTTP request header ("'..line..'")', 400)
         end
       end
     end
-    return false -- stop
   end
 
   function headerStreamHandler:onError(err, statusCode)
@@ -88,7 +83,7 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
     end
   end
 
-  function headerStreamHandler:read(tcpClient, buffer)
+  function headerStreamHandler:read(stream, buffer)
     if logger:isLoggable(logger.FINER) then
       logger:finer('headerStreamHandler:read(?, #'..tostring(buffer and #buffer)..')')
     end
@@ -96,15 +91,15 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
       error('Read in progress')
     end
     return Promise:new(function(resolve, reject)
-      local c
-      local partHandler = ChunkedStreamHandler:new(self, '\r\n', true, self.maxLineLength)
+      local s
+      local partHandler = ChunkedStreamHandler:new(self, '\r\n', true, self.maxLineLength, '')
       function self:onCompleted(err)
         if logger:isLoggable(logger.FINER) then
           logger:finer('headerStreamHandler:read() onCompleted('..tostring(err)..')')
         end
         self.onCompleted = nil
-        if c then
-          c:readStop()
+        if s then
+          s:readStop()
         end
         if err then
           reject(err)
@@ -116,8 +111,8 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
         partHandler:onData(buffer)
       end
       if self.onCompleted then
-        c = tcpClient
-        c:readStart(partHandler)
+        s = stream
+        s:readStart(partHandler)
       end
     end)
   end

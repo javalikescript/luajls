@@ -8,7 +8,7 @@ local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
-local LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler')
+local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 
 --- The HttpMessage class represents the base class for request and response.
@@ -248,32 +248,27 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     end
     local readState = 0
     -- after that we know that we have something to read from the client
-    local readStream = StreamHandler:new(function(err, data)
+    local sh = StreamHandler:new(function(err, data)
+      if not err then
+        local r = self.bodyStreamHandler:onData(data)
+        -- we may want to stop/start in case of promise
+        if data then
+          return r
+        end
+      elseif logger:isLoggable(logger.FINE) then
+        logger:fine('httpMessage:readBody() stream error is "'..tostring(err)..'"')
+      end
+      -- data ended or error
       if readState == 1 then
         stream:readStop()
       end
       readState = 3
-      if err then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('httpMessage:readBody() stream error is "'..tostring(err)..'"')
-        end
-      end
       cb(err) -- TODO is there a remaining buffer
-    end)
-    local sh = StreamHandler:new(function(err, data)
-      if err then
-        readStream:onError(err)
-      else
-        self.bodyStreamHandler:onData(data)
-        if not data then
-          return readStream:onData(data)
-        end
-      end
     end)
     if chunkFinder then
       sh = ChunkedStreamHandler:new(sh, chunkFinder)
     elseif length > 0 then
-      sh = LimitedStreamHandler:new(sh, length)
+      sh = RangeStreamHandler:new(sh, 0, length)
     end
     if buffer and #buffer > 0 then
       sh:onData(buffer)

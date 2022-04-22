@@ -3,6 +3,7 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
+local Promise = require('jls.lang.Promise')
 
 --- A BlockStreamHandler class.
 -- This class allows to pass fixed size blocks to the wrapped handler.
@@ -30,17 +31,17 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
     end
     if data then
       local buffer = self.remaining..data
-      local l = #buffer
-      if l == 0 then
+      local s = #buffer
+      if s == 0 then
         return self.handler:onData(buffer)
       end
       if self.multiple then
-        local r = l % self.size
-        local bl = l - r
+        local r = s % self.size
+        local bl = s - r
         if r == 0 then
           self.remaining = ''
         else
-          self.remaining = string.sub(buffer, bl + 1, l)
+          self.remaining = string.sub(buffer, bl + 1, s)
           buffer = string.sub(buffer, 1, bl)
         end
         if bl > 0 then
@@ -48,18 +49,27 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
         end
       else
         local i, j = 1, self.size
-        while j <= l do
-          self.handler:onData(string.sub(buffer, i, j))
+        local l = {}
+        while j <= s do
+          local r = self.handler:onData(string.sub(buffer, i, j))
           i, j = j + 1, j + self.size
+          if r then
+            table.insert(l, Promise:isInstance(r) and r or Promise.resolve(r))
+          end
         end
         self.remaining = string.sub(buffer, i)
+        if #l > 0 then
+          return Promise.all(l)
+        end
       end
     else
+      local r
       if #self.remaining > 0 then
-        self.handler:onData(self.remaining)
+        r = self.handler:onData(self.remaining)
         self.remaining = ''
       end
       self.handler:onData(nil)
+      return r
     end
   end
 

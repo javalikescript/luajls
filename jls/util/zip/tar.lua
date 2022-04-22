@@ -5,8 +5,8 @@
 local logger = require('jls.lang.logger')
 local strings = require('jls.util.strings')
 local File = require('jls.io.File')
-local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local StreamHandler = require('jls.io.streams.StreamHandler')
+local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local gzip = require('jls.lang.loader').tryRequire('jls.util.zip.gzip')
 
 -- see https://en.wikipedia.org/wiki/Tar_(computing)
@@ -63,7 +63,7 @@ local function parseHeader(block)
 end
 
 local function createExtractorStream(entryStreamFactory)
-  local header, fullSize, stream
+  local header, fullSize, sh
   local buffer = ''
   return StreamHandler:new(function(err, data)
     if err then
@@ -85,10 +85,10 @@ local function createExtractorStream(entryStreamFactory)
         if fullSize > header.size then
           block = string.sub(block, 1, 512 - (fullSize - header.size))
         end
-        stream:onData(block)
+        sh:onData(block)
         if fullSize >= header.size then
-          stream:onData()
-          stream = nil
+          sh:onData()
+          sh = nil
           header = nil
         end
       else
@@ -100,7 +100,7 @@ local function createExtractorStream(entryStreamFactory)
         if header.empty then
           header = nil
         else
-          stream = entryStreamFactory(header)
+          sh = entryStreamFactory(header)
           fullSize = 0
         end
       end
@@ -143,7 +143,7 @@ local function extractStreamTo(directory, decompress)
       if header.mtime and header.mtime > 0 then
         fw:getFile():setLastModified(header.mtime * 1000)
       end
-    end)
+    end, false, true)
   end)
   if decompress then
     return gzip.decompressStream(sh)

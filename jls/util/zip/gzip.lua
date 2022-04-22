@@ -142,11 +142,11 @@ function gzip.compressStream(sh, header, compressionLevel)
     if data then
       crc:update(data)
       size = size + #data
-      cb(nil, deflater:deflate(data))
-    else
-      cb(nil, deflater:finish()..string.pack('<I4I4', crc:final(), size))
-      cb(nil, nil)
+      return cb(nil, deflater:deflate(data))
     end
+    local r = cb(nil, deflater:finish()..string.pack('<I4I4', crc:final(), size))
+    cb()
+    return r
   end)
 end
 
@@ -200,28 +200,26 @@ function gzip.decompressStream(sh, onHeader)
         inflated = inflater:inflate(buffer)
         crc:update(inflated)
         size = size + #inflated
-        cb(nil, inflated)
+        local r = cb(nil, inflated)
         if data then
           buffer = data
-        else
-          local crcFooter, sizeFooter = string.unpack('<I4I4', footer)
-          if logger:isLoggable(logger.FINER) then
-            logger:finer('decompressStream() CRC '..tostring(crc:final())..'/'..tostring(crcFooter)..', size '..tostring(size)..' expected '..tostring(sizeFooter))
-          end
-          if crcFooter ~= crc:final() then
-            cb('Bad CRC (found '..tostring(crc:final())..' expected '..tostring(crcFooter)..')')
-          elseif sizeFooter ~= size then
-            cb('Bad size (found '..tostring(size)..' expected '..tostring(sizeFooter)..')')
-          else
-            cb()
-          end
-          if logger:isLoggable(logger.FINER) then
-            logger:finer('decompressStream() completed')
-          end
+          return r
         end
+        local crcFooter, sizeFooter = string.unpack('<I4I4', footer)
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('decompressStream() CRC '..tostring(crc:final())..'/'..tostring(crcFooter)..', size '..tostring(size)..' expected '..tostring(sizeFooter))
+        end
+        if crcFooter ~= crc:final() then
+          err = 'Bad CRC (found '..tostring(crc:final())..' expected '..tostring(crcFooter)..')'
+        elseif sizeFooter ~= size then
+          err = 'Bad size (found '..tostring(size)..' expected '..tostring(sizeFooter)..')'
+        else
+          err = nil
+        end
+        cb()
       end
     else
-      local err, headerSize
+      local headerSize
       buffer = buffer..data
       header, headerSize, err = gzip.parseHeader(buffer)
       if err then

@@ -171,17 +171,18 @@ end
 -- This is shortcut for sh:onData(data); sh:onData(nil)
 -- @tparam StreamHandler sh the StreamHandler to fill.
 -- @tparam string data the data to process.
+-- @return an optional promise that will resolve when the data has been processed.
 function StreamHandler.fill(sh, data)
   local r
-  if data then
+  if data and #data > 0 then
     r = sh:onData(data)
   end
   if Promise:isInstance(r) then
     return r:next(function()
-      return sh:onData(nil)
+      return sh:onData()
     end)
   end
-  return sh:onData(nil) or r
+  return sh:onData() or r
 end
 
 --- Creates a stream handler with two handlers.
