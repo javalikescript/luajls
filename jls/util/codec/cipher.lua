@@ -12,8 +12,7 @@ local CipherStreamHandler = class.create(StreamHandler, function(cipherStreamHan
     if data then
       return self.handler:onData(self.ctx:update(data))
     end
-    self.handler:onData(self.ctx:final())
-    self.handler:onData()
+    return StreamHandler.fill(self.handler, self.ctx:final())
   end
 end)
 
@@ -39,17 +38,18 @@ end)
 ]]
 
 local DEFAULT_ALG = 'aes128'
+local DEFAULT_KEY = 'secret'
 return {
-  decode = function(data, alg, ...)
-    return cipherLib.decrypt(alg or DEFAULT_ALG, data, ...)
+  decode = function(data, alg, key, ...)
+    return cipherLib.decrypt(alg or DEFAULT_ALG, data, key or DEFAULT_KEY, ...)
   end,
-  encode = function(data, alg, ...)
-    return cipherLib.encrypt(alg or DEFAULT_ALG, data, ...)
+  encode = function(data, alg, key, ...)
+    return cipherLib.encrypt(alg or DEFAULT_ALG, data, key or DEFAULT_KEY, ...)
   end,
-  decodeStream = function(handler, alg, ...)
-    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, ...)
+  decodeStream = function(handler, alg, key, ...)
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, key or DEFAULT_KEY, ...)
   end,
-  encodeStream = function(handler, alg, ...)
-    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, ...)
+  encodeStream = function(handler, alg, key, ...)
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, key or DEFAULT_KEY, ...)
   end,
 }
