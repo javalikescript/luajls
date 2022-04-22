@@ -1,5 +1,7 @@
 local class = require('jls.lang.class')
 
+-- see openssl.hex(msg, true)
+
 local string_char = string.char
 local string_byte = string.byte
 

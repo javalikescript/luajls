@@ -212,6 +212,10 @@ end, function(Path)
     return string.match(pathname, '^(.+)%.[^%.]*$') or pathname
   end
 
+  function Path.extractDirName(pathname)
+    return string.match(pathname, '^(.+)[/\\]([^/\\]*)$') or pathname
+  end
+
   -- TODO remove, deprecated
   function Path.asPathName(pathOrName)
     if type(pathOrName) == 'table' and type(pathOrName.getPathName) == 'function' then

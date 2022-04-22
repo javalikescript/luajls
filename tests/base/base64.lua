@@ -66,7 +66,7 @@ local function randomChars(len)
   for _ = 1, len // 10 do
     table.insert(parts, randomChars(10))
   end
-  table.insert(parts, len % 10)
+  table.insert(parts, randomChars(len % 10))
   return table.concat(parts)
 end
 
