@@ -801,6 +801,7 @@ function tables.createArgumentTable(arguments, options)
   local argumentPattern = options.argumentPattern or '^-+(.+)$'
   local argumentPrefix = options.argumentPrefix or '-'
   local keepComma = options.keepComma == true
+  local aliases = options.aliases or {}
   local t = {}
   local name = emptyPath
   local schema = loadIfString(options.schema)
@@ -816,6 +817,7 @@ function tables.createArgumentTable(arguments, options)
     -- Do not accept number as argument name, number is value only
     if argumentName and not tonumber(argument) then
       name = keepComma and argument or argumentName
+      name = aliases[name] or name
       if tables.getPath(t, name, nil, separator) == nil then
         tables.setPath(t, name, true, separator)
       end
@@ -885,9 +887,15 @@ function tables.createArgumentTable(arguments, options)
       if schema.description then
         print(tostring(schema.description))
       end
+      local aliasMap = Map.reverse(aliases)
       print('Arguments:')
       for path, s in Map.spairs(schemaPaths) do
-        buffer:append('  ', argumentPrefix, path)
+        buffer:append('  ')
+        local alias = aliasMap[path]
+        if alias then
+          buffer:append(argumentPrefix, alias, ' or ')
+        end
+        buffer:append(argumentPrefix, path)
         if s.default ~= nil then
           buffer:append(' =', tables.stringify(s.default))
         end
