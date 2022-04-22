@@ -7,13 +7,11 @@ local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
 local Path = require('jls.io.Path')
 local File = require('jls.io.File')
-local StreamHandler = require('jls.io.streams.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
 local Url = require('jls.net.Url')
 local json = require('jls.util.json')
-local Date = require('jls.util.Date')
 
 local DIRECTORY_STYLE = [[<style>
 a {
@@ -32,7 +30,12 @@ a.dir {
 local DELETE_SCRIPT = [[
 <script>
 function delFile(e) {
-  var filename = e.target.previousElementSibling.getAttribute('href');
+  var target = e.target;
+  var filename;
+  do {
+    filename = target.getAttribute('href');
+    target = target.previousElementSibling;
+  } while ((filename === '#') && target);
   if (window.confirm('Delete file "' + decodeURIComponent(filename) + '"?')) {
     fetch(filename, {
       method: "DELETE"
@@ -73,6 +76,55 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
 </script>
 ]]
 
+local function getFileMetadata(file)
+  return {
+    isDir = file:isDirectory(),
+    size = file:length(),
+    time = file:lastModified(),
+  }
+end
+
+local FS = {
+  getFileMetadata = function(file)
+    if file:exists() then
+      return getFileMetadata(file)
+    end
+  end,
+  listFileMetadata = function(dir)
+    local files = {}
+    for _, file in ipairs(dir:listFiles()) do
+      local name = file:getName()
+      if string.find(name, '^[^%.]') then
+        local md = getFileMetadata(file)
+        md.name = name
+        table.insert(files, md)
+      end
+    end
+    return files
+  end,
+  createDirectory = function(file)
+    return file:mkdir()
+  end,
+  copyFile = function(file, destFile)
+    return file:copyTo(destFile)
+  end,
+  renameFile = function(file, destFile)
+    return file:renameTo(destFile)
+  end,
+  deleteFile = function(file, recursive)
+    if recursive then
+      return file:deleteRecursive()
+    end
+    return file:delete()
+  end,
+  setFileStreamHandler = function(httpExchange, file, sh, md, offset, length)
+    FileStreamHandler.read(file, sh, offset, length)
+  end,
+  getFileStreamHandler = function(httpExchange, file)
+    return FileStreamHandler:new(file, true)
+  end,
+}
+
 --- A FileHttpHandler class.
 -- @type FileHttpHandler
 return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fileHttpHandler, _, FileHttpHandler)
@@ -91,6 +143,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     else
       self.defaultFile = 'index.html'
     end
+    self.fs = FS
     self.cacheControl = 86400 -- one day
     if type(permissions) ~= 'string' then
       permissions = 'r'
@@ -122,43 +175,17 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     return FileHttpHandler.guessContentType(file)
   end
 
-  function fileHttpHandler:getFileMetadata(file)
-    if file:exists() then
-      return {
-        isDir = file:isDirectory(),
-        size = file:length(),
-        time = file:lastModified(),
-      }
-    end
+  function fileHttpHandler:getFileSystem()
+    return self.fs
   end
 
-  function fileHttpHandler:setFileStreamHandler(httpExchange, file, sh, md, offset, length)
-    FileStreamHandler.read(file, sh, offset, length)
-  end
-
-  function fileHttpHandler:getFileStreamHandler(httpExchange, file)
-    return FileStreamHandler:new(file, true)
-  end
-
-  function fileHttpHandler:listFileMetadata(dir)
-    local files = {}
-    for _, file in ipairs(dir:listFiles()) do
-      local name = file:getName()
-      if string.find(name, '^[^%.]') then
-        local md = self:getFileMetadata(file)
-        md.name = name
-        table.insert(files, md)
-      end
-    end
-    return files
-  end
-
-  function fileHttpHandler:encodeFileHref(file)
-    return Url.encodeURIComponent(file.name)
+  function fileHttpHandler:setFileSystem(fs)
+    self.fs = fs or FS
+    return self
   end
 
   function fileHttpHandler:appendFileHtmlBody(buffer, file)
-    buffer:append('<a href="', self:encodeFileHref(file))
+    buffer:append('<a href="', Url.encodeURIComponent(file.name))
     if file.isDir then
       buffer:append('/"')
     else
@@ -192,7 +219,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
 
   function fileHttpHandler:handleGetDirectory(httpExchange, dir, showParent)
     local response = httpExchange:getResponse()
-    local files = self:listFileMetadata(dir)
+    local files = self.fs.listFileMetadata(dir)
     local body = ''
     local request = httpExchange:getRequest()
     if request:hasHeaderValue(HTTP_CONST.HEADER_ACCEPT, HttpExchange.CONTENT_TYPES.json) then
@@ -204,7 +231,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       buffer:append(DIRECTORY_STYLE)
       buffer:append('</head><body>\n')
       if showParent then
-        buffer:append('<a href=".." class="dir">..</a><br/>\n')
+        local path = self:getPath(httpExchange)
+        if path ~= '' then
+          buffer:append('<a href=".." class="dir">..</a><br/>\n')
+        end
       end
       self:appendDirectoryHtmlBody(buffer, files)
       buffer:append('</body></html>\n')
@@ -266,17 +296,17 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       end
       response:onWriteBodyStreamHandler(function()
         local sh = response:getBodyStreamHandler()
-        self:setFileStreamHandler(httpExchange, file, sh, md, offset, length)
+        self.fs.setFileStreamHandler(httpExchange, file, sh, md, offset, length)
       end)
     end
   end
 
   function fileHttpHandler:receiveFile(httpExchange, file)
-    httpExchange:getRequest():setBodyStreamHandler(self:getFileStreamHandler(httpExchange, file))
+    httpExchange:getRequest():setBodyStreamHandler(self.fs.getFileStreamHandler(httpExchange, file))
   end
 
   function fileHttpHandler:handleGetHeadFile(httpExchange, file)
-    local md = self:getFileMetadata(file)
+    local md = self.fs.getFileMetadata(file)
     if md then
       if md.isDir and self.allowList then
         self:handleGetDirectory(httpExchange, file, true)
@@ -290,17 +320,6 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
 
   function fileHttpHandler:prepareFile(httpExchange, file)
     return Promise.resolve()
-  end
-
-  function fileHttpHandler:createDirectory(file)
-    return file:mkdir()
-  end
-
-  function fileHttpHandler:deleteFile(file)
-    if self.allowDeleteRecursive then
-      return file:deleteRecursive()
-    end
-    return file:delete()
   end
 
   function fileHttpHandler:handleFile(httpExchange, file, isDirectoryPath)
@@ -322,7 +341,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
       if self.allowUpdate or not file:exists() then
         if isDirectoryPath then
-          self:createDirectory(file) -- TODO Handle errors
+          self.fs.createDirectory(file) -- TODO Handle errors
         else
           self:receiveFile(httpExchange, file)
         end
@@ -331,7 +350,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         HttpExchange.forbidden(httpExchange)
       end
     elseif method == HTTP_CONST.METHOD_DELETE and self.allowDelete then
-      self:deleteFile(file) -- TODO Handle errors
+      self.fs.deleteFile(file, self.allowDeleteRecursive) -- TODO Handle errors
       HttpExchange.ok(httpExchange)
     elseif method == 'MOVE' and self.allowCreate and self.allowDelete then
       local request = httpExchange:getRequest()
@@ -343,7 +362,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       local destPath = httpExchange:getContext():getArguments(destination)
       if destPath then
         local destFile = self:findFile(destPath)
-        file:renameTo(destFile)
+        self.fs.renameFile(file, destFile)
         HttpExchange.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
       else
         HttpExchange.badRequest(httpExchange)
@@ -382,8 +401,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     local extension
     if type(path) == 'string' then
       extension = Path.extractExtension(path)
-    else
+    elseif path then
       extension = path:getExtension()
+    else
+      extension = ''
     end
     return HttpExchange.CONTENT_TYPES[extension] or def or HttpExchange.CONTENT_TYPES.bin
   end
