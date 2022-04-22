@@ -160,6 +160,17 @@ return require('jls.lang.class').create(function(map)
     return self
   end
 
+  function map:reverse()
+    local m = {}
+    for k, v in pairs(self) do
+      if m[v] then
+        error('Duplicated value "'..tostring(v)..'"')
+      end
+      m[v] = k
+    end
+    return m
+  end
+
 end, function(Map)
 
   --- Sets all key-values of the specified tables to the target table.
@@ -187,5 +198,6 @@ end, function(Map)
   Map.skeys = Map.prototype.skeys
   Map.spairs = Map.prototype.spairs
   Map.add = Map.prototype.add
+  Map.reverse = Map.prototype.reverse
 
 end)
