@@ -128,4 +128,11 @@ function strings.escape(value)
   end))
 end
 
+function strings.capitalize(value)
+  if value == nil then
+    return nil
+  end
+  return string.upper(string.sub(value, 1, 1))..string.sub(value, 2)
+end
+
 return strings
