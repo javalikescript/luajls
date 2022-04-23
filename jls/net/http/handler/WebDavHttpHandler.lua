@@ -88,7 +88,7 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
       logger:fine('-- webdav depth: '..tostring(depth)..' --------')
     end
     local response = httpExchange:getResponse()
-    local baseHref = request:getTargetPath()..'/'
+    local baseHref = string.gsub(request:getTargetPath()..'/', '//+', '/')
     --local host = request:getHeader(HTTP_CONST.HEADER_HOST)
     --response:setHeader('Content-Location', 'http://'..host..baseHref)
     local multistatus = {name = 'multistatus'}
@@ -177,13 +177,13 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
         elseif method == 'COPY' then
           if file:isFile() then
             self.fs.copyFile(file, destFile)
-            HttpExchange.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Copied')
+            HttpExchange.response(httpExchange, HTTP_CONST.HTTP_CREATED, 'Copied')
           else
             HttpExchange.badRequest(httpExchange)
           end
         elseif method == 'MOVE' then
           self.fs.renameFile(file, destFile)
-          HttpExchange.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
+          HttpExchange.response(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
         end
       else
         HttpExchange.badRequest(httpExchange)

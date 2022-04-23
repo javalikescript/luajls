@@ -363,7 +363,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       if destPath then
         local destFile = self:findFile(destPath)
         self.fs.renameFile(file, destFile)
-        HttpExchange.ok(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
+        HttpExchange.response(httpExchange, HTTP_CONST.HTTP_CREATED, 'Moved')
       else
         HttpExchange.badRequest(httpExchange)
       end
