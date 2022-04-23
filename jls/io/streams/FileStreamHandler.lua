@@ -64,8 +64,9 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
         self:onError(err)
       end
     else
-      self:close()
-      self:onClose()
+      return self:close():next(function()
+        return self:onClose()
+      end)
     end
   end
 
@@ -75,14 +76,15 @@ return require('jls.lang.class').create('jls.io.streams.StreamHandler', function
   end
 
   function fileStreamHandler:close()
-    if self.fd then
-      if self.async then
-        self.fd:close(false)
-      else
-        self.fd:closeSync()
-      end
+    local fd = self.fd
+    if fd then
       self.fd = nil
+      if self.async then
+        return fd:close()
+      end
+      fd:closeSync()
     end
+    return Promise.resolve()
   end
 
 end, function(FileStreamHandler)
