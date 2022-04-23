@@ -107,7 +107,7 @@
 		</a>
 		<rect x="130" y="70" width="15" height="30" fill="#ffffff" stroke="#000000" pointer-events="all"/>
 		<rect x="295" y="70" width="15" height="30" fill="#ffffff" stroke="#000000" pointer-events="all"/>
-		<a xlink:href="http://javalikescript.free.fr/lua/docs/modules/jls.util.TableList.html">
+		<a xlink:href="http://javalikescript.free.fr/lua/docs/modules/jls.util.List.html">
 			<rect x="225" y="110" width="60" height="30" fill="#ffffff" stroke="#000000" pointer-events="all"/>
 			<g transform="translate(247.5,116.5)">
 				<switch>
