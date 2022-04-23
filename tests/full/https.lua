@@ -1,9 +1,10 @@
 local lu = require('luaunit')
 
-local http = require('jls.net.http')
 local secure = require('jls.net.secure')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local StreamHandler = require('jls.io.streams.StreamHandler')
+local HttpClient = require('jls.net.http.HttpClient')
+local HttpServer = require('jls.net.http.HttpServer')
 
 local loader = require('jls.lang.loader')
 local loop = require('jls.lang.loopWithTimeout')
@@ -21,7 +22,7 @@ local TEST_PORT = 3002
 local function createHttpsClient(headers, method)
   headers = headers or {}
   logger:fine('createHttpsClient()')
-  local client = http.Client:new({
+  local client = HttpClient:new({
     url = 'https://127.0.0.1:'..tostring(TEST_PORT)..'/',
     method = method or 'GET',
     checkHost = false,
@@ -77,7 +78,7 @@ local function createHttpsServer(handler)
     certificate = CACERT_PEM
   })
   tcp:setSecureContext(secureContext)
-  local server = http.Server:new(tcp)
+  local server = HttpServer:new(tcp)
   server:createContext('/.*', function(httpExchange)
     --print('createHttpsServer() handler')
     server.t_request = httpExchange:getRequest()
@@ -300,7 +301,7 @@ else
 end
 
 function No_Test_HttpsClientOnline()
-  local client = http.Client:new({
+  local client = HttpClient:new({
     url = 'https://openssl.org/',
     method = 'GET',
     headers = {},

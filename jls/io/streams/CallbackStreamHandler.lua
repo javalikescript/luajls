@@ -1,0 +1,1 @@
+return require('jls.io.streams.StreamHandler')

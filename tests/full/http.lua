@@ -3,11 +3,13 @@ local lu = require('luaunit')
 local loop = require('jls.lang.loopWithTimeout')
 local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
-local http = require('jls.net.http')
 local strings = require('jls.util.strings')
 local List = require('jls.util.List')
 local StreamHandler = require('jls.io.streams.StreamHandler')
 local HttpHandler = require('jls.net.http.HttpHandler')
+local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpClient = require('jls.net.http.HttpClient')
+local HttpServer = require('jls.net.http.HttpServer')
 
 local logger = require('jls.lang.logger')
 
@@ -85,7 +87,7 @@ end
 
 local function createHttpClient(headers)
   headers = headers or {}
-  local client = http.Client:new({
+  local client = HttpClient:new({
     url = 'http://127.0.0.1:'..tostring(TEST_PORT)..'/',
     method = 'GET',
     headers = headers
@@ -103,7 +105,7 @@ local function createHttpServer(handler, keep)
   if not handler then
     handler = notFoundHandler
   end
-  local server = http.Server:new()
+  local server = HttpServer:new()
   server.t_requestCount = 0
   local wh = handler
   local ch = function(httpExchange)
@@ -657,7 +659,7 @@ end
   Keep-Alive: timeout=15, max=94
 ]]
 function Test_HttpMessage_getHeaderValues()
-  local message = http.Message:new()
+  local message = HttpMessage:new()
   message:setHeader('Accept', 'text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5')
   message:setHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8')
   lu.assertEquals(message:getHeader('accept-language'), 'en-US,en;q=0.9,fr;q=0.8')
@@ -665,7 +667,7 @@ function Test_HttpMessage_getHeaderValues()
 end
 
 function Test_HttpMessage_hasHeaderValue()
-  local message = http.Message:new()
+  local message = HttpMessage:new()
   message:setHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8')
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en'), true)
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en-US'), true)
@@ -674,9 +676,9 @@ function Test_HttpMessage_hasHeaderValue()
 end
 
 function Test_HttpMessage_parseHeaderValue()
-  lu.assertEquals(http.Message.parseHeaderValue('text/html'), 'text/html')
-  lu.assertEquals(http.Message.parseHeaderValue('text/html;level=2;q=0.4'), 'text/html')
-  lu.assertEquals(table.pack(http.Message.parseHeaderValue('text/html;level=2;q=0.4')), {'text/html', {'level=2', 'q=0.4'}, n = 2})
+  lu.assertEquals(HttpMessage.parseHeaderValue('text/html'), 'text/html')
+  lu.assertEquals(HttpMessage.parseHeaderValue('text/html;level=2;q=0.4'), 'text/html')
+  lu.assertEquals(table.pack(HttpMessage.parseHeaderValue('text/html;level=2;q=0.4')), {'text/html', {'level=2', 'q=0.4'}, n = 2})
 end
 
 os.exit(lu.LuaUnit.run())

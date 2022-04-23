@@ -1,13 +1,13 @@
 local lu = require('luaunit')
 
 local loop = require('jls.lang.loopWithTimeout')
-local http = require('jls.net.http')
 local ws = require('jls.net.http.ws')
+local HttpServer = require('jls.net.http.HttpServer')
 
 local TEST_PORT = 3002
 
 function Test_send_receive()
-  local server = http.Server:new()
+  local server = HttpServer:new()
   local reply
   server:createContext('/ws/', ws.upgradeHandler, {open = function(webSocket)
     function webSocket:onTextMessage(payload)
