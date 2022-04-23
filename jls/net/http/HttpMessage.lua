@@ -223,8 +223,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
           remainingBuffer = string.sub(buffer, length + 1)
           buffer = string.sub(buffer, 1, length)
         end
-        self.bodyStreamHandler:onData(buffer)
-        self.bodyStreamHandler:onData(nil)
+        StreamHandler.fill(self.bodyStreamHandler, buffer)
         cb(nil, remainingBuffer)
         return promise
       end
@@ -251,7 +250,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     local sh = StreamHandler:new(function(err, data)
       if not err then
         local r = self.bodyStreamHandler:onData(data)
-        -- we may want to stop/start in case of promise
+        -- we may need to wait for promise resolution prior calling the callback
+        -- or we may want to stop/start in case of promise
         if data then
           return r
         end
