@@ -7,6 +7,10 @@ local WebSocket = require('jls.net.http.ws').WebSocket
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'url',
+  aliases = {
+    h = 'help',
+    ll = 'loglevel',
+  },
   schema = {
     title = 'Open a WebSocket',
     type = 'object',

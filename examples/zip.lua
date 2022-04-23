@@ -6,6 +6,14 @@ local ZipFile = require('jls.util.zip.ZipFile')
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'file',
+  aliases = {
+    h = 'help',
+    a = 'action',
+    d = 'dir',
+    f = 'file',
+    o = 'overwrite',
+    ll = 'loglevel',
+  },
   schema = {
     title = 'ZIP utility',
     type = 'object',

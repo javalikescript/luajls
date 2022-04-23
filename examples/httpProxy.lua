@@ -233,6 +233,14 @@ local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
   emptyPath = 'config',
   helpPath = 'help',
+  aliases = {
+    h = 'help',
+    b = 'server.address',
+    hb = 'heartbeat',
+    p = 'server.port',
+    pl = 'proxy.log.enabled',
+    ll = 'loglevel',
+  },
   schema = CONFIG_SCHEMA
 });
 

@@ -90,11 +90,6 @@ local CONFIG_SCHEMA = {
         }
       }
     },
-    viewer = {
-      title = 'Enables HTML viewer for some content types',
-      type = 'boolean',
-      default = false,
-    },
     ['log-level'] = {
       title = 'The log level',
       type = 'string',
@@ -132,7 +127,6 @@ local config = tables.createArgumentTable(system.getArguments(), {
     dav = 'webdav',
     p = 'port',
     r = 'permissions',
-    v = 'viewer',
     c = 'cipher.enabled',
     kf = 'cipher.keyFile',
     k = 'cipher.key',
@@ -306,6 +300,7 @@ if config.cipher and config.cipher.enabled then
       return true
     end,
     setFileStreamHandler = function(httpExchange, file, sh, md, offset, length)
+      logger:fine('setFileStreamHandler('..tostring(offset)..', '..tostring(length)..')')
       if md and md.encFile then
         file = md.encFile
         if offset and length then
@@ -317,6 +312,10 @@ if config.cipher and config.cipher.enabled then
               sh = RangeStreamHandler:new(sh, blockOffset)
             end
             offset, length = block * 16, length + 16
+            if offset + length > md.size then
+              length = md.size - offset
+            end
+            logger:fine('setFileStreamHandler() => '..tostring(offset)..' + '..tostring(blockOffset)..', '..tostring(length))
           else
             sh = decodeStream(sh)
             sh = RangeStreamHandler:new(sh, offset, length)
@@ -353,37 +352,6 @@ if config.cipher and config.cipher.enabled then
       return cipher.encodeStream(sh, alg, key, iv)
     end,
   })
-end
-
-if config.viewer then
-  class.modifyInstance(handler, function(fileHttpHandler, super)
-    function fileHttpHandler:appendFileHtmlBody(buffer, file)
-      super.appendFileHtmlBody(self, buffer, file)
-      if viewExts[getExtension(file.name)] then
-        buffer:append('<a href="#" title="view" onclick="viewFile(event)">&#x1f441;</a>\n')
-      end
-    end
-    function fileHttpHandler:appendDirectoryHtmlBody(buffer, files)
-      super.appendDirectoryHtmlBody(self, buffer, files)
-      buffer:append(VIEW_SCRIPT)
-    end
-  end)
-  httpServer:createContext('/view(/.*)', function(exchange)
-    local path = exchange:getRequestPath()
-    local extension = getExtension(path)
-    local response = exchange:getResponse()
-    local buffer = StringBuffer:new()
-    buffer:append('<!DOCTYPE html><html><body>')
-    if videoExts[extension] then
-      buffer:append('<video controls width="720"><source src="'..path..'" type="video/'..extension..'"></video>')
-    elseif imageExts[extension] then
-      buffer:append('<img width="720" src="'..path..'" />')
-    else
-      buffer:append('<p><a href="'..path..'">'..path..'</a></p>')
-    end
-    buffer:append('</body></html>')
-    response:setBody(buffer:toString())
-  end)
 end
 
 httpServer:createContext('/?(.*)', handler)

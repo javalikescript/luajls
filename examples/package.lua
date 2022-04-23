@@ -120,6 +120,10 @@ end
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'dir',
+  aliases = {
+    h = 'help',
+    ll = 'loglevel',
+  },
   schema = {
     title = 'Lua package utility',
     description = 'Bundles several Lua modules into a single file',
