@@ -105,4 +105,23 @@ end, function(HttpHandler)
     end)
   end
 
+  function HttpHandler.file(...)
+    return require('jls.net.http.handler.FileHttpHandler'):new(...)
+  end
+  function HttpHandler.proxy(...)
+    return require('jls.net.http.handler.ProxyHttpHandler'):new(...)
+  end
+  function HttpHandler.rest(...)
+    return require('jls.net.http.handler.RestHttpHandler'):new(...)
+  end
+  function HttpHandler.table(...)
+    return require('jls.net.http.handler.TableHttpHandler'):new(...)
+  end
+  function HttpHandler.webDav(...)
+    return require('jls.net.http.handler.WebDavHttpHandler'):new(...)
+  end
+  function HttpHandler.zipFile(...)
+    return require('jls.net.http.handler.ZipFileHttpHandler'):new(...)
+  end
+
 end)

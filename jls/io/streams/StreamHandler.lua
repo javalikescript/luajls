@@ -195,9 +195,29 @@ end
 
 StreamHandler.bi = StreamHandler.tee
 
-function StreamHandler.create(name, ...)
-  local shc = require(string.upper(string.sub(name, 1, 1))..string.sub(name, 2)..'StreamHandler')
-  return shc:new(...)
+function StreamHandler.block(...)
+  return require('jls.io.streams.BlockStreamHandler'):new(...)
+end
+function StreamHandler.buffer(...)
+  return require('jls.io.streams.BufferedStreamHandler'):new(...)
+end
+function StreamHandler.chunk(...)
+  return require('jls.io.streams.ChunkedStreamHandler'):new(...)
+end
+function StreamHandler.delay(...)
+  return require('jls.io.streams.DelayedStreamHandler'):new(...)
+end
+function StreamHandler.file(...)
+  return require('jls.io.streams.FileStreamHandler'):new(...)
+end
+function StreamHandler.promise(...)
+  return require('jls.io.streams.PromiseStreamHandler'):new(...)
+end
+function StreamHandler.range(...)
+  return require('jls.io.streams.RangeStreamHandler'):new(...)
+end
+function StreamHandler.wrap(...)
+  return require('jls.io.streams.WrappedStreamHandler'):new(...)
 end
 
 --- The standard stream writing data to standard output and error to standard error.
