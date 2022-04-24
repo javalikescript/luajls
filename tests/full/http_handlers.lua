@@ -2,7 +2,6 @@ local lu = require('luaunit')
 
 local loop = require('jls.lang.loopWithTimeout')
 local event = require('jls.lang.event')
-local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local system = require('jls.lang.system')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
@@ -10,11 +9,12 @@ local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
 local Date = require('jls.util.Date')
-
 local File = require('jls.io.File')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
+
+--local logger = require('jls.lang.logger'); logger:setLevel(logger.FINE)
 
 local function getTmpDir(forCreation)
   local tmpDir = File:new(TMP_PATH)
@@ -159,7 +159,6 @@ function Test_file()
     url = 'http://127.0.0.1:'..tostring(port)
     fileUrl = url..'/file.txt'
     newFileUrl = url..'/file-new.txt'
-    --logger:setLevel(logger.FINE)
   end):next(function()
     return connectSendReceiveClose(HttpClient:new({ url = fileUrl }), responses)
   end):next(function()

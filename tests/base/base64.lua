@@ -13,6 +13,29 @@ local function safe(fn, ...)
   unpcall(xpcall(fn, debug.traceback, ...))
 end
 
+local function chars(l)
+  local ten = '123456789 '
+  return string.rep(ten, l // 10)..string.sub(ten, 1, l % 10)
+end
+
+local function randomChars(len, from, to)
+  from = from or 0
+  to = to or 255
+  if len <= 10 then
+    local bytes = {}
+    for _ = 1, len do
+      table.insert(bytes, math.random(from, to))
+    end
+    return string.char(table.unpack(bytes))
+  end
+  local parts = {}
+  for _ = 1, len // 10 do
+    table.insert(parts, randomChars(10, from, to))
+  end
+  table.insert(parts, randomChars(len % 10, from, to))
+  return table.concat(parts)
+end
+
 function Test_decode()
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQh'), 'Hello world!')
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQgIQ=='), 'Hello world !')
@@ -52,22 +75,6 @@ function Test_encode_decode()
   assertEncodeDecode('ab')
   assertEncodeDecode('abc')
   assertEncodeDecode('Hello world !')
-end
-
-local function randomChars(len)
-  if len <= 10 then
-    local bytes = {}
-    for _ = 1, len do
-      table.insert(bytes, math.random(0, 255))
-    end
-    return string.char(table.unpack(bytes))
-  end
-  local parts = {}
-  for _ = 1, len // 10 do
-    table.insert(parts, randomChars(10))
-  end
-  table.insert(parts, randomChars(len % 10))
-  return table.concat(parts)
 end
 
 local function time(fn, ...)

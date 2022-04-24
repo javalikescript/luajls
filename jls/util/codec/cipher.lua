@@ -1,5 +1,7 @@
 local class = require('jls.lang.class')
+local logger = require('jls.lang.logger')
 local StreamHandler = require('jls.io.streams.StreamHandler')
+local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local cipherLib = require('openssl').cipher
 
 local CipherStreamHandler = class.create(StreamHandler, function(cipherStreamHandler, super)
@@ -39,6 +41,9 @@ end)
 
 local DEFAULT_ALG = 'aes128'
 local DEFAULT_KEY = 'secret'
+
+local IV_FORMAT = '>I16'
+
 return {
   decode = function(data, alg, key, ...)
     return cipherLib.decrypt(alg or DEFAULT_ALG, data, key or DEFAULT_KEY, ...)
@@ -49,7 +54,31 @@ return {
   decodeStream = function(handler, alg, key, ...)
     return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, key or DEFAULT_KEY, ...)
   end,
+  decodeStreamPart = function(handler, alg, key, iv, offset, length)
+    if offset and length then
+      local rangeOffset = offset
+      local firstBlock = 0
+      if not iv and offset > 0 and alg == 'aes-128-ctr' or alg == 'aes-256-ctr' then
+        firstBlock, rangeOffset = offset // 16, offset % 16
+        offset, length = firstBlock * 16, rangeOffset + length
+      end
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('ciipher.decodeStreamPart() iv: '..tostring(firstBlock)..', range offset: '..tostring(rangeOffset))
+      end
+      iv = string.pack(IV_FORMAT, firstBlock)
+      handler = RangeStreamHandler:new(handler, rangeOffset, length)
+    elseif type(iv) ~= 'string' then
+      iv = string.pack(IV_FORMAT, type(iv) == 'number' and iv or 0)
+    end
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, key or DEFAULT_KEY, iv, false), offset, length
+  end,
   encodeStream = function(handler, alg, key, ...)
     return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, key or DEFAULT_KEY, ...)
+  end,
+  encodeStreamPart = function(handler, alg, key, iv)
+    if type(iv) ~= 'string' then
+      iv = string.pack(IV_FORMAT, type(iv) == 'number' and iv or 0)
+    end
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, key or DEFAULT_KEY, iv, false)
   end,
 }

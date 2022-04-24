@@ -53,6 +53,7 @@ local CONFIG_SCHEMA = {
       additionalProperties = false,
       properties = {
         enabled = {
+          title = 'Enables file decryption/encryption on the flow',
           type = 'boolean',
           default = false,
         },
@@ -60,6 +61,7 @@ local CONFIG_SCHEMA = {
           title = 'The cipher algorithm',
           type = 'string',
           default = 'aes-128-ctr',
+          -- print("'"..table.concat(require('openssl').cipher.list(), "', '").."'")
         },
         key = {
           title = 'The secret key',
@@ -110,10 +112,6 @@ local function getExtension(name)
   return extension and string.lower(extension) or ''
 end
 
-local videoExts = Map.add({}, 'mp4', 'ogv', 'webm')
-local imageExts = Map.add({}, 'jpg', 'jpeg', 'png', 'gif')
-local viewExts = Map.assign({}, videoExts, imageExts)
-
 local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
   emptyPath = 'dir',
@@ -163,7 +161,6 @@ end
 
 if config.cipher and config.cipher.enabled then
   local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
-  local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
   local cipher = require('jls.util.codec.cipher')
   local strings = require('jls.util.strings')
   local Struct = require('jls.util.Struct')
@@ -234,9 +231,6 @@ if config.cipher and config.cipher.enabled then
       end
     end
   end
-  local function decodeStream(sh, iv)
-    return cipher.decodeStream(sh, alg, key, string.pack(ivf, iv or 0), false)
-  end
 
   local fs = handler:getFileSystem()
   handler:setFileSystem({
@@ -301,26 +295,9 @@ if config.cipher and config.cipher.enabled then
       logger:fine('setFileStreamHandler('..tostring(offset)..', '..tostring(length)..')')
       if md and md.encFile then
         file = md.encFile
-        if offset and length then
-          if alg == 'aes-128-ctr' then
-            local block = offset // 16
-            local blockOffset = offset % 16
-            sh = decodeStream(sh, block)
-            if blockOffset > 0 then
-              sh = RangeStreamHandler:new(sh, blockOffset)
-            end
-            offset, length = block * 16, length + 16
-            if offset + length > md.size then
-              length = md.size - offset
-            end
-            logger:fine('setFileStreamHandler() => '..tostring(offset)..' + '..tostring(blockOffset)..', '..tostring(length))
-          else
-            sh = decodeStream(sh)
-            sh = RangeStreamHandler:new(sh, offset, length)
-            offset, length = nil, nil
-          end
-        else
-          sh = decodeStream(sh)
+        sh, offset, length = cipher.decodeStreamPart(sh, alg, key, nil, offset, length)
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('ciipher.decodeStreamPart() => '..tostring(offset)..', '..tostring(length))
         end
       end
       fs.setFileStreamHandler(httpExchange, file, sh, md, offset, length)
@@ -346,8 +323,7 @@ if config.cipher and config.cipher.enabled then
           writeEncFileMetadata(encFile, md)
         end)
       end
-      local iv = string.pack(ivf, 0)
-      return cipher.encodeStream(sh, alg, key, iv)
+      return cipher.encodeStreamPart(sh, alg, key)
     end,
   })
 end
