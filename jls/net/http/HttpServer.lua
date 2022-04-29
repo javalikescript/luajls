@@ -211,12 +211,16 @@ return require('jls.lang.class').create(function(httpServer)
   ]]
   function httpServer:onAccept(client, buffer)
     logger:finer('httpServer:onAccept()')
+    if self.keepAlive then
+      client:setKeepAlive(true, self.keepAlive)
+    end
     local exchange = HttpExchange:new(client)
     local keepAlive = false
     local remainingBuffer = nil
     local requestHeadersPromise = nil
     local hsh = HeaderStreamHandler:new(exchange:getRequest())
     -- TODO limit headers
+    exchange:setAttribute('start_time', os.time())
     self.pendings[client] = exchange
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
       logger:finer('httpServer:onAccept() header read')
@@ -294,10 +298,29 @@ return require('jls.lang.class').create(function(httpServer)
     return self.tcpServer:getLocalName()
   end
 
+  function httpServer:closePendings(delaySec)
+    local time = os.time() - (delaySec or 0)
+    local count = 0
+    for client, exchange in pairs(self.pendings) do
+      local start_time = exchange:getAttribute('start_time')
+      if type(start_time) ~= 'number' or start_time < time then
+        exchange:close()
+        client:close()
+        self.pendings[client] = nil
+        count = count + 1
+      end
+    end
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('httpServer:closePendings('..tostring(delaySec)..') '..tostring(count)..' pending request(s) closed')
+    end
+    return count
+  end
+
   --- Closes this server.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the server is closed.
   function httpServer:close(callback)
+    local p = self.tcpServer:close(callback)
     local pendings = self.pendings
     self.pendings = {}
     local count = 0
@@ -310,7 +333,7 @@ return require('jls.lang.class').create(function(httpServer)
       logger:fine('httpServer:close() '..tostring(count)..' pending request(s) closed')
     end
     self:closeContexts()
-    return self.tcpServer:close(callback)
+    return p
   end
 end, function(HttpServer)
 
