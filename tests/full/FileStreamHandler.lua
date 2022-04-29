@@ -71,6 +71,33 @@ function Test_read()
   lu.assertEquals(buffer:toString(), string.sub(data, 2, 6))
 end
 
+function Test_readSync()
+  local data = string.rep('1234567890', 10)
+  createFile(TMP_FILENAME, data)
+
+  local bufferedStream = BufferedStreamHandler:new(StreamHandler.null)
+  local buffer = bufferedStream:getStringBuffer()
+
+  FileStreamHandler.readSync(TMP_FILENAME, bufferedStream, 0)
+  lu.assertEquals(buffer:toString(), data)
+
+  buffer:clear()
+  FileStreamHandler.readSync(TMP_FILENAME, bufferedStream, 0, nil, 7)
+  lu.assertEquals(buffer:toString(), data)
+
+  buffer:clear()
+  FileStreamHandler.readSync(TMP_FILENAME, bufferedStream, 0, 5, 7)
+  lu.assertEquals(buffer:toString(), string.sub(data, 1, 5))
+
+  buffer:clear()
+  FileStreamHandler.readSync(TMP_FILENAME, bufferedStream, 1, nil, 7)
+  lu.assertEquals(buffer:toString(), string.sub(data, 2))
+
+  buffer:clear()
+  FileStreamHandler.readSync(TMP_FILENAME, bufferedStream, 1, 5, 7)
+  lu.assertEquals(buffer:toString(), string.sub(data, 2, 6))
+end
+
 function Test_z_cleanup()
   -- delete tmp file
   os.remove(TMP_FILENAME)
