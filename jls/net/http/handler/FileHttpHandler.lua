@@ -121,7 +121,7 @@ local FS = {
     FileStreamHandler.read(file, sh, offset, length)
   end,
   getFileStreamHandler = function(httpExchange, file)
-    return FileStreamHandler:new(file, true)
+    return FileStreamHandler:new(file, true, nil, nil, true)
   end,
 }
 
