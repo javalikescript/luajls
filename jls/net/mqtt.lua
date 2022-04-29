@@ -203,16 +203,16 @@ local MqttClientBase = class.create(function(mqttClientBase)
     return self.keepAlive
   end
 
-  function mqttClientBase:onReadError(err)
+  function mqttClientBase:onError(err)
     if logger:isLoggable(logger.FINE) then
-      logger:fine('mqttClientBase:onReadError("'..tostring(err)..'") '..tostring(self.clientId))
+      logger:fine('mqttClientBase:onError("'..tostring(err)..'") '..tostring(self.clientId))
     end
   end
 
-  function mqttClientBase:onReadEnded()
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('mqttClientBase:onReadEnded() '..tostring(self.clientId))
-    end
+  function mqttClientBase:raiseError(reason)
+    self:close(false)
+    self:onClose()
+    self:onError(reason)
   end
 
   function mqttClientBase:onPublish(topicName, payload, qos, retain, dup, packetId)
@@ -261,7 +261,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
     local buffer = ''
     return self.tcpClient:readStart(function(err, data)
       if err then
-        self:onReadError(err)
+        self:raiseError(err)
       elseif data then
         buffer = buffer..data
         while true do
@@ -289,7 +289,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
           buffer = remainingBuffer
         end
       else
-        self:onReadEnded()
+        self:raiseError('end of stream')
       end
     end)
   end
@@ -298,7 +298,16 @@ local MqttClientBase = class.create(function(mqttClientBase)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('mqttClientBase:write() "'..hex.encode(data)..'"')
     end
-    return self.tcpClient:write(data, callback)
+    local cb, d = Promise.ensureCallback(callback)
+    self.tcpClient:write(data, function(err)
+      if err then
+        self:raiseError(err)
+      end
+      if cb then
+        cb(err)
+      end
+    end)
+    return d
   end
 
   function mqttClientBase:writePacket(packetType, data, packetFlags, callback)

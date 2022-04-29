@@ -178,12 +178,6 @@ local WebSocketBase = class.create(function(webSocketBase)
     self.contBuffer = StringBuffer:new()
   end
 
-  function webSocketBase:onReadError(err)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocketBase:onReadError("'..tostring(err)..'")')
-    end
-  end
-
   --- Closes this WebSocket.
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is closed.
@@ -201,12 +195,31 @@ local WebSocketBase = class.create(function(webSocketBase)
     end
   end
 
+  --- Called when this WebSocket has been closed due to an error,
+  -- such as when some data couldn't be received or sent.
+  -- @param reason the error reason.
+  function webSocketBase:onError(reason)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webSocketBase:onError("'..tostring(reason)..'")')
+    end
+  end
+
+  function webSocketBase:raiseError(reason)
+    self:close(false)
+    self:onClose()
+    self:onError(reason)
+  end
+
+  --- Called when a text message is received on this WebSocket.
+  -- @tparam string message the text message.
   function webSocketBase:onTextMessage(message)
     if logger:isLoggable(logger.FINE) then
       logger:fine('webSocketBase:onTextMessage("'..tostring(message)..'")')
     end
   end
 
+  --- Called when a binary message is received on this WebSocket.
+  -- @tparam string message the binary message.
   function webSocketBase:onBinaryMessage(message)
     if logger:isLoggable(logger.FINE) then
       logger:fine('webSocketBase:onBinaryMessage()')
@@ -219,6 +232,7 @@ local WebSocketBase = class.create(function(webSocketBase)
     end
   end
 
+  --- Called when this WebSocket has been closed.
   function webSocketBase:onClose()
     if logger:isLoggable(logger.FINE) then
       logger:fine('webSocketBase:onClose()')
@@ -246,9 +260,7 @@ local WebSocketBase = class.create(function(webSocketBase)
     end
     local appData = self:handleExtension(fin, opcode, payload, rsv)
     if not appData then
-      logger:warn('webSocketBase:readStart() unsupported extension, '..tostring(rsv))
-      self:readStop()
-      self:close(false)
+      self:raiseError('unsupported extension, '..tostring(rsv))
       return
     end
     if opcode == CONST.OP_CODE_CONTINUATION then
@@ -271,19 +283,18 @@ local WebSocketBase = class.create(function(webSocketBase)
     elseif opcode == CONST.OP_CODE_PONG then
       self:onPong(appData)
     elseif opcode == CONST.OP_CODE_CLOSE then
-      self:readStop()
       self:close(false)
       self:onClose()
     else
-      logger:warn('webSocketBase:onReadFrame() unsupported op code: '..tostring(opcode))
-      self:readStop()
-      self:close(false)
+      self:raiseError('unsupported op code: '..tostring(opcode))
     end
   end
 
   --- Stops receiving messages on this WebSocket.
   function webSocketBase:readStop()
-    return self.tcp:readStop()
+    if self.tcp then
+      self.tcp:readStop()
+    end
   end
 
   --- Starts receiving messages on this WebSocket.
@@ -292,7 +303,7 @@ local WebSocketBase = class.create(function(webSocketBase)
     local buffer = ''
     return self.tcp:readStart(function(err, data)
       if err then
-        self:onReadError(err)
+        self:raiseError(err)
       elseif data then
         buffer = buffer..data
         while true do
@@ -333,6 +344,8 @@ local WebSocketBase = class.create(function(webSocketBase)
           end
           self:onReadFrame(fin, opcode, payload, rsv)
         end
+      else
+        self:raiseError('end of stream')
       end
     end)
   end
@@ -345,7 +358,16 @@ local WebSocketBase = class.create(function(webSocketBase)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('webSocketBase:sendFrame() '..hex.encode(frame))
     end
-    return self.tcp:write(frame, callback)
+    local cb, d = Promise.ensureCallback(callback)
+    self.tcp:write(frame, function(err)
+      if err then
+        self:raiseError(err)
+      end
+      if cb then
+        cb(err)
+      end
+    end)
+    return d
   end
 
   --- Sends a message on this WebSocket.
@@ -518,7 +540,10 @@ local WebSocketUpgradeHandler = class.create('jls.net.http.HttpHandler', functio
     self.protocol = protocol
   end
   function webSocketUpgradeHandler:onOpen(webSocket, exchange)
-    webSocket:close()
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('webSocketUpgradeHandler:onOpen() closing')
+    end
+    webSocket:close(false)
   end
   function webSocketUpgradeHandler:accept(protocol, request)
     return true
