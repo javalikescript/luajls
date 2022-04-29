@@ -13,10 +13,13 @@ return class.create(function(event)
     local args = table.pack(...)
     local timer = luvLib.new_timer()
     timer:start(timeoutMs, repeatMs, function()
+      if not repeatMs or repeatMs <= 0 then
+        timer:close()
+      end
       local status, err = protectedCall(callback, table.unpack(args))
       if not status then
         if logger:isLoggable(logger.WARN) then
-          logger:warn('event:setInterval() callback on error "'..err..'"')
+          logger:warn('event timer callback on error "'..err..'"')
         end
       end
     end)
