@@ -40,19 +40,31 @@ end)
 ]]
 
 local DEFAULT_ALG = 'aes128'
-local DEFAULT_KEY = 'secret'
 
-local IV_FORMAT = '>I16'
+-- cipherLib.get(alg):info() => key_length iv_length
+
+local function asKey(key, alg)
+  -- pad with 0 up to 64 (EVP_MAX_KEY_LENGTH)
+  return string.pack('c64', key or '')
+end
+
+local function asIv(iv, alg)
+  -- pad with 0 up to  16(EVP_MAX_IV_LENGTH)
+  if type(iv) == 'number' then
+    return string.pack('>I16', iv)
+  end
+  return string.pack('c16', iv or '')
+end
 
 return {
   decode = function(data, alg, key, ...)
-    return cipherLib.decrypt(alg or DEFAULT_ALG, data, key or DEFAULT_KEY, ...)
+    return cipherLib.decrypt(alg or DEFAULT_ALG, data, asKey(key), ...)
   end,
   encode = function(data, alg, key, ...)
-    return cipherLib.encrypt(alg or DEFAULT_ALG, data, key or DEFAULT_KEY, ...)
+    return cipherLib.encrypt(alg or DEFAULT_ALG, data, asKey(key), ...)
   end,
   decodeStream = function(handler, alg, key, ...)
-    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, key or DEFAULT_KEY, ...)
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, asKey(key), ...)
   end,
   decodeStreamPart = function(handler, alg, key, iv, offset, length)
     if offset and length then
@@ -65,20 +77,15 @@ return {
       if logger:isLoggable(logger.FINE) then
         logger:fine('ciipher.decodeStreamPart() iv: '..tostring(firstBlock)..', range offset: '..tostring(rangeOffset))
       end
-      iv = string.pack(IV_FORMAT, firstBlock)
+      iv = firstBlock
       handler = RangeStreamHandler:new(handler, rangeOffset, length)
-    elseif type(iv) ~= 'string' then
-      iv = string.pack(IV_FORMAT, type(iv) == 'number' and iv or 0)
     end
-    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, key or DEFAULT_KEY, iv, false), offset, length
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, false, asKey(key), asIv(iv), false), offset, length
   end,
   encodeStream = function(handler, alg, key, ...)
-    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, key or DEFAULT_KEY, ...)
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, asKey(key), ...)
   end,
   encodeStreamPart = function(handler, alg, key, iv)
-    if type(iv) ~= 'string' then
-      iv = string.pack(IV_FORMAT, type(iv) == 'number' and iv or 0)
-    end
-    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, key or DEFAULT_KEY, iv, false)
+    return CipherStreamHandler:new(handler, alg or DEFAULT_ALG, true, asKey(key), asIv(iv), false)
   end,
 }
