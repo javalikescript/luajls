@@ -104,6 +104,9 @@ end)
 -- This class provides a stream handler that wrap a stream handler.
 StreamHandler.WrappedStreamHandler = class.create(StreamHandler, function(wrappedStreamHandler, super)
 
+  -- Creates a wrapped @{StreamHandler}.
+  -- @tparam[opt] StreamHandler handler the stream handler to wrap
+  -- @function WrappedStreamHandler:new
   function wrappedStreamHandler:initialize(handler)
     super.initialize(self)
     self:setStreamHandler(handler)

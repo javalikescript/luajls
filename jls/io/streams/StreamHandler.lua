@@ -1,2 +1,2 @@
--- Alias
+-- Deprecated, to remove
 return require('jls.io.StreamHandler')

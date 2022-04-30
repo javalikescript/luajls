@@ -11,6 +11,8 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 -- @type FileStreamHandler
 return require('jls.lang.class').create('jls.io.StreamHandler', function(fileStreamHandler)
 
+  -- TODO move sync to first place
+
   --- Creates a @{StreamHandler} that will write to a file.
   -- @tparam jls.io.File file The file to create
   -- @tparam[opt] boolean overwrite true to indicate that existing file must be re created
