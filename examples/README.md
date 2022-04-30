@@ -1,5 +1,7 @@
 This folder contains command line examples, use "-help" argument to get help.
 
+* A Cipher utility
+Allows to encode, decode a file.
 * An HTTP client  
 Allows to get or post requests to an HTTP server.
 * An HTTP proxy  
