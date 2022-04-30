@@ -2,7 +2,7 @@ local serialLib = require('serial')
 local loader = require('jls.lang.loader')
 local logger = require('jls.lang.logger')
 local event = loader.requireOne('jls.lang.event-')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 return require('jls.lang.class').create('jls.io.SerialBase', function(serial, super)
 

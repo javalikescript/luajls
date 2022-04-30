@@ -111,7 +111,7 @@ return class.create(function(pipe, _, Pipe)
   end
 
   --- Starts reading data on this pipe.
-  -- @param stream the stream reader, could be a function or a @{jls.io.streams.StreamHandler}.
+  -- @param stream the stream reader, could be a function or a @{jls.io.StreamHandler}.
   function pipe:readStart(stream)
     return read_start(self.fd, stream)
   end

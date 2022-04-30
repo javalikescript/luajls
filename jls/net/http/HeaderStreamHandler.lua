@@ -2,7 +2,7 @@ local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 
-return require('jls.lang.class').create('jls.io.streams.StreamHandler', function(headerStreamHandler, super)
+return require('jls.lang.class').create('jls.io.StreamHandler', function(headerStreamHandler, super)
 
   function headerStreamHandler:initialize(message, maxLineLength, maxSize)
     super.initialize(self)

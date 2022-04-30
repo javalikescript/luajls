@@ -4,11 +4,12 @@
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
+local StreamHandler = require('jls.io.StreamHandler')
 
 --- A BlockStreamHandler class.
 -- This class allows to pass fixed size blocks to the wrapped handler.
 -- @type BlockStreamHandler
-return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(blockStreamHandler, super)
+return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(blockStreamHandler, super)
 
   --- Creates a block @{StreamHandler}.
   -- @tparam[opt] StreamHandler handler the handler to wrap

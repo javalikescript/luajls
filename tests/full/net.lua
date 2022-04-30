@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 local loop = require('jls.lang.loopWithTimeout')
 

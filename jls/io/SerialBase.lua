@@ -26,7 +26,7 @@ return class.create(function(serial)
   end
 
   --- Starts reading data on this serial device.
-  -- @param stream the stream reader, could be a function or a @{jls.io.streams.StreamHandler}.
+  -- @param stream the stream reader, could be a function or a @{jls.io.StreamHandler}.
   -- @function serial:readStart
   serial.readStart = class.notImplementedFunction
 

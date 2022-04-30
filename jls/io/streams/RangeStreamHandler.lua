@@ -2,11 +2,12 @@
 -- @module jls.io.streams.RangeStreamHandler
 -- @pragma nostrip
 local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.StreamHandler')
 
 --- A RangeStreamHandler class.
 -- This class allows to restrict the stream to pass to the wrapped handler to a specified range.
 -- @type RangeStreamHandler
-return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(rangeStreamHandler, super, RangeStreamHandler)
+return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(rangeStreamHandler, super, RangeStreamHandler)
 
   --- Creates a @{StreamHandler} with a range.
   -- The data in the range will be pass to the wrapped handler.
@@ -31,7 +32,9 @@ return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', f
       local size = #data
       local first = self.offset
       self.offset = first + size
-      --print('range ['..tostring(self.first)..'-'..tostring(self.last)..'] onData(#'..tostring(size)..') ['..tostring(first)..'-'..tostring(nextOffset)..']')
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('rangeStreamHandler:onData(#'..tostring(size)..') ['..tostring(self.first)..'-'..tostring(self.last)..'] => ['..tostring(first)..'-'..tostring(self.offset)..']')
+      end
       if first >= self.first and self.offset < self.last then
         return self.handler:onData(data)
       end

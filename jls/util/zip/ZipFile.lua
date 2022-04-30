@@ -7,7 +7,7 @@ local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
@@ -576,7 +576,7 @@ return class.create(function(zipFile, _, ZipFile)
 
   --- Returns the content of the specified entry.
   -- @param entry the entry
-  -- @tparam[opt] StreamHandler stream an optional @{jls.io.streams.StreamHandler} that will be called with the content.
+  -- @tparam[opt] StreamHandler stream an optional @{jls.io.StreamHandler} that will be called with the content.
   -- @tparam[opt] boolean async true to get the consent asynchronously.
   -- @treturn string the entry content
   function zipFile:getContent(entry, stream, async)

@@ -4,7 +4,7 @@ local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 local loader = require('jls.lang.loader')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local event = loader.requireOne('jls.lang.event-')
 local linuxLib = loader.tryRequire('linux')
 

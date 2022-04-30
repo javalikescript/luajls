@@ -9,7 +9,7 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 
 --- This class allows to write a stream into and from a file.
 -- @type FileStreamHandler
-return require('jls.lang.class').create('jls.io.streams.StreamHandler', function(fileStreamHandler)
+return require('jls.lang.class').create('jls.io.StreamHandler', function(fileStreamHandler)
 
   --- Creates a @{StreamHandler} that will write to a file.
   -- @tparam jls.io.File file The file to create

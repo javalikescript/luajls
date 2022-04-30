@@ -9,7 +9,7 @@ local Promise = require('jls.lang.Promise')
 local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
 local File = require('jls.io.File')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 
 local function getLuaOpensslVersion()

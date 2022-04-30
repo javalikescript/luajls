@@ -45,7 +45,7 @@ function codec.encode(alg, data, ...)
   return codec.getCodec(alg).encode(data, ...)
 end
 
---- Returns an decoding @{jls.io.streams.StreamHandler}.
+--- Returns an decoding @{jls.io.StreamHandler}.
 -- @tparam string alg the name of the decoding algorithm
 -- @tparam StreamHandler sh the wrapped stream that will handle the decoded data
 -- @treturn StreamHandler the stream handler that will decode data
@@ -53,7 +53,7 @@ function codec.decodeStream(alg, sh, ...)
   return codec.getCodec(alg).decodeStream(sh, ...)
 end
 
---- Returns an encoding @{jls.io.streams.StreamHandler}.
+--- Returns an encoding @{jls.io.StreamHandler}.
 -- @tparam string alg the name of the encoding algorithm
 -- @tparam StreamHandler sh the wrapped stream that will handle the encoded data
 -- @treturn StreamHandler the stream handler that will encode data

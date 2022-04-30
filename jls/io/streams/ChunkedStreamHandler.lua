@@ -3,11 +3,12 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.StreamHandler')
 
 --- A ChunkedStreamHandler class.
 -- This class allows to buffer a stream and to call a sub handler depending on specified limit or pattern.
 -- @type ChunkedStreamHandler
-return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(chunkedStreamHandler, super, ChunkedStreamHandler)
+return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(chunkedStreamHandler, super, ChunkedStreamHandler)
 
   --- Creates a buffered @{StreamHandler} using the pattern and/or limit.
   -- The data will be pass to the wrapped handler depending on the limit and the pattern.

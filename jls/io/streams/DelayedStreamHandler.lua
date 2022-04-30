@@ -9,10 +9,11 @@ This class allows to buffer a stream while the sub handler is not available.
 
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
+local StreamHandler = require('jls.io.StreamHandler')
 
 --- A DelayedStreamHandler class.
 -- @type DelayedStreamHandler
-return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(delayedStreamHandler, super)
+return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(delayedStreamHandler, super)
 
   --- Creates a delayed @{StreamHandler}.
   -- @function DelayedStreamHandler:new

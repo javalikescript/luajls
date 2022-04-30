@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')

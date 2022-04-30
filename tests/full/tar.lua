@@ -3,7 +3,7 @@ local lu = require('luaunit')
 local tar = require('jls.util.zip.tar')
 local File = require('jls.io.File')
 local base64 = require('jls.util.base64')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'

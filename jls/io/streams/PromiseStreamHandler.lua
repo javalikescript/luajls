@@ -3,11 +3,12 @@
 -- @pragma nostrip
 
 local Promise = require('jls.lang.Promise')
+local StreamHandler = require('jls.io.StreamHandler')
 
 -- A PromiseStreamHandler class.
 -- This class provides a promise that resolves once the stream is closed.
 -- @type PromiseStreamHandler
-return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(promiseStreamHandler, super)
+return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(promiseStreamHandler, super)
 
   -- Creates a @{StreamHandler} with a promise.
   -- @tparam[opt] StreamHandler handler the handler to wrap

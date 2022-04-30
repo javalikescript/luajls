@@ -5,7 +5,7 @@
 local logger = require('jls.lang.logger')
 local strings = require('jls.util.strings')
 local File = require('jls.io.File')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local gzip = require('jls.lang.loader').tryRequire('jls.util.zip.gzip')
 
@@ -109,11 +109,11 @@ local function createExtractorStream(entryStreamFactory)
 end
 
 --[[--
-Returns a @{jls.io.streams.StreamHandler} that will extracts the tar content into the specified directory.
+Returns a @{jls.io.StreamHandler} that will extracts the tar content into the specified directory.
 
 @param directory the directory to extract to, as a @{jls.io.File} or a string directory name
 @tparam[opt] boolean decompress true to indicate that the stream is compressed using gzip
-@return the @{jls.io.streams.StreamHandler}
+@return the @{jls.io.StreamHandler}
 @function extractStreamTo
 
 @usage

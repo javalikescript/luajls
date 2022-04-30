@@ -1,7 +1,7 @@
 local lu = require('luaunit')
 
 local gzip = require('jls.util.zip.gzip')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local base64 = require('jls.util.base64')
 

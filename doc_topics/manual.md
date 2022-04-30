@@ -228,7 +228,7 @@ The stream handler is an enhancement of the simple stream callback function.
 The stream handler interface could be used on files, pipes, network sockets.
 
 ```lua
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 
 local std = StreamHandler:new(function(_, data)
@@ -246,7 +246,7 @@ require('jls.lang.event'):loop()
 A stream handler could be a simple callback function that will receive data or error.
 
 ```lua
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 
 local std = StreamHandler:new(function(err, data)

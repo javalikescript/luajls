@@ -2,7 +2,7 @@ local luaSocketLib = require('socket')
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local Selector = require('jls.net.Selector-socket')
 
 return require('jls.lang.class').create('jls.net.Tcp-socket', function(tcpClient)

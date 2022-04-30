@@ -1,5 +1,5 @@
 local class = require('jls.lang.class')
-local WrappedStreamHandler = require('jls.io.streams.WrappedStreamHandler')
+local WrappedStreamHandler = require('jls.io.StreamHandler').WrappedStreamHandler
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 

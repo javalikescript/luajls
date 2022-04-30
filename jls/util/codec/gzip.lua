@@ -1,4 +1,4 @@
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local gzip = require('jls.util.zip.gzip')
 

@@ -4,12 +4,12 @@
 
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 --- A BufferedStreamHandler class.
 -- This class allows to buffer the stream to pass to the wrapped handler.
 -- @type BufferedStreamHandler
-return require('jls.lang.class').create('jls.io.streams.WrappedStreamHandler', function(bufferedStreamHandler, super)
+return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(bufferedStreamHandler, super)
 
   --- Creates a buffered @{StreamHandler}.
   -- The data will be pass to the wrapped handler once.

@@ -16,7 +16,7 @@ serialWorker:close()
 local function initWorker(w)
   local protectedCall = require('jls.lang.protectedCall')
   local json = require('jls.util.json')
-  local StreamHandler = require('jls.io.streams.StreamHandler')
+  local StreamHandler = require('jls.io.StreamHandler')
   local lastFn
   function w:onMessage(message)
     local flags, payload, chunk = string.unpack('>Bs4s4', message)
@@ -67,7 +67,7 @@ local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 local Worker = require('jls.util.Worker')
 local json = require('jls.util.json')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 --- The SerialWorker class.
 -- @type SerialWorker

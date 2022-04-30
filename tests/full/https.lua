@@ -2,7 +2,7 @@ local lu = require('luaunit')
 
 local secure = require('jls.net.secure')
 local HttpExchange = require('jls.net.http.HttpExchange')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local HttpClient = require('jls.net.http.HttpClient')
 local HttpServer = require('jls.net.http.HttpServer')
 

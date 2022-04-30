@@ -1,1 +1,1 @@
-return require('jls.io.streams.StreamHandler')
+return require('jls.io.StreamHandler')

@@ -3,7 +3,7 @@ local lu = require('luaunit')
 local event = require('jls.lang.event')
 local Path = require('jls.io.Path')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 
 local TMP_FILENAME = Path.cleanPath('tests/test_fsh.tmp')

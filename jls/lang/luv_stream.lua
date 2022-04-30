@@ -1,7 +1,7 @@
 --local luvLib = require('luv')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 
 return {
   close = function(stream, callback)

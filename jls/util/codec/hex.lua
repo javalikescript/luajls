@@ -59,7 +59,7 @@ local DecodeStreamHandler = class.create('jls.io.streams.BlockStreamHandler', fu
   end
 end)
 
-local EncodeStreamHandler = class.create('jls.io.streams.WrappedStreamHandler', function(encodeStreamHandler, super)
+local EncodeStreamHandler = class.create(require('jls.io.StreamHandler').WrappedStreamHandler, function(encodeStreamHandler, super)
   function encodeStreamHandler:initialize(handler, lowerCase)
     super.initialize(self, handler)
     self.lowerCase = lowerCase

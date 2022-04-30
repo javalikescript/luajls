@@ -5,7 +5,7 @@ local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
-local StreamHandler = require('jls.io.streams.StreamHandler')
+local StreamHandler = require('jls.io.StreamHandler')
 local Crc32 = require('jls.util.md.Crc32')
 
 -- see https://tools.ietf.org/html/rfc1952
@@ -113,14 +113,14 @@ end
 
 
 --[[--
-Returns a @{jls.io.streams.StreamHandler} that will compress into the specified stream handler.
+Returns a @{jls.io.StreamHandler} that will compress into the specified stream handler.
 
 See @{jls.util.zip.Deflater}
 
 @param sh the stream handler to call with the deflated data
 @tparam[opt] table header the gzip header table
 @tparam[opt] number compressionLevel the compression level
-@return the @{jls.io.streams.StreamHandler}
+@return the @{jls.io.StreamHandler}
 
 @usage
 local gzip = require('jls.util.zip.gzip')
@@ -151,13 +151,13 @@ function gzip.compressStream(sh, header, compressionLevel)
 end
 
 --[[--
-Returns a @{jls.io.streams.StreamHandler} that will decompress into the specified stream handler.
+Returns a @{jls.io.StreamHandler} that will decompress into the specified stream handler.
 
 See @{jls.util.zip.Inflater}
 
 @param sh the stream handler to call with the inflated data
 @tparam[opt] function onHeader a function that will be called with the header table
-@return the @{jls.io.streams.StreamHandler}
+@return the @{jls.io.StreamHandler}
 
 @usage
 local gzip = require('jls.util.zip.gzip')
