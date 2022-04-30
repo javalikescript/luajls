@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local base64 = require('jls.util.codec.base64')
+local base64 = require('jls.util.cd.base64')
 
 local function unpcall(status, ...)
   if status then

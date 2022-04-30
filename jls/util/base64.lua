@@ -1,2 +1,2 @@
 -- for compatibility, deprecated
-return require('jls.util.codec.base64')
+return require('jls.util.cd.base64')

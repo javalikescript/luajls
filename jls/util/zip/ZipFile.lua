@@ -14,7 +14,7 @@ local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
 local Struct = require('jls.util.Struct')
 local md = require('jls.util.MessageDigest'):new('Crc32')
-local inflateStream = require('jls.util.codec.deflate').decodeStream -- Inflater.inflateStream
+local inflateStream = require('jls.util.cd.deflate').decodeStream -- Inflater.inflateStream
 
 
 local ZipEntry = class.create(function(zipEntry)

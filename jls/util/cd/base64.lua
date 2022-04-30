@@ -1,8 +1,8 @@
 local class = require('jls.lang.class')
 local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
 
---- Provide base 64 codec.
--- @module jls.util.base64
+-- Provide base 64 codec.
+-- @module jls.util.cd.base64
 
 -- see openssl.base64(msg, true, true)
 

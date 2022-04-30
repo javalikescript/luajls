@@ -13,7 +13,7 @@ local CODEC_MAP = {}
 -- @return the codec
 function codec.getCodec(alg)
   if type(alg) == 'string' then
-    local cd = CODEC_MAP[alg] or require('jls.util.codec.'..alg)
+    local cd = CODEC_MAP[alg] or require('jls.util.cd.'..alg)
     -- TODO codec should be an instance
     --if class.isClass(cd) then
     --  return cd:new(...)

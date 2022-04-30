@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local cipher = require('jls.util.codec.cipher')
+local cipher = require('jls.util.cd.cipher')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 
 local function chars(l)

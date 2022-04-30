@@ -161,7 +161,7 @@ end
 
 if config.cipher and config.cipher.enabled then
   local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
-  local cipher = require('jls.util.codec.cipher')
+  local cipher = require('jls.util.cd.cipher')
   local strings = require('jls.util.strings')
   local Struct = require('jls.util.Struct')
 
@@ -295,6 +295,7 @@ if config.cipher and config.cipher.enabled then
       logger:fine('setFileStreamHandler('..tostring(offset)..', '..tostring(length)..')')
       if md and md.encFile then
         file = md.encFile
+        -- curl -o file -r 0- http://localhost:8000/file
         sh, offset, length = cipher.decodeStreamPart(sh, alg, key, nil, offset, length)
         if logger:isLoggable(logger.FINE) then
           logger:fine('ciipher.decodeStreamPart() => '..tostring(offset)..', '..tostring(length))

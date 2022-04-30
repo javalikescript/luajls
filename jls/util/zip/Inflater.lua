@@ -64,6 +64,6 @@ end, function(Inflater)
   -- for compatibility, deprecated
   require('jls.lang.loader').lazyMethod(Inflater, 'inflateStream', function(deflate)
     return deflate.decodeStream
-  end, 'jls.util.codec.deflate')
+  end, 'jls.util.cd.deflate')
 
 end)
