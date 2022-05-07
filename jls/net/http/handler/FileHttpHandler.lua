@@ -27,6 +27,22 @@ a.dir {
 </style>
 ]]
 
+local DROP_STYLE = [[<style>
+.drop:before {
+  z-index: -1;
+  content: '\21d1';
+  font-size: 6rem;
+  text-decoration: underline;
+  line-height: 6rem;
+  text-align: center;
+  position: absolute;
+  left: calc(50% - 3rem);
+  top: calc(50% - 3rem);
+  opacity: 0.1;
+}
+</style>
+]]
+
 local DELETE_SCRIPT = [[
 <script>
 function delFile(e) {
@@ -229,7 +245,12 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       local buffer = StringBuffer:new()
       buffer:append('<html><head><meta charset="UTF-8">\n')
       buffer:append(DIRECTORY_STYLE)
-      buffer:append('</head><body>\n')
+      local bodyAtttributes = ''
+      if self.allowCreate then
+        buffer:append(DROP_STYLE)
+        bodyAtttributes = ' class="drop" title="Drop files to upload"'
+      end
+      buffer:append('</head><body', bodyAtttributes, '>\n')
       if showParent then
         local path = self:getPath(httpExchange)
         if path ~= '' then
