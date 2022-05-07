@@ -2,13 +2,11 @@ require('jls.lang.protectedCallLog')
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
-local Path = require('jls.io.Path')
 local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local tables = require('jls.util.tables')
-local Map = require('jls.util.Map')
 
 -- see https://openjdk.java.net/jeps/408
 
@@ -23,9 +21,9 @@ local CONFIG_SCHEMA = {
       default = 'webServer.json'
     },
     ['bind-address'] = {
-      title = 'The binding address',
+      title = 'The binding address, use :: to bind on any',
       type = 'string',
-      default = '::'
+      default = '127.0.0.1'
     },
     port = {
       type = 'integer',
@@ -63,6 +61,11 @@ local CONFIG_SCHEMA = {
           default = 'aes-128-ctr',
           -- print("'"..table.concat(require('openssl').cipher.list(), "', '").."'")
         },
+        extension = {
+          title = 'The cipher extension',
+          type = 'string',
+          default = 'enc',
+        },
         key = {
           title = 'The secret key',
           type = 'string',
@@ -98,19 +101,6 @@ local CONFIG_SCHEMA = {
     }
   }
 }
-
-local VIEW_SCRIPT = [[<script>
-function viewFile(e) {
-  var href = e.target.previousElementSibling.getAttribute('href');
-  window.location = '/view' + window.location.pathname + href;
-}
-</script>
-]]
-
-local function getExtension(name)
-  local extension = Path.extractExtension(name)
-  return extension and string.lower(extension) or ''
-end
 
 local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
@@ -162,17 +152,19 @@ end
 if config.cipher and config.cipher.enabled then
   local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
   local cipher = require('jls.util.cd.cipher')
-  local strings = require('jls.util.strings')
+  local deflate = false -- require('jls.util.cd.deflate')
   local Struct = require('jls.util.Struct')
+  local base64 = require('jls.util.cd.base64')
+  local alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
   local struct = Struct:new({
     {name = 'name', type = 's4'},
     {name = 'size', type = 'I8'},
     {name = 'time', type = 'I8'},
   }, '<')
-  local ivf = '>I16'
-  local mdAlg = 'aes128'
+  local mdAlg = 'aes256'
   local alg = config.cipher.alg
+  local extension = config.cipher.extension
   local key
   if config.cipher.keyFile then
     local opensslLib = require('openssl')
@@ -189,40 +181,64 @@ if config.cipher and config.cipher.enabled then
     key = config.cipher.key or 'secret'
   end
 
-  local function formatInt(i, s)
-    return strings.formatInteger(math.abs(i), s or 64)
+  local function generateEncName(md)
+    local plain = Struct.encodeVariableByteInteger(md.size)..md.name
+    if deflate then
+      plain = deflate.encode(plain, nil, -15)
+    end
+    return base64.encode(cipher.encode(plain, mdAlg, key), alpha, false)..'.'..extension
   end
-  local function generateEncName(name, time)
-    return formatInt(strings.hash(name))..formatInt(time)..formatInt(math.random(0, 64^4))..'.enc'
-  end
-  local function getEncFileMetadata(encFile)
-    return File:new(encFile:getParentFile(), encFile:getBaseName()..'.emd')
+
+  local function try(status, ...)
+    if status == true then
+      return ...
+    end
+    return nil, ...
   end
   local function readEncFileMetadata(encFile, full)
-    local file = getEncFileMetadata(encFile)
-    local content = file:readAll()
+    local name = string.sub(encFile:getName(), 1, -5)
+    local content = try(pcall(base64.decode, name, alpha))
     if content then
       local plain = cipher.decode(content, mdAlg, key)
       if plain then
-        local md = struct:fromString(plain)
+        if deflate then
+          plain = deflate.decode(plain, -15)
+        end
+        local size, offset = Struct.decodeVariableByteInteger(plain)
+        local md = {
+          name = string.sub(plain, offset),
+          size = size,
+          time = encFile:lastModified(),
+        }
         if full then
           md.encFile = encFile
-          md.file = file
         end
         return md
       end
     end
-  end
-  local function writeEncFileMetadata(encFile, md)
-    local file = getEncFileMetadata(encFile)
-    file:write(cipher.encode(struct:toString(md), mdAlg, key))
+    local file = File:new(encFile:getParentFile(), encFile:getBaseName()..'.emd')
+    content = file:readAll()
+    if content then
+      local plain = cipher.decode(content, 'aes128', key)
+      if plain then
+        local md = struct:fromString(plain)
+        local f = File:new(encFile:getParent(), generateEncName(md))
+        if encFile:renameTo(f) then
+          logger:warn('The file metadata '..file:getName()..' has been migrated and could be deleted')
+          if full then
+            md.encFile = f
+          end
+          return md
+        end
+      end
+    end
   end
   local function getFileMetadata(file, full)
     local dir = file:getParentFile()
     if dir and dir:isDirectory() then
       local name = file:getName()
       for _, f in ipairs(dir:listFiles()) do
-        if f:getExtension() == 'enc' then
+        if f:getExtension() == extension then
           local md = readEncFileMetadata(f, full)
           if md and md.name == name then
             return md
@@ -247,7 +263,7 @@ if config.cipher and config.cipher.enabled then
         if file:isDirectory() then
           md = fs.getFileMetadata(file)
           md.name = file:getName()
-        elseif file:getExtension() == 'enc' then
+        elseif file:getExtension() == extension then
           md = readEncFileMetadata(file)
         end
         if md then
@@ -263,10 +279,8 @@ if config.cipher and config.cipher.enabled then
       end
       local md = getFileMetadata(file, true)
       if md then
-        local name = generateEncName(destFile:getName(), md.time)
-        local encFile = File:new(destFile:getParent(), name)
         md.name = destFile:getName()
-        writeEncFileMetadata(encFile, md)
+        local encFile = File:new(destFile:getParent(), generateEncName(md))
         return fs.copyFile(md.encFile, encFile)
       end
     end,
@@ -277,8 +291,7 @@ if config.cipher and config.cipher.enabled then
       local md = getFileMetadata(file, true)
       if md then
         md.name = destFile:getName()
-        writeEncFileMetadata(md.encFile, md)
-        return true
+        return md.encFile:renameTo(File:new(file:getParent(), generateEncName(md)))
       end
     end,
     deleteFile = function(file, recursive)
@@ -287,7 +300,7 @@ if config.cipher and config.cipher.enabled then
       end
       local md = getFileMetadata(file, true)
       if md then
-        return fs.deleteFile(md.encFile, recursive) and fs.deleteFile(md.file, recursive)
+        return fs.deleteFile(md.encFile, recursive)
       end
       return true
     end,
@@ -298,30 +311,27 @@ if config.cipher and config.cipher.enabled then
         -- curl -o file -r 0- http://localhost:8000/file
         sh, offset, length = cipher.decodeStreamPart(sh, alg, key, nil, offset, length)
         if logger:isLoggable(logger.FINE) then
-          logger:fine('ciipher.decodeStreamPart() => '..tostring(offset)..', '..tostring(length))
+          logger:fine('cipher.decodeStreamPart() => '..tostring(offset)..', '..tostring(length))
         end
       end
       fs.setFileStreamHandler(httpExchange, file, sh, md, offset, length)
     end,
     getFileStreamHandler = function(httpExchange, file)
       local time = system.currentTimeMillis()
-      local name = generateEncName(file:getName(), time)
-      local encFile = File:new(file:getParent(), name)
-      local sh = fs.getFileStreamHandler(httpExchange, encFile)
       local size = httpExchange:getRequest():getContentLength()
       local md = {
         name = file:getName(),
         size = size or 0,
         time = time,
       }
-      if size then
-        writeEncFileMetadata(encFile, md)
-      else
+      local encFile = File:new(file:getParent(), generateEncName(md))
+      local sh = fs.getFileStreamHandler(httpExchange, encFile)
+      if not size then
         sh = PromiseStreamHandler:new(sh)
         sh:getPromise():next(function(s)
           logger:fine('getFileStreamHandler('..file:getName()..') size: '..tostring(size))
           md.size = s
-          writeEncFileMetadata(encFile, md)
+          encFile:renameTo(File:new(file:getParent(), generateEncName(md)))
         end)
       end
       return cipher.encodeStreamPart(sh, alg, key)
