@@ -9,6 +9,7 @@ local Promise = require('jls.lang.Promise')
 local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
 local List = require('jls.util.List')
+local Struct = require('jls.util.Struct')
 local strings = require('jls.util.strings')
 local hex = require('jls.util.hex')
 
@@ -55,34 +56,6 @@ local function decodeData(s, offset)
     return '', offset + 2
   end
   return string.sub(s, offset + 2, offset + 1 + len), offset + 2 + len
-end
-
-local function encodeVariableByteInteger(i)
-  if i < 0 then
-    return nil
-  elseif i < 128 then
-    return string.char(i)
-  elseif i < 16384  then
-    return string.char(0x80 | (i & 0x7f), (i >> 7) & 0x7f)
-  elseif i < 2097152  then
-    return string.char(0x80 | (i & 0x7f), 0x80 | ((i >> 7) & 0x7f), (i >> 14) & 0x7f)
-  elseif i <= 268435455  then
-    return string.char(0x80 | (i & 0x7f), 0x80 | ((i >> 7) & 0x7f), 0x80 | ((i >> 14) & 0x7f), (i >> 21) & 0x7f)
-  end
-  return nil
-end
-
-local function decodeVariableByteInteger(s, offset)
-  offset = offset or 1
-  local i = 0
-  for l = 0, 3 do
-    local b = string.byte(s, offset + l)
-    i = ((b & 0x7f) << (7 * l)) | i
-    if (b & 0x80) ~= 0x80 then
-      return i, offset + l + 1
-    end
-  end
-  return nil
 end
 
 local CONTROL_PACKET_TYPE = {
@@ -270,7 +243,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
             break
           end
           local packetTypeAndFlags = string.byte(buffer, 1)
-          local remainingLength, offset = decodeVariableByteInteger(buffer, 2)
+          local remainingLength, offset = Struct.decodeVariableByteInteger(buffer, 2)
           local packetLength = offset - 1 + remainingLength
           if bufferLength < packetLength then
             break
@@ -314,7 +287,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
     local packetTypeAndFlags = ((packetType & 0xf) << 4) | ((packetFlags or 0) & 0xf)
     local packet
     if data then
-      packet = string.char(packetTypeAndFlags)..encodeVariableByteInteger(#data)..data
+      packet = string.char(packetTypeAndFlags)..Struct.encodeVariableByteInteger(#data)..data
     else
       packet = string.char(packetTypeAndFlags, 0)
     end
