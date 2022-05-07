@@ -59,6 +59,15 @@ function Test_encode()
   lu.assertEquals(base64.encode(''), '')
 end
 
+function Test_decode_encode_alpha()
+  local alpha = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~'
+  lu.assertEquals(base64.encode('Hello world!', alpha), 'I6LhR6xWTrynR6GX')
+  lu.assertEquals(base64.decode('I6LhR6xWTrynR6GX', alpha), 'Hello world!')
+  lu.assertEquals(base64.encode('Hello world !', alpha), 'I6LhR6xWTrynR6GW8G==')
+  lu.assertEquals(base64.encode('Hello world !', alpha, false), 'I6LhR6xWTrynR6GW8G')
+  lu.assertEquals(base64.decode('I6LhR6xWTrynR6GW8G', alpha), 'Hello world !')
+end
+
 function Test_decode_encode()
   local assertDecodeEncode = function(s)
     lu.assertEquals(base64.encode(base64.decode(s)), s)

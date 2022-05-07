@@ -6,85 +6,36 @@ local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
 
 -- see openssl.base64(msg, true, true)
 
-local alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-local bindices = {}
-local indices = {}
-local letters = {}
-for i = 1, #alpha do
-  local letter = string.sub(alpha, i, i)
-  local b = string.byte(alpha, i)
-  bindices[b] = i - 1
-  indices[letter] = i - 1
-  letters[i - 1] = letter
+local function assertLen(alpha)
+  if type(alpha) ~= 'string' then
+    error('Invalid base64 alphabet type, '..type(alpha))
+  end
+  local i = #alpha
+  if i ~= 64 then
+    error('Invalid base64 alphabet length, '..tostring(i))
+  end
+  return i
 end
 
-local function decode_concat(value)
-  local l = #value
-  local m = l % 4
-  if m ~= 0 then
-    if m == 1 then
-      return nil, 'Invalid length'
-    end
-    value = value..'=='
+local function getIndices(alpha)
+  local indices = {}
+  for i = 1, assertLen(alpha) do
+    local letter = string.sub(alpha, i, i)
+    indices[letter] = i - 1
   end
-  local r = ''
-  local c1, c2, c3, c4
-  local i1, i2, i3, i4
-  local b1, b2, b3
-  for i = 1, l, 4 do
-    c1, c2, c3, c4 = string.byte(value, i, i + 3)
-    --print('letters', c1, c2, c3, c4)
-    i1 = bindices[c1]
-    if not i1 then return nil, 'Invalid character ('..tostring(c1)..')' end
-    i2 = bindices[c2]
-    if not i2 then return nil, 'Invalid character ('..tostring(c2)..')' end
-    b1 = (i1 << 2) | (i2 >> 4)
-    if c3 == 61 then -- 61 => '='
-      r = r..string.char(b1)
-    else
-      i3 = bindices[c3]
-      if not i3 then return nil, 'Invalid character ('..tostring(c3)..')' end
-      b2 = ((i2 & 15) << 4) | (i3 >> 2)
-      if c4 == 61 then -- 61 => '='
-        r = r..string.char(b1, b2)
-      else
-        i4 = bindices[c4]
-        if not i4 then return nil, 'Invalid character ('..tostring(c4)..')' end
-        b3 = ((i3 & 3) << 6) | i4
-        r = r..string.char(b1, b2, b3)
-      end
-    end
-  end
-  return r
+  return indices
 end
 
-local function encode_concat(value)
-  local r = ''
-  local b1, b2, b3
-  local i1, i2, i3, i4
-  for i = 1, #value, 3 do
-    b1, b2, b3 = string.byte(value, i, i + 2)
-    --print('letters', b1, b2, b3)
-    i1 = b1 >> 2
-    if b2 then
-      i2 = ((b1 & 3) << 4) | (b2 >> 4)
-      if b3 then
-        i3 = ((b2 & 15) << 2) | (b3 >> 6)
-        i4 = b3 & 63
-        r = r..letters[i1]..letters[i2]..letters[i3]..letters[i4]
-      else
-        i3 = ((b2 & 15) << 2)
-        r = r..letters[i1]..letters[i2]..letters[i3]..'='
-      end
-    else
-      i2 = ((b1 & 3) << 4)
-      r = r..letters[i1]..letters[i2]..'=='
-    end
+local function getLetters(alpha)
+  local letters = {}
+  for i = 1, assertLen(alpha) do
+    local letter = string.sub(alpha, i, i)
+    letters[i - 1] = letter
   end
-  return r
+  return letters
 end
 
-local function decode_gsub(value)
+local function decode(value, indices)
   if #value % 4 == 1 then
     error('Invalid length')
   end
@@ -112,7 +63,7 @@ local function decode_gsub(value)
   end))
 end
 
-local function encode_gsub(value)
+local function encode(value, letters, pad)
   return (string.gsub(value, '..?.?', function(ccc)
     local b1, b2, b3 = string.byte(ccc, 1, 3)
     local i1 = b1 >> 2
@@ -125,17 +76,24 @@ local function encode_gsub(value)
         return letters[i1]..letters[i2]..letters[i3]..letters[i4]
       else
         i3 = ((b2 & 15) << 2)
-        return letters[i1]..letters[i2]..letters[i3]..'='
+        if pad then
+          return letters[i1]..letters[i2]..letters[i3]..'='
+        end
+        return letters[i1]..letters[i2]..letters[i3]
       end
     else
       i2 = ((b1 & 3) << 4)
-      return letters[i1]..letters[i2]..'=='
+      if pad then
+        return letters[i1]..letters[i2]..'=='
+      end
+      return letters[i1]..letters[i2]
     end
   end))
 end
 
---local decode, encode = decode_concat, encode_concat
-local decode, encode = decode_gsub, encode_gsub
+local DEFAULT_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+local DEFAULT_INDICES = getIndices(DEFAULT_ALPHA)
+local DEFAULT_LETTERS = getLetters(DEFAULT_ALPHA)
 
 local DecodeStreamHandler = class.create(BlockStreamHandler, function(decodeStreamHandler, super)
   function decodeStreamHandler:initialize(handler)
@@ -156,8 +114,12 @@ local EncodeStreamHandler = class.create(BlockStreamHandler, function(encodeStre
 end)
 
 return {
-  decode = decode,
-  encode = encode,
+  decode = function(value, alpha)
+    return decode(value, alpha and getIndices(alpha) or DEFAULT_INDICES)
+  end,
+  encode = function(value, alpha, pad)
+    return encode(value, alpha and getLetters(alpha) or DEFAULT_LETTERS, pad ~= false)
+  end,
   decodeStream = function(sh)
     return DecodeStreamHandler:new(sh)
   end,
