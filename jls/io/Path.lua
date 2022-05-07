@@ -59,11 +59,11 @@ return require('jls.lang.class').create(function(path, _, Path)
   end
 
   function path:getExtension()
-    return Path.extractExtension(self.npath)
+    return Path.extractExtension(self:getName())
   end
 
   function path:getBaseName()
-    return Path.extractBaseName(self:getName())
+    return select(2, self:getExtension())
   end
 
   --- Returns the string representation of this Path.
@@ -204,14 +204,15 @@ end, function(Path)
     error('Unable to found relative path')
   end
 
-  function Path.extractExtension(pathname)
-    return string.match(pathname, '%.([^/\\%.]*)$') -- or ''
+  function Path.extractExtension(filename)
+    local n, e = string.match(filename, '^(.+)%.([^/\\%.]*)$')
+    if n then
+      return e, n
+    end
+    return nil, filename
   end
 
-  function Path.extractBaseName(pathname)
-    return string.match(pathname, '^(.+)%.[^%.]*$') or pathname
-  end
-
+  -- Returns the dir and file name
   function Path.extractDirName(pathname)
     return string.match(pathname, '^(.+)[/\\]([^/\\]*)$') or pathname
   end

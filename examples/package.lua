@@ -9,12 +9,6 @@ local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
 
-local function getModuleName(d, f)
-  local path = Path.relativizePath(d, f)
-  local name = string.gsub(Path.extractBaseName(path), '[/\\]+', '.')
-  return name, path
-end
-
 local function isDashModule(name)
   return string.find(name, '-[^.]*$')
 end
@@ -260,7 +254,8 @@ if options.dir then
   end
   dir:forEachFile(function(_, file)
     if file:getExtension() == 'lua' then
-      local name, path = getModuleName(base, file)
+      local path = Path.relativizePath(base, file)
+      local name = string.gsub(string.sub(path, 1, -5), '[/\\]+', '.')
       modules[name] = {
         content = file:readAll(), -- we may want to fix end of line in content
         file = file
