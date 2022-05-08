@@ -160,7 +160,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       self.defaultFile = 'index.html'
     end
     self.fs = FS
-    self.cacheControl = 86400 -- one day
+    self.cacheControl = 0
     if type(permissions) ~= 'string' then
       permissions = 'r'
     end

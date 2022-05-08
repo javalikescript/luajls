@@ -76,13 +76,16 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
 
   function httpResponse:setCacheControl(value)
     if type(value) == 'boolean' then
-      if value then
-        value = 'public, max-age=31536000'
+      value = value and 604800 or -1 -- one week
+    end
+    if type(value) == 'number' then
+      if value >= 0 then
+        value = 'public, max-age='..tostring(value)..', must-revalidate'
       else
-        value = 'no-cache, no-store, must-revalidate'
+        value = 'no-store, no-cache, must-revalidate'
       end
-    elseif type(value) == 'number' then
-      value = 'public, max-age='..tostring(value)
+    elseif type(value) ~= 'string' then
+      error('Invalid cache control value')
     end
     self:setHeader(HTTP_CONST.HEADER_CACHE_CONTROL, value)
   end
