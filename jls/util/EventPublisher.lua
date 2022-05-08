@@ -43,23 +43,25 @@ return require('jls.lang.class').create(function(eventPublisher)
       handlers = {}
       self.eventHandlers[name] = handlers
     end
-    local eventFn = fn
+    local eventFn
     --if EventPublisher:isInstance(fn) then
     if type(fn) == 'table' and type(fn.publishEvent) == 'function' then
       eventFn = function(...)
         fn:publishEvent(name, ...)
       end
-    end
-    if type(eventFn) == 'function' then
-      if List.contains(handlers, eventFn) then
+    elseif type(fn) == 'function' then
+      if List.contains(handlers, fn) then
         eventFn = function(...)
           fn(...)
         end
+      else
+        eventFn = fn
       end
-      table.insert(handlers, eventFn)
-      return eventFn
+    else
+      error('Invalid function argument')
     end
-    return nil
+    table.insert(handlers, eventFn)
+    return eventFn -- as opaque key
   end
 
   function eventPublisher:subscribeEventOnce(name, fn)
@@ -87,7 +89,7 @@ return require('jls.lang.class').create(function(eventPublisher)
 
   --- Unsubscribes the specified event name.
   -- @tparam string name the event name
-  -- @param key the subscribed key
+  -- @param key the subscribed key, nil to remove all handlers for the name
   function eventPublisher:unsubscribeEvent(name, key)
     local unsubscribed = false
     local handlers = self.eventHandlers[name]
