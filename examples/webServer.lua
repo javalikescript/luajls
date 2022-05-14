@@ -181,6 +181,16 @@ if config.cipher and config.cipher.enabled then
     key = config.cipher.key or 'secret'
   end
 
+  httpServer:createContext('/KEY', function(exchange)
+    local request = exchange:getRequest()
+    if request:getMethod() == 'PUT' then
+      key = request:getBody()
+      HttpExchange.ok(exchange)
+    else
+      HttpExchange.methodNotAllowed(exchange)
+    end
+  end)
+
   local function generateEncName(md)
     local plain = Struct.encodeVariableByteInteger(md.size)..md.name
     if deflate then
