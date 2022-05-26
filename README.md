@@ -50,7 +50,7 @@ Just drop the *jls* folder in your Lua path.
 The only required dependency is Lua 5.4.
 Optional dependencies are C-based or plain Lua modules such as *luafilesystem*, *luasocket*, *luv*, *lua-openssl*, *lua-cjson*.
 By example, the file system manipulation requires one of the *luafilesystem* or the *luv* dependent module.
-The recommended dependency is *luv* as you will have access to the *io*, *lang* and *net* packages.
+The recommended dependency is *luv* as you will have access to the full *io*, *lang* and *net* packages.
 
 Lua, luajls and all the dependencies are available in the [Lua C libraries repository](https://github.com/javalikescript/luaclibs).
 
@@ -60,6 +60,9 @@ luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescri
 
 
 ## What do you want to do?
+
+Browse the [examples](https://github.com/javalikescript/luajls/tree/master/examples)
+or applications such as [Fast Cut](https://github.com/javalikescript/fcut) and [Light Home Automation](https://github.com/javalikescript/lha).
 
 Read the [user manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md) or the [API documentation](http://javalikescript.free.fr/lua/docs/).
 
