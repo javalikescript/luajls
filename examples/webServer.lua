@@ -7,6 +7,8 @@ local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local tables = require('jls.util.tables')
+local Map = require('jls.util.Map')
+local List = require('jls.util.List')
 
 -- see https://openjdk.java.net/jeps/408
 
@@ -41,6 +43,22 @@ local CONFIG_SCHEMA = {
       type = 'boolean',
       default = false
     },
+    websocket = {
+      type = 'object',
+      additionalProperties = false,
+      properties = {
+        enabled = {
+          title = 'Enables WebSocket echo',
+          type = 'boolean',
+          default = false,
+        },
+        path = {
+          title = 'The WebSocket path',
+          type = 'string',
+          default = '/WS/'
+        },
+      }
+    },
     permissions = {
       title = 'The file permissions, use rlw to enable file upload',
       type = 'string',
@@ -51,7 +69,7 @@ local CONFIG_SCHEMA = {
       additionalProperties = false,
       properties = {
         enabled = {
-          title = 'Enables file decryption/encryption on the flow',
+          title = 'Enables file decryption/encryption on the fly',
           type = 'boolean',
           default = false,
         },
@@ -73,6 +91,38 @@ local CONFIG_SCHEMA = {
         keyFile = {
           title = 'The file containing the secret key',
           type = 'string',
+        }
+      }
+    },
+    secure = {
+      type = 'object',
+      additionalProperties = false,
+      properties = {
+        enabled = {
+          title = 'Enable HTTPS',
+          type = 'boolean',
+          default = false
+        },
+        port = {
+          type = 'integer',
+          default = 8443,
+          minimum = 0,
+          maximum = 65535,
+        },
+        commonName = {
+          title = "The server common name",
+          type = "string",
+          default = "localhost"
+        },
+        certificate = {
+          title = "The certificate file",
+          type = "string",
+          default = "cer.pem"
+        },
+        key = {
+          title = "The key file",
+          type = "string",
+          default = "key.pem"
         }
       }
     },
@@ -111,9 +161,11 @@ local config = tables.createArgumentTable(system.getArguments(), {
     b = 'bind-address',
     d = 'dir',
     dav = 'webdav',
+    ws = 'websocket.enabled',
     p = 'port',
     r = 'permissions',
     c = 'cipher.enabled',
+    s = 'secure.enabled',
     kf = 'cipher.keyFile',
     k = 'cipher.key',
     ll = 'log-level',
@@ -357,10 +409,75 @@ httpServer:createContext('/favicon.ico', function(exchange)
   HttpExchange.ok(exchange, faviconFile:readAll(), FileHttpHandler.guessContentType(faviconFile:getName()))
 end)
 
+if config.websocket.enabled then
+  local WebSocketUpgradeHandler = require('jls.net.http.ws').WebSocketUpgradeHandler
+  local websockets = {}
+  local function onWebSocketClose(webSocket)
+    logger:fine('WebSocket closed '..tostring(webSocket))
+    List.removeFirst(websockets, webSocket)
+  end
+  httpServer:createContext(config.websocket.path, Map.assign(WebSocketUpgradeHandler:new(), {
+    onOpen = function(_, webSocket, exchange)
+      table.insert(websockets, webSocket)
+      webSocket.onClose = onWebSocketClose
+      function webSocket:onTextMessage(payload)
+        for _, ws in ipairs(websockets) do
+          if ws ~= webSocket then
+            ws:sendTextMessage(payload)
+          end
+        end
+      end
+      webSocket:readStart()
+    end
+  }))
+end
+
+local httpSecureServer
+if config.secure.enabled then
+  local secure = require('jls.net.secure')
+  local Date = require('jls.util.Date')
+
+  local certFile = File:new(config.secure.certificate)
+  local pkeyFile = File:new(config.secure.key)
+  if not certFile:exists() or not pkeyFile:exists() then
+    local cacert, pkey = secure.createCertificate({
+      commonName = config.secure.commonName
+    })
+    local cacertPem  = cacert:export('pem')
+    local pkeyPem  = pkey:export('pem')
+    certFile:write(cacertPem)
+    pkeyFile:write(pkeyPem)
+    logger:info('Generate certificate '..certFile:getPath()..' and associated private key '..pkeyFile:getPath())
+  else
+    local cert = secure.readCertificate(certFile:readAll())
+    local isValid, notbefore, notafter = cert:validat()
+    local notafterDate = Date:new(notafter:get() * 1000)
+    local notafterText = notafterDate:toISOString(true)
+    logger:info('Using certificate '..certFile:getPath()..' valid until '..notafterText)
+    if not isValid then
+      logger:warn('The certificate is no more valid since '..notafterText)
+    end
+  end
+
+  httpSecureServer = HttpServer.createSecure({
+    certificate = certFile:getPath(),
+    key = pkeyFile:getPath()
+  })
+  httpSecureServer:bind(config['bind-address'], config.secure.port):next(function()
+    logger:info('HTTPS bound to "'..tostring(config['bind-address'])..'" on port '..tostring(config.secure.port))
+  end, function(err)
+    logger:warn('Cannot bind HTTP to "'..tostring(config['bind-address'])..'" on port '..tostring(config.secure.port)..' due to '..tostring(err))
+  end)
+  httpSecureServer:setParentContextHolder(httpServer)
+end
+
 httpServer:createContext('/STOP', function(exchange)
   event:setTimeout(function()
     logger:info('Closing HTTP server')
     httpServer:close()
+    if httpSecureServer then
+      httpSecureServer:close()
+    end
   end)
   HttpExchange.ok(exchange)
 end)
