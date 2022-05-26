@@ -163,7 +163,9 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
     local cb, d = Promise.ensureCallback(callback)
     super.close(self, function(err)
       self:sslShutdown()
-      cb(err)
+      if cb then
+        cb(err)
+      end
     end)
     return d
   end
@@ -210,7 +212,9 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
       return super.write(self, table.concat(chunks), callback)
     end
     local cb, d = Promise.ensureCallback(callback)
-    cb()
+    if cb then
+      cb()
+    end
     return d
   end
 
@@ -340,6 +344,7 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
   SecureTcpClient.doNotCheckSecureTcp = os.getenv('JLS_DO_NOT_CHECK_SECURE_TCP')
 
   function secureTcpClient:readStart(stream)
+    local str = StreamHandler.ensureStreamHandler(stream)
     if logger:isLoggable(logger.FINER) then
       logger:finer('secureTcpClient:readStart()')
       if logger:isLoggable(logger.FINEST) and self.tcp then
@@ -357,11 +362,11 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
       end
       if cipherData then
         if self.inMem:write(cipherData) then
-          self:sslRead(stream)
+          self:sslRead(str)
         end
       else
         self:close()
-        stream:onData()
+        str:onData()
       end
     end, function(_, err)
       if logger:isLoggable(logger.FINE) then
@@ -391,7 +396,7 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
         return
       end
       ]]
-      stream:onError(err)
+      str:onError(err)
     end)
     if logger:isLoggable(logger.FINER) then
       logger:finer('ssl:pending() => '..tostring(self.ssl:pending()))
@@ -407,18 +412,18 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
     if SecureTcpClient.doNotCheckSecureTcp then
       self.sslReading = true
       super.readStart(self, sslStream)
-      self:sslRead(stream)
+      self:sslRead(str)
     else
       super.write(self, '', function(err)
         if err then
           if logger:isLoggable(logger.FINE) then
             logger:fine('secureTcpClient:readStart() - write() => "'..tostring(err)..'" the connection may have been reset')
           end
-          stream:onError(err)
+          str:onError(err)
         else
           self.sslReading = true
           super.readStart(self, sslStream)
-          self:sslRead(stream)
+          self:sslRead(str)
         end
       end)
     end
