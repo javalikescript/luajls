@@ -55,7 +55,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     if not self.baseUrls then
       self.baseUrls = {}
     end
-    table.insert(self.baseUrls, string.gsub(baseUrl, '/+$', ''))
+    table.insert(self.baseUrls, (string.gsub(baseUrl, '/+$', '')))
     return self
   end
 
