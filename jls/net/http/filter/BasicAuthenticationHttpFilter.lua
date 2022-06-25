@@ -30,9 +30,13 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(basi
     self.realm = realm or 'User Visible Realm'
   end
 
-  function basicAuthenticationHttpFilter:doFilter(httpExchange)
-    local request = httpExchange:getRequest()
-    local response = httpExchange:getResponse()
+  function basicAuthenticationHttpFilter:onAuthorizationFailed(exchange, user)
+    logger:warn('basicAuthentication() user "'..user..'" from '..exchange:clientAsString()..' is not authorized')
+  end
+
+  function basicAuthenticationHttpFilter:doFilter(exchange)
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
     local authorization = request:getHeader(HTTP_CONST.HEADER_AUTHORIZATION)
     if not authorization then
       response:setHeader(HTTP_CONST.HEADER_WWW_AUTHENTICATE, 'Basic realm="'..self.realm..'"')
@@ -52,13 +56,12 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(basi
           end
           response:setHeader(HTTP_CONST.HEADER_WWW_AUTHENTICATE, 'Basic realm="'..self.realm..'"')
           response:setStatusCode(HTTP_CONST.HTTP_UNAUTHORIZED, 'Unauthorized')
-          if logger:isLoggable(logger.FINE) then
-            logger:fine('basicAuthentication() user "'..user..'" is not authorized')
-          end
+          self:onAuthorizationFailed(exchange, user)
           return false
         end
       end
     end
+    logger:warn('Bad authentication request from '..exchange:clientAsString())
     response:setStatusCode(HTTP_CONST.HTTP_BAD_REQUEST, 'Bad request')
     return false
   end

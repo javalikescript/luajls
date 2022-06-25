@@ -167,6 +167,16 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return Promise.resolve()
   end
 
+  function httpExchange:clientAsString()
+    if self.client then
+      local ip, port = self.client:getRemoteName()
+      if ip then
+        return ip..':'..tostring(port)
+      end
+    end
+    return ''
+  end
+
   function httpExchange:removeClient()
     local client = self.client
     self.client = nil
