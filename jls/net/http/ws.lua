@@ -299,6 +299,9 @@ local WebSocketBase = class.create(function(webSocketBase)
 
   --- Starts receiving messages on this WebSocket.
   function webSocketBase:readStart()
+    if not self.tcp then
+      return nil, 'not connected'
+    end
     -- stream implementation that buffers and splits packets
     local buffer = ''
     return self.tcp:readStart(function(err, data)
@@ -353,6 +356,9 @@ local WebSocketBase = class.create(function(webSocketBase)
   function webSocketBase:sendFrame(fin, opcode, mask, payload, callback)
     if logger:isLoggable(logger.FINER) then
       logger:finer('webSocketBase:sendFrame('..tostring(fin)..', '..tostring(opcode)..', '..tostring(mask)..')')
+    end
+    if not self.tcp then
+      return Promise.reject('not connected')
     end
     local frame = formatFrame(fin, opcode, mask, payload)
     if logger:isLoggable(logger.FINEST) then
