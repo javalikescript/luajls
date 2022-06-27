@@ -43,12 +43,15 @@ end
 
 --[[
 function strings.compareToIgnoreCase(s1, s2) end
-function strings.equalsIgnoreCase(s1, s2) end
 function strings.endsWith(s1, s2) end
 function strings.startsWith(s1, s2) end
 function strings.trim(s) end
 function strings.format(s) end
 ]]
+
+  function strings.equalsIgnoreCase(a, b)
+    return (a == b) or (type(a) == 'string' and type(b) == 'string' and string.lower(a) == string.lower(b))
+  end
 
 --- Returns an integer for the specified string.
 -- If two strings are equals then each string produce the same integer.

@@ -5,6 +5,11 @@
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
 local strings = require('jls.util.strings')
+local Map = require('jls.util.Map')
+
+local function normalizeName(name)
+  return string.lower(name)
+end
 
 --- The HttpHeaders class represents the headers for HTTP message.
 -- @type HttpHeaders
@@ -25,7 +30,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   -- @tparam string name the name of the header.
   -- @treturn string the header value corresponding to the name or nil if there is no such header.
   function httpHeaders:getHeader(name)
-    return self.headers[string.lower(name)]
+    return self.headers[normalizeName(name)]
   end
 
   --- Removes all the header values.
@@ -41,9 +46,15 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
         https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
     ]]
     local rawValue = self:getHeader(name)
-    if rawValue then
-      return strings.split(rawValue, '%s*,%s*')
+    if rawValue == nil then
+      return {}
     end
+    if type(rawValue) == 'string' then
+      return strings.split(rawValue, '%s*,%s*')
+    elseif type(rawValue) == 'table' then
+      return rawValue
+    end
+    return {rawValue}
   end
 
   function httpHeaders:setHeaderValues(name, values)
@@ -76,16 +87,45 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   function httpHeaders:setHeader(name, value)
     local valueType = type(value)
     if valueType == 'string' or valueType == 'number' or valueType == 'boolean' then
-      self.headers[string.lower(name)] = tostring(value)
+      self.headers[normalizeName(name)] = tostring(value)
+    elseif valueType == 'table' then
+      -- We should check that values are strings
+      local t = {}
+      for _, val in ipairs(value) do
+        if type(val) == 'string' then
+          table.insert(t, val)
+        end
+      end
+      self.headers[normalizeName(name)] = t
     else
-      logger:fine('httpHeaders:setHeader('..tostring(name)..', '..tostring(value)..') Invalid value will be ignored')
+      logger:fine('httpHeaders:setHeader('..tostring(name)..', '..valueType..') Invalid value will be ignored')
+    end
+  end
+
+  --- Adds the specified header value.
+  -- @tparam string name the name of the value.
+  -- @tparam string value the value to set.
+  function httpHeaders:addHeaderValue(name, value)
+    local key = normalizeName(name)
+    local val = self.headers[key]
+    if val == nil then
+      self.headers[key] = tostring(value)
+    elseif type(val) == 'string' then
+      -- the "Set-Cookie" response header field often appears multiple times in a response message and does not use the list syntax
+      if key == 'set-cookie' then
+        self.headers[key] = {val, tostring(value)}
+      else
+        self.headers[key] = val..', '..tostring(value)
+      end
+    elseif type(val) == 'table' then
+      table.insert(val, tostring(value))
     end
   end
 
   function httpHeaders:parseHeaderLine(line)
     local index, _, name, value = string.find(line, '^([^:]+):%s*(.*)%s*$')
     if index then
-      self:setHeader(name, value)
+      self:addHeaderValue(name, value)
       return true
     end
     return false
@@ -103,9 +143,14 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   end
 
   function httpHeaders:appendHeaders(buffer)
-    for name, value in pairs(self:getHeadersTable()) do
-      -- TODO Capitalize names
-      buffer:append(name, ': ', tostring(value), '\r\n')
+    for name, value in Map.spairs(self:getHeadersTable()) do
+      if type(value) == 'string' then
+        buffer:append(name, ': ', value, '\r\n')
+      elseif type(value) == 'table' then
+        for _, val in ipairs(value) do
+          buffer:append(name, ': ', tostring(val), '\r\n')
+        end
+      end
     end
     return buffer
   end
@@ -139,10 +184,6 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
       end
     end
     return startValue, t
-  end
-
-  function HttpHeaders.equalsIgnoreCase(a, b)
-    return a == b or (type(a) == 'string' and type(b) == 'string' and string.lower(a) == string.lower(b))
   end
 
   -- TODO Move HTTP headers constants here

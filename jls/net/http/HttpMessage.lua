@@ -10,6 +10,7 @@ local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
+local strings = require('jls.util.strings')
 
 --- The HttpMessage class represents the base class for request and response.
 -- @type HttpMessage
@@ -231,7 +232,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     if not length then
       -- request without content length nor transfer encoding does not have a body
       local connection = self:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
-      if isRequest(self) or HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.HEADER_UPGRADE) then
+      if isRequest(self) or strings.equalsIgnoreCase(connection, HttpMessage.CONST.HEADER_UPGRADE) then
         self.bodyStreamHandler:onData(nil)
         cb(nil, buffer) -- no body
         return promise
@@ -240,7 +241,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       if logger:isLoggable(logger.FINER) then
         logger:finer('httpMessage:readBody() connection: '..tostring(connection))
       end
-      if not HttpMessage.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
+      if not strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
         cb('Content length value, chunked transfer encoding or connection close expected')
         return promise
       end
@@ -372,29 +373,29 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     CONNECTION_CLOSE = 'close',
     CONNECTION_KEEP_ALIVE = 'keep-alive',
 
-    HEADER_HOST = 'Host',
-    HEADER_USER_AGENT = 'User-Agent',
-    HEADER_ACCEPT = 'Accept',
-    HEADER_ACCEPT_LANGUAGE = 'Accept-Language',
-    HEADER_ACCEPT_ENCODING = 'Accept-Encoding',
-    HEADER_ACCEPT_CHARSET = 'Accept-Charset',
-    HEADER_AUTHORIZATION = 'Authorization',
-    HEADER_WWW_AUTHENTICATE = 'WWW-Authenticate',
-    HEADER_KEEP_ALIVE = 'Keep-Alive',
-    HEADER_PROXY_CONNECTION = 'Proxy-Connection',
-    HEADER_CONNECTION = 'Connection',
-    HEADER_LOCATION = 'Location',
-    HEADER_UPGRADE = 'Upgrade',
-    HEADER_COOKIE = 'Cookie',
-    HEADER_SERVER = 'Server',
-    HEADER_CACHE_CONTROL = 'Cache-Control',
-    HEADER_CONTENT_DISPOSITION = 'Content-Disposition',
-    HEADER_CONTENT_LENGTH = 'Content-Length',
-    HEADER_CONTENT_TYPE = 'Content-Type',
-    HEADER_TRANSFER_ENCODING = 'Transfer-Encoding',
-    HEADER_LAST_MODIFIED = 'Last-Modified',
-    HEADER_RANGE = 'Range',
-    HEADER_CONTENT_RANGE = 'Content-Range',
+    HEADER_HOST = 'host',
+    HEADER_USER_AGENT = 'user-agent',
+    HEADER_ACCEPT = 'accept',
+    HEADER_ACCEPT_LANGUAGE = 'accept-language',
+    HEADER_ACCEPT_ENCODING = 'accept-encoding',
+    HEADER_ACCEPT_CHARSET = 'accept-charset',
+    HEADER_AUTHORIZATION = 'authorization',
+    HEADER_WWW_AUTHENTICATE = 'www-authenticate',
+    HEADER_KEEP_ALIVE = 'keep-alive',
+    HEADER_PROXY_CONNECTION = 'proxy-connection',
+    HEADER_CONNECTION = 'connection',
+    HEADER_LOCATION = 'location',
+    HEADER_UPGRADE = 'upgrade',
+    HEADER_COOKIE = 'cookie',
+    HEADER_SERVER = 'server',
+    HEADER_CACHE_CONTROL = 'cache-control',
+    HEADER_CONTENT_DISPOSITION = 'content-disposition',
+    HEADER_CONTENT_LENGTH = 'content-length',
+    HEADER_CONTENT_TYPE = 'content-type',
+    HEADER_TRANSFER_ENCODING = 'transfer-encoding',
+    HEADER_LAST_MODIFIED = 'last-modified',
+    HEADER_RANGE = 'range',
+    HEADER_CONTENT_RANGE = 'content-range',
   }
 
 end)
