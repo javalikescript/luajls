@@ -8,7 +8,6 @@ local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
-local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')
 
 
@@ -82,6 +81,7 @@ local SecureContext = class.create(function(secureContext)
     if logger:isLoggable(logger.FINER) then
       logger:finer('secureContext:use()')
     end
+    local File = require('jls.io.File')
     local certificateFile = File:new(certificate)
     local keyFile = File:new(key)
     if certificateFile:isFile() and keyFile:isFile() then
@@ -372,40 +372,12 @@ local SecureTcpClient = class.create(TcpClient, function(secureTcpClient, super,
       if logger:isLoggable(logger.FINE) then
         logger:fine('secureTcpClient:readStart() stream on error due to "'..tostring(err)..'"')
       end
-      --[[
-      if err == 'ECONNRESET' then
-        local tcp = self.tcp
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug('secureTcpClient:readStart() closing due to connection reset')
-          logger:debug('readable: '..tostring(tcp:is_readable()))
-          logger:debug('writable: '..tostring(tcp:is_writable()))
-          logger:debug('active: '..tostring(tcp:is_active()))
-          logger:debug('closing: '..tostring(tcp:is_closing()))
-          logger:debug('has_ref: '..tostring(tcp:has_ref()))
-          logger:debug('fileno: '..tostring(tcp:fileno()))
-        end
-        super.write(self, '', function(err)
-          logger:debug('write() => '..tostring(err))
-        end)
-        --super.readStart(self, sslStream)
-        --self:readStop()
-        self:sslShutdown()
-        self:close()
-        --super.close(self)
-        --tcp:unref()
-        return
-      end
-      ]]
       str:onError(err)
     end)
     if logger:isLoggable(logger.FINER) then
       logger:finer('ssl:pending() => '..tostring(self.ssl:pending()))
       logger:finer('inMem:pending() => '..tostring(self.inMem:pending()))
       logger:finer('outMem:pending() => '..tostring(self.outMem:pending()))
-      --[[if self.ssl:pending() > 0 then
-        local plainData, op = self.ssl:read()
-        logger:finer('ssl:read() => '..tostring(plainData and #plainData)..', '..tostring(op))
-      end]]
     end
     -- prior to start reading we want to be sure that the connection is still ok
     -- otherwise libuv will crash on an assertion
@@ -467,6 +439,12 @@ local SecureTcpServer = class.create(TcpServer, function(secureTcpServer)
     self.secureContext = context
   end
 
+  function secureTcpServer:onHandshakeStarting(client)
+  end
+
+  function secureTcpServer:onHandshakeCompleted(client)
+  end
+
   function secureTcpServer:handleAccept()
     local tcp = self:tcpAccept()
     if tcp then
@@ -475,10 +453,12 @@ local SecureTcpServer = class.create(TcpServer, function(secureTcpServer)
       end
       local client = SecureTcpClient:new(tcp)
       client:sslInit(true, self:getSecureContext())
+      self:onHandshakeStarting(client)
       client:startHandshake():next(function()
         logger:finer('secureTcpServer:handleAccept() handshake completed for '..TcpClient.socketToString(tcp))
+        self:onHandshakeCompleted(client)
         self:onAccept(client)
-      end, function(err)
+      end, function()
         client:close()
         logger:fine('secureTcpServer:handleAccept() handshake error')
       end)
@@ -486,6 +466,7 @@ local SecureTcpServer = class.create(TcpServer, function(secureTcpServer)
       logger:fine('secureTcpServer:handleAccept() error')
     end
   end
+
 end)
 
 local function createPrivateKey()

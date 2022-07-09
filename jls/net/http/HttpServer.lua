@@ -337,17 +337,40 @@ return require('jls.lang.class').create(function(httpServer)
   end
 end, function(HttpServer)
 
-  local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
+  require('jls.lang.loader').lazyMethod(HttpServer, 'createSecure', function(secure, class)
+    if not secure then
+      return function()
+        return nil, 'Not available'
+      end
+    end
 
-  function HttpServer.createSecure(secureContext)
-    local secure = getSecure()
-    if secure then
-      local tcp = secure.TcpServer:new()
+    local HandshakeExchange = class.create('jls.net.http.Attributes', function(handshakeExchange)
+      handshakeExchange.close = class.emptyFunction
+    end)
+    local SecureTcpServer = class.create(secure.TcpServer, function(secureTcpServer)
+      function secureTcpServer:onHandshakeStarting(client)
+        if self._hss then
+          local exchange = HandshakeExchange:new()
+          exchange:setAttribute('start_time', os.time())
+          self._hss.pendings[client] = exchange
+        end
+      end
+      function secureTcpServer:onHandshakeCompleted(client)
+        if self._hss then
+          self._hss.pendings[client] = nil
+        end
+      end
+    end)
+
+    return function(secureContext)
+      local tcp = SecureTcpServer:new()
       if type(secureContext) == 'table' then
         tcp:setSecureContext(secure.Context:new(secureContext))
       end
-      return HttpServer:new(tcp), tcp
+      local httpsServer = HttpServer:new(tcp)
+      tcp._hss = httpsServer
+      return httpsServer
     end
-  end
+  end, 'jls.net.secure', 'jls.lang.class')
 
 end)

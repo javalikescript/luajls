@@ -25,7 +25,7 @@ return function(timeout, onTimeout)
   event:daemon(timer, true)
   event:loop()
   if timer then
-  event:clearTimeout(timer)
+    event:clearTimeout(timer)
     return true
   end
   return false
