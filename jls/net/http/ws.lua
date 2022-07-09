@@ -195,6 +195,10 @@ local WebSocketBase = class.create(function(webSocketBase)
     end
   end
 
+  function webSocketBase:isClosed()
+    return not self.tcp
+  end
+
   --- Called when this WebSocket has been closed due to an error,
   -- such as when some data couldn't be received or sent.
   -- @param reason the error reason.
@@ -420,6 +424,7 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
   end
 
   function webSocket:open()
+    self:close(false)
     -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
     local key = base64.encode(randomChars(16))
     local client = HttpClient:new({
