@@ -26,6 +26,7 @@ end
 
 local RFC822_DAYS = {'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'}
 local RFC822_MONTHS = {'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'}
+local RFC822_OFFSET_BY_TZ = {GMT = 0, UTC = 0, UT = 0, Z = 0, EST = -5, EDT = -4, CST = -6, CDT = -5, MST = -7,  MDT = -6, PST = -8, PDT = -7}
 
 
 --- The Date class.
@@ -178,7 +179,6 @@ return require('jls.lang.class').create(function(date)
 
   function date:setTime(value)
     if type(value) ~= 'number' then
-      --value = os.time() * 1000
       value = system.currentTimeMillis()
     end
     self.time = value
@@ -228,8 +228,8 @@ return require('jls.lang.class').create(function(date)
   --- Compares the specified date to this date.
   -- @param date the date to compare to
   -- @treturn number 0 if the dates are equals, less than 0 if this date is before the specified date, more than 0 if this date is after the specified date
-  function date:compareTo(date)
-    return self:getTime() - date:getTime()
+  function date:compareTo(d)
+    return self:getTime() - d:getTime()
   end
 
   function date:toShortISOString(utc)
@@ -240,14 +240,18 @@ return require('jls.lang.class').create(function(date)
     return os.date('%Y-%m-%dT%H:%M:%S', t)
   end
 
-  function date:toISOString(utc)
+  function date:toISOString(utc, withMillis)
     local t = self:getTime() // 1000
+    local ms = ''
+    if self.field.ms > 0 or withMillis then
+      ms = string.format('.%03d', self.field.ms)
+    end
     if utc then
-      return os.date('!%Y-%m-%dT%H:%M:%S', t)..string.format('.%03dZ', self.field.ms)
+      return os.date('!%Y-%m-%dT%H:%M:%S', t)..ms..'Z'
     end
     -- %z does not give the numeric timezone on windows
     local offsetHour, offsetMin = self:getTimezoneOffsetHourMin()
-    return os.date('%Y-%m-%dT%H:%M:%S', t)..string.format('.%03d%+03d:%02d', self.field.ms, offsetHour, offsetMin)
+    return os.date('%Y-%m-%dT%H:%M:%S', t)..ms..string.format('%+03d:%02d', offsetHour, offsetMin)
   end
 
   function date:toRFC822String(utc)
@@ -278,15 +282,33 @@ end, function(Date)
     return system.currentTimeMillis()
   end
 
-  function Date.UTC(...)
-    local d = Date:new(...)
-    return d:getTime() + (d:getTimezoneOffset() * 60000)
+  --- Returns the number of milliseconds since epoch for the specified date time.
+  -- @tparam number year the year
+  -- @tparam[opt] number month the month
+  -- @tparam[opt] number day the day
+  -- @tparam[opt] number hour the hour
+  -- @tparam[opt] number min the min
+  -- @tparam[opt] number sec the sec
+  -- @tparam[opt] number ms the ms
+  -- @treturn number the number of milliseconds since epoch
+  function Date.UTC(year, month, day, hour, min, sec, ms)
+    -- daylight saving time is around midnigth, so we use noon to compute the UTC time
+    local d = Date:new(year, month or 1, day or 1, 12)
+    -- we apply the time zone offset
+    local t = d:getTime() + d:getTimezoneOffset() * 60000
+    -- we apply the time
+    t = t + ((((hour or 0) - 12) * 60 + (min or 0)) * 60 + (sec or 0)) * 1000 + (ms or 0)
+    return t
   end
 
-  function Date.fromLocalDateTime(dt, utc)
-    if utc then
-      return Date:new(Date.UTC(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
-        dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond()))
+  function Date.fromLocalDateTime(dt, utcOrOffsetMinutes)
+    if utcOrOffsetMinutes then
+      local utcTime = Date.UTC(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
+        dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond())
+        if type(utcOrOffsetMinutes) == 'number' then
+          utcTime = utcTime - utcOrOffsetMinutes * 60000
+        end
+        return Date:new(utcTime)
     end
     return Date:new(dt:getYear(), dt:getMonth(), dt:getDayOfMonth(),
       dt:getHour(), dt:getMinute(), dt:getSecond(), dt:getMillisecond())
@@ -316,30 +338,25 @@ end, function(Date)
     return formatTime('%Y%m%d%H%M%S', t, utc)
   end
 
-  local function parseISOString(s, lenient)
-    local pattern
-    if lenient then
-      pattern = '^(%d%d%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)%D(%d%d)(.*)$'
-    else
-      pattern = '^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d)%:(%d%d)%:(%d%d)(.*)$'
+  local function parseISOTimeZone(s)
+    if string.find(s, 'Z$') then
+      return string.sub(s, 1, -2), 0, 0
     end
-    local year, month, day, hour, min, sec, rs = string.match(s, pattern)
-    if not year then
-      return nil
-    end
-    local ms
+    local rs, hour, min = string.match(s, '^(.*)([%+%-]%d%d):?(%d%d)$')
     if rs then
-      ms = string.match(rs, '^%.(%d%d%d)Z?$')
+      return rs, tonumber(hour), tonumber(min)
     end
-    return tonumber(year), tonumber(month), tonumber(day),
-      tonumber(hour), tonumber(min), tonumber(sec), tonumber(ms) or 0
+    return s
   end
 
-  function Date.fromISOString(s, utc, lenient)
-    if utc then
-      return Date.UTC(parseISOString(s, lenient))
+  function Date.fromISOString(s, utc)
+    local rs, hour, min = parseISOTimeZone(s)
+    local offsetMin = hour and (hour * 60 + min) or utc
+    local ld, err = LocalDateTime.fromISOString(rs)
+    if ld then
+      return Date.fromLocalDateTime(ld, offsetMin):getTime()
     end
-    return Date:new(parseISOString(s, lenient)):getTime()
+    return nil, err
   end
 
   local function parseRFC822Month(month)
@@ -355,22 +372,25 @@ end, function(Date)
     -- Thu, 01 Jan 1970 00:00:00 GMT
     local wday, mday, month, year, hour, min, sec, tz = string.match(s, '(%a+),%s+(%d+)%s+(%a+)%s+(%d+)%s+(%d+):(%d+):(%d+)%s+([^%s]+)')
     if not wday then
-      return nil
+      return nil, 'Bad date format'
     end
-    year = tonumber(year)
     month = parseRFC822Month(month)
-    mday = tonumber(mday)
-    hour = tonumber(hour)
-    min = tonumber(min)
-    sec = tonumber(sec)
     if not month then
-      return nil
+      return nil, 'Bad month value'
     end
-    if tz == 'GMT' then
-      return Date.UTC(year, month, mday, hour, min, sec)
+    local utcTime = Date.UTC(tonumber(year), month, tonumber(mday), tonumber(hour), tonumber(min), tonumber(sec))
+    local offsetHour = RFC822_OFFSET_BY_TZ[tz]
+    if offsetHour then
+      utcTime = utcTime - offsetHour * 60 * 60000
+      return utcTime
     end
-    -- FIXME check tz is not local
-    return Date:new(year, month, mday, hour, min, sec):getTime()
+    local oh, om = string.match(s, '^(.*)([%+%-]%d%d):?(%d%d)$')
+    if oh then
+      local offsetMin = tonumber(oh) * 60 + tonumber(om)
+      utcTime = utcTime - offsetMin * 60000
+      return utcTime
+    end
+    return nil, 'Unsupported time zone format, '..tz
   end
 
   function Date.fromTimestamp(s, utc)
@@ -378,12 +398,8 @@ end, function(Date)
     if not year then
       return nil
     end
-    year = tonumber(year)
-    month = tonumber(month)
-    day = tonumber(day)
-    hour = tonumber(hour)
-    min = tonumber(min)
-    sec = tonumber(sec)
+    year, month, day = tonumber(year), tonumber(month), tonumber(day)
+    hour, min, sec = tonumber(hour), tonumber(min), tonumber(sec)
     if utc then
       return Date.UTC(year, month, day, hour, min, sec)
     end

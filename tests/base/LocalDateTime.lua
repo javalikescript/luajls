@@ -67,4 +67,24 @@ function Test_toDateString()
   lu.assertEquals(LocalDateTime:new(2017, 12, 4, 14, 1, 17):toDateString(), '2017-12-04')
 end
 
+local function assertFromToISO(s, e)
+  lu.assertEquals(LocalDateTime.fromISOString(s):toString(), e)
+  lu.assertEquals(LocalDateTime.fromISOString(string.gsub(s, '[%-:]', '')):toString(), e)
+end
+
+function Test_fromISOString()
+  assertFromToISO('2017-12-04T14:03:08.110', '2017-12-04T14:03:08.110')
+  assertFromToISO('2017-12-04T14:03:08.1109', '2017-12-04T14:03:08.110')
+  assertFromToISO('2017-12-04T14:03:08', '2017-12-04T14:03:08')
+  assertFromToISO('2017-12-04T14:03', '2017-12-04T14:03:00')
+  assertFromToISO('2017-12-04T14', '2017-12-04T14:00:00')
+  assertFromToISO('2017-12-04', '2017-12-04T00:00:00')
+  assertFromToISO('2017-12', '2017-12-01T00:00:00')
+  assertFromToISO('2017', '2017-01-01T00:00:00')
+  lu.assertIsNil(LocalDateTime.fromISOString(''))
+  lu.assertIsNil(LocalDateTime.fromISOString('17'))
+  lu.assertIsNil(LocalDateTime.fromISOString('2017T1'))
+  lu.assertIsNil(LocalDateTime.fromISOString('2017-12-04T14:03:082'))
+end
+
 os.exit(lu.LuaUnit.run())

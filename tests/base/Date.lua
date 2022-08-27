@@ -5,8 +5,6 @@ local Date = require('jls.util.Date')
 function Test_getTime()
   lu.assertEquals(Date:new(0):getTime(), 0)
   lu.assertEquals(Date:new(1512345678000):getTime(), 1512345678000)
-  --lu.assertEquals(Date.UTC(1970, 1, 1, 0, 0, 0), 0)
-  lu.assertEquals(Date.UTC(1970, 1, 2, 0, 0, 0), 86400000)
 end
 
 function Test_getYear()
@@ -20,14 +18,19 @@ function Test_getMonth()
 end
 
 function Test_toISOString()
-  lu.assertEquals(Date:new(0):toISOString(true), '1970-01-01T00:00:00.000Z')
-  lu.assertEquals(Date:new(1512345678000):toISOString(true), '2017-12-04T00:01:18.000Z')
+  lu.assertEquals(Date:new(0):toISOString(true), '1970-01-01T00:00:00Z')
+  lu.assertEquals(Date:new(1):toISOString(true), '1970-01-01T00:00:00.001Z')
+  lu.assertEquals(Date:new(0):toISOString(true, true), '1970-01-01T00:00:00.000Z')
+  lu.assertEquals(Date:new(1512345678000):toISOString(true), '2017-12-04T00:01:18Z')
   lu.assertEquals(Date:new(1512345678020):toISOString(true), '2017-12-04T00:01:18.020Z')
-  lu.assertEquals(string.sub(Date:new(2017, 12, 4, 15, 30, 18):toISOString(), 1, 23), '2017-12-04T15:30:18.000')
+  lu.assertEquals(string.sub(Date:new(2017, 12, 4, 15, 30, 18):toISOString(), 1, 19), '2017-12-04T15:30:18')
 end
 
 function Test_fromISOString()
   lu.assertEquals(Date.fromISOString('2017-12-04T00:01:18', true), 1512345678000)
+  lu.assertEquals(Date.fromISOString('2017-12-04T00:01:18Z'), 1512345678000)
+  lu.assertEquals(Date.fromISOString('2017-12-04T00:01:18+00:00'), 1512345678000)
+  lu.assertEquals(Date.fromISOString('2017-12-04T01:01:18+01:00'), 1512345678000)
 end
 
 function Test_toRFC822String()
@@ -94,6 +97,36 @@ function Test_time_ms_add()
   local d2 = Date:new(ref:getTime())
   d2:setMilliseconds(d2:getMilliseconds() + 1)
   lu.assertEquals(d1:getTime(), d2:getTime())
+end
+
+local function dateToISOZ(d)
+  return d:toISOString(true)
+end
+
+local function timeToISOZ(t)
+  return dateToISOZ(Date:new(t))
+end
+
+function Test_UTC()
+  -- 2021-03-28T02:30:00 in FR does not exit, default to 3:30
+  -- 2021-10-31T01:30:00 in FR with DST there is both 2:30+01 and 2:30+02, default to +01
+  lu.assertEquals(Date.UTC(1970, 1, 1, 0, 0, 0), 0)
+  lu.assertEquals(Date.UTC(1970, 1, 2, 0, 0, 0), 86400000)
+  lu.assertEquals(Date.UTC(1970, 1, 2, 0, 0, 1, 234), 86401234)
+  lu.assertEquals(timeToISOZ(Date.UTC(2021, 3, 28, 1, 30)), '2021-03-28T01:30:00Z')
+  lu.assertEquals(timeToISOZ(Date.UTC(2021, 3, 28, 2, 30)), '2021-03-28T02:30:00Z')
+  lu.assertEquals(timeToISOZ(Date.UTC(2021, 10, 31, 0, 30)), '2021-10-31T00:30:00Z')
+  lu.assertEquals(timeToISOZ(Date.UTC(2021, 10, 31, 1, 30)), '2021-10-31T01:30:00Z')
+  lu.assertEquals(timeToISOZ(Date.UTC(2021, 10, 31, 2, 30)), '2021-10-31T02:30:00Z')
+end
+
+function Test_fromISOString()
+  lu.assertEquals(timeToISOZ(Date.fromISOString('2012-01-02T03:04:05.006Z')), '2012-01-02T03:04:05.006Z')
+  lu.assertEquals(timeToISOZ(Date.fromISOString('2012-01-02T03:04Z')), '2012-01-02T03:04:00Z')
+  lu.assertEquals(timeToISOZ(Date.fromISOString('2012T12Z')), '2012-01-01T12:00:00Z')
+  lu.assertEquals(timeToISOZ(Date.fromISOString('2021-03-28T01:30:00Z')), '2021-03-28T01:30:00Z')
+  lu.assertEquals(timeToISOZ(Date.fromISOString('2021-03-28T02:30:00+01:00')), '2021-03-28T01:30:00Z')
+  lu.assertEquals(timeToISOZ(Date.fromISOString('2021-03-28T00:30:00-01:00')), '2021-03-28T01:30:00Z')
 end
 
 -- the following tests depends on the current locale

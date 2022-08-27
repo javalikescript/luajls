@@ -324,4 +324,45 @@ end, function(LocalDateTime)
     LocalDateTime[k] = v
   end
 
+  local function nmatch(s, ...)
+    local patterns = {...}
+    for _, pattern in ipairs(patterns) do
+      local t = table.pack(string.match(s, pattern))
+      --print('nmatch("'..s..'") "'..pattern..'": ', table.unpack(t, 1, t.n))
+      if t[1] then
+        return table.unpack(t, 1, t.n)
+      end
+    end
+  end
+
+  local function parseISOTime(s)
+    local hour, min, sec, ms, rs, ts
+    rs, hour, ts = string.match(s, '^([^T]*)T(%d%d)(.*)$')
+    if not rs then
+      return s, 0, 0, 0, 0
+    end
+    min, sec, ms = nmatch(ts, '^:?(%d%d):?(%d%d)(%.%d+)$', '^:?(%d%d):?(%d%d)$', '^:?(%d%d)$', '^$')
+    if not min then
+      return s, 0, 0, 0, 0
+    end
+    ms = math.floor((tonumber(ms) or 0) * 1000)
+    return rs, tonumber(hour), tonumber(min) or 0, tonumber(sec) or 0, ms
+  end
+
+  local function parseISODate(s)
+    local year, month, day = nmatch(s, '^(%d%d%d%d)%-?(%d%d)%-?(%d%d)$', '^(%d%d%d%d)%-?(%d%d)$', '^(%d%d%d%d)$')
+    if year then
+      return tonumber(year), tonumber(month) or 1, tonumber(day) or 1
+    end
+  end
+
+  function LocalDateTime.fromISOString(s)
+    local ds, hour, min, sec, ms = parseISOTime(s)
+    local year, month, day = parseISODate(ds)
+    if year then
+      return LocalDateTime:new(year, month, day, hour, min, sec, ms)
+    end
+    return nil, 'Invalid date format, '..tostring(s)
+  end
+
 end)
