@@ -18,10 +18,11 @@ function Test_getMonth()
 end
 
 function Test_toISOString()
-  lu.assertEquals(Date:new(0):toISOString(true), '1970-01-01T00:00:00Z')
+  lu.assertEquals(Date:new(0):toISOString(true), '1970-01-01T00:00:00.000Z')
   lu.assertEquals(Date:new(1):toISOString(true), '1970-01-01T00:00:00.001Z')
-  lu.assertEquals(Date:new(0):toISOString(true, true), '1970-01-01T00:00:00.000Z')
-  lu.assertEquals(Date:new(1512345678000):toISOString(true), '2017-12-04T00:01:18Z')
+  lu.assertEquals(Date:new(0):toISOString(true, true), '1970-01-01T00:00:00Z')
+  lu.assertEquals(Date:new(1512345678000):toISOString(true), '2017-12-04T00:01:18.000Z')
+  lu.assertEquals(Date:new(1512345678000):toISOString(true, true), '2017-12-04T00:01:18Z')
   lu.assertEquals(Date:new(1512345678020):toISOString(true), '2017-12-04T00:01:18.020Z')
   lu.assertEquals(string.sub(Date:new(2017, 12, 4, 15, 30, 18):toISOString(), 1, 19), '2017-12-04T15:30:18')
 end
@@ -100,7 +101,7 @@ function Test_time_ms_add()
 end
 
 local function dateToISOZ(d)
-  return d:toISOString(true)
+  return d:toISOString(true, true)
 end
 
 local function timeToISOZ(t)

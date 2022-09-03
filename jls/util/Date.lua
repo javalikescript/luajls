@@ -28,6 +28,9 @@ local RFC822_DAYS = {'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'}
 local RFC822_MONTHS = {'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'}
 local RFC822_OFFSET_BY_TZ = {GMT = 0, UTC = 0, UT = 0, Z = 0, EST = -5, EDT = -4, CST = -6, CDT = -5, MST = -7,  MDT = -6, PST = -8, PDT = -7}
 
+local ISO_FORMAT = '%Y-%m-%dT%H:%M:%S'
+local ISO_FORMAT_UTC = '!%Y-%m-%dT%H:%M:%S'
+
 
 --- The Date class.
 -- The Date provides a way to manipulate date and time.
@@ -177,6 +180,10 @@ return require('jls.lang.class').create(function(date)
     return self.time
   end
 
+  function date:getTimeInSeconds()
+    return self:getTime() // 1000
+  end
+
   function date:setTime(value)
     if type(value) ~= 'number' then
       value = system.currentTimeMillis()
@@ -189,7 +196,7 @@ return require('jls.lang.class').create(function(date)
 
   function date:getUTCField()
     if not self.time or not self.utcField then
-      self.utcField = os.date('!*t', self:getTime() // 1000)
+      self.utcField = os.date('!*t', self:getTimeInSeconds())
       self.utcField.ms = self.field.ms
     end
     return self.utcField
@@ -232,26 +239,21 @@ return require('jls.lang.class').create(function(date)
     return self:getTime() - d:getTime()
   end
 
-  function date:toShortISOString(utc)
-    local t = self:getTime() // 1000
-    if utc then
-      return os.date('!%Y-%m-%dT%H:%M:%S', t)
-    end
-    return os.date('%Y-%m-%dT%H:%M:%S', t)
-  end
-
-  function date:toISOString(utc, withMillis)
-    local t = self:getTime() // 1000
-    local ms = ''
-    if self.field.ms > 0 or withMillis then
-      ms = string.format('.%03d', self.field.ms)
+  function date:toISOString(utc, short)
+    local t = self:getTimeInSeconds()
+    local mss
+    local ms = self.field.ms
+    if short and ms == 0 then
+      mss = ''
+    else
+      mss = string.format('.%03d', ms)
     end
     if utc then
-      return os.date('!%Y-%m-%dT%H:%M:%S', t)..ms..'Z'
+      return os.date(ISO_FORMAT_UTC, t)..mss..'Z'
     end
     -- %z does not give the numeric timezone on windows
     local offsetHour, offsetMin = self:getTimezoneOffsetHourMin()
-    return os.date('%Y-%m-%dT%H:%M:%S', t)..ms..string.format('%+03d:%02d', offsetHour, offsetMin)
+    return os.date(ISO_FORMAT, t)..mss..string.format('%+03d:%02d', offsetHour, offsetMin)
   end
 
   function date:toRFC822String(utc)
@@ -327,7 +329,7 @@ end, function(Date)
   end
 
   function Date.iso(t, utc)
-    return formatTime('%Y-%m-%dT%H:%M:%S', t, utc)
+    return formatTime(ISO_FORMAT, t, utc)
   end
 
   function Date.datestamp(t, utc)
