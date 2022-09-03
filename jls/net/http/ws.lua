@@ -439,10 +439,13 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
         [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
       }
     })
-    return client:connect():next(function()
+    local connectPromise = client:connect()
+    self.tcp = client:getTcpClient()
+    return connectPromise:next(function()
       return client:sendReceive()
     end):next(function(response)
       if response:getStatusCode() ~= HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
+        self.tcp = nil
         client:close()
         return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
       end
@@ -450,8 +453,8 @@ local WebSocket = class.create(WebSocketBase, function(webSocket, super)
         logger:fine('webSocket:open() Switching protocols')
       end
       -- TODO Check accept key
-      self.tcp = client:getTcpClient()
     end, function(reason)
+      self.tcp = nil
       client:close()
       logger:fine('webSocket:open() error: "'..tostring(reason)..'"')
       return Promise.reject(reason)
