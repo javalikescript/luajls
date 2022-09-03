@@ -186,6 +186,13 @@ function Test_map()
   end
   lu.assertEquals(List.map({}, {'a', 'b'}, f), {'a1', 'b2'})
   lu.assertEquals(List.map({}, {}, f), {})
+  lu.assertEquals(List.map({'a', 'b'}, f), {'a1', 'b2'})
+end
+
+function Test_addAll()
+  lu.assertEquals(List.addAll({}, {'a', 'b'}), {'a', 'b'})
+  lu.assertEquals(List.addAll({'a', 'b'}, {}), {'a', 'b'})
+  lu.assertEquals(List.addAll({'a'}, {'b'}), {'a', 'b'})
 end
 
 os.exit(lu.LuaUnit.run())
