@@ -16,10 +16,10 @@ return class.create(function(event)
       if not repeatMs or repeatMs <= 0 then
         timer:close()
       end
-      local status, err = protectedCall(callback, table.unpack(args))
+      local status, err = protectedCall(callback, table.unpack(args, 1, args.n))
       if not status then
         if logger:isLoggable(logger.WARN) then
-          logger:warn('event timer callback on error "'..err..'"')
+          logger:warn('event timer callback on error "'..tostring(err)..'"')
         end
       end
     end)

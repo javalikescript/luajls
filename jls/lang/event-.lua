@@ -34,10 +34,10 @@ return require('jls.lang.class').create(function(event)
   function event:setTimeout(callback, delayMs, ...)
     local args = table.pack(...)
     return self.scheduler:schedule(function()
-      local status, err = protectedCall(callback, table.unpack(args))
+      local status, err = protectedCall(callback, table.unpack(args, 1, args.n))
       if not status then
         if logger:isLoggable(logger.WARN) then
-          logger:warn('event:setTimeout() callback in error "'..err..'"')
+          logger:warn('event:setTimeout() callback in error "'..tostring(err)..'"')
         end
       end
     end, false, delayMs or 0) -- as opaque timer id
@@ -65,10 +65,10 @@ return require('jls.lang.class').create(function(event)
     local args = table.pack(...)
     return self.scheduler:schedule(function(at)
       while true do
-        local status, err = protectedCall(callback, table.unpack(args))
+        local status, err = protectedCall(callback, table.unpack(args, 1, args.n))
         if not status then
           if logger:isLoggable(logger.WARN) then
-            logger:warn('event:setInterval() callback in error "'..err..'"')
+            logger:warn('event:setInterval() callback in error "'..tostring(err)..'"')
           end
         end
         at = coroutine.yield(at + delayMs)
