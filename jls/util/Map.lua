@@ -25,7 +25,7 @@ end
 
 --- A Map class.
 -- @type Map
-return require('jls.lang.class').create(function(map)
+return require('jls.lang.class').create(function(map, _, Map)
 
   --- Creates a new Map.
   -- @function Map:new
@@ -160,18 +160,19 @@ return require('jls.lang.class').create(function(map)
     return self
   end
 
-  function map:reverse()
-    local m = {}
-    for k, v in pairs(self) do
-      if m[v] then
+  local function reverse(t, s)
+    for k, v in pairs(s) do
+      if t[v] then
         error('Duplicated value "'..tostring(v)..'"')
       end
-      m[v] = k
+      t[v] = k
     end
-    return m
+    return t
   end
 
-end, function(Map)
+  function map:reverse()
+    return reverse(Map:new(), self)
+  end
 
   --- Sets all key-values of the specified tables to the target table.
   -- @tparam table target The table to update.
@@ -198,6 +199,9 @@ end, function(Map)
   Map.skeys = Map.prototype.skeys
   Map.spairs = Map.prototype.spairs
   Map.add = Map.prototype.add
-  Map.reverse = Map.prototype.reverse
+
+  Map.reverse = function(m)
+    return reverse({}, m)
+  end
 
 end)

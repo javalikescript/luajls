@@ -68,4 +68,10 @@ function Test_assign()
   lu.assertEquals(Map.assign({}, {a = true}, {b = true}), {a = true, b = true})
 end
 
+function Test_reverse()
+  lu.assertEquals(Map.reverse({k1 = 'v1', k2 = 'v2'}), {v1 = 'k1', v2 = 'k2'})
+  lu.assertEquals(Map.reverse({k = 'v'}), {v = 'k'})
+  lu.assertEquals(Map.reverse({}), {})
+end
+
 os.exit(lu.LuaUnit.run())
