@@ -26,7 +26,23 @@ local function getNameInfo(addr, callback)
   return d
 end
 
+local function getInterfaceAddresses(family)
+  family = family or 'inet'
+  local ips = {}
+  local addresses = luvLib.interface_addresses()
+  -- eth0 Ethernet Wi-Fi
+  for name, addresse in pairs(addresses) do
+    for _, info in ipairs(addresse) do
+      if not info.internal and info.family == family then
+        table.insert(ips, info.ip)
+      end
+    end
+  end
+  return ips
+end
+
 return {
   getAddressInfo = getAddressInfo,
-  getNameInfo = getNameInfo
+  getNameInfo = getNameInfo,
+  getInterfaceAddresses = getInterfaceAddresses,
 }
