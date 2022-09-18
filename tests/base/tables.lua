@@ -1,6 +1,8 @@
 local lu = require('luaunit')
 
 local tables = require("jls.util.tables")
+local List = require('jls.util.List')
+local Map = require("jls.util.Map")
 
 function Test_compare_flat()
   lu.assertEquals(tables.compare({}, {a = true}), {a = true})
@@ -167,8 +169,10 @@ function Test_stringify()
   lu.assertEquals(tables.stringify({[5] = 2}), '{[5]=2,}')
   lu.assertEquals(tables.stringify({c = false}), '{c=false,}')
   lu.assertEquals(tables.stringify({["b "] = 2}), '{["b "]=2,}')
+  lu.assertEquals(tables.stringify(Map:new()), '{}')
   -- table list
   lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
+  lu.assertEquals(tables.stringify(List:new()), '{}')
 end
 
 local function getSchemaValueOrFail(schema, value, translateValues)

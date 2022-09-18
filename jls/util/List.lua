@@ -348,10 +348,13 @@ return require('jls.lang.class').create(function(list, _, List)
     if type(t) ~= 'table' then
       return false
     end
+    if List:isInstance(t) then
+      return true
+    end
     local count = 0
     local size = 0
-    local min, max
-    for k in pairs(t) do
+    local min, max, n
+    for k, v in pairs(t) do
       if math.type(k) == 'integer' then
         if not min or k < min then
           min = k
@@ -361,14 +364,25 @@ return require('jls.lang.class').create(function(list, _, List)
         end
         size = size + 1
       else
+        if k == 'n' and math.type(v) == 'integer' then
+          n = v
+        end
         count = count + 1
       end
     end
-    if acceptEmpty and count == 0 and size == 0 then
-      return true, 0
+    if n and count == 1 then
+      return true, n
     end
-    local result = count == 0 and min == 1 and (max == size or withHoles)
-    return result, count + size
+    if count > 0 then
+      return false, count + size
+    end
+    if size == 0 then
+      return not not acceptEmpty, 0
+    end
+    if withHoles then
+      return true, max
+    end
+    return min == 1 and max == size, size
   end
 
 end)
