@@ -10,7 +10,7 @@ local TEST_PORT = 3002
 
 function Test_TcpClient_TcpServer()
   local server = TcpServer:new()
-  assert(server:bind('0.0.0.0', TEST_PORT))
+  assert(server:bind('127.0.0.1', TEST_PORT))
   function server:onAccept(client)
     client:readStart(StreamHandler:new(function(_, data)
       if data then

@@ -24,7 +24,7 @@ local function createTcpServer(onData)
     end
   end
   local server = TcpServer:new()
-  assert(server:bind('0.0.0.0', TEST_PORT))
+  assert(server:bind('127.0.0.1', TEST_PORT))
   function server:onAccept(client)
     client:readStart(function(err, data)
       if type(onData) == 'function' then
