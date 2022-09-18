@@ -7,6 +7,7 @@ local logger = require('jls.lang.logger')
 local HttpClient = require('jls.net.http.HttpClient')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
+local HttpHeaders = require('jls.net.http.HttpHeaders')
 local DelayedStreamHandler = require('jls.io.streams.DelayedStreamHandler')
 local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')
@@ -223,10 +224,22 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       logger:fine('proxyHttpHandler forward to "'..targetUrl:toString()..'"')
     end
     -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
+    local headers = HttpHeaders:new()
+    headers:setHeadersTable(request:getHeadersTable())
+    local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
+    if hostport then
+      local forwarded = 'host='..hostport..';proto='..targetUrl:getProtocol()
+      local by = httpExchange:clientAsString()
+      if by then
+        forwarded = 'by='..by..';for='..by..';'..forwarded
+      end
+      headers:setHeader('Forwarded', forwarded)
+      headers:setHeader(HTTP_CONST.HEADER_HOST, targetUrl:getHost())
+    end
     local client = HttpClient:new({
       url = targetUrl:toString(),
       method = method,
-      headers = request:getHeadersTable()
+      headers = headers:getHeadersTable()
     })
     -- buffer incoming request body prior client connection
     request:setBodyStreamHandler(DelayedStreamHandler:new())
@@ -249,7 +262,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
           ', remaining buffer #'..tostring(remainingBuffer and #remainingBuffer))
       end
       response:setStatusCode(clientResponse:getStatusCode())
-      response:setHeadersTable(clientResponse:getHeadersTable())
+      local respHdrs = HttpHeaders:new()
+      respHdrs:setHeadersTable(clientResponse:getHeadersTable())
+      -- TODO rewrite headers, location, cookie path
+      response:setHeadersTable(respHdrs:getHeadersTable())
       clientResponse:setBodyStreamHandler(DelayedStreamHandler:new())
       response:onWriteBodyStreamHandler(function()
         logger:finer('proxyHttpHandler response on write body')
