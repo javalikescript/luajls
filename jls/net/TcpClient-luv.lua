@@ -86,7 +86,7 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpClient)
       end
       if logger:isLoggable(logger.FINER) then
         logger:finer('tcpClient:connect() '..tostring(addr)..':'..tostring(port)..' => #'..tostring(#res))
-        logger:dump(res, 'getaddrinfo', 5)
+        --logger:finer('getaddrinfo: '..require('jls.util.tables').stringify(res, 2))
       end
       local ccb, i = nil, 0
       -- try to connect to each translated/resolved address using the first succesful one
@@ -103,7 +103,7 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpClient)
           local ai = res[i]
           if logger:isLoggable(logger.FINER) then
             logger:finer('tcpClient:connect() on '..tostring(ai.addr)..':'..tostring(ai.port))
-            --logger:dump(ai, 'addr['..tostring(i)..']', 5)
+            --logger:finer('addr['..tostring(i)..'] '..require('jls.util.tables').stringify(ai, 2))
           end
           client.tcp = luvLib.new_tcp()
           client.tcp:connect(ai.addr, ai.port, ccb)

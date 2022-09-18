@@ -40,19 +40,33 @@ local LEVEL = {
   ALL = 0 --- The all level is the lowest level
 }
 
+local LEVEL_NAMES = {}
+for k, v in pairs(LEVEL) do
+  LEVEL_NAMES[v] = k
+end
+
 local function levelFromString(value)
   return LEVEL[string.upper(value)]
 end
 
 local function levelToString(value)
-  for k, v in pairs(LEVEL) do
-    if v == value then
-      return k
-    end
-  end
-  return ''
+  return LEVEL_NAMES[value] or ''
 end
 
+local function parseLevel(level, fallback)
+  if type(level) == 'number' then
+    return level
+  elseif type(level) == 'string' then
+    local l = levelFromString(level)
+    if l then
+      return l
+    end
+  end
+  if fallback then
+    return fallback
+  end
+  error('Invalid logger level "'..tostring(level)..'"')
+end
 local LOG_FILE = io.stderr
 
 local LOG_EOL = '\n'
@@ -60,14 +74,56 @@ if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll
   LOG_EOL = '\r\n'
 end
 
-local writeLog = function(text)
-  LOG_FILE:write(text)
-  LOG_FILE:write(LOG_EOL)
+local function defaultLogRecorder(logger, time, level, message)
+  LOG_FILE:write(os.date('%Y-%m-%dT%H:%M:%S', time)..' '..levelToString(level)..' '..message..LOG_EOL)
   LOG_FILE:flush()
 end
+local LOG_RECORD = defaultLogRecorder
 
-local formatLog = function(logger, time, level, message)
-  return os.date('%Y-%m-%dT%H:%M:%S', time)..' '..tostring(level)..' '..message
+local function dumpToList(m, v, name, maxLevel, prefix, indent, level)
+  local tv = type(v)
+  local pn = prefix..name..' (' .. tv .. ')'
+  -- There are eight basic types in Lua: nil, boolean, number, string, userdata, function, thread, and table.
+  if tv == 'string' then
+    table.insert(m, pn..': "'..v..'"')
+  elseif tv == 'table' then
+    local empty = next(v) == nil
+    if empty then
+      table.insert(m, pn..': empty')
+    else
+      table.insert(m, pn..':')
+      if level < maxLevel then
+        for k in pairs(v) do
+          dumpToList(m, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
+        end
+      else
+        table.insert(m, prefix..indent..'...')
+      end
+    end
+  else
+    local mt = getmetatable(v)
+    table.insert(m, pn..': '..tostring(v))
+    if mt then
+      dumpToList(m, mt, 'metatable', maxLevel, prefix..indent, indent, level + 1)
+    end
+  end
+end
+
+local function dumpToString(v, name, maxLevel, prefix, indent, level)
+  local m =  {}
+  dumpToList(m, v, name, maxLevel, prefix, indent, level)
+  return table.concat(m, LOG_EOL)
+end
+
+local function log(logger, level, message, ...)
+  if type(message) == 'string' then
+    if select('#', ...) > 0 then
+      message = string.format(message, ...)
+    end
+  else
+    message = dumpToString(message, 'value', 5, '', '  ', 0)
+  end
+  LOG_RECORD(logger, os.time(), level, message)
 end
 
 
@@ -86,7 +142,7 @@ local Logger = require('jls.lang.class').create(function(logger)
   local FINER = LEVEL.FINER
   local FINEST = LEVEL.FINEST
 
-  -- shortcut
+  -- shortcuts
   logger.LEVEL = LEVEL
 
   --- Creates a new logger with the specified level.
@@ -109,143 +165,129 @@ local Logger = require('jls.lang.class').create(function(logger)
   --- Sets the log level for this logger.
   -- @param level The log level.
   function logger:setLevel(level)
-    if type(level) == 'number' then
-      self.level = level
-    elseif type(level) == 'string' then
-      local l = levelFromString(level)
-      if l then
-        self.level = l
-      else
-        error('Invalid logger level "'..level..'"')
-      end
-    end
+    self.level = parseLevel(level)
   end
 
   --- Tells wether or not a message of the specified level will be logged by this logger. 
-  -- @param level The log level to check.
-  -- @return true if a message of the specified level will be logged by this logger.
+  -- @tparam number level The log level to check.
+  -- @treturn boolean true if a message of the specified level will be logged by this logger.
   function logger:isLoggable(level)
     return level >= self.level
   end
 
-  local function dump(p, v, name, maxLevel, prefix, indent, level)
-    local tv = type(v)
-    local pn = prefix..name..' (' .. tv .. ')'
-    -- There are eight basic types in Lua: nil, boolean, number, string, userdata, function, thread, and table.
-    if tv == 'string' then
-      p(pn..': "'..v..'"')
-    elseif tv == 'table' then
-      local empty = next(v) == nil
-      if empty then
-        p(pn..': empty')
-      else
-        p(pn..':')
-        if level < maxLevel then
-          for k in pairs(v) do
-            dump(p, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
-          end
-        else
-          p(prefix..indent..'...')
-        end
-      end
-    else
-      local mt = getmetatable(v)
-      p(pn..': '..tostring(v))
-      if mt then
-        dump(p, mt, 'metatable', maxLevel, prefix..indent, indent, level + 1)
-      end
-    end
-  end
-
   --- Logs the specified message with the specified level.
+  -- When message is a string then additional arguments are formatted using string.format
   -- @param level The log level.
   -- @param message The log message.
-  function logger:log(level, message)
-    if level >= self.level then
-      if type(message) == 'string' then
-        writeLog(formatLog(self, os.time(), level, message))
-      else
-        dump(writeLog, message, 'value', 5, '', '  ', 0)
+  function logger:log(level, message, ...)
+    local l = parseLevel(level)
+    if l >= self.level then
+      log(self, l, message, ...)
+    end
+  end
+
+  -- for compatibility, deprecated
+  function logger:logopt(level, message, ...)
+    local time = os.time()
+    if time > (self.time or 0) then
+      local l = parseLevel(level)
+      if l >= self.level then
+        self.time = time
+        log(self, l, message, ...)
       end
     end
   end
 
-  function logger:logopt(level, message)
-    local time = os.time()
-    if time > (self.time or 0) then
-      self.time = time
-      self:log(level, message)
-    end
-  end
-
+  -- for compatibility, deprecated
   function logger:logTable(level, value, name, depth)
-    if level >= self.level then
-      dump(writeLog, value, name or 'value', depth or 5, '', '  ', 0)
+    if parseLevel(level) >= self.level then
+      LOG_FILE:write(dumpToString(value, name or 'value', depth or 5, '', '  ', 0))
+      LOG_FILE:flush()
     end
   end
 
+  -- for compatibility, deprecated
   function logger:logTraceback(level, message)
-    if level >= self.level then
-      writeLog(debug.traceback(message, 2))
+    local l = parseLevel(level)
+    if l >= self.level then
+      log(self, l, debug.traceback(message, 2))
     end
   end
 
+  -- for compatibility, deprecated
   function logger:dump(value, name, depth)
     self:logTable(DEBUG, value, name, depth)
   end
 
+  -- for compatibility, deprecated
   function logger:traceback(message)
     if DEBUG >= self.level then
-      writeLog(debug.traceback(message, 2))
+      log(self, DEBUG, debug.traceback(message, 2))
     end
   end
 
   --- Logs the specified message with the ERROR level.
   -- @param message The log message.
-  function logger:error(message)
-    self:log(ERROR, message)
+  function logger:error(message, ...)
+    if ERROR >= self.level then
+      log(self, ERROR, message, ...)
+    end
   end
 
   --- Logs the specified message with the WARN level.
   -- @param message The log message.
-  function logger:warn(message)
-    self:log(WARN, message)
+  function logger:warn(message, ...)
+    if WARN >= self.level then
+      log(self, WARN, message, ...)
+    end
   end
 
   --- Logs the specified message with the INFO level.
   -- @param message The log message.
-  function logger:info(message)
-    self:log(INFO, message)
+  function logger:info(message, ...)
+    if INFO >= self.level then
+      log(self, INFO, message, ...)
+    end
   end
 
   --- Logs the specified message with the CONFIG level.
   -- @param message The log message.
-  function logger:config(message)
-    self:log(CONFIG, message)
+  function logger:config(message, ...)
+    if CONFIG >= self.level then
+      log(self, CONFIG, message, ...)
+    end
   end
 
   --- Logs the specified message with the DEBUG level.
   -- @param message The log message.
-  function logger:debug(message)
-    self:log(DEBUG, message)
+  function logger:debug(message, ...)
+    if DEBUG >= self.level then
+      log(self, DEBUG, message, ...)
+    end
   end
 
   --- Logs the specified message with the FINE level.
   -- @param message The log message.
-  function logger:fine(message)
-    self:log(FINE, message)
+  function logger:fine(message, ...)
+    if FINE >= self.level then
+      log(self, FINE, message, ...)
+    end
   end
 
   --- Logs the specified message with the FINER level.
   -- @param message The log message.
-  function logger:finer(message)
-    self:log(FINER, message)
+  function logger:finer(message, ...)
+    if FINER >= self.level then
+      log(self, FINER, message, ...)
+    end
   end
 
   --- Logs the specified message with the FINEST level.
   -- @param message The log message.
-  function logger:finest(message)
-    self:log(FINEST, message)
+  function logger:finest(message, ...)
+    if FINEST >= self.level then
+      log(self, FINEST, message, ...)
+    end
   end
 
   -- shortcuts
@@ -262,18 +304,18 @@ Logger.EOL = LOG_EOL
 Logger.levelFromString = levelFromString
 Logger.levelToString = levelToString
 
-function Logger.getLogWriter()
-  return writeLog
+function Logger.getLogFile()
+  return LOG_FILE
 end
-function Logger.setLogWriter(logWriterFn)
-  writeLog = logWriterFn
+function Logger.setLogFile(logFile)
+  LOG_FILE = logFile or io.stderr
 end
 
-function Logger.getLogFormatter()
-  return formatLog
+function Logger.getLogRecorder()
+  return LOG_RECORD
 end
-function Logger.setLogFormatter(logFormatterFn)
-  formatLog = logFormatterFn
+function Logger.setLogRecorder(logRecorderFn)
+  LOG_RECORD = logRecorderFn or defaultLogRecorder
 end
 
 --- @section end

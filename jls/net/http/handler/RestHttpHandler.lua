@@ -212,7 +212,6 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
       logger:finest('REST handlers')
       logger:finest(self.handlers)
     end
-    --logger:logTable(logger.WARN, self.handlers)
     if type(attributes) == 'table' then
       self.attributes = attributes
     end

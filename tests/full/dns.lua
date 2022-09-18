@@ -2,6 +2,7 @@ local lu = require('luaunit')
 
 local dns = require('jls.net.dns')
 local logger = require('jls.lang.logger')
+local tables = require('jls.util.tables')
 
 local loop = require('jls.lang.loopWithTimeout')
 
@@ -20,7 +21,7 @@ local function assertAddressInfo(host, addr, family)
     end
   end
   if not found then
-    logger:logTable(logger.ERROR, infos, 'getAddressInfo('..tostring(host)..')', 5)
+    logger:error('getAddressInfo(%s) %s', host, tables.stringify(infos, 2))
   end
   lu.assertTrue(found)
 end

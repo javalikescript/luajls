@@ -114,7 +114,7 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpServer, s
       end
       if logger:isLoggable(logger.FINER) then
         logger:finer('tcpServer:bind() '..tostring(node)..':'..tostring(port)..' => #'..tostring(#res))
-        logger:dump(res, 'getaddrinfo', 5)
+        --logger:finer('getaddrinfo '..require('jls.util.tables').stringify(res, 2))
       end
       local ai = res[1]
       local bindErr
