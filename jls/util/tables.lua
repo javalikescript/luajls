@@ -272,6 +272,7 @@ local function getPathKey(path, separator)
   local key, remainingPath
   local sep = separator or DEFAULT_PATH_SEPARATOR
   local keyIndex = 1
+  -- TODO correctly find protected separator
   local sepIndex = string.find(path, sep, keyIndex, true)
   if sepIndex == 1 then
     keyIndex = keyIndex + #sep
@@ -300,9 +301,8 @@ local function getPathKey(path, separator)
     end
   end
   -- accepts positive integer keys
-  local index = tonumber(key)
-  if index and math.type(index) == 'integer' and index > 0 then
-    return index, remainingPath
+  if string.find(key, '^[1-9][0-9]*$') then
+    return tonumber(key), remainingPath
   end
   return key, remainingPath
 end
@@ -400,9 +400,27 @@ function tables.removePath(t, path, separator)
   return value, t, key
 end
 
+local function keyToPath(key, separator)
+  if type(key) == 'string' then
+    if string.find(key, '^[1-9][0-9]*$')
+      or string.find(key, '^%[.*%]$')
+      or string.find(key, separator, 1, true)
+      or key == 'false' or key == 'true'
+    then
+      return '["'..key..'"]'
+    end
+    return key
+  elseif math.type(key) == 'integer' and key > 0 then
+    return tostring(key)
+  elseif type(key) == 'boolean' then
+    return '['..tostring(key)..']'
+  end
+  error('Invalid key type '..type(key))
+end
+
 local function mapValuesByPath(t, paths, path, separator)
   for k, v in pairs(t) do
-    local p = path..separator..tostring(k)
+    local p = path..separator..keyToPath(k, separator)
     if type(v) == 'table' then
       mapValuesByPath(v, paths, p, separator)
     else
