@@ -6,10 +6,10 @@ local NULL = {}
 
 return {
   decode = function(value)
-    jsonLib.decode(value, nil, NULL)
+    return jsonLib.decode(value, nil, NULL)
   end,
   encode = function(value)
-    jsonLib.encode(value, NULL)
+    return jsonLib.encode(value, NULL)
   end,
   null = NULL,
 }

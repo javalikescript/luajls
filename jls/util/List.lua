@@ -339,17 +339,18 @@ return require('jls.lang.class').create(function(list, _, List)
 
   --- Returns true when the specified table is a list.
   -- A list has continuous integer keys starting at 1.
+  -- A list may have a field "n" giving the size of the list as an integer.
   -- @tparam table t The table to check.
   -- @tparam[opt] boolean withHoles true to indicate that the list may have holes.
   -- @tparam[opt] boolean acceptEmpty true to indicate that the list could be empty.
   -- @treturn boolean true when the specified table is a list.
-  -- @treturn number the number of fields of the table.
+  -- @treturn number the number of fields in the table or the number of elements in the list.
   function List.isList(t, withHoles, acceptEmpty)
     if type(t) ~= 'table' then
-      return false
+      return false, 0
     end
     if List:isInstance(t) then
-      return true
+      return true, t:size()
     end
     local count = 0
     local size = 0
@@ -370,7 +371,7 @@ return require('jls.lang.class').create(function(list, _, List)
         count = count + 1
       end
     end
-    if n and count == 1 then
+    if n and count == 1 and (size == 0 or (min >= 1 and max <= n)) then
       return true, n
     end
     if count > 0 then
@@ -379,7 +380,7 @@ return require('jls.lang.class').create(function(list, _, List)
     if size == 0 then
       return not not acceptEmpty, 0
     end
-    if withHoles then
+    if withHoles and min >= 1 then
       return true, max
     end
     return min == 1 and max == size, size

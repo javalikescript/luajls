@@ -3,6 +3,8 @@ local lu = require('luaunit')
 local json = require('jls.util.json')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
+local loader = require('jls.lang.loader')
+local cjson = package.loaded['cjson']
 
 function Test_decode()
   local t = json.decode('{"aString": "Hello world !", "anInteger": 123, "aNumber": 1.23, "aBoolean": true, "aNull": null}')
@@ -28,12 +30,41 @@ function Test_stringify()
   assertEncode(json.stringify)
   lu.assertEquals(json.stringify('a\r\nb "Hi" 1/2'), '"a\\r\\nb \\"Hi\\" 1/2"')
   lu.assertEquals(json.stringify(json.null), 'null')
+  lu.assertEquals(json.stringify(nil), 'null')
+end
+
+function Test_list_with_hole()
+  lu.assertEquals(json.stringify({1, nil, 3}), '[1,null,3]')
+  lu.assertEquals(json.stringify({1, json.null, 3}), '[1,null,3]')
+  lu.assertEquals(json.decode('[1,null,3]'), {1, json.null, 3})
 end
 
 function Test_stringify_empty_table()
-  lu.assertEquals(json.stringify({}), '[]') -- unspecified
+  lu.assertEquals(json.stringify({}), '{}') -- unspecified
+  lu.assertEquals(json.stringify({n = 0}), '[]') -- may conflict with a map
   lu.assertEquals(json.stringify(List:new()), '[]')
   lu.assertEquals(json.stringify(Map:new()), '{}')
+end
+
+function Test_stringify_mixed_table()
+  lu.assertEquals(json.stringify({[1] = 1, ['2'] = 2}), '{"1":1,"2":2}')
+  lu.assertFalse(pcall(function()
+    json.stringify({[1] = 1, ['1'] = 2})
+  end))
+end
+
+function Test_unicode()
+  lu.assertEquals(json.stringify('\u{0135}'), '"\u{0135}"')
+  lu.assertEquals(json.encode('\u{0135}'), '"\u{0135}"')
+end
+
+if cjson then
+  function Test_cjson_mixed_table()
+    -- cjson does not protect against mixed content
+    lu.assertStrMatches(cjson.encode({[1] = 1, ['1'] = 2}), '{"1":[12],"1":[12]}')
+    -- cjson overwrites with last entry
+    lu.assertEquals(cjson.decode('{"1":1,"1":2}'), {['1'] = 2})
+  end
 end
 
 local function normalize(s)

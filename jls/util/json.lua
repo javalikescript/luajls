@@ -1,10 +1,16 @@
 --- Provide JavaScript Object Notation (JSON) codec.
 -- @module jls.util.json
 
-local json = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
+local jsonLib = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
 local StringBuffer = require('jls.lang.StringBuffer')
 local List = require('jls.util.List')
 local Map = require("jls.util.Map")
+
+local json = {
+  decode = jsonLib.decode,
+  encode = jsonLib.encode,
+  null = jsonLib.null
+}
 
 -- TODO json libs should takes empty array and empty object as argument to be able to keep format.
 
@@ -88,7 +94,7 @@ function json.stringify(value, space)
   local stack = {}
   local function stringify(val, prefix)
     local valueType = type(val)
-    if val == json.null then
+    if val == json.null then -- json.null could be a table or a userdata
       sb:append('null')
     elseif valueType == 'table' then
       if stack[val] then
@@ -96,23 +102,28 @@ function json.stringify(value, space)
       end
       stack[val] = true
       local subPrefix = prefix..indent
-      local isList, size = List.isList(val)
+      local isList, size = List.isList(val, true, false)
       if size == 0 then
         -- we cannot decide whether empty tables should be array or object
         -- cjson defaults empty tables to object
-        if Map:isInstance(val) then
-          sb:append('{}')
-        else
+        if isList then
           sb:append('[]')
+        else
+          sb:append('{}')
         end
       elseif isList then
         sb:append('[', newline)
-        for i, v in ipairs(val) do
+        for i = 1, size do
           if i > 1 then
             sb:append(',', newline)
           end
           sb:append(subPrefix)
-          stringify(v, subPrefix)
+          local v = val[i]
+          if v == nil then
+            sb:append('null')
+          else
+            stringify(v, subPrefix)
+          end
         end
         sb:append(newline, prefix, ']')
       else
@@ -134,6 +145,9 @@ function json.stringify(value, space)
               ec = tostring(nk)
             else
               error('Invalid number key, '..tostring(k))
+            end
+            if val[ec] then
+              error('Duplicate integer key '..ec)
             end
           else
             error('Invalid key type '..tk)
