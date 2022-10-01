@@ -95,8 +95,10 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
   --- Redirects the process standard input.
-  -- @param fd the file descriptor to redirect from.
+  -- @param[opt] fd the file descriptor or pipe to redirect from.
   -- @return this ProcessBuilder
+  -- @usage
+  --pb:setRedirectInput(system.input)
   function processBuilder:setRedirectInput(fd)
     self.stdin = fd
     return self
@@ -109,13 +111,13 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
   --- Redirects the process standard output.
-  -- With no parameter the function returns the redirection.
-  -- @param fd the file descriptor to redirect to.
+  -- If not provided, the standard output will be discarded, redirected to null.
+  -- @param[opt] fd the file descriptor or pipe to redirect to.
   -- @return this ProcessBuilder
   -- @usage
   --local fd = FileDescriptor.openSync(tmpFile, 'w')
   --local pb = ProcessBuilder:new({'lua', '-e', 'io.write("Hello")'})
-  --pb:redirectOutput(fd)
+  --pb:setRedirectOutput(fd)
   function processBuilder:setRedirectOutput(fd)
     self.stdout = fd
     return self
@@ -128,13 +130,12 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
   --- Redirects the process standard error.
-  -- With no parameter the function returns the redirection.
-  -- @param fd the file descriptor to redirect to.
+  -- @param[opt] fd the file descriptor or pipe to redirect to.
   -- @return this ProcessBuilder
   -- @usage
   --local pb = ProcessBuilder:new({'lua', '-e', 'io.stderr:write("Hello")'})
   --local pipe = Pipe:new()
-  --pb:redirectError(pipe)
+  --pb:setRedirectError(pipe)
   function processBuilder:setRedirectError(fd)
     self.stderr = fd
     return self
