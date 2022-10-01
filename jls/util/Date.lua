@@ -233,7 +233,7 @@ return require('jls.lang.class').create(function(date)
   end
 
   --- Compares the specified date to this date.
-  -- @param date the date to compare to
+  -- @param d the date to compare to
   -- @treturn number 0 if the dates are equals, less than 0 if this date is before the specified date, more than 0 if this date is after the specified date
   function date:compareTo(d)
     return self:getTime() - d:getTime()
