@@ -7,7 +7,7 @@ local List = require('jls.util.List')
 local tables = require('jls.util.tables')
 
 --- The EventPublisher class.
--- The EventPublisher provides a way subsribe and publish events.
+-- The EventPublisher provides a way to subsribe and publish events.
 -- @type EventPublisher
 return require('jls.lang.class').create(function(eventPublisher)
 
@@ -33,7 +33,9 @@ return require('jls.lang.class').create(function(eventPublisher)
   end
 
   --- Subscribes to the specified event name with the specified function.
-  -- Registers an event handler/listener
+  -- Registers an event handler/listener.
+  -- When the handler raises an error, the 'error' event is published,
+  -- if there is no handler then the error is propagated.
   -- @tparam string name the event name
   -- @tparam function fn the function to call when the event is published
   -- @return an opaque key that could be used to unsubscribe
@@ -117,7 +119,7 @@ return require('jls.lang.class').create(function(eventPublisher)
       for _, handler in ipairs(handlers) do
         local status, err = protectedCall(handler, ...)
         if not status then
-          if name == 'error' or not self:publishEvent('error', err) then
+          if name == 'error' or not self:publishEvent('error', err, name) then
             logger:warn('An error occurs when handling event "'..tostring(name)..'" with handler '..tostring(handler)..': '..tostring(err))
             error(err)
           end
