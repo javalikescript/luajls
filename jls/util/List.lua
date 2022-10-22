@@ -16,13 +16,18 @@ return require('jls.lang.class').create(function(list, _, List)
   end
 
   local function concat(l, ...)
-    for _, e in ipairs({...}) do
-      if type(e) == 'table' then
-        for _, v in ipairs(e) do
-          table.insert(l, v)
+    local size = select('#', ...)
+    if size > 0 then
+      local values = {...}
+      for i = 1, size do
+        local e = values[i]
+        if type(e) == 'table' then
+          for _, v in ipairs(e) do
+            table.insert(l, v)
+          end
+        elseif e ~= nil then
+          table.insert(l, e)
         end
-      else
-        table.insert(l, e)
       end
     end
     return l
@@ -79,8 +84,16 @@ return require('jls.lang.class').create(function(list, _, List)
       error('Cannot add nil value')
     end
     table.insert(self, value)
-    if ... then
-      self:addAll({...})
+    local size = select('#', ...)
+    if size > 0 then
+      local values = {...}
+      for i = 1, size do
+        local v = values[i]
+        if v == nil then
+          error('Cannot add nil value')
+        end
+        table.insert(self, v)
+      end
     end
     return self
   end

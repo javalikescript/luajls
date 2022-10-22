@@ -177,6 +177,7 @@ function Test_concat()
   lu.assertEquals(List.concat({'a'}, {'b', 'c'}), {'a', 'b', 'c'})
   lu.assertEquals(List.concat({'a', 'b'}, {'c'}), {'a', 'b', 'c'})
   lu.assertEquals(List.concat({'a'}, {'b'}, {'c'}), {'a', 'b', 'c'})
+  lu.assertEquals(List.concat({'a'}, {'b'}, nil, {'c'}), {'a', 'b', 'c'})
   lu.assertEquals(List.concat({'a'}, 'b', {'c'}), {'a', 'b', 'c'})
 end
 
