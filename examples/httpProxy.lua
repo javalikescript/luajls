@@ -31,9 +31,13 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
     return t
   end
 
+  local function isValid(value)
+    return type(value) == 'string' and value ~= '' and value ~= '-'
+  end
+
   local function readAllKeys(filename)
     local t = {}
-    local file = filename and io.open(filename)
+    local file = isValid(filename) and io.open(filename)
     if file then
       for line in file:lines('l') do
         if line ~= '' then
@@ -63,7 +67,7 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
   end
 
   function proxyHandler:save(proxyConfig)
-    if proxyConfig.unknownList then
+    if isValid(proxyConfig.unknownList) then
       local hosts = tables.keys(self.unknownMap)
       table.sort(hosts)
       local file = io.open(proxyConfig.unknownList, 'w')
@@ -259,8 +263,7 @@ httpServer:bind(config.server.address, config.server.port):next(function()
     logger:finer('Proxy saved')
     proxyHandler:save(config.proxy)
   end, math.floor(config.heartbeat * 1000))
-
-end, function(err) -- could failed if address is in use or hostname cannot be resolved
+end):catch(function(err) -- could failed if address is in use or hostname cannot be resolved
   print('Cannot bind proxy server, '..tostring(err))
   os.exit(1)
 end)
