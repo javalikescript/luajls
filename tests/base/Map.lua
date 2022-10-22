@@ -62,7 +62,9 @@ function Test_spairs()
 end
 
 function Test_assign()
+  lu.assertEquals(Map.assign({}), {})
   lu.assertEquals(Map.assign({}, {a = true}), {a = true})
+  lu.assertEquals(Map.assign({}, nil, {a = true}), {a = true})
   lu.assertEquals(Map.assign({a = true}, {}), {a = true})
   lu.assertEquals(Map.assign({a = true}, {b = true}), {a = true, b = true})
   lu.assertEquals(Map.assign({}, {a = true}, {b = true}), {a = true, b = true})

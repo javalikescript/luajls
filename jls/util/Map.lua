@@ -179,10 +179,16 @@ return require('jls.lang.class').create(function(map, _, Map)
   -- @tparam table ... The tables to get key-values from.
   -- @treturn table the target table.
   function Map.assign(target, ...)
-    local sources = {...}
-    for _, source in ipairs(sources) do
-      for key, sourceValue in pairs(source) do
-        target[key] = sourceValue
+    local l = select('#', ...)
+    if l > 0 then
+      local sources = {...}
+      for i = 1, l do
+        local source = sources[i]
+        if type(source) == 'table' then
+          for key, sourceValue in pairs(source) do
+            target[key] = sourceValue
+          end
+        end
       end
     end
     return target
