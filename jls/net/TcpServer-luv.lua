@@ -114,11 +114,12 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpServer, s
       end
       if logger:isLoggable(logger.FINER) then
         logger:finer('tcpServer:bind() '..tostring(node)..':'..tostring(port)..' => #'..tostring(#res))
-        --logger:finer('getaddrinfo '..require('jls.util.tables').stringify(res, 2))
       end
+      --logger:info('getaddrinfo(%s, %s) %s', node, port, require('jls.util.tables').stringify(res, 2))
       local ai = res[1]
       local bindErr
-      self.tcp, bindErr = self:bindThenListen(ai.addr, ai.port or port, backlog)
+      local p = port or ai.port or 0
+      self.tcp, bindErr = self:bindThenListen(ai.addr, p, backlog)
       if bindErr then
         if logger:isLoggable(logger.FINE) then
           logger:fine('tcpServer:bind() bindThenListen() in error, '..tostring(bindErr))
@@ -136,7 +137,13 @@ return require('jls.lang.class').create('jls.net.Tcp-luv', function(tcpServer, s
           end
         end
         if ai2 then
-          self.tcp2, bindErr = self:bindThenListen(ai2.addr, ai2.port or port, backlog)
+          if p == 0 then
+            local addr = self.tcp:getsockname()
+            if addr and addr.port then
+              p = addr.port
+            end
+          end
+          self.tcp2, bindErr = self:bindThenListen(ai2.addr, p, backlog)
           if bindErr then
             if logger:isLoggable(logger.FINE) then
               logger:warn('tcpServer:bind() second bindThenListen() in error, '..tostring(bindErr))
