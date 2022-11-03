@@ -344,7 +344,7 @@ return require('jls.lang.class').create(function(list, _, List)
   -- @tparam string value The string value to check.
   -- @treturn boolean true when the specified value is a Lua name.
   function List.isName(value)
-    if string.find(value, '^[%a_][%a%d_]*$') and indexOf(RESERVED_NAMES, value) == 0 then
+    if type(value) == 'string' and string.find(value, '^[%a_][%a%d_]*$') and indexOf(RESERVED_NAMES, value) == 0 then
       return true
     end
     return false

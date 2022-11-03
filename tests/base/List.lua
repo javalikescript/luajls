@@ -110,6 +110,8 @@ function Test_isName()
   lu.assertIsTrue(List.isName('B'))
   lu.assertIsFalse(List.isName('1_value'))
   lu.assertIsFalse(List.isName('and'))
+  lu.assertIsFalse(List.isName())
+  lu.assertIsFalse(List.isName(1))
 end
 
 function Test_contains()

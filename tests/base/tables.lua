@@ -200,9 +200,9 @@ function Test_getSchemaValue_simple()
   lu.assertNil(tables.getSchemaValue({type = 'object'}, 'String'))
 end
 
-local function assertSchemaValueTranslated(schema, value, expextedValue)
+local function assertSchemaValueTranslated(schema, value, expectedValue)
   lu.assertNil(tables.getSchemaValue(schema, value, false))
-  lu.assertEquals(getSchemaValueOrFail(schema, value, true), expextedValue)
+  lu.assertEquals(getSchemaValueOrFail(schema, value, true), expectedValue)
 end
 
 function Test_getSchemaValue_translated()
@@ -246,6 +246,47 @@ function Test_getSchemaValue_object()
   lu.assertEquals(getSchemaValueOrFail(schema, {}, true), {name = 'Def', count = 1, available = false})
 end
 
+function Test_getSchemaValue_allOf()
+  local s = {allOf = {
+    {type = 'string', minLength = 2},
+    {type = 'string', maxLength = 5},
+  }}
+  lu.assertEquals(getSchemaValueOrFail(s, 'good'), 'good')
+  lu.assertNil(tables.getSchemaValue(s, 's'))
+  lu.assertNil(tables.getSchemaValue(s, 'too long'))
+end
+
+function Test_getSchemaValue_anyOf()
+  local s = {anyOf = {
+    {type = 'string', minLength = 2, maxLength = 5},
+    {type = 'string', minLength = 6, maxLength = 12},
+    {type = 'string', minLength = 4, maxLength = 8},
+  }}
+  lu.assertEquals(getSchemaValueOrFail(s, 'short'), 'short')
+  lu.assertEquals(getSchemaValueOrFail(s, 'quite long'), 'quite long')
+  lu.assertNil(tables.getSchemaValue(s, 's'))
+  lu.assertNil(tables.getSchemaValue(s, 'too long long long'))
+end
+
+function Test_getSchemaValue_oneOf()
+  local s = {oneOf = {
+    {type = 'string', minLength = 2, maxLength = 5},
+    {type = 'string', minLength = 6, maxLength = 12},
+    {type = 'string', minLength = 4, maxLength = 8},
+  }}
+  lu.assertEquals(getSchemaValueOrFail(s, 'abc'), 'abc')
+  lu.assertEquals(getSchemaValueOrFail(s, 'enough long'), 'enough long')
+  lu.assertNil(tables.getSchemaValue(s, 's'))
+  lu.assertNil(tables.getSchemaValue(s, 'short'))
+  lu.assertNil(tables.getSchemaValue(s, 'too long long long'))
+end
+
+function Test_getSchemaValue_not()
+  local s = {type = 'string', ['not'] = {type = 'string', minLength = 2, maxLength = 5}}
+  lu.assertEquals(getSchemaValueOrFail(s, 's'), 's')
+  lu.assertEquals(getSchemaValueOrFail(s, 'enough long'), 'enough long')
+  lu.assertNil(tables.getSchemaValue(s, 'short'))
+end
 function Test_createArgumentTableWithCommas()
   local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
   local t = tables.createArgumentTable(arguments, {keepComma = true})

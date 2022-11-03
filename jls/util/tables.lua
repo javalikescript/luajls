@@ -66,7 +66,7 @@ function tables.stringify(value, space, lenient)
         -- The order in which the indices are enumerated is not specified
         for k, v in Map.spairs(value) do
           sb:append(subPrefix)
-          if type(k) == 'string' and List.isName(k) then
+          if List.isName(k) then
             sb:append(k)
           else
             sb:append('[')
@@ -557,6 +557,7 @@ local SCHEMA_ERRORS = {
   INVALID_STRING_PATTERN = 'Invalid string pattern value',
   INVALID_NUMBER_RANGE = 'Invalid number range value',
   INVALID_NUMBER_MULTIPLE = 'Invalid number multipleOf value',
+  UNMATCHED_COMPOSITION = 'Unmatched composition',
 }
 
 local function returnError(code, schema, value, path, tip)
@@ -586,13 +587,67 @@ local function isNearInteger(value)
 end
 
 local function getSchemaValue(schema, value, translateValues, onError, path)
+  -- TODO Support complex schema (definitions, $ref)
   if type(schema) ~= 'table' then
     return nil, onError('MISSING_SCHEMA', schema, value, path)
   end
-  -- TODO Support complex schema (definitions, $ref)
-  -- TODO Support schema composition (allOf, anyOf, oneOf, not)
   -- schema types: string, number, integer, object, array, boolean, null
   local schemaType = schema.type
+  -- schema composition (allOf, anyOf, oneOf, not)
+  -- TODO combine composition and current schema
+  if type(schema.allOf) == 'table' and next(schema.allOf) ~= nil then
+    local ofValue, err
+    for _, ofSchema in ipairs(schema.allOf) do
+      ofValue, err = getSchemaValue(ofSchema, value, translateValues, onError, path)
+      if err then
+        return nil, err
+      end
+    end
+    if schemaType == nil then
+      return ofValue
+    end
+  elseif type(schema.anyOf) == 'table' and next(schema.anyOf) ~= nil then
+    local ofValue, err
+    for _, ofSchema in ipairs(schema.anyOf) do
+      ofValue, err = getSchemaValue(ofSchema, value, translateValues, table.pack, path)
+      if not err then
+        break
+      end
+    end
+    if err then
+      return nil, onError(table.unpack(err))
+    elseif schemaType == nil then
+      return ofValue
+    end
+  elseif type(schema.oneOf) == 'table' and next(schema.oneOf) ~= nil then
+    local ofValue, err, v
+    local found = false
+    for _, ofSchema in ipairs(schema.oneOf) do
+      v, err = getSchemaValue(ofSchema, value, translateValues, table.pack, path)
+      if not err then
+        if found then
+          return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
+        end
+        found = true
+        ofValue = v
+      end
+    end
+    if found then
+      if schemaType == nil then
+        return ofValue
+      end
+    elseif err then
+      return nil, onError(table.unpack(err))
+    else
+      return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
+    end
+  end
+  if type(schema['not']) == 'table' then
+    local _, err = getSchemaValue(schema['not'], value, translateValues, table.pack, path)
+    if not err then
+      return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
+    end
+  end
   if type(schemaType) ~= 'string' then
     -- TODO support type list
     return nil, onError('INVALID_SCHEMA_TYPE', schema, value, path)
