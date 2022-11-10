@@ -287,6 +287,42 @@ function Test_getSchemaValue_not()
   lu.assertEquals(getSchemaValueOrFail(s, 'enough long'), 'enough long')
   lu.assertNil(tables.getSchemaValue(s, 'short'))
 end
+
+function Test_getSchemaValue_ref()
+  local schema = {
+    type = 'object',
+    properties = {
+      name = { ['$ref'] = '#/$defs/ref1' },
+      truc = { ['$ref'] = '#/$defs/ref2' },
+    },
+    ['$defs'] = {
+      ref1 = {
+        type = 'string',
+        default = 'Def'
+      },
+      ref2 = {
+        type = 'object',
+        properties = {
+          count = {
+            type = 'integer',
+            default = 1
+          },
+          available = {
+            type = 'boolean',
+            default = false
+          }
+        }
+      }
+    }
+  }
+  lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Bag', truc = {count = 3, available = true}}, true),
+    {name = 'Bag', truc = {count = 3, available = true}})
+  lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Tea', truc = {count = '2', available = 'false'}}, true),
+    {name = 'Tea', truc = {count = 2, available = false}})
+  lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Cup'}, true), {name = 'Cup', truc = {count = 1, available = false}})
+  lu.assertEquals(getSchemaValueOrFail(schema, {}, true), {name = 'Def', truc = {count = 1, available = false}})
+end
+
 function Test_createArgumentTableWithCommas()
   local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
   local t = tables.createArgumentTable(arguments, {keepComma = true})

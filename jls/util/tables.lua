@@ -493,6 +493,24 @@ end
 -- JSON Schema compatible with Lua table
 -- See also https://github.com/jdesgats/ljsonschema and https://github.com/api7/jsonschema
 
+local function unrefSchema(rootSchema, schema)
+  if type(schema) == 'table' then
+    if type(schema['$ref']) == 'string' then
+      local name = string.match(schema['$ref'], '^#/%$defs/(.+)$')
+      if name then
+        local defs = rootSchema['$defs']
+        if type(defs) == 'table' then
+          local ref = defs[name]
+          if ref then
+            return ref
+          end
+        end
+      end
+    end
+  end
+  return schema
+end
+
 local function getPathKeyAndSchema(schema, path, separator)
   local key, remainingPath = getPathKey(path, separator)
   local resultSchema
@@ -508,35 +526,49 @@ local function getPathKeyAndSchema(schema, path, separator)
   return key, resultSchema, remainingPath
 end
 
-function tables.getSchemaByPath(schema, path, separator)
-  local key, resultSchema, remainingPath = getPathKeyAndSchema(schema, path, separator)
+local function getSchemaByPath(rootSchema, schema, path, separator)
+  local urSchema = unrefSchema(rootSchema, schema)
+  local key, resultSchema, remainingPath = getPathKeyAndSchema(urSchema, path, separator)
   if remainingPath then
     if resultSchema then
-      return tables.getSchemaByPath(resultSchema, remainingPath, separator)
+      return getSchemaByPath(rootSchema, resultSchema, remainingPath, separator)
     end
   else
-    return resultSchema, schema, key
+    return resultSchema, urSchema, key
   end
 end
 
-local function mapSchemasByPath(schema, paths, path, separator)
+function tables.getSchemaByPath(schema, path, separator)
+  return getSchemaByPath(schema, schema, path, separator)
+end
+
+local function mapSchemasByPath(rootSchema, schema, paths, path, separator)
   local bp = path == '' and path or (path..separator)
+  schema = unrefSchema(rootSchema, schema)
+  local of = schema.allOf or schema.anyOf or schema.oneOf
+  if type(of) == 'table' then
+    for _, os in ipairs(of) do
+      if type(os) == 'table' then
+        mapSchemasByPath(rootSchema, os, paths, path, separator)
+      end
+    end
+  end
   if schema.type == 'object' and schema.properties then
     for k, s in pairs(schema.properties) do
       local p = bp..tostring(k)
-      mapSchemasByPath(s, paths, p, separator)
+      mapSchemasByPath(rootSchema, s, paths, p, separator)
     end
   elseif schema.type == 'array' and schema.items then
     local p = bp..'#'
-    mapSchemasByPath(schema.items, paths, p, separator)
-  else
+    mapSchemasByPath(rootSchema, schema.items, paths, p, separator)
+  elseif schema.type ~= nil then
     paths[path] = schema
   end
 end
 
 function tables.mapSchemasByPath(schema, path, separator)
   local paths = {}
-  mapSchemasByPath(schema, paths, path or '', separator or DEFAULT_PATH_SEPARATOR)
+  mapSchemasByPath(schema, schema, paths, path or '', separator or DEFAULT_PATH_SEPARATOR)
   return paths
 end
 
@@ -586,19 +618,18 @@ local function isNearInteger(value)
   return math.abs(value - math.floor(value + 0.5)) < 0.0000001
 end
 
-local function getSchemaValue(schema, value, translateValues, onError, path)
-  -- TODO Support complex schema (definitions, $ref)
+local function getSchemaValue(rootSchema, schema, value, translateValues, onError, path)
   if type(schema) ~= 'table' then
     return nil, onError('MISSING_SCHEMA', schema, value, path)
   end
+  schema = unrefSchema(rootSchema, schema)
   -- schema types: string, number, integer, object, array, boolean, null
   local schemaType = schema.type
   -- schema composition (allOf, anyOf, oneOf, not)
-  -- TODO combine composition and current schema
-  if type(schema.allOf) == 'table' and next(schema.allOf) ~= nil then
+  if type(schema.allOf) == 'table' then
     local ofValue, err
     for _, ofSchema in ipairs(schema.allOf) do
-      ofValue, err = getSchemaValue(ofSchema, value, translateValues, onError, path)
+      ofValue, err = getSchemaValue(rootSchema, ofSchema, value, translateValues, onError, path)
       if err then
         return nil, err
       end
@@ -606,10 +637,10 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
     if schemaType == nil then
       return ofValue
     end
-  elseif type(schema.anyOf) == 'table' and next(schema.anyOf) ~= nil then
+  elseif type(schema.anyOf) == 'table' then
     local ofValue, err
     for _, ofSchema in ipairs(schema.anyOf) do
-      ofValue, err = getSchemaValue(ofSchema, value, translateValues, table.pack, path)
+      ofValue, err = getSchemaValue(rootSchema, ofSchema, value, translateValues, table.pack, path)
       if not err then
         break
       end
@@ -619,11 +650,11 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
     elseif schemaType == nil then
       return ofValue
     end
-  elseif type(schema.oneOf) == 'table' and next(schema.oneOf) ~= nil then
+  elseif type(schema.oneOf) == 'table' then
     local ofValue, err, v
     local found = false
     for _, ofSchema in ipairs(schema.oneOf) do
-      v, err = getSchemaValue(ofSchema, value, translateValues, table.pack, path)
+      v, err = getSchemaValue(rootSchema, ofSchema, value, translateValues, table.pack, path)
       if not err then
         if found then
           return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
@@ -643,7 +674,7 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
     end
   end
   if type(schema['not']) == 'table' then
-    local _, err = getSchemaValue(schema['not'], value, translateValues, table.pack, path)
+    local _, err = getSchemaValue(rootSchema, schema['not'], value, translateValues, table.pack, path)
     if not err then
       return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
     end
@@ -704,7 +735,7 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
       local itemSchema = schema.items
       if itemSchema then
         for i, v in ipairs(value) do
-          local sv, err = getSchemaValue(itemSchema, v, true, onError, path..'['..tostring(i)..']')
+          local sv, err = getSchemaValue(rootSchema, itemSchema, v, true, onError, path..'['..tostring(i)..']')
           if err then
             return nil, err
           end
@@ -723,7 +754,7 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
             if path ~= '' then
               sp = path..'.'..sp
             end
-            local sv, err = getSchemaValue(propertySchema, v, true, onError, sp)
+            local sv, err = getSchemaValue(rootSchema, propertySchema, v, true, onError, sp)
             if err then
               return nil, err
             end
@@ -732,14 +763,15 @@ local function getSchemaValue(schema, value, translateValues, onError, path)
             t[k] = v
           end
         end
-        for k, propertySchema in pairs(propSchema) do
+        for k, ps in pairs(propSchema) do
           if value[k] == nil then
+            local propertySchema = unrefSchema(rootSchema, ps)
             if propertySchema.default ~= nil then
               t[k] = propertySchema.default
             elseif propertySchema.const ~= nil then
               t[k] = propertySchema.const
             elseif propertySchema.type == 'object' then
-              t[k] = getSchemaValue(propertySchema, {}, true, returnNil, path)
+              t[k] = getSchemaValue(rootSchema, propertySchema, {}, true, returnNil, path)
             end
           end
         end
@@ -819,7 +851,7 @@ end
 -- the function is called with the arguments: code, schema, value, path.
 -- @return the value validated against the schema.
 function tables.getSchemaValue(schema, value, translateValues, onError)
-  return getSchemaValue(schema, value, translateValues, onError or returnError, '')
+  return getSchemaValue(schema, schema, value, translateValues, onError or returnError, '')
 end
 
 -- Command line argument parsing
