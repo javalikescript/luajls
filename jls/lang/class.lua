@@ -187,16 +187,28 @@ local function isInstance(class, instance)
   return isAssignableFrom(class, getClass(instance))
 end
 
+local MetatableKeys = {
+  __eq = 'equals',
+  __len = 'length',
+  __tostring = 'toString'
+}
+
 local ClassIndex = {
   new = newInstance,
   getName = getName,
   isAssignableFrom = isAssignableFrom,
   isInstance = isInstance
 }
-local ClassMetaTable = { __index = ClassIndex }
+
+local ClassMetaTable = {
+  __call = newInstance,
+  __index = ClassIndex
+}
 
 --[[--
 Implements the specified class by setting its prototype and class methods.
+The following methods are automatically set in the metatable:
+`equals` as `__eq`, `length` as `__len`, `toString` as `__tostring`.
 @param class The class to implement.
 @tparam[opt] function defineInstanceFn An optional function that will be called with the class prototype to implement
 @tparam[opt] function defineClassFn An optional function that will be called with the class
@@ -232,6 +244,13 @@ local function defineClass(class, defineInstanceFn, defineClassFn)
   if type(defineInstanceFn) == 'function' then
     -- prototype, superprototype, class, superclass
     defineInstanceFn(class.prototype, class.super and class.super.prototype, class, class.super)
+    -- decorate the class with well known methods
+    for key, name in pairs(MetatableKeys) do
+      local value = class.prototype[name]
+      if type(value) == 'function' then
+        class.metatable[key] = value
+      end
+    end
   end
   if type(defineClassFn) == 'function' then
     -- class, superclass
@@ -253,7 +272,7 @@ local function modifyInstance(instance, fn)
   if not class then
     error('No class found for the specified instance')
   end
-  return fn(instance, class.prototype)
+  fn(instance, class.prototype)
 end
 
 --[[--
@@ -287,7 +306,6 @@ local function createClass(super, defineInstanceFn, defineClassFn)
   -- create the class table with default fields
   local class = {
     metatable = {
-      --__tostring = toString,
       __index = prototype
     },
     prototype = prototype,
@@ -313,8 +331,6 @@ local function createClass(super, defineInstanceFn, defineClassFn)
     prototype.initialize = emptyFunction
     -- let the prototype have a clone function
     prototype.clone = cloneInstance
-    -- let the prototype have a toString function
-    --prototype.toString = emptyFunction
   end
   return defineClass(class, defineInstanceFn, defineClassFn)
 end

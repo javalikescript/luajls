@@ -141,6 +141,42 @@ local car = Car:new()
 print(Vehicle:isInstance(car)) -- prints true
 ```
 
+A `jls` module is provided to automatically load jls modules.
+
+```lua
+local jls = require('jls')
+print(jls.lang.system.currentTimeMillis()) -- prints the current time in ms
+```
+
+The class can be called directly to create a new instance.
+
+A class can implement:
+
+* an _equals_ method that will be called to test equality using `==`,
+* a _length_ method that will be called for the length operator `#`,
+* a _toString_ method that will be called by `tostring`.
+
+```lua
+local class = require('jls.lang.class')
+local Person = class.create(function(person)
+  function person:initialize(name)
+    self.name = name
+  end
+  function person:equals(p)
+    return self.name == p.name
+  end
+  function person:length()
+    return #self.name
+  end
+  function person:toString()
+    return self.name
+  end
+end)
+local luke = Person('Luke')
+print(luke, #luke, luke == Person('Luke')) -- prints 'Luke 4 true'
+```
+
+
 ## Concurrent Programming
 
 ## Event Loop
