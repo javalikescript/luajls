@@ -1,9 +1,7 @@
 local lu = require('luaunit')
 
-local logger = require('jls.lang.logger')
-logger:setLevel(logger.LEVEL.FINEST)
-
 local Promise = require('jls.lang.Promise')
+--require('jls.lang.logger'):setLevel('FINE')
 
 local function createFunction(f)
   local calls = {}
@@ -210,7 +208,8 @@ function Test_then_error()
   local onFulfilledCalls, onRejectedCalls = nextPromise(np)
   deferred.resolve()
   assertThenResolution(onFulfilledCalls, onRejectedCalls, function(result)
-    lu.assertNotNil(string.find(result, err, 1, true))
+    lu.assertNotNil(string.find(tostring(result), err, 1, true))
+    lu.assertEquals(result:getMessage(), err)
   end, true)
 end
 
@@ -431,6 +430,52 @@ function Test_next_reject_next_catch_chained()
   deferred.resolve()
   lu.assertEquals(reason, 'Houla')
   lu.assertTrue(ok)
+end
+
+function Test_finally()
+  local result
+  local function return3()
+    return 3
+  end
+  local function captureResult(value)
+    result = value
+  end
+  Promise.resolve(2):next(return3, return3):next(captureResult)
+  lu.assertEquals(result, 3)
+  Promise.resolve(2):finally(return3):next(captureResult)
+  lu.assertEquals(result, 2)
+  result = nil
+  Promise.reject(2):next(return3, return3):next(captureResult)
+  lu.assertEquals(result, 3)
+  Promise.reject(2):finally(return3):catch(captureResult)
+  lu.assertEquals(result, 2)
+  result = nil
+  Promise.resolve(2):finally(function()
+    return Promise.reject(3)
+  end):catch(captureResult)
+  lu.assertEquals(result, 3)
+  result = nil
+  Promise.resolve(2):finally(function()
+    error(3)
+  end):catch(captureResult)
+  lu.assertNotNil(result)
+  lu.assertEquals(result:getMessage(), 3)
+end
+
+function Test_uncaucht()
+  local unaucht
+  Promise.onUncaughtError(function(e)
+    unaucht = e
+  end)
+  do
+    Promise.resolve(2):next(function()
+      error('Houla', 0)
+    end)
+  end
+  collectgarbage('collect')
+  lu.assertNotNil(unaucht)
+  lu.assertEquals(unaucht:getMessage(), 'Houla')
+  Promise.onUncaughtError()
 end
 
 os.exit(lu.LuaUnit.run())

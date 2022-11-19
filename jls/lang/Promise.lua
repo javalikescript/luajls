@@ -6,12 +6,26 @@
 local PENDING = 0
 local FULFILLED = 1
 local REJECTED = 2
+local ERROR = 3
 
 local NO_VALUE = {}
 
-local protectedCallRequired, protectedCall = pcall(require, 'jls.lang.protectedCall')
-if not protectedCallRequired then
-  protectedCall = pcall
+local protectedCall = pcall
+local onUncaughtError = print
+
+local ERROR_METATABLE = {
+  __gc = function(e)
+    if type(e) == 'table' and e.uncaught == true then
+      onUncaughtError(e.message)
+    end
+  end
+}
+
+local function wrapError(message)
+  return setmetatable({
+    message = message,
+    uncaught = true
+  }, ERROR_METATABLE)
 end
 
 local applyPromiseHandler
@@ -33,22 +47,28 @@ end
 
 applyPromiseHandler = function(promise, handler)
   local status, result = true, NO_VALUE
-  if promise._state == FULFILLED then
+  local state = promise._state
+  if state == FULFILLED then
     if type(handler.onFulfilled) == 'function' then
       status, result = protectedCall(handler.onFulfilled, promise._result)
     end
-  elseif promise._state == REJECTED then
+  elseif state == REJECTED then
     if type(handler.onRejected) == 'function' then
       status, result = protectedCall(handler.onRejected, promise._result)
     end
+  elseif state == ERROR then
+    if type(handler.onRejected) == 'function' then
+      promise._result.uncaught = false
+      status, result = protectedCall(handler.onRejected, promise._result.message)
+    end
   else
-    error('Invalid promise state ('..tostring(promise._state)..')')
+    error('Invalid promise state ('..tostring(state)..')')
   end
   if status then
     if result == NO_VALUE then
       -- If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1
       -- If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1
-      applyPromise(handler.promise, promise._result, promise._state)
+      applyPromise(handler.promise, promise._result, state)
     elseif result == promise then
       applyPromise(handler.promise, 'Invalid promise result', REJECTED)
     elseif isPromise(result) then
@@ -68,7 +88,7 @@ applyPromiseHandler = function(promise, handler)
     end
   else
     -- If either onFulfilled or onRejected throws an exception e, promise2 must be rejected with e as the reason.
-    applyPromise(handler.promise, result, REJECTED)
+    applyPromise(handler.promise, wrapError(result), ERROR)
   end
 end
 
@@ -96,7 +116,7 @@ return require('jls.lang.class').create(function(promise, _, Promise)
 --[[--
 Creates a promise.
 @function Promise:new
-@param executor A function that is passed with the arguments resolve and reject.
+@tparam function executor A function that is passed with the arguments resolve and reject.
 @usage
 Promise:new(function(resolve, reject)
   -- call resolve(value) or reject(reason)
@@ -120,9 +140,9 @@ If onFulfilled or onRejected throws an error, or returns a Promise which
 rejects, then returns a rejected Promise.
 If onFulfilled or onRejected returns a Promise which resolves,
 or returns any other value, then returns a resolved Promise.
-@param onFulfilled A Function called when the Promise is fulfilled.
+@tparam function onFulfilled A Function called when the Promise is fulfilled.
  This function has one argument, the fulfillment value.
-@param onRejected A Function called when the Promise is rejected.
+@tparam[opt] function onRejected A Function called when the Promise is rejected.
  This function has one argument, the rejection reason.
 @return A new promise.
 ]]
@@ -148,7 +168,7 @@ end
 -- promise resolving to the return value of the callback if it is called,
 -- or to its original fulfillment value if the promise is instead fulfilled.
 --
--- @param onRejected A Function called when the Promise is rejected.
+-- @tparam function onRejected A Function called when the Promise is rejected.
 -- @return A new promise.
 function promise:catch(onRejected)
   return self:next(nil, onRejected)
@@ -158,9 +178,33 @@ function promise:done(onFulfilled)
   return self:next(onFulfilled, nil)
 end
 
+--- Appends a handler callback to the promise for both fulfillment and rejection,
+-- and returns an equivalent of the original promise.
+-- In case of error or returning a rejected promise in the finally callback will reject the returned promise.
+--
+-- @tparam function onFinally A Function called when the Promise is either fulfilled or rejected.
+-- @return A new promise.
 function promise:finally(onFinally)
-  -- TODO onFinally shall not receive any argument
-  return self:next(onFinally, onFinally)
+  -- finally call will usually chain through an equivalent to the original promise
+  -- onFinally shall not receive any argument
+  -- throw (or returning a rejected promise) in the finally callback will reject the returned promise
+  return self:next(function(value)
+    local result = onFinally()
+    if isPromise(result) then
+      return result:next(function()
+        return value
+      end)
+    end
+    return value
+  end, function(reason)
+    local result = onFinally()
+    if isPromise(result) then
+      return result:next(function()
+        return Promise.reject(reason)
+      end)
+    end
+    return Promise.reject(reason)
+  end)
 end
 
 
@@ -294,7 +338,7 @@ end
 -- promises in the iterable fulfills or rejects, with the value or reason
 -- from that promise.
 --
--- @param promises The promises.
+-- @tparam table promises The promises list.
 -- @return A promise.
 function Promise.race(promises)
   local ps, resolve, reject = Promise.createWithCallbacks()
@@ -364,5 +408,28 @@ end
 -- @treturn boolean true if the specified value is a promise.
 -- @function Promise.isPromise
 Promise.isPromise = isPromise
+
+function Promise.setProtectedCall(value)
+  protectedCall = value or pcall
+end
+
+function Promise.onUncaughtError(value)
+  onUncaughtError = value or print
+end
+
+do
+  local status, Exception = pcall(require, 'jls.lang.Exception')
+  if status then
+    Promise.setProtectedCall(Exception.pcall)
+  end
+end
+do
+  local status, logger = pcall(require, 'jls.lang.logger')
+  if status then
+    Promise.onUncaughtError(function(e)
+      logger:warn('Uncaught promise error: %s', e)
+    end)
+  end
+end
 
 end)
