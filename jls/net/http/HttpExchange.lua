@@ -3,8 +3,8 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
+local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
-local protectedCall = require('jls.lang.protectedCall')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpRequest = require('jls.net.http.HttpRequest')
@@ -149,19 +149,21 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       logger:finer('httpExchange:handleRequest() "'..self.request:getTarget()..'"')
     end
     self.context = context
-    local status, result = protectedCall(context.handleExchange, context, self)
+    local status, result = Exception.pcall(context.handleExchange, context, self)
     if status then
       -- always return a promise
       if Promise:isInstance(result) then
         return result:catch(function(reason)
-          logger:warn('HttpExchange error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(reason)..'"')
+          if logger:isLoggable(logger.WARN) then
+            logger:warn('HttpExchange error while handling promise "%s", due to %s', self:getRequest():getTarget(), reason:toString(true))
+          end
           self:resetResponseToError(reason)
         end)
       end
       return Promise.resolve()
     end
     if logger:isLoggable(logger.WARN) then
-      logger:warn('HttpExchange error while handling "'..self:getRequest():getTarget()..'", due to "'..tostring(result)..'"')
+      logger:warn('HttpExchange error while handling "%s", due to %s', self:getRequest():getTarget(), result:toString(true))
     end
     self:resetResponseToError(result)
     return Promise.resolve()

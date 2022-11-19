@@ -16,7 +16,7 @@ end)
 ]]
 
 local Promise = require('jls.lang.Promise')
-local protectedCall = require('jls.lang.protectedCall')
+local Exception = require('jls.lang.Exception')
 
 --- A HttpHandler class.
 -- The handler is called when the request headers are available.
@@ -73,7 +73,7 @@ end, function(HttpHandler)
         cb()
       end
     end
-    local status, result = protectedCall(handler.handle, handler, exchange)
+    local status, result = Exception.pcall(handler.handle, handler, exchange)
     if status then
       if Promise:isInstance(result) then
         result:next(checkCondition, function(reason)

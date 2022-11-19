@@ -5,7 +5,7 @@
 
 local logger = require('jls.lang.logger')
 local CoroutineScheduler = require('jls.util.CoroutineScheduler')
-local protectedCall = require('jls.lang.protectedCall')
+local Exception = require('jls.lang.Exception')
 
 local TASK_DELAY_MS = os.getenv('JLS_EVENT_TASK_DELAY_MS')
 TASK_DELAY_MS = TASK_DELAY_MS and tonumber(TASK_DELAY_MS) or 500
@@ -34,11 +34,9 @@ return require('jls.lang.class').create(function(event)
   function event:setTimeout(callback, delayMs, ...)
     local args = table.pack(...)
     return self.scheduler:schedule(function()
-      local status, err = protectedCall(callback, table.unpack(args, 1, args.n))
+      local status, err = Exception.pcall(callback, table.unpack(args, 1, args.n))
       if not status then
-        if logger:isLoggable(logger.WARN) then
-          logger:warn('event:setTimeout() callback in error "'..tostring(err)..'"')
-        end
+        logger:warn('event:setTimeout() callback in error "%s"', err)
       end
     end, false, delayMs or 0) -- as opaque timer id
   end
@@ -65,11 +63,9 @@ return require('jls.lang.class').create(function(event)
     local args = table.pack(...)
     return self.scheduler:schedule(function(at)
       while true do
-        local status, err = protectedCall(callback, table.unpack(args, 1, args.n))
+        local status, err = Exception.pcall(callback, table.unpack(args, 1, args.n))
         if not status then
-          if logger:isLoggable(logger.WARN) then
-            logger:warn('event:setInterval() callback in error "'..tostring(err)..'"')
-          end
+          logger:warn('event:setInterval() callback in error "%s"', err)
         end
         at = coroutine.yield(at + delayMs)
       end
@@ -95,26 +91,20 @@ return require('jls.lang.class').create(function(event)
   -- @tparam[opt] number delayMs The time, in milliseconds, the timer should wait between two executions.
   -- @return An opaque value identifying the timer that can be used to cancel it.
   function event:setTask(callback, delayMs)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('event:setTask('..tostring(callback)..', '..tostring(delayMs)..')')
-    end
+    logger:debug('event:setTask(%s, %s)', callback, delayMs)
     if type(delayMs) ~= 'number' then
       delayMs = TASK_DELAY_MS
     end
     return self.scheduler:schedule(function(_, _, timeout)
       while true do
-        local status, result = protectedCall(callback, timeout)
+        local status, result = Exception.pcall(callback, timeout)
         if status then
           if not result then
-            if logger:isLoggable(logger.DEBUG) then
-              logger:debug('event:setTask() callback ends')
-            end
+            logger:debug('event:setTask() callback ends')
             break
           end
         else
-          if logger:isLoggable(logger.WARN) then
-            logger:warn('event:setTask() callback in error "'..result..'"')
-          end
+          logger:warn('event:setTask() callback in error "%s"', result)
           break
         end
         _, _, timeout = coroutine.yield(delayMs)

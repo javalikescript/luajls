@@ -2,7 +2,7 @@
 -- @module jls.util.EventPublisher
 
 local logger = require('jls.lang.logger')
-local protectedCall = require('jls.lang.protectedCall')
+local Exception = require('jls.lang.Exception')
 local List = require('jls.util.List')
 local tables = require('jls.util.tables')
 
@@ -117,20 +117,17 @@ return require('jls.lang.class').create(function(eventPublisher)
     local handlers = self.eventHandlers[name]
     if handlers then
       for _, handler in ipairs(handlers) do
-        local status, err = protectedCall(handler, ...)
+        local status, err = Exception.pcall(handler, ...)
         if not status then
           if name == 'error' or not self:publishEvent('error', err, name) then
-            logger:warn('An error occurs when handling event "'..tostring(name)..'" with handler '..tostring(handler)..': '..tostring(err))
+            logger:fine('An error occurred when handling event "%s" with handler %s: %s', name, handler, err)
             error(err)
           end
         end
       end
       return true
-    else
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('No handler for event "'..tostring(name)..'"')
-      end
     end
+    logger:finer('No handler for event "%s"', name)
     return false
   end
 

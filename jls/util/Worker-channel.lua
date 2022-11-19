@@ -2,7 +2,7 @@ local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 local event = require('jls.lang.event')
-local protectedCall = require('jls.lang.protectedCall')
+local Exception = require('jls.lang.Exception')
 local Thread = require('jls.lang.Thread')
 local Channel = require('jls.util.Channel')
 local json = require('jls.util.json')
@@ -62,11 +62,11 @@ return class.create(function(worker, _, Worker)
     local fn, err = load(chunk, nil, 'b')
     if fn then
       local data = jsonData and json.decode(jsonData) -- TODO protect
-      local status, reason = protectedCall(fn, Worker:new(nil, nil, nil, channel), data)
+      local status, e = Exception.pcall(fn, Worker:new(nil, nil, nil, channel), data)
       if status then
         logger:finer('Worker initialized')
       else
-        local message = 'Worker initialization failure, "'..tostring(reason)..'"'
+        local message = 'Worker initialization failure, "'..tostring(e)..'"'
         logger:fine(message)
         channel:writeMessage(message, MT_ERROR)
       end

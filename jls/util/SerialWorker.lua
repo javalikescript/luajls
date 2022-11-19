@@ -14,7 +14,7 @@ serialWorker:close()
 ]]
 
 local function initWorker(w)
-  local protectedCall = require('jls.lang.protectedCall')
+  local Exception = require('jls.lang.Exception')
   local json = require('jls.util.json')
   local StreamHandler = require('jls.io.StreamHandler')
   local lastFn
@@ -44,7 +44,7 @@ local function initWorker(w)
         end
       end)
     end
-    local status, result, reason = protectedCall(fn, data, sh)
+    local status, result, reason = Exception.pcall(fn, data, sh)
     flags = 0
     if status then
       if not result and reason then
@@ -52,6 +52,10 @@ local function initWorker(w)
         flags = 2
       end
     else
+      if getmetatable(result) then
+        -- TODO Should we preserve the exception?
+        result = tostring(result)
+      end
       flags = 2
     end
     if type(result) ~= 'string' then

@@ -1,4 +1,3 @@
-require('jls.lang.protectedCallLog')
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')

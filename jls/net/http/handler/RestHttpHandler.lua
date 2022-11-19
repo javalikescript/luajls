@@ -4,7 +4,7 @@
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local protectedCall = require('jls.lang.protectedCall')
+local Exception = require('jls.lang.Exception')
 local json = require('jls.util.json')
 local strings = require('jls.util.strings')
 local HttpMessage = require('jls.net.http.HttpMessage')
@@ -79,7 +79,7 @@ local function prepareHandlers(handlers)
       preparedHandlers[path] = infos[1].handler
     else
       if logger:isLoggable(logger.FINER) then
-        logger:finer('REST path "'..tostring(path)..'" prepared with '..tostring(#infos)..' handlers')
+        logger:finer('REST path "%s" prepared with %s handlers', path, #infos)
       end
       -- TODO Sort infos by info.order if available
       preparedHandlers[path] = function(exchange, ...)
@@ -220,7 +220,7 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
 
   function restHttpHandler:handleNow(exchange)
     local path = exchange:getRequestPath()
-    local status, result = protectedCall(restPart, self.handlers, exchange, path)
+    local status, result = Exception.pcall(restPart, self.handlers, exchange, path)
     if status then
       if Promise.isPromise(result) then
         return result:next(function(r)
@@ -230,9 +230,7 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
       end
       processRestResponse(exchange, result)
     else
-      if logger:isLoggable(logger.WARN) then
-        logger:warn('REST handler error "'..tostring(result)..'"')
-      end
+      logger:warn('REST handler error: %s', result)
       HttpExchange.internalServerError(exchange)
     end
   end

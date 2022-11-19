@@ -7,7 +7,7 @@ local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local List = require('jls.util.List')
 local Date = require('jls.util.Date')
-local protectedCall = require('jls.lang.protectedCall')
+local Exception = require('jls.lang.Exception')
 
 
 --- The Schedule class.
@@ -369,11 +369,11 @@ local Scheduler = class.create(function(scheduler)
   end
 
   function scheduler:onError(err)
-    logger:warn('Scheduled failed due to "'..tostring(err)..'"')
+    logger:warn('Scheduled failed due to %s', err)
   end
 
   function scheduler:runScheduleAt(t, date)
-    local status, err = protectedCall(function ()
+    local status, err = Exception.pcall(function ()
       t.fn(date:getTime())
     end)
     if not status then
