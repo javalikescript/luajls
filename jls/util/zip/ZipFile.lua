@@ -1,6 +1,9 @@
 --- Provide ZIP file utility.
 -- ZIP files are archives that allow to store and compress multiple files.
--- Note that CRC32 is not computed nor verified.
+-- The goal is to provide a minimal implementation compatible with the ZIP format.
+-- The file storage methods are deflated and stored.
+-- The encryption and multiple volumes features are not supported.
+-- Note that CRC32 is not verified.
 -- @module jls.util.zip.ZipFile
 
 local class = require('jls.lang.class')
@@ -13,7 +16,7 @@ local Inflater = require('jls.util.zip.Inflater')
 local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
 local Struct = require('jls.util.Struct')
-local md = require('jls.util.MessageDigest'):new('Crc32')
+local MessageDigest = require('jls.util.MessageDigest')
 local inflateStream = require('jls.util.cd.deflate').decodeStream -- Inflater.inflateStream
 
 
@@ -377,39 +380,74 @@ return class.create(function(zipFile, _, ZipFile)
     return self.entries
   end
 
+  local function readFileBlocks(file, md, deflater, blockSize)
+    blockSize = blockSize or 1024
+    local fd, err = FileDescriptor.openSync(file)
+    if not fd then
+      return nil, err
+    end
+    local blocks = {}
+    local data
+    local size = 0
+    local dsize = 0
+    while true do
+      data, err = fd:readSync(blockSize)
+      if err then
+        fd:closeSync()
+        return nil, err
+      elseif data then
+        size = size + #data
+        if md then
+          md:update(data)
+        end
+        if deflater then
+          data = deflater:deflate(data)
+          dsize = dsize + #data
+        end
+        table.insert(blocks, data)
+      else
+        if deflater then
+          data = deflater:finish()
+          dsize = dsize + #data
+          table.insert(blocks, data)
+        else
+          dsize = size
+        end
+        break
+      end
+    end
+    fd:closeSync()
+    return blocks, size, dsize
+  end
+
   function zipFile:addFile(file, name, comment, extra)
     local f = File.asFile(file)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('zipFile:addFile("'..f:getName()..'", "'..tostring(name)..'")')
+      logger:finer('zipFile:addFile("%s", "%s")', f:getName(), name)
     end
     local date = Date:new(f:lastModified())
     local lastModFileDate = (math.max(date:getYear() - 1980, 0) << 9) | ((date:getMonth()) << 5) | date:getDay()
     local lastModFileTime = (date:getHours() << 11) | (date:getMinutes() << 5) | (date:getSeconds() // 2)
     name = name or f:getName()
-    local rawContent
+    local uncompressedSize = f:length()
+    local compressedSize = 0
+    local crc32 = 0
+    local method = ZipFile.CONSTANT.COMPRESSION_METHOD_STORED
+    local blocks = {}
     if f:isDirectory() then
-      rawContent = ''
       name = name..'/'
-    else
-      rawContent = f:readAll()
+    elseif uncompressedSize > 0 then
+      local md = MessageDigest:new('Crc32')
+      local d
+      if uncompressedSize > 200 then
+        method = ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED
+        d = Deflater:new(nil, -15)
+      end
+      blocks, uncompressedSize, compressedSize = readFileBlocks(f, md, d, 4096)
+      crc32 = md:finish()
+      logger:finer('crc32 for "%s" is %d', name, crc32)
     end
     local entry = ZipEntry:new(name, comment, extra)
-    local uncompressedSize = #rawContent
-    local method = ZipFile.CONSTANT.COMPRESSION_METHOD_STORED
-    if uncompressedSize > 200 then
-      method = ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED
-      local deflater = Deflater:new(nil, -15)
-      rawContent = deflater:deflate(rawContent, 'finish')
-    end
-    local compressedSize = #rawContent
-    local crc32 = 0
-    if false and compressedSize > 0 then
-      -- The 'magic number' for the CRC is 0xdebb20e3. The proper CRC pre and post conditioning is used, meaning that the CRC register is pre-conditioned with all ones (a starting value of 0xffffffff) and the value is post-conditioned by taking the one's complement of the CRC residual.
-      crc32 = md:digest(rawContent)
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('crc32 is '..tostring(crc32))
-      end
-    end
     extra = extra or ''
     local localFileHeader = {
       signature = ZipFile.CONSTANT.LOCAL_FILE_HEADER_SIGNATURE,
@@ -435,7 +473,7 @@ return class.create(function(zipFile, _, ZipFile)
       self.fd:writeSync(extra)
     end
     if compressedSize > 0 then
-      self.fd:writeSync(rawContent)
+      self.fd:writeSync(blocks)
     end
     self.offset = self.offset + ZipFile.STRUCT.LocalFileHeader:getSize() + #name + #extra + compressedSize
     table.insert(self.entries, entry)
@@ -581,7 +619,7 @@ return class.create(function(zipFile, _, ZipFile)
   -- @treturn string the entry content
   function zipFile:getContent(entry, stream, async)
     if logger:isLoggable(logger.FINE) then
-      logger:fine('getContent("'..entry:getName()..'")')
+      logger:fine('getContent("%s")', entry:getName())
     end
     if not stream then
       return self:getContentSync(entry)
@@ -620,9 +658,9 @@ return class.create(function(zipFile, _, ZipFile)
     newRemoveRoot = newRemoveRootFileName
   }
 
-  function ZipFile.unzipTo(file, directory, adaptFileName)
+  function ZipFile.unzipToSync(file, directory, adaptFileName)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('ZipFile.unzipTo()')
+      logger:finer('ZipFile.unzipToSync()')
     end
     --local fil = File.asFile(file)
     local dir = File.asFile(directory)
@@ -656,7 +694,7 @@ return class.create(function(zipFile, _, ZipFile)
               break
             end
           end
-          local content = zFile:getContent(entry)
+          local content = zFile:getContentSync(entry)
           if content then
             entryFile:write(content)
           end
@@ -674,32 +712,83 @@ return class.create(function(zipFile, _, ZipFile)
     return not err, err
   end
 
-  local function addFiles(zFile, path, files)
+  local function asFiles(directoryOrFiles)
+    if type(directoryOrFiles) == 'string' then
+      return {File.asFile(directoryOrFiles)}
+    elseif File:isInstance(directoryOrFiles) then
+      if directoryOrFiles:isDirectory() then
+        return directoryOrFiles:listFiles()
+      else
+        return {directoryOrFiles}
+      end
+    elseif type(directoryOrFiles) == 'table' then
+      return directoryOrFiles
+    end
+    error('Invalid files')
+  end
+
+  local function forEachFiles(path, files, fn)
     for _, file in ipairs(files) do
       local name = path..file:getName()
-      zFile:addFile(file, name)
+      fn(file, name)
       if file:isDirectory() then
-        addFiles(zFile, name..'/', file:listFiles())
+        forEachFiles(name..'/', file:listFiles(), fn)
       end
     end
   end
 
-  function ZipFile.zipTo(file, directoryOrFiles, overwrite, path)
-    if type(directoryOrFiles) == 'string' then
-      directoryOrFiles = File.asFile(directoryOrFiles)
-    end
-    if File:isInstance(directoryOrFiles) then
-      if directoryOrFiles:isDirectory() then
-        return ZipFile.zipTo(file, directoryOrFiles:listFiles(), overwrite)
-      end
-      return ZipFile.zipTo(file, {directoryOrFiles}, overwrite)
-    end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('ZipFile.zipTo()')
-    end
+  function ZipFile.zipToSync(file, directoryOrFiles, overwrite, path)
+    logger:finer('ZipFile.zipToSync()')
     local zFile = ZipFile:new(file, true, overwrite)
-    addFiles(zFile, path or '', directoryOrFiles)
+    forEachFiles(path or '', asFiles(directoryOrFiles), function(f, name)
+      zFile:addFile(f, name)
+    end)
     zFile:close()
   end
+
+  local function requireDefer()
+    local event = require('jls.lang.event')
+    local Promise = require('jls.lang.Promise')
+    local Exception = require('jls.lang.Exception')
+    return function(fn, ...)
+      local args = table.pack(...)
+      return Promise:new(function(resolve, reject)
+        event:setTimeout(function()
+          if type(fn) == 'function' then
+            local status, err = Exception.pcall(fn, table.unpack(args, 1, args.n))
+            if status then
+              resolve()
+            else
+              reject(err)
+            end
+          else
+            resolve(fn)
+          end
+        end)
+      end)
+    end
+  end
+
+  function ZipFile.zipToAsync(file, directoryOrFiles, overwrite, path)
+    local defer = requireDefer()
+    logger:finer('ZipFile.zipToAsync()')
+    local zFile
+    local p = defer(function()
+      zFile = ZipFile:new(file, true, overwrite)
+    end)
+    forEachFiles(path or '', asFiles(directoryOrFiles), function(f, name)
+      p = p:next(function()
+        return defer(zFile.addFile, zFile, f, name)
+      end)
+    end)
+    p:finally(function()
+      zFile:close()
+    end)
+    return p
+  end
+
+  -- TODO Use async by default
+  ZipFile.zipTo = ZipFile.zipToSync
+  ZipFile.unzipTo = ZipFile.unzipToSync
 
 end)

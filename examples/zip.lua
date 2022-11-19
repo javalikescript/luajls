@@ -70,25 +70,19 @@ elseif options.action == 'list' then
     print(entry:getName(), entry:getDatetime():toString(), entry:getMethod(), entry:getCompressedSize(), entry:getSize())
   end
 elseif options.action == 'check' then
-  local md = require('jls.util.MessageDigest'):new('Crc32')
+  local MessageDigest = require('jls.util.MessageDigest')
+  local md = MessageDigest:new('Crc32')
   local zFile = ZipFile:new(options.file, false)
   local entries = zFile:getEntries()
+  print('Name', 'CRC', 'Check', 'Method', 'CompressedSize', 'Size')
   for _, entry in ipairs(entries) do
-    print(entry:getName(), entry:getCompressedSize())
-    if entry:getCompressedSize() > 0 then
-      local rawContent = assert(zFile:readRawContentAll(entry))
-      local crc32 = entry:getCrc32()
-      if crc32 ~= 0 then
-        local computedCrc32 = md:digest(rawContent)
-        if crc32 ~= computedCrc32 then
-          print(entry:getName(), 'Bad crc32 '..tostring(computedCrc32)..' expected '..tostring(crc32))
-        else
-          print(entry:getName(), 'Good crc32')
-        end
-      else
-        print(entry:getName(), 'No crc32')
-      end
+    local crc32 = entry:getCrc32()
+    local computedCrc32 = 0
+    if entry:getSize() > 0 and crc32 ~= 0 then
+      local rawContent = assert(zFile:getContentSync(entry))
+      computedCrc32 = md:digest(rawContent)
     end
+    print(entry:getName(), crc32, crc32 == computedCrc32 and 'ok' or computedCrc32, entry:getMethod(), entry:getCompressedSize(), entry:getSize())
   end
   zFile:close()
 end
