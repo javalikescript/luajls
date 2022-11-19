@@ -55,7 +55,7 @@ return require('jls.lang.class').create(function(path, _, Path)
   --local configurationPath = Path:new('work/configuration.json')
   --configurationPath:getName() -- returns 'configuration.json'
   function path:getName()
-    return string.gsub(self.npath, '^.*[/\\]', '', 1)
+    return (string.gsub(self.npath, '^.*[/\\]', '', 1))
   end
 
   function path:getExtension()

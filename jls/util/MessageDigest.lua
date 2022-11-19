@@ -42,8 +42,11 @@ return require('jls.lang.class').create(function(messageDigest)
   -- @tparam[opt] string m a message to update the digest.
   -- @treturn string the message digest result.
   function messageDigest:finish(m)
+    if not self.mdInstance then
+      self:reset()
+    end
     if m then
-      self:update(m)
+      self.mdInstance:update(m)
     end
     return self.mdInstance:final(true)
   end

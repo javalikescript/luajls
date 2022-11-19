@@ -80,48 +80,56 @@ local function defaultLogRecorder(logger, time, level, message)
 end
 local LOG_RECORD = defaultLogRecorder
 
-local function dumpToList(m, v, name, maxLevel, prefix, indent, level)
+local function dumpToList(l, v, name, maxLevel, prefix, indent, level)
   local tv = type(v)
   local pn = prefix..name..' (' .. tv .. ')'
   -- There are eight basic types in Lua: nil, boolean, number, string, userdata, function, thread, and table.
   if tv == 'string' then
-    table.insert(m, pn..': "'..v..'"')
+    table.insert(l, pn..': "'..v..'"')
   elseif tv == 'table' then
     local empty = next(v) == nil
     if empty then
-      table.insert(m, pn..': empty')
+      table.insert(l, pn..': empty')
     else
-      table.insert(m, pn..':')
+      table.insert(l, pn..':')
       if level < maxLevel then
         for k in pairs(v) do
-          dumpToList(m, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
+          dumpToList(l, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
         end
       else
-        table.insert(m, prefix..indent..'...')
+        table.insert(l, prefix..indent..'...')
       end
     end
   else
+    table.insert(l, pn..': '..tostring(v))
     local mt = getmetatable(v)
-    table.insert(m, pn..': '..tostring(v))
     if mt then
-      dumpToList(m, mt, 'metatable', maxLevel, prefix..indent, indent, level + 1)
+      dumpToList(l, mt, 'metatable', maxLevel, prefix..indent, indent, level + 1)
     end
   end
 end
 
 local function dumpToString(v, name, maxLevel, prefix, indent, level)
-  local m =  {}
-  dumpToList(m, v, name, maxLevel, prefix, indent, level)
-  return table.concat(m, LOG_EOL)
+  local l =  {}
+  dumpToList(l, v, name, maxLevel, prefix, indent, level)
+  return table.concat(l, LOG_EOL)
 end
 
 local function log(logger, level, message, ...)
-  if type(message) == 'string' then
-    if select('#', ...) > 0 then
-      message = string.format(message, ...)
-    end
+  if type(message) == 'string' and string.find(message, '%', 1, true) and select('#', ...) > 0 then
+    message = string.format(message, ...)
   else
-    message = dumpToString(message, 'value', 5, '', '  ', 0)
+    local args = table.pack(message, ...)
+    local l =  {}
+    for i = 1, args.n do
+      local v = args[i]
+      if type(v) == 'string' then
+        table.insert(l, v)
+      else
+        dumpToList(l, v, '#'..tostring(i), 5, '', '  ', 0)
+      end
+    end
+    message = table.concat(l, LOG_EOL)
   end
   LOG_RECORD(logger, os.time(), level, message)
 end
