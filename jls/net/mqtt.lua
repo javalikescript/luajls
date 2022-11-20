@@ -184,7 +184,6 @@ local MqttClientBase = class.create(function(mqttClientBase)
 
   function mqttClientBase:raiseError(reason)
     self:close(false)
-    self:onClose()
     self:onError(reason)
   end
 
