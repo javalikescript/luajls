@@ -12,12 +12,12 @@ function Test_set()
   m:set('a', true)
   m:set('b', 'A value')
   m:set('c', 1)
-  lu.assertEquals(m, {a = true, b = 'A value', c = 1})
+  lu.assertEquals(m.map, {a = true, b = 'A value', c = 1})
   lu.assertTrue(m:delete('b'))
   lu.assertFalse(m:delete('b'))
-  lu.assertEquals(m, {a = true, c = 1})
+  lu.assertEquals(m.map, {a = true, c = 1})
   m:clear()
-  lu.assertEquals(m, {})
+  lu.assertEquals(m.map, {})
 end
 
 function Test_get()
@@ -74,6 +74,13 @@ function Test_reverse()
   lu.assertEquals(Map.reverse({k1 = 'v1', k2 = 'v2'}), {v1 = 'k1', v2 = 'k2'})
   lu.assertEquals(Map.reverse({k = 'v'}), {v = 'k'})
   lu.assertEquals(Map.reverse({}), {})
+end
+
+function Test_collision()
+  local m = Map()
+  lu.assertNil(m:get('get'))
+  m:set('get', true)
+  lu.assertNotNil(m:get('get'))
 end
 
 os.exit(lu.LuaUnit.run())

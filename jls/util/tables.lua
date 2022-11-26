@@ -40,10 +40,10 @@ function tables.stringify(value, space, lenient)
     equal = ' = '
   end
   local stack = {}
-  local function stringify(value, prefix)
-    local valueType = type(value)
+  local function stringify(val, prefix)
+    local valueType = type(val)
     if valueType == 'table' then
-      if stack[value] then
+      if stack[val] then
         if lenient then
           sb:append('"_0_CYCLE"')
           return
@@ -51,20 +51,24 @@ function tables.stringify(value, space, lenient)
         --print('buffer:', sb:toString())
         error('cycle detected')
       end
-      stack[value] = true
+      stack[val] = true
       local subPrefix = prefix..indent
       sb:append('{', newline)
-      if List.isList(value) then
+      if List.isList(val) then
         -- it looks like a list
-        for _, v in ipairs(value) do
+        for _, v in ipairs(val) do
           sb:append(subPrefix)
           stringify(v, subPrefix)
           sb:append(',', newline)
         end
       else
+        local m = val
+        if Map:isInstance(val) then
+          m = val.map
+        end
         -- it looks like a map
         -- The order in which the indices are enumerated is not specified
-        for k, v in Map.spairs(value) do
+        for k, v in Map.spairs(m) do
           sb:append(subPrefix)
           if List.isName(k) then
             sb:append(k)
@@ -79,11 +83,11 @@ function tables.stringify(value, space, lenient)
         end
       end
       sb:append(prefix, '}')
-      stack[value] = nil
+      stack[val] = nil
     elseif valueType == 'string' then
-      sb:append(string.format('%q', value))
+      sb:append(string.format('%q', val))
     elseif valueType == 'number' or valueType == 'boolean' then
-      sb:append(tostring(value))
+      sb:append(tostring(val))
     else
       if lenient then
         sb:append(string.format('%q', valueType))

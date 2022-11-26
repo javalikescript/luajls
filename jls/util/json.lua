@@ -97,12 +97,18 @@ function json.stringify(value, space)
     if val == json.null then -- json.null could be a table or a userdata
       sb:append('null')
     elseif valueType == 'table' then
+      local isList, size
+      if Map:isInstance(val) then
+        isList, size = false, val:size()
+        val = val.map
+      else
+        isList, size = List.isList(val, true, false)
+      end
       if stack[val] then
         error('cycle detected')
       end
       stack[val] = true
       local subPrefix = prefix..indent
-      local isList, size = List.isList(val, true, false)
       if size == 0 then
         -- we cannot decide whether empty tables should be array or object
         -- cjson defaults empty tables to object
