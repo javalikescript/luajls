@@ -284,9 +284,10 @@ end, function(HttpExchange)
 
   --- Updates the response with the status code Internal Server Error, 500.
   -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  function HttpExchange.internalServerError(httpExchange)
+  -- @tparam[opt] string reasonPhrase the response reason phrase.
+  function HttpExchange.internalServerError(httpExchange, reasonPhrase)
     httpExchange:getResponse():setVersion(HTTP_CONST.VERSION_1_0)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR)
+    updateResponseFor(httpExchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, reasonPhrase)
   end
 
   function HttpExchange.response(httpExchange, statusCode, reasonPhrase, bodyContent)
