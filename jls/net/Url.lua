@@ -192,7 +192,7 @@ return require('jls.lang.class').create(function(url, _, Url)
     -- scheme:[//[username[:password]@]host[:port]][/path][?query][#fragment]
     local scheme, specificPart = string.match(sUrl, '^([%w][%w%+%.%-]*):(.*)$')
     if not scheme then
-      return nil
+      return nil, 'Invalid URL scheme ("'..sUrl..'")'
     end
     scheme = string.lower(scheme)
     if scheme == 'http' or scheme == 'https' or scheme == 'ws' or scheme == 'wss' then

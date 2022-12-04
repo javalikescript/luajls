@@ -147,7 +147,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     local chunkSize
     return function(self, buffer, length)
       if logger:isLoggable(logger.FINER) then
-        logger:finer('chunkFinder('..tostring(buffer and #buffer)..', '..tostring(length)..') chunk size: '..tostring(chunkSize))
+        logger:finer('chunkFinder(#%s, %s) chunk size: %s, needChunkSize: %s', buffer and #buffer, length, chunkSize, needChunkSize)
       end
       if needChunkSize then
         local ib, ie = string.find(buffer, '\r\n', 1, true)
@@ -164,10 +164,12 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
           if chunkSize then
             needChunkSize = false
           else
+            logger:fine('line is "%s"', chunkLine)
             self:onError('Invalid chunk size, line length is '..tostring(chunkLine and #chunkLine))
           end
           return -1, ie + 1
         elseif #buffer > 2 then
+          logger:fine('buffer is "%s"', buffer)
           self:onError('Chunk size not found, buffer length is '..tostring(#buffer))
         end
       else
@@ -177,7 +179,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
           end
           -- TODO consume trailer-part
           return -1, -1
-        elseif length >= chunkSize then
+        elseif length >= chunkSize + 2 then
           needChunkSize = true
           return chunkSize, chunkSize + 2
         end
