@@ -8,6 +8,7 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
+local ast = require('jls.util.ast')
 
 local function isDashModule(name)
   return string.find(name, '-[^.]*$')
@@ -117,6 +118,8 @@ local options = tables.createArgumentTable(system.getArguments(), {
   aliases = {
     h = 'help',
     ll = 'loglevel',
+    d = 'dir',
+    o = 'overwrite',
   },
   schema = {
     title = 'Lua package utility',
@@ -179,6 +182,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'boolean',
         default = false
       },
+      lf = {
+        title = 'Use Unix style end of line',
+        type = 'boolean',
+        default = false
+      },
       file = {
         title = 'The file to generate',
         type = 'string'
@@ -204,7 +212,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
 
 logger:setLevel(options.loglevel)
 
-local eol = system.lineSeparator
+local eol = options.lf and '\n' or system.lineSeparator
 local out = system.output
 
 if options.file then
@@ -246,7 +254,7 @@ local base
 if options.dir then
   local dir = File:new(options.dir)
   base = dir
-  if options.includedir then
+  if options.includeDir then
     base = dir:getParentFile()
   end
   if options.addPath then
@@ -336,8 +344,8 @@ elseif options.action == 'preload' then
     out:writeSync('package.preload["'..name..'"] = function()'..eol)
     --out:writeSync('package.preload["'..name..'"] = nil'..eol)
     if options.strip then
-      local parser = require('parser')
-      --parser()
+      local tree = ast.parse(module.content)
+      out:writeSync(ast.generate(tree))
     else
       out:writeSync(module.content)
     end
