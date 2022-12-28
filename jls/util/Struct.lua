@@ -53,6 +53,9 @@ return require('jls.lang.class').create(function(struct)
   -- @tparam[opt] boolean strict true to indicate that all the value are expected
   -- @treturn string the encoded values as a string.
   function struct:toString(t, strict)
+    if type(t) ~= 'table' then
+      return ''
+    end
     local values = {}
     for i, def in ipairs(self.struct) do
       local value = t[def.name]

@@ -187,6 +187,7 @@ local function isInstance(class, instance)
   return isAssignableFrom(class, getClass(instance))
 end
 
+-- The __len metamethod is available since Lua 5.2
 local MetatableKeys = {
   __eq = 'equals',
   __len = 'length',
