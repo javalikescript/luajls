@@ -245,6 +245,9 @@ return require('jls.lang.class').create(function(httpClient)
 
   function httpClient:sendRequest()
     logger:finer('httpClient:sendRequest()')
+    if not self.tcpClient then
+      error('Not connected')
+    end
     return sendRequest(self.tcpClient, self.request)
   end
 

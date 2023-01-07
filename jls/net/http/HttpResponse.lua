@@ -58,16 +58,17 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
   function httpResponse:setLine(line)
     self.line = line
     -- see https://tools.ietf.org/html/rfc7230#section-3.1.1
-    local index, _, version, statusCode, reasonPhrase = string.find(line, "(%S+)%s(%S+)%s(%S*)")
-    if index then
+    local version, statusCode, reasonPhrase = string.match(line, "^(HTTP/%d+%.%d+)%s(%d+)%s(.*)$")
+    if version then
       self.version = version
       self.statusCode = tonumber(statusCode)
       self.reasonPhrase = reasonPhrase
-    else
-      self.version = ''
-      self.statusCode = ''
-      self.reasonPhrase = ''
+      return true
     end
+    self.version = ''
+    self.statusCode = 0
+    self.reasonPhrase = ''
+    return false
   end
 
   function httpResponse:setContentType(value)

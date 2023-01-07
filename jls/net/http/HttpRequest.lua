@@ -2,12 +2,13 @@
 -- @module jls.net.http.HttpRequest
 -- @pragma nostrip
 
+local HttpMessage = require('jls.net.http.HttpMessage')
 local Date = require('jls.util.Date')
 
 --- The HttpRequest class represents an HTTP request.
 -- The HttpRequest class inherits from @{HttpMessage}.
 -- @type HttpRequest
-return require('jls.lang.class').create('jls.net.http.HttpMessage', function(httpRequest, super)
+return require('jls.lang.class').create(HttpMessage, function(httpRequest, super)
 
   --- Creates a new Request.
   -- @function HttpRequest:new
@@ -49,18 +50,19 @@ return require('jls.lang.class').create('jls.net.http.HttpMessage', function(htt
 
   function httpRequest:setLine(line)
     -- see https://tools.ietf.org/html/rfc7230#section-3.1.1
-    local method, target, version = string.match(line, "^(%S+)%s(%S+)%s(%S+)$")
+    local method, target, version = string.match(line, "^(%S+)%s(%S+)%s(HTTP/%d+%.%d+)$")
     if method then
       self.line = line
       self.method = string.upper(method)
       self.target = target
       self.version = version
-    else
-      self.line = ''
-      self.method = ''
-      self.target = ''
-      self.version = ''
+      return true
     end
+    self.line = ''
+    self.method = ''
+    self.target = ''
+    self.version = ''
+    return false
   end
 
   function httpRequest:getTargetPath()

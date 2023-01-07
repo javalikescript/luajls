@@ -10,6 +10,7 @@ local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
+local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local strings = require('jls.util.strings')
 
 --- The HttpMessage class represents the base class for request and response.
@@ -37,6 +38,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
   function httpMessage:setLine(value)
     self.line = value
+    return true
   end
 
   function httpMessage:getVersion()
@@ -134,11 +136,20 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:writeBodyCallback()
-    local body = self:getBody()
+    local data = self:getBody()
     local sh = self:getBodyStreamHandler()
-    if #body > 0 then
-      sh:onData(body)
+    if #data > 0 then
+      sh:onData(data)
     end
+    --[[
+      -- Avoid writing huge body
+      local BODY_BLOCK_SIZE = 1024*16
+      while #data > 0 do
+        local block = string.sub(data, 1, BODY_BLOCK_SIZE)
+        data = string.sub(data, BODY_BLOCK_SIZE + 1)
+        sh:onData(block)
+      end
+    ]]
     sh:onData()
   end
 
@@ -190,6 +201,11 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
   local function isRequest(message)
     return message and type(message.getMethod) == 'function'
+  end
+
+  function httpMessage:readHeader(client, buffer)
+    local hsh = HeaderStreamHandler:new(self)
+    return hsh:read(client, buffer)
   end
 
   function httpMessage:readBody(stream, buffer, callback)
@@ -320,6 +336,44 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   function httpMessage:close()
     self.bodyStreamHandler:close()
   end
+
+  local WritableBuffer = class.create(function(writableBuffer)
+    function writableBuffer:initialize()
+      self.buffer = StringBuffer:new()
+    end
+    function writableBuffer:write(data, callback)
+      local cb, d = Promise.ensureCallback(callback)
+      self.buffer:append(data)
+      if cb then
+        cb()
+      end
+      return d
+    end
+    function writableBuffer:getStringBuffer()
+      return self.buffer
+    end
+    function writableBuffer:getBuffer()
+      return self.buffer:toString()
+    end
+  end)
+
+  function HttpMessage.fromString(data, message)
+    if not message then
+      message = HttpMessage:new()
+    end
+    return message, message:readHeader(nil, data):next(function(remainingHeaderBuffer)
+      return message:readBody(nil, remainingHeaderBuffer)
+    end)
+  end
+
+  function HttpMessage.toString(message)
+    local stream = WritableBuffer:new()
+    message:writeHeaders(stream)
+    message:writeBody(stream)
+    return stream:getBuffer()
+  end
+
+  HttpMessage.WritableBuffer = WritableBuffer
 
   HttpMessage.CONST = {
 

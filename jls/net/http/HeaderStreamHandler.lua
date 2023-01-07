@@ -59,9 +59,8 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
     else
       if self.firstLine then
         self.firstLine = false
-        self.message:setLine(line)
-        if not string.find(self.message:getVersion(), '^HTTP/') then
-          self:onError('Bad HTTP request line (Invalid version in "'..line..'")', 400)
+        if not self.message:setLine(line) then
+          self:onError('Bad HTTP start line "'..line..'"', 400)
         end
       else
         if not self.message:parseHeaderLine(line) then
