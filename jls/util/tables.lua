@@ -24,6 +24,9 @@ end
 -- @tparam[opt] string space The indent value to use.
 -- @treturn string a string representing the specifed table value.
 function tables.stringify(value, space, lenient)
+  if value == nil then
+    return 'nil'
+  end
   local sb = StringBuffer:new()
   local indent = ''
   if type(space) == 'number' and space > 1 then
