@@ -109,7 +109,7 @@ return require('jls.lang.class').create(function(udpSocket)
     logger:debug('udpSocket:receiveStart(?)')
     local stream = StreamHandler.ensureStreamHandler(cb)
     if self.nds then
-      self.selector:register(self.nds, nil, stream)
+      self.selector:register(self.nds, nil, stream, nil, nil, true)
     else
       stream:onError('closed')
     end
@@ -139,11 +139,13 @@ return require('jls.lang.class').create(function(udpSocket)
   function udpSocket:close(callback)
     logger:debug('udpSocket:close()')
     local cb, d = Promise.ensureCallback(callback)
-    if self.nds then
-      self.nds:close()
-      self.nds = false
+    local nds = self.nds
+    self.nds = false
+    if nds then
+      self.selector:close(nds, cb)
+    else
+      cb()
     end
-    cb()
     return d
   end
 end)

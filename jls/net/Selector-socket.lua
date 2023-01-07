@@ -44,6 +44,7 @@ return require('jls.lang.class').create(function(selector)
     end
     if streamHandler then
       context.streamHandler = streamHandler
+      context.ip = ip
       computedMode = computedMode | MODE_RECV
     end
     if writeData and writeCallback then
@@ -198,9 +199,17 @@ return require('jls.lang.class').create(function(selector)
         else
           local size = context.streamHandler.bufferSize or BUFFER_SIZE
           logger:finest('selector:select() receiving '..tostring(size)..' on '..socketToString(socket))
-          local content, recvErr, partial = socket:receive(size)
+          local content, recvErr, partial, addr
+          if context.ip then
+            content, recvErr, partial = socket:receivefrom(size)
+            if content and recvErr and partial then
+              addr = {ip = recvErr, port = partial}
+            end
+          else
+            content, recvErr, partial = socket:receive(size)
+          end
           if content then
-            context.streamHandler:onData(content)
+            context.streamHandler:onData(content, addr)
           elseif recvErr then
             if logger:isLoggable(logger.FINER) then
               logger:finer('selector:select() receive error: "'..tostring(recvErr)..'", content #'
@@ -236,7 +245,7 @@ return require('jls.lang.class').create(function(selector)
         local wf = context.writet[1]
         if socket.sendto then
           local sendErr
-          if wf.port then
+          if wf.ip and wf.port then
             _, sendErr = socket:sendto(wf.buffer, wf.ip, wf.port)
           else
             _, sendErr = socket:send(wf.buffer)

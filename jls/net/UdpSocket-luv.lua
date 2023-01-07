@@ -102,7 +102,7 @@ return require('jls.lang.class').create(function(udpSocket)
   -- @param stream the stream reader, could be a function or a StreamHandler.
   -- @usage
   --local s = UdpSocket:new()
-  --s:receiveStart(function(err, data)
+  --s:receiveStart(function(err, data, addr)
   --  print('received', err, data)
   --end)
   function udpSocket:receiveStart(stream)
