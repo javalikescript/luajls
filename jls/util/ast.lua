@@ -19,7 +19,7 @@ local ast = {}
 -- @tparam string lua the Lua code to parse.
 -- @treturn table the AST representing the Lua.
 function ast.parse(lua)
-  return dumbParser.parse(lua)
+  return ast.traverse(dumbParser.parse(lua), ast.clean)
 end
 
 --- Returns the AST representing the specified Lua expression.
@@ -44,8 +44,8 @@ end
 -- @tparam function callback the callback function.
 -- @treturn table the AST.
 function ast.traverse(tree, callback)
-  return tree, dumbParser.traverseTree(tree, function(astNode, parent, container, key)
-    local action, newNode = callback(astNode)
+  return tree, dumbParser.traverseTree(tree, function(node, parent, container, key)
+    local action, newNode = callback(node)
     if type(action) == 'table' then
       container[key] = action
       action = nil
@@ -54,6 +54,13 @@ function ast.traverse(tree, callback)
     end
     return action
   end)
+end
+
+local TOKEN_FIELDS = {'id', 'sourceString', 'sourcePath', 'token', 'line', 'position'}
+function ast.clean(node)
+  for _, field in ipairs(TOKEN_FIELDS) do
+    node[field] = nil
+  end
 end
 
 return ast

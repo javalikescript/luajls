@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local ast = require("jls.util.ast")
+local ast = require('jls.util.ast')
 
 function Test_parse_generate()
   lu.assertEquals(ast.generate(ast.parse("local a = 2 // 2")), "local a=2//2;")
