@@ -35,8 +35,8 @@ end)
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
 
-local function onDataCallback(self, data)
-  return self.cb(nil, data)
+local function onDataCallback(self, ...)
+  return self.cb(nil, ...)
 end
 
 local function onErrorCallback(self, err)
@@ -68,8 +68,9 @@ local StreamHandler = class.create(function(streamHandler)
 
   --- The specified data is available for this stream.
   -- @param data the new data to process, nil to indicate the end of the stream.
+  -- @param ... the optional parameters
   -- @return an optional promise that will resolve when the data has been processed.
-  function streamHandler:onData(data)
+  function streamHandler:onData(data, ...)
   end
 
   --- The specified error occured on this stream.
@@ -88,11 +89,11 @@ local StreamHandler = class.create(function(streamHandler)
   -- @treturn function the callback function
   function streamHandler:toCallback()
     if not self.cb then
-      self.cb = function(err, data)
+      self.cb = function(err, ...)
         if err then
           self:onError(err)
         else
-          return self:onData(data)
+          return self:onData(...)
         end
       end
     end
@@ -125,8 +126,8 @@ StreamHandler.WrappedStreamHandler = class.create(StreamHandler, function(wrappe
     return self
   end
 
-  function wrappedStreamHandler:onData(data)
-    return self.handler:onData(data)
+  function wrappedStreamHandler:onData(...)
+    return self.handler:onData(...)
   end
 
   function wrappedStreamHandler:onError(err)
@@ -148,9 +149,9 @@ local BiStreamHandler = class.create(StreamHandler, function(biStreamHandler, su
     self.secondStream = StreamHandler.ensureStreamHandler(secondStream)
   end
 
-  function biStreamHandler:onData(data)
-    local fr = self.firstStream:onData(data)
-    local sr = self.secondStream:onData(data)
+  function biStreamHandler:onData(...)
+    local fr = self.firstStream:onData(...)
+    local sr = self.secondStream:onData(...)
     if fr or sr then
       local fp = Promise:isInstance(fr) and fr or nil
       local sp = Promise:isInstance(sr) and sr or nil
@@ -182,9 +183,9 @@ end)
 -- Do not propagate the end of stream
 local KeepStreamHandler = class.create(StreamHandler.WrappedStreamHandler, function(keepStreamHandler)
 
-  function keepStreamHandler:onData(data)
+  function keepStreamHandler:onData(data, ...)
     if data then
-      return self.handler:onData(data)
+      return self.handler:onData(data, ...)
     else
       self.handler = StreamHandler.null
     end
@@ -225,10 +226,10 @@ end
 -- @tparam StreamHandler sh the StreamHandler to fill.
 -- @tparam string data the data to process.
 -- @return an optional promise that will resolve when the data has been processed.
-function StreamHandler.fill(sh, data)
+function StreamHandler.fill(sh, data, ...)
   local r
   if data and #data > 0 then
-    r = sh:onData(data)
+    r = sh:onData(data, ...)
   end
   if Promise:isInstance(r) then
     return r:next(function()
