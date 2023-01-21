@@ -40,3 +40,6 @@ The luajls library provides abstraction interfaces for general-purpose scripting
 topics = "doc_topics"
 package = "jls"
 format = "markdown"
+custom_tags = {
+    {'experimental', title='Experimental Section'},
+}

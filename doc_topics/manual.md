@@ -10,7 +10,8 @@ It is presumed that the reader has a good knowledge of Lua, please consult the L
 
 luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.org/) applications.
 
-The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access. The modules support asynchronous I/O based on an event loop.
+The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access.
+The modules support asynchronous I/O based on an event loop.
 
 The modules expose an API to abstract the host platform and general purpose libraries such as _SSL_, _JSON_, _XML_, _ZIP_.
 The main targeted OSes are _Linux_ and _Windows_.
@@ -94,6 +95,13 @@ Network modules including TCP and UDP socket, HTTP, MQTT, WebSocket
 * _jls.util_
 Utility modules for List, Map, date and time, JSON and XML formats, deflate, ZIP file, worker and WebView
 
+A `jls` module is provided to automatically load jls modules.
+
+```lua
+local jls = require('jls')
+print(jls.lang.system.currentTimeMillis()) -- prints the current time in ms
+```
+
 
 ## Object-Oriented Programming
 
@@ -139,13 +147,6 @@ local Vehicle = class.create()
 local Car = class.create(Vehicle)
 local car = Car:new()
 print(Vehicle:isInstance(car)) -- prints true
-```
-
-A `jls` module is provided to automatically load jls modules.
-
-```lua
-local jls = require('jls')
-print(jls.lang.system.currentTimeMillis()) -- prints the current time in ms
 ```
 
 The class can be called directly to create a new instance.
@@ -280,12 +281,13 @@ require('jls.lang.event'):loop()
 ```
 
 A stream handler could be a simple callback function that will receive data or error.
+The function could also receive extra arguments in case of success.
 
 ```lua
 local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 
-local std = StreamHandler:new(function(err, data)
+local std = StreamHandler:new(function(err, data, ...)
   if err then
     io.stderr:write(err or 'Stream error')
   elseif data then
@@ -362,7 +364,8 @@ This section introduces the main classes to interact with the network.
 
 ### Transmission Control Protocol (TCP)
 
-The Transmission Control Protocol (TCP) is one of the main protocols of the Internet protocol suite.
+The Transmission Control Protocol (TCP) is a connection-oriented communication protocol part of the Internet Protocol (IP) suite.
+A connection between client and server is established before data can be sent.
 The connection will resolve the specified address.
 
 ```lua
@@ -398,6 +401,8 @@ require('jls.lang.event'):loop()
 
 ### User Datagram Protocol (UDP)
 
+The User Datagram Protocol (UDP) is a connectionless communication protocol part of the Internet Protocol (IP) suite.
+
 ```lua
 local UdpSocket = require('jls.net.UdpSocket')
 local host, port = '225.0.0.37', 12345
@@ -405,8 +410,8 @@ local receiver = UdpSocket:new()
 local sender = UdpSocket:new()
 receiver:bind('0.0.0.0', port, {reuseaddr = true})
 receiver:joinGroup(host, '0.0.0.0')
-receiver:receiveStart(function(err, data)
-  print('received data:', data)
+receiver:receiveStart(function(err, data, addr)
+  print('received data:', data, 'from:', addr.ip, addr.port)
   receiver:receiveStop()
   receiver:close()
 end)
