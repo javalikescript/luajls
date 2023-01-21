@@ -12,7 +12,8 @@ local xml = require("jls.util.xml")
 local StringBuffer = require('jls.lang.StringBuffer')
 
 local CONFIG_SCHEMA = {
-  title = 'SSDP Client and Server',
+  title = 'Simple Service Discovery Protocol (SSDP) Client and Server',
+  description = 'The client searches for device, description and presentation URL, the server exposes such device.',
   type = 'object',
   additionalProperties = false,
   properties = {
@@ -112,6 +113,7 @@ local ssdpAddress = config['ssdp-address']
 local ssdpPort = config['ssdp-port']
 
 if config.mode == 'client' then
+  print('Searching for presentation URL...')
   local request = HttpRequest:new()
   request:setMethod('M-SEARCH')
   request:setTarget('*')

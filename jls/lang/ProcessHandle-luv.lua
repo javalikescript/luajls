@@ -49,7 +49,7 @@ end, function(ProcessHandle)
 
   ProcessHandle.getExecutablePath = luvLib.exepath
 
-  ProcessHandle.build = function(processBuilder)
+  function ProcessHandle.build(processBuilder)
     local args = {}
     for _, v in ipairs(processBuilder.cmd) do
       table.insert(args, v)

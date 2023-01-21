@@ -470,16 +470,30 @@ if config.secure.enabled then
   httpSecureServer:setParentContextHolder(httpServer)
 end
 
+local function stopHttpServer()
+  logger:info('Closing HTTP server')
+  httpServer:close()
+  if httpSecureServer then
+    httpSecureServer:close()
+  end
+end
+
 httpServer:createContext('/STOP', function(exchange)
-  event:setTimeout(function()
-    logger:info('Closing HTTP server')
-    httpServer:close()
-    if httpSecureServer then
-      httpSecureServer:close()
-    end
-  end)
+  event:setTimeout(stopHttpServer)
   HttpExchange.ok(exchange)
 end)
+
+do
+  local hasLuv, luvLib = pcall(require, 'luv')
+  if hasLuv then
+    local signal = luvLib.new_signal()
+    luvLib.ref(signal)
+    luvLib.signal_start(signal, 'sigint', function()
+      luvLib.unref(signal)
+      stopHttpServer()
+    end)
+  end
+end
 
 event:loop()
 logger:info('HTTP server closed')
