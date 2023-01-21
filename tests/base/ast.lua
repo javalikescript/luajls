@@ -10,6 +10,15 @@ function Test_parseExpression_generate()
   lu.assertEquals(ast.generate(ast.parseExpression("2 // 2")), "2//2")
 end
 
+function Test_parse_generate_51()
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 // 2"), ast.toLua51)), "local a=compat.fdiv(1,2);")
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 ~ 2"), ast.toLua51)), "local a=compat.bxor(1,2);")
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 & 2"), ast.toLua51)), "local a=compat.band(1,2);")
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 | 2"), ast.toLua51)), "local a=compat.bor(1,2);")
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = ~2"), ast.toLua51)), "local a=compat.bnot(2);")
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 & (2 ~ 3)"), ast.toLua51)), "local a=compat.band(1,compat.bxor(2,3));")
+end
+
 function Test_traverse()
   local tree = ast.parse("local a = 2 // 2")
   ast.traverse(tree, function(astNode)

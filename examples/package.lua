@@ -111,6 +111,29 @@ local function getOrderedNames(modules)
   return names
 end
 
+local function writeModuleContent(out, content, name, options)
+  if options.strip then
+    local tree = ast.parse(content)
+    if options.target == '5.1' and name ~= 'jls.compat' then
+      local _, updated = ast.traverse(tree, ast.toLua51)
+      if updated then
+        out:writeSync('local compat = require("jls.util.compat")')
+        if options.pretty then
+          out:writeSync(options.lf and '\n' or system.lineSeparator)
+        else
+          out:writeSync(';')
+        end
+      end
+    end
+    if options.pretty then
+      tree.pretty = true
+    end
+    out:writeSync(ast.generate(tree))
+  else
+    out:writeSync(content)
+  end
+end
+
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
@@ -118,7 +141,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
   aliases = {
     h = 'help',
     ll = 'loglevel',
+    a = 'action',
     d = 'dir',
+    f = 'file',
+    t = 'target',
+    s = 'strip',
     o = 'overwrite',
   },
   schema = {
@@ -135,6 +162,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
       dir = {
         title = 'The directory containing the modules',
         type = 'string'
+      },
+      outdir = {
+        title = 'The output directory for the modules',
+        type = 'string',
+        default = 'out'
       },
       name = {
         title = 'The module to require',
@@ -160,17 +192,28 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'boolean',
         default = false
       },
+      pretty = {
+        title = 'Pretty print Lua code',
+        type = 'boolean',
+        default = true
+      },
+      target = {
+        title = 'Target Lua version',
+        type = 'string',
+        default = 'same',
+        enum = {'5.1', 'same'},
+      },
       action = {
         title = 'Modules processing',
         type = 'string',
         default = 'preload',
-        enum = {'preload', 'require', 'inline', 'dependencies', 'list', 'sort', 'none'},
+        enum = {'preload', 'copy', 'require', 'inline', 'dependencies', 'list', 'sort', 'none'},
       },
       dependency = {
         title = 'Dependencies processing',
         type = 'string',
-        default = 'require',
-        enum = {'require', 'pattern'},
+        default = 'pattern',
+        enum = {'require', 'pattern', 'ast'},
       },
       requireOne = {
         title = 'Selects only one module',
@@ -342,14 +385,24 @@ elseif options.action == 'dependencies' then
 elseif options.action == 'preload' then
   for name, module in Map.spairs(modules) do
     out:writeSync('package.preload["'..name..'"] = function()'..eol)
-    --out:writeSync('package.preload["'..name..'"] = nil'..eol)
-    if options.strip then
-      local tree = ast.parse(module.content)
-      out:writeSync(ast.generate(tree))
-    else
-      out:writeSync(module.content)
-    end
+    writeModuleContent(out, module.content, name, options)
     out:writeSync(eol..'end'..eol)
+  end
+elseif options.action == 'copy' then
+  local outdir = File:new(options.outdir)
+  if outdir:isDirectory() then
+    for name, module in Map.spairs(modules) do
+      local f = File:new(outdir, string.gsub(name, '%.', '/')..'.lua')
+      local d = f:getParentFile()
+      if not d:isDirectory() then
+        d:mkdirs()
+      end
+      local fd = assert(FileDescriptor.openSync(f, 'w'))
+      writeModuleContent(fd, module.content, name, options)
+      fd:closeSync()
+    end
+  else
+    print('Bad directory "'..options.outdir..'"')
   end
 elseif options.action == 'sort' then
   local names = getOrderedNames(modules)

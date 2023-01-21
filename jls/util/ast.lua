@@ -44,16 +44,28 @@ end
 -- @tparam function callback the callback function.
 -- @treturn table the AST.
 function ast.traverse(tree, callback)
-  return tree, dumbParser.traverseTree(tree, function(node, parent, container, key)
+  local updated = false
+  local function fn(node, parent, container, key)
     local action, newNode = callback(node)
     if type(action) == 'table' then
-      container[key] = action
+      newNode = action
       action = nil
-    elseif type(newNode) == 'table' then
+    end
+    if type(newNode) == 'table' then
       container[key] = newNode
+      updated = true
+      if action == nil then
+        ast.traverse(newNode, callback)
+        if dumbParser.traverseTree(newNode, fn) then
+          return 'stop'
+        end
+      end
+      return 'ignorechildren'
     end
     return action
-  end)
+  end
+  local stopped = dumbParser.traverseTree(tree, fn)
+  return tree, updated, stopped
 end
 
 local TOKEN_FIELDS = {'id', 'sourceString', 'sourcePath', 'token', 'line', 'position'}
@@ -61,6 +73,100 @@ function ast.clean(node)
   for _, field in ipairs(TOKEN_FIELDS) do
     node[field] = nil
   end
+end
+
+local function compatLookup(name, identifier)
+  return {
+    type = 'lookup',
+    object = {type = 'identifier', name = identifier or 'compat'},
+    member = {type = 'literal', value = name}
+  }
+end
+
+local function applyCompatMap(compatMap, node)
+  local nodeType = node.type
+  if nodeType == 'binary' then
+    local name = compatMap.binary[node.operator]
+    if name then
+      return {
+        type = 'call',
+        callee = compatLookup(name),
+        arguments = {node.left, node.right}
+      }
+    end
+  elseif nodeType == 'unary' then
+    local name = compatMap.unary[node.operator]
+    if name then
+      return {
+        type = 'call',
+        callee = compatLookup(name),
+        arguments = {node.expression}
+      }
+    end
+  elseif nodeType == 'lookup' and node.object.type == 'identifier' and node.member.type == 'literal' then
+    local m = compatMap.lookup[node.object.name]
+    if m then
+      local name = m[node.member.value]
+      if name then
+        return compatLookup(name)
+      end
+    end
+  end
+end
+
+local compatMap51 = {
+  binary = {
+    ['//']= 'fdiv',
+    ['&'] = 'band',
+    ['|'] = 'bor',
+    ['~'] = 'bxor',
+    ['>>']= 'rshift',
+    ['<<']= 'lshift',
+  },
+  unary = {
+    ['#'] = 'len',
+    ['~'] = 'bnot',
+  },
+  call = {
+    -- warn
+    rawlen = 'rawlen',
+  },
+  lookup = {
+    -- coroutine: close, isyieldable
+    -- debug: getuservalue, setuservalue, upvalueid, upvaluejoin
+    math = {
+      tointeger = 'tointeger',
+      mininteger = 'mininteger',
+      maxinteger = 'maxinteger',
+      type = 'mathtype',
+      ult = 'ult',
+    },
+    package = {
+      -- searchers
+      searchpath = 'searchpath',
+    },
+    string = {
+      format = 'format',
+      pack = 'spack',
+      packsize = 'spacksize',
+      unpack = 'sunpack',
+    },
+    table = {
+      move = 'tmove',
+      pack = 'pack',
+      unpack = 'unpack',
+    },
+    utf8 = {
+      -- charpattern
+      char = 'uchar',
+      codepoint = 'ucodepoint',
+      codes = 'ucodes',
+    },
+  },
+}
+
+function ast.toLua51(node)
+  return applyCompatMap(compatMap51, node)
 end
 
 return ast
