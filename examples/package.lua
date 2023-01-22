@@ -68,12 +68,6 @@ local function getRequiredFromFile(filename, name, requireOne)
   return names
 end
 
-local function getRequired(name, path, requireOne)
-  local filename = assert(package.searchpath(name, path))
-  local names = getRequiredFromFile(filename, name, requireOne)
-  return names, filename
-end
-
 local function getOrderedNames(modules)
   local names = {}
   local moduleMap = Map.assign({}, modules)
@@ -168,10 +162,6 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'string',
         default = 'out'
       },
-      name = {
-        title = 'The module to require',
-        type = 'string'
-      },
       includeDir = {
         title = 'Includes the directory in the module name',
         type = 'boolean',
@@ -207,13 +197,13 @@ local options = tables.createArgumentTable(system.getArguments(), {
         title = 'Modules processing',
         type = 'string',
         default = 'preload',
-        enum = {'preload', 'copy', 'require', 'inline', 'dependencies', 'list', 'sort', 'none'},
+        enum = {'preload', 'copy', 'require', 'inline', 'dependencies', 'externalDep', 'allDep', 'list', 'sort', 'none'},
       },
       dependency = {
         title = 'Dependencies processing',
         type = 'string',
         default = 'pattern',
-        enum = {'require', 'pattern', 'ast'},
+        enum = {'ast', 'pattern', 'require'},
       },
       requireOne = {
         title = 'Selects only one module',
@@ -222,6 +212,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
       },
       noDash = {
         title = 'Filters module with dash',
+        type = 'boolean',
+        default = false
+      },
+      dashOnly = {
+        title = 'Filters module with no dash',
         type = 'boolean',
         default = false
       },
@@ -268,9 +263,6 @@ if options.file then
   if f:getExtension() == 'bin' then
     options.binary = true
   end
-elseif options.name then
-  local required, filename = getRequired(options.name, package.path, options.requireOne)
-  -- todo recurse
 end
 
 if options.binary then
@@ -283,8 +275,8 @@ if options.binary then
     closeSync = function(self)
       local fn = load(self.sb:toString(), nil, 't')
       local bin = string.dump(fn, options.strip)
-      wo:writeSync(bin)
-      wo:closeSync()
+      ---@diagnostic disable-next-line: undefined-field
+      wo:writeSync(bin); wo:closeSync()
       print('The binary chunk can be loaded using:')
       print('loadfile('..string.format('%q', options.file or 'out.bin')..', nil, "b")()')
     end
@@ -326,6 +318,8 @@ if options.dependency == 'pattern' then
     end
     module.allRequires = Map.keys(set)
   end
+elseif options.dependency == 'ast' then
+  -- TODO
 elseif options.dependency == 'require' then
   for name, module in pairs(modules) do
     --print('compute dependencies for '..name..' with path '..path)
@@ -374,6 +368,14 @@ if options.noDash then
   end
 end
 
+if options.dashOnly then
+  for name in pairs(modules) do
+    if not isDashModule(name) then
+      modules[name] = nil
+    end
+  end
+end
+
 if options.action == 'list' then
   for name in Map.spairs(modules) do
     out:writeSync('require("'..name..'")'..eol)
@@ -382,6 +384,32 @@ elseif options.action == 'dependencies' then
   for name, module in Map.spairs(modules) do
     print(name, table.concat(module.requires, ', '))
   end
+elseif options.action == 'allDep' then
+  for name, module in Map.spairs(modules) do
+    print(name, table.concat(module.allRequires, ', '))
+  end
+elseif options.action == 'externalDep' then
+  for name, module in Map.spairs(modules) do
+    local set = Map:new()
+    for _, depName in ipairs(module.allRequires) do
+      if not modules[depName] then
+        set:add(depName)
+      end
+    end
+    if not set:isEmpty() then
+      print(name, table.concat(set:skeys(), ', '))
+    end
+  end
+elseif options.action == 'externals' then
+  local set = Map:new()
+  for _, module in Map.spairs(modules) do
+    for _, name in ipairs(module.allRequires) do
+      if not modules[name] then
+        set:add(name)
+      end
+    end
+  end
+  print(table.concat(set:skeys(), ', '))
 elseif options.action == 'preload' then
   for name, module in Map.spairs(modules) do
     out:writeSync('package.preload["'..name..'"] = function()'..eol)
