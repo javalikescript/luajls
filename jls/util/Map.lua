@@ -67,6 +67,10 @@ local function values(m)
   return list
 end
 
+local function isEmpty(m)
+  return next(m) == nil
+end
+
 local function size(m)
   local n = 0
   for _ in pairs(m) do
@@ -190,6 +194,12 @@ return require('jls.lang.class').create(function(map, _, Map)
     return values(self.map)
   end
 
+  --- Returns true if the map is empty.
+  -- @treturn boolean true if the map is empty.
+  function map:isEmpty()
+    return isEmpty(self.map)
+  end
+
   --- Returns the number of entries.
   -- @treturn number the number of entries.
   function map:size()
@@ -246,6 +256,7 @@ return require('jls.lang.class').create(function(map, _, Map)
   Map.deleteValues = deleteValues
   Map.remove = remove
   Map.size = size
+  Map.isEmpty = isEmpty
   Map.keys = keys
   Map.values = values
   Map.skeys = skeys
