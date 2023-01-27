@@ -18,8 +18,12 @@ local ast = {}
 --- Returns the AST representing the specified Lua code.
 -- @tparam string lua the Lua code to parse.
 -- @treturn table the AST representing the Lua.
-function ast.parse(lua)
-  return ast.traverse(dumbParser.parse(lua), ast.clean)
+function ast.parse(lua, verbose)
+  local tree = dumbParser.parse(lua)
+  if verbose then
+    return tree
+  end
+  return ast.traverse(tree, ast.clean)
 end
 
 --- Returns the AST representing the specified Lua expression.
@@ -83,32 +87,32 @@ local function compatLookup(name, identifier)
   }
 end
 
-local function applyCompatMap(compatMap, node)
+local function applyCompatMap(compatMap, node, level)
   local nodeType = node.type
   if nodeType == 'binary' then
-    local name = compatMap.binary[node.operator]
-    if name then
+    local compat = compatMap.binary[node.operator]
+    if compat and compat.level <= level then
       return {
         type = 'call',
-        callee = compatLookup(name),
+        callee = compatLookup(compat.name),
         arguments = {node.left, node.right}
       }
     end
   elseif nodeType == 'unary' then
-    local name = compatMap.unary[node.operator]
-    if name then
+    local compat = compatMap.unary[node.operator]
+    if compat and compat.level <= level then
       return {
         type = 'call',
-        callee = compatLookup(name),
+        callee = compatLookup(compat.name),
         arguments = {node.expression}
       }
     end
   elseif nodeType == 'lookup' and node.object.type == 'identifier' and node.member.type == 'literal' then
     local m = compatMap.lookup[node.object.name]
     if m then
-      local name = m[node.member.value]
-      if name then
-        return compatLookup(name)
+      local compat = m[node.member.value]
+      if compat and compat.level <= level then
+        return compatLookup(compat.name)
       end
     end
   end
@@ -116,57 +120,57 @@ end
 
 local compatMap51 = {
   binary = {
-    ['//']= 'fdiv',
-    ['&'] = 'band',
-    ['|'] = 'bor',
-    ['~'] = 'bxor',
-    ['>>']= 'rshift',
-    ['<<']= 'lshift',
+    ['//'] = {level = 1, name = 'fdiv'},
+    ['&'] = {level = 1, name = 'band'},
+    ['|'] = {level = 1, name = 'bor'},
+    ['~'] = {level = 1, name = 'bxor'},
+    ['>>'] = {level = 1, name = 'rshift'},
+    ['<<'] = {level = 1, name = 'lshift'},
   },
   unary = {
-    ['#'] = 'len',
-    ['~'] = 'bnot',
+    ['#'] = {level = 3, name = 'len'},
+    ['~'] = {level = 1, name = 'bnot'},
   },
   call = {
     -- warn
-    rawlen = 'rawlen',
+    rawlen = {level = 2, name = 'rawlen'},
   },
   lookup = {
     -- coroutine: close, isyieldable
     -- debug: getuservalue, setuservalue, upvalueid, upvaluejoin
     math = {
-      tointeger = 'tointeger',
-      mininteger = 'mininteger',
-      maxinteger = 'maxinteger',
-      type = 'mathtype',
-      ult = 'ult',
+      tointeger = {level = 2, name = 'tointeger'},
+      mininteger = {level = 2, name = 'mininteger'},
+      maxinteger = {level = 2, name = 'maxinteger'},
+      type = {level = 2, name = 'mathtype'},
+      ult = {level = 2, name = 'ult'},
     },
     package = {
       -- searchers
-      searchpath = 'searchpath',
+      searchpath = {level = 2, name = 'searchpath'},
     },
     string = {
-      format = 'format',
-      pack = 'spack',
-      packsize = 'spacksize',
-      unpack = 'sunpack',
+      format = {level = 3, name = 'format'},
+      pack = {level = 2, name = 'spack'},
+      packsize = {level = 2, name = 'spacksize'},
+      unpack = {level = 2, name = 'sunpack'},
     },
     table = {
-      move = 'tmove',
-      pack = 'pack',
-      unpack = 'unpack',
+      move = {level = 2, name = 'tmove'},
+      pack = {level = 2, name = 'pack'},
+      unpack = {level = 2, name = 'unpack'},
     },
     utf8 = {
       -- charpattern
-      char = 'uchar',
-      codepoint = 'ucodepoint',
-      codes = 'ucodes',
+      char = {level = 2, name = 'uchar'},
+      codepoint = {level = 2, name = 'ucodepoint'},
+      codes = {level = 2, name = 'ucodes'},
     },
   },
 }
 
-function ast.toLua51(node)
-  return applyCompatMap(compatMap51, node)
+function ast.toLua51(node, level)
+  return applyCompatMap(compatMap51, node, level or 10)
 end
 
 return ast

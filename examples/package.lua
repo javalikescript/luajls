@@ -8,6 +8,7 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
+local strings = require('jls.util.strings')
 local ast = require('jls.util.ast')
 
 local function isDashModule(name)
@@ -106,9 +107,9 @@ local function getOrderedNames(modules)
 end
 
 local function writeModuleContent(out, content, name, options)
-  if options.strip then
+  if options.strip or options.target ~= 'same' then
     local tree = ast.parse(content)
-    if options.target == '5.1' and name ~= 'jls.compat' then
+    if options.target == '5.1' and name ~= 'jls.util.compat' then
       local _, updated = ast.traverse(tree, ast.toLua51)
       if updated then
         out:writeSync('local compat = require("jls.util.compat")')
@@ -153,6 +154,12 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'boolean',
         default = false
       },
+      action = {
+        title = 'Modules processing',
+        type = 'string',
+        default = 'preload',
+        enum = {'preload', 'copy', 'require', 'inline', 'compat', 'dependencies', 'externalDep', 'allDep', 'list', 'sort', 'none'},
+      },
       dir = {
         title = 'The directory containing the modules',
         type = 'string'
@@ -193,11 +200,12 @@ local options = tables.createArgumentTable(system.getArguments(), {
         default = 'same',
         enum = {'5.1', 'same'},
       },
-      action = {
-        title = 'Modules processing',
-        type = 'string',
-        default = 'preload',
-        enum = {'preload', 'copy', 'require', 'inline', 'dependencies', 'externalDep', 'allDep', 'list', 'sort', 'none'},
+      level = {
+        title = 'The compatibility level',
+        type = 'integer',
+        default = 10,
+        minimum = 1,
+        maximum = 3,
       },
       dependency = {
         title = 'Dependencies processing',
@@ -431,6 +439,38 @@ elseif options.action == 'copy' then
     end
   else
     print('Bad directory "'..options.outdir..'"')
+  end
+elseif options.action == 'compat' then
+  local map = {}
+  if options.target == '5.1' then
+    for name, module in Map.spairs(modules) do
+      local list = {}
+      local lines = strings.split(module.content, '\r?\n')
+      local tree = ast.parse(module.content, true)
+      ast.traverse(tree, function(node)
+        local newNode = ast.toLua51(node, options.level)
+        if newNode then
+          local line = node.line or 0
+          table.insert(list, {
+            line = line,
+            context = lines[line],
+          })
+        end
+      end)
+      if #list > 0 then
+        map[name] = list
+      end
+    end
+    for name, list in Map.spairs(map) do
+      out:writeSync(string.format('module "%s":'..eol, name or ''))
+      for _, item in ipairs(list) do
+        out:writeSync(string.format('  line: %d "%s"'..eol, item.line, item.context or 'n/a'))
+      end
+    end
+    out:writeSync('summary:'..eol)
+    for name, list in Map.spairs(map) do
+      out:writeSync(string.format('  module "%s" has %d incompatibilities'..eol, name or '', #list))
+    end
   end
 elseif options.action == 'sort' then
   local names = getOrderedNames(modules)

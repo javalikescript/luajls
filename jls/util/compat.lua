@@ -538,6 +538,8 @@ function compat.ucodes(s, lax)
   return nextcode, s, 1
 end
 
+-- file read does not support 'a' but '*a'
+
 local status, m
 ---- see https://github.com/AlberTajuelo/bitop-lua
 --status, m = pcall(require, 'bitop.funcs')
