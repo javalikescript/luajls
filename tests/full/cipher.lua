@@ -5,7 +5,7 @@ local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 
 local function chars(l)
   local ten = '123456789 '
-  return string.rep(ten, l // 10)..string.sub(ten, 1, l % 10)
+  return string.rep(ten, math.floor(l / 10))..string.sub(ten, 1, l % 10)
 end
 
 local function sub(value, offset, length)
@@ -73,7 +73,7 @@ function Test_encode_decode_stream_part()
   assertDecodePart(6)
   assertDecodePart(16)
   assertDecodePart(20)
-  local m = (#s // 32) * 2
+  local m = math.floor(#s / 32) * 2
   assertDecodePart(m)
   assertDecodePart(m + 10)
 end

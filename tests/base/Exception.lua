@@ -31,7 +31,7 @@ end
 local function nextCatch(t)
   local nr, ce
   t:next(function(...)
-    nr = table.pack(...)
+    nr = {n = select('#', ...), ...}
   end):catch(function(e)
     ce = e
   end)

@@ -15,8 +15,11 @@ end
 
 local function chars(l)
   local ten = '123456789 '
-  return string.rep(ten, l // 10)..string.sub(ten, 1, l % 10)
+  return string.rep(ten, math.floor(l / 10))..string.sub(ten, 1, l % 10)
 end
+
+---@diagnostic disable-next-line: deprecated
+local table_unpack = table.unpack or _G.unpack
 
 local function randomChars(len, from, to)
   from = from or 0
@@ -26,10 +29,10 @@ local function randomChars(len, from, to)
     for _ = 1, len do
       table.insert(bytes, math.random(from, to))
     end
-    return string.char(table.unpack(bytes))
+    return string.char(table_unpack(bytes))
   end
   local parts = {}
-  for _ = 1, len // 10 do
+  for _ = 1, len / 10 do
     table.insert(parts, randomChars(10, from, to))
   end
   table.insert(parts, randomChars(len % 10, from, to))

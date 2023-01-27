@@ -678,7 +678,7 @@ end
 function Test_HttpMessage_parseHeaderValue()
   lu.assertEquals(HttpMessage.parseHeaderValue('text/html'), 'text/html')
   lu.assertEquals(HttpMessage.parseHeaderValue('text/html;level=2;q=0.4'), 'text/html')
-  lu.assertEquals(table.pack(HttpMessage.parseHeaderValue('text/html;level=2;q=0.4')), {'text/html', {'level=2', 'q=0.4'}, n = 2})
+  lu.assertEquals({HttpMessage.parseHeaderValue('text/html;level=2;q=0.4')}, {'text/html', {'level=2', 'q=0.4'}})
 end
 
 os.exit(lu.LuaUnit.run())

@@ -212,10 +212,12 @@ function Test_isList()
   lu.assertTrue(List.isList({'a', 'b'}))
   lu.assertTrue(List.isList({'a', 'b', 'c'}))
   lu.assertTrue(List.isList({'a', nil, 'b'}, true))
-  lu.assertTrue(List.isList(table.pack()))
-  lu.assertTrue(List.isList(table.pack('a')))
-  lu.assertTrue(List.isList(table.pack('a', 'b')))
-  lu.assertTrue(List.isList(table.pack('a', nil, 'b')), true)
+  if table.pack then
+    lu.assertTrue(List.isList(table.pack()))
+    lu.assertTrue(List.isList(table.pack('a')))
+    lu.assertTrue(List.isList(table.pack('a', 'b')))
+    lu.assertTrue(List.isList(table.pack('a', nil, 'b')), true)
+  end
 end
 
 os.exit(lu.LuaUnit.run())

@@ -23,16 +23,19 @@ function Test_encode_decode()
   assertEncodeDecode(string.char(0, 1, 2, 3, 4, 126, 127, 128, 129, 254, 255))
 end
 
+---@diagnostic disable-next-line: deprecated
+local table_unpack = table.unpack or _G.unpack
+
 local function randomChars(len)
   if len <= 10 then
     local bytes = {}
     for _ = 1, len do
       table.insert(bytes, math.random(0, 255))
     end
-    return string.char(table.unpack(bytes))
+    return string.char(table_unpack(bytes))
   end
   local parts = {}
-  for _ = 1, len // 10 do
+  for _ = 1, len / 10 do
     table.insert(parts, randomChars(10))
   end
   table.insert(parts, len % 10)

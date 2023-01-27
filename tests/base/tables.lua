@@ -98,10 +98,16 @@ function Test_setPath_list()
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/2', 'New y', {a = {'x', 'New y', 'z'}})
 end
 
+local table_pack = table.pack or function(...)
+  return {n = select('#', ...), ...}
+end
+---@diagnostic disable-next-line: deprecated
+local table_unpack = table.unpack or _G.unpack
+
 local function assertMergePath(t, p, v, nt)
-  local rt = table.pack(tables.mergePath(t, p, v))
+  local rt = table_pack(tables.mergePath(t, p, v))
   lu.assertEquals(t, nt)
-  return table.unpack(rt)
+  return table_unpack(rt)
 end
 
 function Test_mergePath_flat()
