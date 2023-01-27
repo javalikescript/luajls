@@ -121,7 +121,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   -- @tparam number time the last modified time or nil to set the current time.
   function file:setLastModified(time)
     if type(time) == 'number' then
-      time = time // 1000
+      time = math.floor(time / 1000)
     else
       time = os.time()
     end

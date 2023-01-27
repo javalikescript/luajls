@@ -350,6 +350,10 @@ return require('jls.lang.class').create(function(list, _, List)
     return false
   end
 
+  local function isInteger(v)
+    return type(v) == 'number' and v % 1 == 0
+  end
+
   --- Returns true when the specified table is a list.
   -- A list has continuous integer keys starting at 1.
   -- A list may have a field "n" giving the size of the list as an integer.
@@ -369,7 +373,7 @@ return require('jls.lang.class').create(function(list, _, List)
     local size = 0
     local min, max, n
     for k, v in pairs(t) do
-      if math.type(k) == 'integer' then
+      if isInteger(k) then
         if not min or k < min then
           min = k
         end
@@ -378,7 +382,7 @@ return require('jls.lang.class').create(function(list, _, List)
         end
         size = size + 1
       else
-        if k == 'n' and math.type(v) == 'integer' then
+        if k == 'n' and isInteger(v) then
           n = v
         end
         count = count + 1

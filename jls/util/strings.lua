@@ -104,7 +104,7 @@ function strings.formatInteger(value, radix, len, chars)
   local s = ''
   while i > 0 do
     m = (i % radix) + 1
-    i = i // radix
+    i = math.floor(i / radix)
     s = string.sub(chars, m, m)..s
   end
   if len then
