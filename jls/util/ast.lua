@@ -115,6 +115,15 @@ local function applyCompatMap(compatMap, node, level)
         return compatLookup(compat.name)
       end
     end
+  elseif nodeType == 'call' and node.callee.type == 'identifier' then
+    local compat = compatMap.call[node.callee.name]
+    if compat and compat.level <= level then
+      return {
+        type = 'call',
+        callee = compatLookup(compat.name),
+        arguments = node.arguments
+      }
+    end
   end
 end
 
@@ -132,12 +141,23 @@ local compatMap51 = {
     ['~'] = {level = 1, name = 'bnot'},
   },
   call = {
-    -- warn
+    load = {level = 3, name = 'load'},
     rawlen = {level = 2, name = 'rawlen'},
+    warn = {level = 2, name = 'notAvailable'},
+    xpcall = {level = 3, name = 'xpcall'},
   },
   lookup = {
-    -- coroutine: close, isyieldable
-    -- debug: getuservalue, setuservalue, upvalueid, upvaluejoin
+    coroutine = {
+      close = {level = 2, name = 'notAvailable'},
+      isyieldable = {level = 2, name = 'notAvailable'},
+    },
+    debug = {
+      getuservalue = {level = 2, name = 'notAvailable'},
+      setuservalue = {level = 2, name = 'notAvailable'},
+      traceback = {level = 3, name = 'traceback'},
+      upvalueid = {level = 2, name = 'notAvailable'},
+      upvaluejoin = {level = 2, name = 'notAvailable'},
+    },
     math = {
       tointeger = {level = 2, name = 'tointeger'},
       mininteger = {level = 2, name = 'mininteger'},
@@ -146,7 +166,7 @@ local compatMap51 = {
       ult = {level = 2, name = 'ult'},
     },
     package = {
-      -- searchers
+      searchers = {level = 2, name = 'notAvailable'},
       searchpath = {level = 2, name = 'searchpath'},
     },
     string = {
@@ -161,8 +181,8 @@ local compatMap51 = {
       unpack = {level = 2, name = 'unpack'},
     },
     utf8 = {
-      -- charpattern
       char = {level = 2, name = 'uchar'},
+      charpattern = {level = 2, name = 'notAvailable'},
       codepoint = {level = 2, name = 'ucodepoint'},
       codes = {level = 2, name = 'ucodes'},
     },
@@ -170,6 +190,7 @@ local compatMap51 = {
 }
 
 function ast.toLua51(node, level)
+  -- for type block, we may want to require compat
   return applyCompatMap(compatMap51, node, level or 10)
 end
 

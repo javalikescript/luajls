@@ -107,6 +107,10 @@ return require('jls.lang.class').create(function(date)
   --- Returns the year of this date.
   -- @treturn number the year.
   function date:getWeekDay() -- 1-7, Sunday is 1
+    if self.field.wday == nil then
+      local field = os.date('*t', self:getTimeInSeconds())
+      self.field.wday = field.wday
+    end
     return self.field.wday
   end
 
@@ -266,7 +270,7 @@ return require('jls.lang.class').create(function(date)
     end
     local offsetHour, offsetMin = self:getTimezoneOffsetHourMin()
     return string.format('%s, %02d %s %02d %02d:%02d:%02d %+03d%02d',
-      RFC822_DAYS[self.field.wday], self.field.day, RFC822_MONTHS[self.field.month], self.field.year,
+      RFC822_DAYS[self:getWeekDay()], self.field.day, RFC822_MONTHS[self.field.month], self.field.year,
       self.field.hour, self.field.min, self.field.sec, offsetHour, offsetMin)
   end
 

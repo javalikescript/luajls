@@ -21,7 +21,9 @@ function Test_hash()
   lu.assertEquals(strings.hash('\1\1'), 32)
   lu.assertEquals(strings.hash('Hi'), 2337)
   lu.assertEquals(strings.hash('Hello'), 69609650)
-  lu.assertEquals(strings.hash('A long long long sentence'), -1198834433238344152)
+  if _VERSION >= 'Lua 5.3' then
+    lu.assertEquals(strings.hash('A long long long sentence'), -1198834433238344152)
+  end
 end
 
 function Test_padLeft()

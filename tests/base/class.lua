@@ -194,7 +194,9 @@ function Test_decorations()
   lu.assertEquals(bCar:toString(), 'bmi')
 
   lu.assertEquals(bCar:length(), 3)
-  lu.assertEquals(#bCar, 3)
+  if _VERSION >= 'Lua 5.2' then
+    lu.assertEquals(#bCar, 3)
+  end
 
   lu.assertFalse('bmi' == bCar)
   lu.assertFalse(bCar == 'bmi')

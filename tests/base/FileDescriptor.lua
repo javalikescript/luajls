@@ -14,7 +14,7 @@ end
 local function assertFileContent(path, expectedContent)
   local file = io.open(path, 'rb')
   lu.assertNotIsNil(file)
-  local fileContent = file:read('a') -- TODO check for errors
+  local fileContent = file:read('*a') -- TODO check for errors
   file:close()
   lu.assertEquals(fileContent, expectedContent)
 end

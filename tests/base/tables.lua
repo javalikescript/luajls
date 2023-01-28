@@ -166,7 +166,9 @@ function Test_stringify()
   lu.assertEquals(tables.stringify(1.2), '1.2')
   lu.assertEquals(tables.stringify(true), 'true')
   lu.assertEquals(tables.stringify("Hi"), '"Hi"')
-  lu.assertEquals(tables.stringify("\0\1"), '"\\0\\1"')
+  if _VERSION >= 'Lua 5.2' then
+    lu.assertEquals(tables.stringify("\0\1"), '"\\0\\1"')
+  end
   lu.assertEquals(tables.stringify({}), '{}')
   -- table map
   lu.assertEquals(tables.stringify({a = "Hi"}), '{a="Hi",}')

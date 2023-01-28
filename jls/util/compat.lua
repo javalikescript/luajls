@@ -7,12 +7,17 @@ local compat = {}
 local major, minor = string.match(_VERSION, '^%a+ (%d+)%.(%d+)')
 local version = tonumber(major) * 10 + tonumber(minor)
 
+function compat.notAvailable()
+  error('No compatibility available')
+end
+
 local function len(v)
   return #v
 end
 
 compat.rawlen = _G.rawlen or len
 
+-- Prior Lua 5.2, the length operator does not use the __len metamethod
 function compat.len(v)
   if type(v) == 'string' then
     return string.len(v)
@@ -387,6 +392,14 @@ function compat.format(fmt, ...)
   return string.format(fmt, compat.unpack(values, 1, l))
 end
 
+-- Prior Lua 5.2, xpcall does not take arguments
+function compat.xpcall(f, msgh, ...)
+  local args = compat.pack(...)
+  return xpcall(function()
+    return f(compat.unpack(args, 1, args.n))
+  end, msgh)
+end
+
 local function exists(path)
   local f, err = io.open(path)
   if f then
@@ -536,6 +549,38 @@ end
 
 function compat.ucodes(s, lax)
   return nextcode, s, 1
+end
+
+function compat.traceback(...)
+  local count = select('#', ...)
+  if count >= 3 then
+    local thread = select(1, ...)
+    local message = select(2, ...) or ''
+    local level = select(3, ...) or 1
+    if type(message) ~= 'string' then
+      return message
+    end
+    return debug.traceback(thread, message, level)
+  end
+  local message = select(1, ...) or ''
+  local level = select(2, ...) or 1
+  if type(message) ~= 'string' then
+    return message
+  end
+  return debug.traceback(message, level)
+end
+
+function compat.load(chunk, chunkname, mode, env)
+  -- TODO support mode and env
+  if type(chunk) == 'string' then
+    local code = chunk
+    chunk = function()
+      local c = code
+      code = nil
+      return c
+    end
+  end
+  return load(chunk, chunkname)
 end
 
 -- file read does not support 'a' but '*a'
