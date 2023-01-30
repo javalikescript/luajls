@@ -33,7 +33,7 @@ function Test_padLeft()
 end
 
 function Test_formatInteger()
-  lu.assertEquals(strings.formatInteger(0), '')
+  lu.assertEquals(strings.formatInteger(0), '0')
   lu.assertEquals(strings.formatInteger(-9), '-9')
   lu.assertEquals(strings.formatInteger(9), '9')
   lu.assertEquals(strings.formatInteger(10), '10')

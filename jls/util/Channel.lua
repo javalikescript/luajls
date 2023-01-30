@@ -153,6 +153,11 @@ return class.create(function(channel, _, Channel)
     end
   end
 
+  local function generateKey()
+    local m = 0xffffff
+    return strings.formatInteger(math.random(0, m), 64)..strings.formatInteger(math.random(0, m), 64)
+  end
+
   --- Binds this channel.
   -- When bound, the channel name can be used for connection.
   -- @tparam[opt] boolean closeWithAccepted true to indicate this channel shall be closed after all the accepted channels are closed.
@@ -166,8 +171,8 @@ return class.create(function(channel, _, Channel)
     self:checkStream(true)
     self.name = ''
     local acceptedCount = 0
-    local privateKey = strings.formatInteger(math.random(0, math.maxinteger), 64)
-    local publicKey = strings.formatInteger(math.random(0, math.maxinteger), 64)
+    local privateKey = generateKey()
+    local publicKey = generateKey()
     local userinfo = publicKey..'.'..privateKey
     if not SCHEMES[scheme] then
       error('Invalid channel server scheme "'..tostring(scheme)..'"')

@@ -92,12 +92,15 @@ local FORMAT_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstu
 -- @tparam[opt] integer len The minimal length of the resulting string padded with zero.
 -- @tparam[opt] string chars A string containing the characters used to format.
 -- @treturn string a string representing the integer.
-function strings.formatInteger(value, radix, len, chars)
+function strings.formatInteger(value, radix, len, chars, pad)
   if not chars then
     chars = FORMAT_CHARS
   end
   if not radix or radix < 2 or radix > #chars then
     radix = 10
+  end
+  if not pad then
+    pad = string.sub(chars, 1, 1)
   end
   local m
   local i = math.abs(value)
@@ -109,9 +112,12 @@ function strings.formatInteger(value, radix, len, chars)
   end
   if len then
     if value < 0 then
-      return '-'..strings.padLeft(s, len - 1, '0')
+      return '-'..strings.padLeft(s, len - 1, pad)
     end
-    return strings.padLeft(s, len, '0')
+    return strings.padLeft(s, len, pad)
+  end
+  if s == '' then
+    s = pad
   end
   if value < 0 then
     return '-'..s
