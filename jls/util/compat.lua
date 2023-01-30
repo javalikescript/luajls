@@ -583,7 +583,31 @@ function compat.load(chunk, chunkname, mode, env)
   return load(chunk, chunkname)
 end
 
--- file read does not support 'a' but '*a'
+-- random is not initialized
+local t = os.time()
+math.randomseed(floor(t / 10))
+for i = 0, t % 10 do
+  math.random()
+end
+
+function compat.random(...)
+  local count = select('#', ...)
+  if count == 0 then
+    return math.random()
+  end
+  local m, n = ...
+  if count == 1 then
+    n = m
+    m = 1
+  end
+  if n < 0x0fffffff then
+    return math.random(m, n)
+  end
+  local r = math.random()
+  return floor((r * ((n - m) + 1)) + m)
+end
+
+-- file read does not support 'a' but '*a' but 5.4 remains compatible ignoring '*'
 
 local status, m
 ---- see https://github.com/AlberTajuelo/bitop-lua

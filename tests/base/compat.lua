@@ -114,4 +114,18 @@ function Test_uoffset()
   lu.assertEquals(compat.uoffset(s, 3), 4)
 end
 
+function Test_random()
+  local r = compat.random()
+  lu.assertTrue(r >= 0)
+  lu.assertTrue(r < 1)
+  local n = 2 ^ 60
+  r = compat.random(n)
+  lu.assertTrue(r >= 1)
+  lu.assertTrue(r < n)
+  local m = 2 ^ 59
+  r = compat.random(m, n)
+  lu.assertTrue(r >= m)
+  lu.assertTrue(r < n)
+end
+
 os.exit(lu.LuaUnit.run())

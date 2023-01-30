@@ -15,6 +15,44 @@ local dumbParser = require('dumbParser')
 
 local ast = {}
 
+local TOKEN_FIELDS = {'id', 'sourceString', 'sourcePath', 'token', 'line', 'position'}
+
+function ast.clean(node)
+  for _, field in ipairs(TOKEN_FIELDS) do
+    node[field] = nil
+  end
+end
+
+--- Walks through the specified AST calling the callback function for each node.
+-- The function is called with the AST node, if the return value is a table then it will replace the current AST node.
+-- @tparam table tree the AST to walk through.
+-- @tparam function callback the callback function.
+-- @treturn table the AST.
+function ast.traverse(tree, callback, context)
+  local updated = false
+  local function fn(node, parent, container, key)
+    local action, newNode = callback(node, context)
+    if type(action) == 'table' then
+      newNode = action
+      action = nil
+    end
+    if type(newNode) == 'table' then
+      container[key] = newNode
+      updated = true
+      if action == nil then
+        ast.traverse(newNode, callback)
+        if dumbParser.traverseTree(newNode, fn) then
+          return 'stop'
+        end
+      end
+      return 'ignorechildren'
+    end
+    return action
+  end
+  local stopped = dumbParser.traverseTree(tree, fn)
+  return tree, updated, stopped
+end
+
 --- Returns the AST representing the specified Lua code.
 -- @tparam string lua the Lua code to parse.
 -- @treturn table the AST representing the Lua.
@@ -42,47 +80,31 @@ function ast.generate(tree)
   return dumbParser.toLua(tree)
 end
 
---- Walks through the specified AST calling the callback function for each node.
--- The function is called with the AST node, if the return value is a table then it will replace the current AST node.
--- @tparam table tree the AST to walk through.
--- @tparam function callback the callback function.
--- @treturn table the AST.
-function ast.traverse(tree, callback)
-  local updated = false
-  local function fn(node, parent, container, key)
-    local action, newNode = callback(node)
-    if type(action) == 'table' then
-      newNode = action
-      action = nil
+function ast.hasLiteral(tree, name)
+  local found = false
+  dumbParser.traverseTree(tree, function(node)
+    if node.type == 'literal' and node.value == name then
+      found = true
+      return 'stop'
     end
-    if type(newNode) == 'table' then
-      container[key] = newNode
-      updated = true
-      if action == nil then
-        ast.traverse(newNode, callback)
-        if dumbParser.traverseTree(newNode, fn) then
-          return 'stop'
-        end
-      end
-      return 'ignorechildren'
-    end
-    return action
-  end
-  local stopped = dumbParser.traverseTree(tree, fn)
-  return tree, updated, stopped
+  end)
+  return found
 end
 
-local TOKEN_FIELDS = {'id', 'sourceString', 'sourcePath', 'token', 'line', 'position'}
-function ast.clean(node)
-  for _, field in ipairs(TOKEN_FIELDS) do
-    node[field] = nil
+local function compatLookup(name, identifier, useRequire)
+  local object
+  if useRequire then
+    object = {
+      type = 'call',
+      callee = {type = 'identifier', name = 'require'},
+      arguments = {{type = 'literal', value = 'jls.util.compat'}},
+    }
+  else
+    object = {type = 'identifier', name = identifier or 'compat'}
   end
-end
-
-local function compatLookup(name, identifier)
   return {
     type = 'lookup',
-    object = {type = 'identifier', name = identifier or 'compat'},
+    object = object,
     member = {type = 'literal', value = name}
   }
 end
@@ -159,9 +181,10 @@ local compatMap51 = {
       upvaluejoin = {level = 2, name = 'notAvailable'},
     },
     math = {
-      tointeger = {level = 2, name = 'tointeger'},
       mininteger = {level = 2, name = 'mininteger'},
       maxinteger = {level = 2, name = 'maxinteger'},
+      random = {level = 3, name = 'random'},
+      tointeger = {level = 2, name = 'tointeger'},
       type = {level = 2, name = 'mathtype'},
       ult = {level = 2, name = 'ult'},
     },
