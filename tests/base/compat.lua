@@ -68,6 +68,12 @@ function Test_sign()
   lu.assertEquals(compat.sign(255, 2), 255)
 end
 
+function Test_unsign()
+  lu.assertEquals(compat.unsign(-1, 1), 255)
+  lu.assertEquals(compat.unsign(-1, 2), 65535)
+  lu.assertEquals(compat.unsign(255, 2), 255)
+end
+
 function Test_itos_stoi()
   for _, i in ipairs({0, 1, -1, 123456, -123456}) do
     lu.assertEquals(compat.sign(compat.stoi(compat.itos(i, 4, false), 4, false), 4), i)

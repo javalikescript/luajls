@@ -188,6 +188,9 @@ local compatMap51 = {
       type = {level = 2, name = 'mathtype'},
       ult = {level = 2, name = 'ult'},
     },
+    os = {
+      execute = {level = 3, name = 'execute'},
+    },
     package = {
       searchers = {level = 2, name = 'notAvailable'},
       searchpath = {level = 2, name = 'searchpath'},

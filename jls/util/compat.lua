@@ -193,6 +193,7 @@ function compat.tointeger(n)
   return i
 end
 
+-- Two's complement signed integer
 function compat.sign(v, n)
   local e = 8 * n
   local sign = floor((v / (2 ^ (e - 1))) % 2)
@@ -205,6 +206,9 @@ end
 
 function compat.unsign(v, n)
   local c = floor((2 ^ (8  * n)) - 1)
+  if v < 0 then
+    return v % c + 1
+  end
   return v % c
 end
 
@@ -292,8 +296,8 @@ function compat.spack(fmt, ...)
     if o == 'I' then
       return compat.itos(v, n, be)
     elseif o == 'i' then
-      if v > 0 then
-        return compat.unsign(compat.itos(v, n, be), n)
+      if v < 0 then
+        return compat.itos(compat.unsign(v, n), n, be)
       end
       return compat.itos(v, n, be)
     elseif o == 'f' then
@@ -605,6 +609,15 @@ function compat.random(...)
   end
   local r = math.random()
   return floor((r * ((n - m) + 1)) + m)
+end
+
+function compat.execute(...)
+  local status = os.execute(...)
+  local count = select('#', ...)
+  if count == 0 then
+    return status ~= 0
+  end
+  return status == 0, 'exit', status
 end
 
 -- file read does not support 'a' but '*a' but 5.4 remains compatible ignoring '*'
