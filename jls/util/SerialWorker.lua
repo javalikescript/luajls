@@ -13,65 +13,12 @@ local serialWorker = SerialWorker:new()
 serialWorker:close()
 ]]
 
-local function initWorker(w)
-  local Exception = require('jls.lang.Exception')
-  local json = require('jls.util.json')
-  local StreamHandler = require('jls.io.StreamHandler')
-  local lastFn
-  function w:onMessage(message)
-    local flags, payload, chunk = string.unpack('>Bs4s4', message)
-    local data, fn
-    if flags & 2 == 2 then
-      fn = lastFn
-    else
-      fn = load(chunk, nil, 'b')
-      lastFn = fn
-    end
-    if flags & 1 == 1 then
-      if payload ~= 'null' then
-        data = json.decode(payload) -- TODO protect or use parse
-      end
-    else
-      data = payload
-    end
-    local sh
-    if flags & 4 == 4 then
-      sh = StreamHandler:new(function(err, sd)
-        if err then
-          self:postMessage(string.pack('>Bs4', 4 | 2, err))
-        elseif data then
-          self:postMessage(string.pack('>Bs4', 4, sd))
-        end
-      end)
-    end
-    local status, result, reason = Exception.pcall(fn, data, sh)
-    flags = 0
-    if status then
-      if not result and reason then
-        result = reason
-        flags = 2
-      end
-    else
-      if getmetatable(result) then
-        -- TODO Should we preserve the exception?
-        result = tostring(result)
-      end
-      flags = 2
-    end
-    if type(result) ~= 'string' then
-      flags = flags | 1
-      result = json.encode(result)
-    end
-    local response = string.pack('>Bs4', flags, result)
-    return self:postMessage(response)
-  end
-end
-
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
+local Exception = require('jls.lang.Exception')
+local StreamHandler = require('jls.io.StreamHandler')
 local Worker = require('jls.util.Worker')
 local json = require('jls.util.json')
-local StreamHandler = require('jls.io.StreamHandler')
 
 --- The SerialWorker class.
 -- @type SerialWorker
@@ -80,7 +27,9 @@ return class.create(function(serialWorker)
   --- Creates a new SerialWorker.
   -- @function SerialWorker:new
   function serialWorker:initialize()
-    self.worker = Worker:new(initWorker)
+    self.worker = Worker:new(function(...)
+      require('jls.util.SerialWorker')._initWorker(...)
+    end)
     self.worker.onMessage = function(_, response)
       self:onWorkerMessage(response)
     end
@@ -183,6 +132,59 @@ return class.create(function(serialWorker)
   --- Closes this worker.
   function serialWorker:close()
     self.worker:close()
+  end
+
+end, function(SerialWorker)
+
+  function SerialWorker._initWorker(w)
+    local lastFn
+    function w:onMessage(message)
+      local flags, payload, chunk = string.unpack('>Bs4s4', message)
+      local data, fn
+      if flags & 2 == 2 then
+        fn = lastFn
+      else
+        fn = load(chunk, nil, 'b')
+        lastFn = fn
+      end
+      if flags & 1 == 1 then
+        if payload ~= 'null' then
+          data = json.decode(payload) -- TODO protect or use parse
+        end
+      else
+        data = payload
+      end
+      local sh
+      if flags & 4 == 4 then
+        sh = StreamHandler:new(function(err, sd)
+          if err then
+            self:postMessage(string.pack('>Bs4', 4 | 2, err))
+          elseif data then
+            self:postMessage(string.pack('>Bs4', 4, sd))
+          end
+        end)
+      end
+      local status, result, reason = Exception.pcall(fn, data, sh)
+      flags = 0
+      if status then
+        if not result and reason then
+          result = reason
+          flags = 2
+        end
+      else
+        if getmetatable(result) then
+          -- TODO Should we preserve the exception?
+          result = tostring(result)
+        end
+        flags = 2
+      end
+      if type(result) ~= 'string' then
+        flags = flags | 1
+        result = json.encode(result)
+      end
+      local response = string.pack('>Bs4', flags, result)
+      return self:postMessage(response)
+    end
   end
 
 end)
