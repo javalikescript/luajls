@@ -28,7 +28,7 @@ local FLAGS = {
 local function parseNumber(value)
   -- Numeric values are encoded in octal numbers using ASCII digits, with leading zeroes.
   -- For historical reasons, a final NUL or space character should also be used.
-  local octalValue = string.match(value, '^([0-7]+)[ \0]*$')
+  local octalValue = string.match(value, '^([0-7]+)[ %c]*$')
   if octalValue then
     return tonumber(octalValue, 8)
   end
