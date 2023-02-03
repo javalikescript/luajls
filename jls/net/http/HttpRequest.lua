@@ -18,19 +18,27 @@ return require('jls.lang.class').create(HttpMessage, function(httpRequest, super
     self.target = '/'
   end
 
+  --- Returns this HTTP request method, GET, POST.
+  -- @treturn string the HTTP request method.
   function httpRequest:getMethod()
     return self.method
   end
 
+  --- Sets this HTTP request method.
+  -- @tparam string value the method.
   function httpRequest:setMethod(value)
     self.method = string.upper(value)
     self.line = ''
   end
 
+  --- Returns this HTTP request target.
+  -- @treturn string the HTTP request target.
   function httpRequest:getTarget()
     return self.target
   end
 
+  --- Sets this HTTP request target.
+  -- @tparam string value the target.
   function httpRequest:setTarget(value)
     self.target = value
     self.line = ''

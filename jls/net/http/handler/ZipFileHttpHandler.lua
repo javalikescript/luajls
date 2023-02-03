@@ -13,6 +13,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(zip
 
   --- Creates a ZIP file @{HttpHandler}.
   -- @tparam jls.io.File zipFile the ZIP file.
+  -- @function ZipFileHttpHandler:new
   function zipFileHttpHandler:initialize(zipFile)
     self.zipFile = ZipFile:new(zipFile, false)
   end

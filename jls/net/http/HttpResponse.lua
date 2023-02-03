@@ -18,10 +18,14 @@ return require('jls.lang.class').create(HttpMessage, function(httpResponse, supe
     self:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
   end
 
+  --- Returns this HTTP response status code.
+  -- @treturn string the HTTP response status code.
   function httpResponse:getStatusCode()
     return self.statusCode, self.reasonPhrase
   end
 
+  --- Returns this HTTP response reason phrase.
+  -- @treturn string the HTTP response reason phrase.
   function httpResponse:getReasonPhrase()
     return self.reasonPhrase
   end

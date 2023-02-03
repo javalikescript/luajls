@@ -13,7 +13,9 @@ local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local strings = require('jls.util.strings')
 
---- The HttpMessage class represents the base class for request and response.
+--- The HttpMessage class represents the base class for @{HttpRequest|request}
+-- and @{HttpResponse|response}.
+-- The HttpMessage class inherits from @{HttpHeaders}.
 -- @type HttpMessage
 return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
 
@@ -28,6 +30,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     --self.willRead = willRead -- indicates this message direction
   end
 
+  --- Returns the first line of this HTTP message.
+  -- @treturn string the first line of this HTTP message.
   function httpMessage:getLine()
     return self.line
   end
@@ -36,15 +40,21 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self.line = ''
   end
 
-  function httpMessage:setLine(value)
-    self.line = value
+  --- Sets the first line of this HTTP message.
+  -- @tparam string line the first line.
+  function httpMessage:setLine(line)
+    self.line = line
     return true
   end
 
+  --- Returns the version of this HTTP message, default to `HTTP/1.0`.
+  -- @treturn string the version of this HTTP message.
   function httpMessage:getVersion()
     return self.version or HttpMessage.CONST.VERSION_1_0
   end
 
+  --- Sets the first line of this HTTP message.
+  -- @tparam string version the first line.
   function httpMessage:setVersion(version)
     self.version = version
     return self
@@ -66,12 +76,17 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return self:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
   end
 
-  function httpMessage:setBodyStreamHandler(sh)
-    self.bodyStreamHandler = sh
-  end
-
+  --- Returns the stream handler associated to the body.
+  -- The default value is the null stream handler.
+  -- @treturn StreamHandler the body stream handler.
   function httpMessage:getBodyStreamHandler()
     return self.bodyStreamHandler
+  end
+
+  --- Sets the stream handler associated to the body.
+  -- @tparam StreamHandler sh the body stream handler.
+  function httpMessage:setBodyStreamHandler(sh)
+    self.bodyStreamHandler = sh
   end
 
   function httpMessage:bufferBody()
@@ -101,6 +116,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return #self.body
   end
 
+  --- Returns the body of this HTTP message.
+  -- @treturn string the body of this HTTP message.
   function httpMessage:getBody()
     return self.body
   end
@@ -111,6 +128,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     end
   end
 
+  --- Sets the body of this HTTP message.
+  -- @tparam string value the body.
   function httpMessage:setBody(value)
     if type(value) == 'string' then
       self.body = value
@@ -128,7 +147,10 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return type(self.getStatusCode) == 'function'
   end
 
+  --- Sets a function that will be called when the body stream handler is available to receive data.
+  -- The default callback will emit the string body value.
   -- It is the caller's responsability to ensure that the content length or message headers are correctly set.
+  -- @tparam function callback the function to call when the body stream handler is available.
   function httpMessage:onWriteBodyStreamHandler(callback)
     local cb, pr = Promise.ensureCallback(callback)
     self.writeBodyCallback = cb
