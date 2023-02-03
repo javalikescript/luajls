@@ -255,24 +255,52 @@ end
 
 StreamHandler.bi = StreamHandler.tee
 
+--- Creates a BlockStreamHandler that allows to pass fixed size blocks to the wrapped handler.
+-- @tparam[opt] StreamHandler handler the handler to wrap
+-- @tparam[opt] number size the block size, default to 512
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.block(...)
   return require('jls.io.streams.BlockStreamHandler'):new(...)
 end
+--- Creates a BufferedStreamHandler that allows to buffer the stream to pass to the wrapped handler.
+-- The data will be pass to the wrapped handler once.
+-- @tparam[opt] StreamHandler handler the handler to wrap
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.buffer(...)
   return require('jls.io.streams.BufferedStreamHandler'):new(...)
 end
+--- Creates a ChunkedStreamHandler that allows to buffer a stream and to call a sub handler depending on specified limit or pattern.
+-- @tparam[opt] StreamHandler handler the handler to wrap
+-- @tparam string pattern the pattern to use to split the buffered data to the wrapped handler
+-- @tparam[opt] boolean plain true to use the pattern as a plain string
+-- @tparam[opt] number limit the max size to buffer waiting for a pattern
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.chunk(...)
   return require('jls.io.streams.ChunkedStreamHandler'):new(...)
 end
+--- Creates a DelayedStreamHandler that allows to buffer a stream while the sub handler is not available.
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.delay(...)
   return require('jls.io.streams.DelayedStreamHandler'):new(...)
 end
+--- Creates a FileStreamHandler that allows to write a stream into and from a file.
+-- @tparam jls.io.File file The file to create
+-- @tparam[opt] boolean overwrite true to indicate that existing file must be re created
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.file(...)
   return require('jls.io.streams.FileStreamHandler'):new(...)
 end
+--- Creates a PromiseStreamHandler that provides a promise that resolves once the stream is closed.
+-- @tparam[opt] StreamHandler handler the handler to wrap
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.promise(...)
   return require('jls.io.streams.PromiseStreamHandler'):new(...)
 end
+--- Creates a RangeStreamHandler that allows to restrict the stream to pass to the wrapped handler to a specified range.
+-- @tparam[opt] StreamHandler handler the handler to wrap
+-- @tparam[opt] number offset the offset of the range, default is 0
+-- @tparam[opt] number length the length of the range
+-- @treturn StreamHandler a StreamHandler.
 function StreamHandler.range(...)
   return require('jls.io.streams.RangeStreamHandler'):new(...)
 end
