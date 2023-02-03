@@ -72,7 +72,11 @@ runtime.execute = loader.lazyFunction(function(Promise, Thread)
       Thread:new(function(cmd)
         -- Windows uses 32-bit unsigned integers as exit codes
         -- windows system function does not return the exit code but the errno
-        local status, kind, code = os.execute(cmd)
+        local osm = os -- avoid Lua compatibility as it is handled
+        local status, kind, code = osm.execute(cmd)
+        if type(status) == 'number' then
+          return tostring(status == 0)..' exit '..tostring(status)
+        end
         -- status is a shorter for kind == 'exit' and code == 0
         return tostring(status)..' '..kind..' '..tostring(code)
       end):start(command):ended():next(function(result)
