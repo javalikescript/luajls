@@ -103,17 +103,6 @@ function Test_indexOf()
   lu.assertIs(list:indexOf('4'), 0)
 end
 
-function Test_isName()
-  lu.assertIsTrue(List.isName('a_value'))
-  lu.assertIsTrue(List.isName('a1'))
-  lu.assertIsTrue(List.isName('_value'))
-  lu.assertIsTrue(List.isName('B'))
-  lu.assertIsFalse(List.isName('1_value'))
-  lu.assertIsFalse(List.isName('and'))
-  lu.assertIsFalse(List.isName())
-  lu.assertIsFalse(List.isName(1))
-end
-
 function Test_contains()
   local list = List:new('1', '2', '3', '2')
   lu.assertIsTrue(list:contains('1'), 1)

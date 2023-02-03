@@ -3,11 +3,11 @@
 --
 -- The AST is represented using Lua table.
 --
--- The types are: "assignment", "binary", "block", "break", "call", "declaration", "for", "function", "goto", "identifier", "if", "label", "literal", "lookup", "repeat", "return", "table", "unary", "vararg", "while"
+-- The types are: `assignment`, `binary`, `block`, `break`, `call`, `declaration`, `for`, `function`, `goto`, `identifier`, `if`, `label`, `literal`, `lookup`, `repeat`, `return`, `table`, `unary`, `vararg`, `while`
 --
--- The operators are: "+", "-", "*", "/", "//", "^", "%", "&", "~", "|", ">>", "<<", "..", "<", "<=", ">", ">=", "==", "~=", "and", "or", "-", "not", "#", "~"
+-- The operators are: `+`, `-`, `*`, `/`, `//`, `^`, `%`, `&`, `~`, `|`, `>>`, `<<`, `..`, `<`, `<=`, `>`, `>=`, `==`, `~=`, `and`, `or`, `-`, `not`, `#`, `~`
 --
--- The table fields are: adjustToOne, arguments, attribute, body, bodyFalse, bodyTrue, callee, condition, declaration, expression, fields, kind, label, left, member, method, name, names, object, operator, parameters, right, statements, targets, type, value, values
+-- The table fields are: `adjustToOne`, `arguments`, `attribute`, `body`, `bodyFalse`, `bodyTrue`, `callee`, `condition`, `declaration`, `expression`, `fields`, `kind`, `label`, `left`, `member`, `method`, `name`, `names`, `object`, `operator`, `parameters`, `right`, `statements`, `targets`, `type`, `value`, `values`
 --
 -- @module jls.util.ast
 
@@ -17,16 +17,43 @@ local ast = {}
 
 local TOKEN_FIELDS = {'id', 'sourceString', 'sourcePath', 'token', 'line', 'position'}
 
-function ast.clean(node)
+local function cleanNode(node)
   for _, field in ipairs(TOKEN_FIELDS) do
     node[field] = nil
   end
 end
 
+--- Returns the AST representing the specified Lua code.
+-- @tparam string lua the Lua code to parse.
+-- @tparam[opt] boolean verbose whether or not to include extra information such as the line number.
+-- @treturn table the AST representing the Lua.
+function ast.parse(lua, verbose)
+  local tree = dumbParser.parse(lua)
+  if verbose then
+    return tree
+  end
+  dumbParser.traverseTree(tree, cleanNode)
+  return tree
+end
+
+--- Returns the AST representing the specified Lua expression.
+-- @tparam string lua the Lua expression to parse.
+-- @tparam[opt] boolean verbose whether or not to include extra information such as the line number.
+-- @treturn table the AST representing the Lua.
+function ast.parseExpression(lua, verbose)
+  local tree = dumbParser.parseExpression(lua)
+  if verbose then
+    return tree
+  end
+  dumbParser.traverseTree(tree, cleanNode)
+  return tree
+end
+
 --- Walks through the specified AST calling the callback function for each node.
 -- The function is called with the AST node, if the return value is a table then it will replace the current AST node.
 -- @tparam table tree the AST to walk through.
--- @tparam function callback the callback function.
+-- @tparam function callback the callback function, will be called with the node and the context.
+-- @param[opt] context an optional context to pass to the callback function.
 -- @treturn table the AST.
 function ast.traverse(tree, callback, context)
   local updated = false
@@ -52,26 +79,6 @@ function ast.traverse(tree, callback, context)
   local stopped = dumbParser.traverseTree(tree, fn)
   return tree, updated, stopped
 end
-
---- Returns the AST representing the specified Lua code.
--- @tparam string lua the Lua code to parse.
--- @treturn table the AST representing the Lua.
-function ast.parse(lua, verbose)
-  local tree = dumbParser.parse(lua)
-  if verbose then
-    return tree
-  end
-  return ast.traverse(tree, ast.clean)
-end
-
---- Returns the AST representing the specified Lua expression.
--- @tparam string lua the Lua expression to parse.
--- @treturn table the AST representing the Lua.
-function ast.parseExpression(lua)
-  return dumbParser.parseExpression(lua)
-end
-
--- parseExpression
 
 --- Returns the Lua code representing the specified AST.
 -- @tparam table tree the AST.
@@ -216,7 +223,7 @@ local compatMap51 = {
 }
 
 function ast.toLua51(node, level)
-  -- for type block, we may want to require compat
+  -- for type block, we may want to add require compat
   return applyCompatMap(compatMap51, node, level or 10)
 end
 

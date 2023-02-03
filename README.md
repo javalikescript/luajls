@@ -15,7 +15,7 @@ luajls provides:
 * language basics such as class definition, module loading, logging, promise, event loop, threads, processes
 * file system manipulation, I/O, file and networking access, serial communication, pipe, streams
 * HTTP, WebSocket, MQTT client and server with support for secured communication using SSL
-* utility modules for List and Map, date and time, JSON and XML formats, deflate, ZIP and tar files, scheduling, worker and web view
+* utility modules for List and Map, date and time, JSON and XML formats, AST, deflate, ZIP and tar files, scheduling, worker and web view
 
 ## What does it look like?
 

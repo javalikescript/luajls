@@ -157,11 +157,38 @@ function Test_mergeValuesByPath()
   lu.assertEquals(tables.mergeValuesByPath({a = {b = 'A', c = 'C'}}, {a = {b = 'B', d = 'D'}}), {['/a/b'] = {old = 'A', new = 'B'}, ['/a/c'] = {old = 'C'}, ['/a/d'] = {new = 'D'}})
 end
 
+function Test_isName()
+  lu.assertIsTrue(tables.isName('a_value'))
+  lu.assertIsTrue(tables.isName('a1'))
+  lu.assertIsTrue(tables.isName('_value'))
+  lu.assertIsTrue(tables.isName('B'))
+  lu.assertIsFalse(tables.isName('1_value'))
+  lu.assertIsFalse(tables.isName('and'))
+  lu.assertIsFalse(tables.isName())
+  lu.assertIsFalse(tables.isName(1))
+end
+
+local function assertParse(parse)
+  lu.assertNil(parse('nil'))
+  lu.assertNil(parse('os.execute("echo ouch")'))
+  lu.assertEquals(parse('"Hi"'), "Hi")
+  lu.assertEquals(parse('1'), 1)
+  lu.assertEquals(parse('true'), true)
+  lu.assertEquals(parse('{a="Hi",b=2,c=true}'), {a = "Hi", b = 2, c = true})
+  lu.assertEquals(parse('{"Hi", 2, true}'), {"Hi", 2, true})
+  lu.assertEquals(parse('{{"Hi", 2, true}, [3] = {a="Hi",b=2,c=true}}'), {{"Hi", 2, true}, [3] = {a = "Hi", b = 2, c = true}})
+end
+
 function Test_parse()
-  lu.assertEquals(tables.parse('{a="Hi",}'), {a = "Hi"})
+  assertParse(tables.parse)
+end
+
+function Test_parseLoad()
+  assertParse(tables.parseLoad)
 end
 
 function Test_stringify()
+  lu.assertEquals(tables.stringify(nil), 'nil')
   lu.assertEquals(tables.stringify(1), '1')
   lu.assertEquals(tables.stringify(1.2), '1.2')
   lu.assertEquals(tables.stringify(true), 'true')

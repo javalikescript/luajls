@@ -4,24 +4,78 @@
 local StringBuffer = require('jls.lang.StringBuffer')
 local List = require('jls.util.List')
 local Map = require('jls.util.Map')
+local hasParser, dumbParser = pcall(require, 'dumbParser')
 
 local tables = {}
 
--- Returns a table corresponding to the specifed text.
--- @tparam string text The string to parse.
--- @treturn table a table corresponding to the specifed text.
-function tables.parse(text)
-  -- TODO parse the text 
-  local f, err = load('return '..text, nil, 't')
+local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
+
+-- Returns true when the specified value is a Lua name.
+-- Names in Lua are any string of letters, digits, and underscores, not beginning with a digit and not being a reserved word.
+-- @tparam string value The string value to check.
+-- @treturn boolean true when the specified value is a Lua name.
+function tables.isName(value)
+  if type(value) == 'string' and string.find(value, '^[%a_][%a%d_]*$') and List.indexOf(RESERVED_NAMES, value) == 0 then
+    return true
+  end
+  return false
+end
+
+function tables.parseLoad(value)
+  local f, err = load('return '..value, 'parseLoad', 't', {})
   if f then
-    return f()
+    f, err = pcall(f)
+    if f then
+      return err
+    end
   end
   return nil, err
 end
 
--- Returns a string representing the specifed table value.
--- @tparam table value The table to convert.
+local function materialize(node)
+  local nodeType = node.type
+  if nodeType == 'literal' then
+    return node.value
+  elseif nodeType == 'table' then
+    local t = {}
+    for _, field in ipairs(node.fields) do
+      local key, value, err
+      key, err = materialize(field.key)
+      if key then
+        value, err = materialize(field.value)
+        if value then
+          t[key] = value
+        else
+          return nil, err
+        end
+      else
+        return nil, err
+      end
+    end
+    return t
+  end
+  return nil, 'invalid node type '..tostring(nodeType)
+end
+
+if hasParser then
+  --- Returns the value corresponding to the specifed string.
+  -- @tparam string value the Lua value to parse as a string.
+  -- @return the value corresponding to the specifed string.
+  function tables.parse(value)
+    local tree, err = dumbParser.parseExpression(value)
+    if tree then
+      return materialize(tree)
+    end
+    return nil, err
+  end
+else
+  tables.parse = tables.parseLoad
+end
+
+--- Returns a string representing the specifed value.
+-- @param value the value to convert.
 -- @tparam[opt] string space The indent value to use.
+-- @tparam[opt] boolean lenient whether or not be lenient.
 -- @treturn string a string representing the specifed table value.
 function tables.stringify(value, space, lenient)
   if value == nil then
@@ -73,7 +127,7 @@ function tables.stringify(value, space, lenient)
         -- The order in which the indices are enumerated is not specified
         for k, v in Map.spairs(m) do
           sb:append(subPrefix)
-          if List.isName(k) then
+          if tables.isName(k) then
             sb:append(k)
           else
             sb:append('[')
@@ -1073,7 +1127,7 @@ function tables.getArguments(t, name, separator)
   return {value}
 end
 
--- Map functions, for compatibilities
+-- Map functions, for compatibility
 -- TODO Remove
 tables.keys = Map.keys
 tables.values = Map.values

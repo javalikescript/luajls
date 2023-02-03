@@ -21,7 +21,7 @@ The only required dependency is Lua 5.4
 Optional dependencies are C and Lua modules such as _luafilesystem_, _luasocket_, _luv_, _lua-openssl_, _lua-cjson_.
 By example, the file system manipulation requires one of the _luafilesystem_ or the _luv_ dependent module.
 
-The recommended dependency is *luv* as you will have access to the *io*, *lang* and *net* packages.
+The recommended dependency is *luv* as it will provide you a uniform support of the *io*, *lang* and *net* packages.
 
 See [Lua JLS repository](https://github.com/javalikescript/luajls)
 and the [Lua C libraries repository](https://github.com/javalikescript/luaclibs)
@@ -93,7 +93,7 @@ File system manipulation, file I/O, pipe, serial, streams
 * _jls.net_
 Network modules including TCP and UDP socket, HTTP, MQTT, WebSocket
 * _jls.util_
-Utility modules for List, Map, date and time, JSON and XML formats, deflate, ZIP file, worker and WebView
+utility modules for List and Map, date and time, JSON and XML formats, AST, deflate, ZIP and tar files, scheduling, worker and web view
 
 A `jls` module is provided to automatically load jls modules.
 
@@ -734,6 +734,20 @@ print(date:toLocalDateTime():toISOString())
 -- prints the current date in ISO format
 ```
 
+### Tables
+
+The _tables_ module contains helper functions for Lua tables.
+
+It allows to serialize a Lua table into a string and materialize from.
+
+```lua
+local tables = require("jls.util.tables")
+print(tables.stringify({a = "Hi"}))
+-- prints '{a="Hi",}'
+local t = tables.parse('{a="Hi",b=2,c=true}')
+-- t is {a = "Hi", b = 2, c = true}
+```
+
 
 ## Data Exchange Formats
 
@@ -767,6 +781,19 @@ print(xml.encode({name = 'a', {name = 'b', attr = {c = 'c'}, 'A value'}}))
 local t = xml.decode('<a><b c="c">A value</b></a>')
 -- t contains {name = 'a', {name = 'b', attr = {c = 'c'}, 'A value'}}
 ```
+
+
+## Abstract Syntax Tree (AST)
+
+The _ast_ module allows to parse and generate Lua code.
+
+```lua
+local ast = require('jls.util.ast')
+local tree = ast.parse("local a = 2 // 2")
+print(ast.generate(tree))
+-- prints 'local a=2//2;'
+```
+
 
 ## User Interface
 

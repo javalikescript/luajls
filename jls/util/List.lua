@@ -337,19 +337,6 @@ return require('jls.lang.class').create(function(list, _, List)
 
   List.map = map
 
-  local RESERVED_NAMES = {'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while'}
-
-  --- Returns true when the specified value is a Lua name.
-  -- Names in Lua are any string of letters, digits, and underscores, not beginning with a digit and not being a reserved word.
-  -- @tparam string value The string value to check.
-  -- @treturn boolean true when the specified value is a Lua name.
-  function List.isName(value)
-    if type(value) == 'string' and string.find(value, '^[%a_][%a%d_]*$') and indexOf(RESERVED_NAMES, value) == 0 then
-      return true
-    end
-    return false
-  end
-
   local function isInteger(v)
     return type(v) == 'number' and v % 1 == 0
   end

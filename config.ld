@@ -1,5 +1,10 @@
 -- See https://stevedonovan.github.io/ldoc/manual/doc.md.html
-file = "jls"
+file = {'jls', exclude = {
+  'jls/io/streams',
+  'jls/net/http/filter',
+  'jls/net/http/handler',
+  'jls/net/http/Attributes.lua',
+}}
 project = "luajls"
 title = "Lua JLS 0.7"
 description = "luajls documentation"
@@ -32,6 +37,7 @@ The luajls library provides abstraction interfaces for general-purpose scripting
     * @{manual.md.User_Interface|User Interface}
 
 ]]
+--no_return_or_parms = true
 --no_summary = true
 --no_space_before_args = true 
 --sort = true

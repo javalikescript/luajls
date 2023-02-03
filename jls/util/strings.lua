@@ -91,6 +91,7 @@ local FORMAT_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstu
 -- @tparam[opt] integer radix The radix to use from 2 to 64, default is 10.
 -- @tparam[opt] integer len The minimal length of the resulting string padded with zero.
 -- @tparam[opt] string chars A string containing the characters used to format.
+-- @tparam[opt] string pad The character used to pad.
 -- @treturn string a string representing the integer.
 function strings.formatInteger(value, radix, len, chars, pad)
   if not chars then
