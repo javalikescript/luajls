@@ -18,6 +18,12 @@ function Test_split()
   lu.assertEquals(strings.split('a,b,c', ','), {'a', 'b', 'c'})
 end
 
+function Test_cut()
+  lu.assertEquals(strings.cut(10, 'abcdefghijklmnopqrstuvwxyz'), {'abcdefghij', 'klmnopqrst', 'uvwxyz'})
+  lu.assertEquals(strings.cut(13, 'abcdefghijklmnopqrstuvwxyz'), {'abcdefghijklm', 'nopqrstuvwxyz'})
+  lu.assertEquals(strings.cut(13, 'abc'), {'abc'})
+end
+
 function Test_cuts()
   lu.assertEquals(strings.cuts('abcdefghijklmnopqrstuvwxyz', 2, 2, 3), {'ab', 'cd', 'efg'})
   lu.assertEquals(strings.cuts('abcdefghijklmnopqrstuvwxyz', 2, 2, 99), {'ab', 'cd', 'efghijklmnopqrstuvwxyz'})

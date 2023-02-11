@@ -290,21 +290,19 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return pr
   end
 
+  local BODY_BLOCK_SIZE = 2 << 14
+
   function httpMessage:writeBodyCallback()
     local data = self:getBody()
     local sh = self:getBodyStreamHandler()
-    if #data > 0 then
-      sh:onData(data)
-    end
-    --[[
-      -- Avoid writing huge body
-      local BODY_BLOCK_SIZE = 1024*16
-      while #data > 0 do
-        local block = string.sub(data, 1, BODY_BLOCK_SIZE)
-        data = string.sub(data, BODY_BLOCK_SIZE + 1)
+    -- Avoid writing huge body
+    if #data > BODY_BLOCK_SIZE then
+      for _, block in ipairs(strings.cut(BODY_BLOCK_SIZE, data)) do
         sh:onData(block)
       end
-    ]]
+    elseif #data > 0 then
+      sh:onData(data)
+    end
     sh:onData()
   end
 

@@ -41,6 +41,20 @@ function strings.cuts(value, ...)
   return list
 end
 
+--- Returns a list of strings cut with the same size.
+-- @tparam number size The size to cut.
+-- @tparam string value The string to split.
+-- @treturn table a list of strings cut at each pattern.
+function strings.cut(size, value)
+  local list = {}
+  local index = 1
+  while index < #value do
+    table.insert(list, string.sub(value, index, index + size - 1))
+    index = index + size
+  end
+  return list
+end
+
 --[[
 function strings.compareToIgnoreCase(s1, s2) end
 function strings.endsWith(s1, s2) end
