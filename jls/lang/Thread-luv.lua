@@ -15,9 +15,9 @@ return require('jls.lang.class').create(function(thread)
 
   --- Creates a new Thread.
   -- @tparam[opt] function fn the function to execute in this thread.
-  -- The function will receive the arguments passed in the start call.
-  -- The function may return a single value.
+  -- The function will receive the arguments passed in the start call and may return a single value.
   -- Start arguments and return values shall be primitive type: string, number, boolean or nil
+  -- The function cannot share variables with the current thread, must not have upvalues.
   -- @function Thread:new
   function thread:initialize(fn)
     self:setFunction(fn)

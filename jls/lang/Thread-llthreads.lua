@@ -3,6 +3,7 @@ local llthreadsLib = require('llthreads')
 local Promise = require('jls.lang.Promise')
 local loader = require('jls.lang.loader')
 local event = loader.requireOne('jls.lang.event-')
+local logger = require('jls.lang.logger')
 
 local tables = loader.tryRequire('jls.util.tables')
 
@@ -28,8 +29,8 @@ return require('jls.lang.class').create(function(thread)
       return self
     end
     local chunkAsString = string.format('%q', string.dump(self.fn))
-    local code = "require('jls.lang.Thread')._main("..chunkAsString..", ...)"
-    --logger:finest('code: [['..code..']]')
+    local code = "return require('jls.lang.Thread')._main("..chunkAsString..", ...)"
+    logger:finest('code: [[%s]]', code)
     self.t = llthreadsLib.new(code, ...)
     self.t:start(self.daemon, true)
     return self
@@ -82,6 +83,7 @@ end, function(Thread)
   function Thread._main(chunk, ...)
     local fn = load(chunk, nil, 'b')
     local status, val, err = pcall(fn, ...)
+    logger:finest('Thread._main() => %s', status)
     if status then
       if err then
         return 0, tostring(err)
