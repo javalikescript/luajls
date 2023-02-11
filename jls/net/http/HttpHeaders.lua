@@ -15,13 +15,12 @@ end
 -- @type HttpHeaders
 return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
 
-  --- Creates a new Message.
+  --- Creates a new Headers.
   -- @function HttpHeaders:new
   function httpHeaders:initialize(headers)
+    self.headers = {}
     if headers then
-      self.headers = headers
-    else
-      self.headers = {}
+      self:setHeadersTable(headers)
     end
   end
 

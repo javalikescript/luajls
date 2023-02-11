@@ -290,7 +290,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         response:setStatusCode(HTTP_CONST.HTTP_NOT_MODIFIED, 'Not modified')
         return
       end
-      local range = request:getHeader('Range')
+      local range = request:getHeader('range')
       local offset, length
       if range then
         -- only support a single range
@@ -375,7 +375,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       HttpExchange.ok(httpExchange)
     elseif method == 'MOVE' and self.allowCreate and self.allowDelete then
       local request = httpExchange:getRequest()
-      local destination = request:getHeader('destination')
+      local destination = request:getHeader('destination') or ''
       if string.find(destination, '://') then
         destination = Url:new(destination):getPath()
       end

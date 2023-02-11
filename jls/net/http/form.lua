@@ -50,6 +50,9 @@ end
 
 function form.parseFormRequest(request)
   local contentTypeRawValue = request:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
+  if not contentTypeRawValue then
+    return nil, 'Missing content type'
+  end
   local contentType, params = HttpMessage.parseHeaderValueAsTable(contentTypeRawValue)
   if string.lower(contentType) ~= 'multipart/form-data' then
     -- we may also support content-type: application/x-www-form-urlencoded

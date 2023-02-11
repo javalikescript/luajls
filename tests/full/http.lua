@@ -115,7 +115,7 @@ local function createHttpServer(handler, keep)
     if not keep then
       httpExchange:onClose():next(function()
         logger:finer('http exchange closed')
-        local keepAlive = httpExchange:getResponse():getHeader('Connection') == 'keep-alive'
+        local keepAlive = httpExchange:getResponse():getHeader('connection') == 'keep-alive'
         if not keepAlive then
           logger:finer('http server closing')
           server:close()

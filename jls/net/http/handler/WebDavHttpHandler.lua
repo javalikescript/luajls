@@ -83,7 +83,7 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
   function webDavHttpHandler:handlePropFind(httpExchange, file, md, propfind)
     local request = httpExchange:getRequest()
     -- "0", "1", or "infinity" optionally suffixed ",noroot"
-    local depth = request:getHeader('Depth') or 'infinity'
+    local depth = request:getHeader('depth') or 'infinity'
     if logger:isLoggable(logger.FINE) then
       logger:fine('-- webdav depth: '..tostring(depth)..' --------')
     end
@@ -154,7 +154,7 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
         end
       end
     elseif method == 'COPY' or method == 'MOVE' then
-      local destination = request:getHeader('destination')
+      local destination = request:getHeader('destination') or ''
       local overwrite = request:getHeader('overwrite') ~= 'F'
       if logger:isLoggable(logger.FINE) then
         logger:fine('destination: "'..tostring(destination)..'", overwrite: '..tostring(overwrite))
