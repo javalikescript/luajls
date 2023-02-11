@@ -29,7 +29,11 @@ return require('jls.lang.class').create(function(thread)
       return self
     end
     local chunkAsString = string.format('%q', string.dump(self.fn))
-    local code = "return require('jls.lang.Thread')._main("..chunkAsString..", ...)"
+    local code = table.concat({
+      "package.path = "..string.format('%q', package.path),
+      "package.cpath = "..string.format('%q', package.cpath),
+      "return require('jls.lang.Thread')._main("..chunkAsString..", ...)"
+    }, '\n')
     logger:finest('code: [[%s]]', code)
     self.t = llthreadsLib.new(code, ...)
     self.t:start(self.daemon, true)

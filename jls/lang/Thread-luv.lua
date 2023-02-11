@@ -69,8 +69,11 @@ return require('jls.lang.class').create(function(thread)
         logger:fine('Thread function upvalues ('..tostring(name)..', ...) will be nil')
       end
     end
-    local chunkAsString = string.format('%q', string.dump(self.fn))
-    local code = "require('jls.lang.Thread')._main("..chunkAsString..", ...)"
+    local code = table.concat({
+      "package.path = "..string.format('%q', package.path),
+      "package.cpath = "..string.format('%q', package.cpath),
+      "require('jls.lang.Thread')._main("..string.format('%q', string.dump(self.fn))..", ...)"
+    }, '\n')
     --logger:finest('code: [['..code..']]')
     local chunk = string.dump(load(code, nil, 't'))
     self.t = luvLib.new_thread(chunk, self._async, ...)
