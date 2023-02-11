@@ -49,9 +49,13 @@ function strings.trim(s) end
 function strings.format(s) end
 ]]
 
-  function strings.equalsIgnoreCase(a, b)
-    return (a == b) or (type(a) == 'string' and type(b) == 'string' and string.lower(a) == string.lower(b))
-  end
+--- Returns true if the specified strings are equals case insensitive or both nil.
+-- @tparam string a the first string.
+-- @tparam string b the second string.
+-- @treturn boolean true if the specified strings are equals.
+function strings.equalsIgnoreCase(a, b)
+  return (type(a) == 'string' and type(b) == 'string' and string.lower(a) == string.lower(b)) or (a == nil and b == nil)
+end
 
 --- Returns an integer for the specified string.
 -- If two strings are equals then each string produce the same integer.
@@ -76,6 +80,43 @@ function strings.padLeft(s, l, c)
     return string.sub(s, -l)
   end
   return s
+end
+
+--- Returns the string representing the specified integer
+-- The most significant bit is set to 1 to indicate that another byte is used.
+-- @tparam number i the integer to encode
+-- @treturn string the encoded value as a string.
+function strings.encodeVariableByteInteger(i)
+  if i < 0 then
+    return nil
+  elseif i < 128 then
+    return string.char(i)
+  elseif i < 16384  then
+    return string.char(0x80 | (i & 0x7f), (i >> 7) & 0x7f)
+  elseif i < 2097152  then
+    return string.char(0x80 | (i & 0x7f), 0x80 | ((i >> 7) & 0x7f), (i >> 14) & 0x7f)
+  elseif i <= 268435455  then
+    return string.char(0x80 | (i & 0x7f), 0x80 | ((i >> 7) & 0x7f), 0x80 | ((i >> 14) & 0x7f), (i >> 21) & 0x7f)
+  end
+  return nil
+end
+
+--- Returns the integer represented by the specified string
+-- @tparam string s the encoded integer
+-- @tparam[opt] number offset the starting offset, default is 1
+-- @treturn number the decoded integer or nil.
+-- @treturn number the end offset
+function strings.decodeVariableByteInteger(s, offset)
+  offset = offset or 1
+  local i = 0
+  for l = 0, 3 do
+    local b = string.byte(s, offset + l)
+    i = ((b & 0x7f) << (7 * l)) | i
+    if (b & 0x80) ~= 0x80 then
+      return i, offset + l + 1
+    end
+  end
+  return nil
 end
 
 -- The character order is respected to allow comparison

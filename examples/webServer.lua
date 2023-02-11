@@ -5,6 +5,7 @@ local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
+local strings = require('jls.util.strings')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
@@ -243,7 +244,7 @@ if config.cipher and config.cipher.enabled then
   end)
 
   local function generateEncName(md)
-    local plain = Struct.encodeVariableByteInteger(md.size)..md.name
+    local plain = strings.encodeVariableByteInteger(md.size)..md.name
     if deflate then
       plain = deflate.encode(plain, nil, -15)
     end
@@ -265,7 +266,7 @@ if config.cipher and config.cipher.enabled then
         if deflate then
           plain = deflate.decode(plain, -15)
         end
-        local size, offset = Struct.decodeVariableByteInteger(plain)
+        local size, offset = strings.decodeVariableByteInteger(plain)
         local md = {
           name = string.sub(plain, offset),
           size = size,

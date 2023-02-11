@@ -2,6 +2,16 @@ local lu = require('luaunit')
 
 local strings = require("jls.util.strings")
 
+function Test_equalsIgnoreCase()
+  lu.assertTrue(strings.equalsIgnoreCase(nil, nil))
+  lu.assertTrue(strings.equalsIgnoreCase('', ''))
+  lu.assertTrue(strings.equalsIgnoreCase('a', 'a'))
+  lu.assertTrue(strings.equalsIgnoreCase('a', 'A'))
+  lu.assertFalse(strings.equalsIgnoreCase('', nil))
+  lu.assertFalse(strings.equalsIgnoreCase('a', 'b'))
+  lu.assertFalse(strings.equalsIgnoreCase(1, 1))
+end
+
 function Test_split()
   lu.assertEquals(strings.split('', ','), {})
   lu.assertEquals(strings.split('a', ','), {'a'})
@@ -45,6 +55,12 @@ function Test_formatInteger()
   lu.assertEquals(strings.formatInteger(69609650, 64), '49YYn')
   lu.assertEquals(strings.formatInteger(10, 16, 4), '000A')
   lu.assertEquals(strings.formatInteger(-10, 16, 4), '-00A')
+end
+
+function Test_variableByteInteger()
+  for _, i in ipairs({0, 1, 250, 30000}) do
+    lu.assertEquals(strings.decodeVariableByteInteger(strings.encodeVariableByteInteger(i)), i)
+  end
 end
 
 os.exit(lu.LuaUnit.run())
