@@ -209,6 +209,9 @@ event:loop() -- block
 
 So it is quite common to see Lua code ending with the event loop.
 
+Waiting is a trivial example, one could think about 2 non cooperative blocking tasks
+such as downloading a file while processing another one.
+
 
 ### Promise
 
@@ -369,8 +372,8 @@ A connection between client and server is established before data can be sent.
 The connection will resolve the specified address.
 
 ```lua
-local TcpClient = require('jls.net.TcpClient')
-local client = TcpClient:new()
+local TcpSocket = require('jls.net.TcpSocket')
+local client = TcpSocket:new()
 client:connect('www.lua.org', 80):next(function()
   client:readStart(function(err, data)
     if data then
@@ -387,8 +390,8 @@ require('jls.lang.event'):loop()
 The TCP server lets you bind on a specific port and accept connections.
 
 ```lua
-local TcpServer = require('jls.net.TcpServer')
-local server = TcpServer:new()
+local TcpSocket = require('jls.net.TcpSocket')
+local server = TcpSocket:new()
 server:bind('127.0.0.1', 80)
 function server:onAccept(client)
   print('client connected')
@@ -504,10 +507,10 @@ A common usage is with an HTTP server.
 ```lua
 local HttpServer = require('jls.net.http.HttpServer')
 local Map = require('jls.util.Map')
-local WebSocketUpgradeHandler = require('jls.net.http.ws').WebSocketUpgradeHandler
+local WebSocket = require('jls.net.http.WebSocket')
 local httpServer = HttpServer:new()
 httpServer:bind('::', 8080)
-httpServer:createContext('/ws/',  Map.assign(WebSocketUpgradeHandler:new(), {
+httpServer:createContext('/ws/',  Map.assign(WebSocket.UpgradeHandler:new(), {
   onOpen = function(_, webSocket)
     function webSocket:onTextMessage(payload)
       webSocket:sendTextMessage('You said '..payload)
@@ -703,9 +706,12 @@ end)
 -- {'a1', 'b2'}
 ```
 
+The List instances are fully compatible with Lua sequence table.
+The Map provides a `getTable()` method to access a fully compatible table map.
+
 ### Table Map
 
-The List and Map classes are compatibles with Lua tables, so the class methods can be used directly with Lua tables.
+The List and Map class methods can be used directly with Lua tables.
 
 ```lua
 local Map = require('jls.util.Map')
@@ -736,7 +742,7 @@ print(date:toLocalDateTime():toISOString())
 
 ### Tables
 
-The _tables_ module contains helper functions for Lua tables.
+The _tables_ module contains helper functions to manipulate Lua deep tables.
 
 It allows to serialize a Lua table into a string and materialize from.
 
@@ -802,6 +808,8 @@ The library does not provide native nor toolkit based user interfaces.
 ### WebView
 
 The WebView class allow to display HTML content in a window.
+
+Many OSes come with a default webview allowing simplifying the creation of user interface.
 
 The WebView highly depends on the underlying OS.
 Opening multiple WebView windows is not supported.
