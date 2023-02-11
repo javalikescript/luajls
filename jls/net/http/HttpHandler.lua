@@ -1,5 +1,5 @@
 --[[--
-Base HTTP handler class.
+Provides HTTP handler class and utility functions.
 
 An HTTP handler provides a way to deal with an HTTP request.
 Basicaly it consists in a function that will be called when an HTTP request

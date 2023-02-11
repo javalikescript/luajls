@@ -1,13 +1,11 @@
---- An HTTP client implementation that enable to send @{jls.net.http.HttpRequest|request} and receive @{jls.net.http.HttpResponse|response}.
+--- An HTTP client implementation that enable to send and receive @{jls.net.http.HttpMessage|message}.
 -- @module jls.net.http.HttpClient
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger')
-local TcpClient = require('jls.net.TcpClient')
+local TcpSocket = require('jls.net.TcpSocket')
 local Url = require('jls.net.Url')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local HttpRequest = require('jls.net.http.HttpRequest')
-local HttpResponse = require('jls.net.http.HttpResponse')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 
 --[[
@@ -50,10 +48,10 @@ local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
 local function newTcpClient(isSecure)
   local tcpClient
   if isSecure and getSecure() then
-    tcpClient = getSecure().TcpClient:new()
+    tcpClient = getSecure().TcpSocket:new()
     --tcpClient.sslCheckHost = options.checkHost == true
   else
-    tcpClient = TcpClient:new()
+    tcpClient = TcpSocket:new()
   end
   return tcpClient
 end
@@ -103,7 +101,7 @@ return require('jls.lang.class').create(function(httpClient)
   function httpClient:initialize(options)
     logger:finer('httpClient:initialize(...)')
     options = options or {}
-    local request = HttpRequest:new()
+    local request = HttpMessage:new()
     self.isSecure = false
     self.maxRedirectCount = 0
     self.request = request
@@ -141,10 +139,10 @@ return require('jls.lang.class').create(function(httpClient)
     elseif options.followRedirect == true then
       self.maxRedirectCount = 3
     end
-    if options.response and HttpResponse:isInstance(options.response) then
+    if options.response and HttpMessage:isInstance(options.response) then
       self.response = options.response
     else
-      self.response = HttpResponse:new()
+      self.response = HttpMessage:new()
       self.response:bufferBody()
     end
     if options.body then
@@ -180,8 +178,8 @@ return require('jls.lang.class').create(function(httpClient)
     if self.proxyHost then
       if self.isSecure then
         local connectTcp = newTcpClient(false)
-        local connectRequest = HttpRequest:new()
-        local connectResponse = HttpResponse:new()
+        local connectRequest = HttpMessage:new()
+        local connectResponse = HttpMessage:new()
         connectRequest:setMethod('CONNECT')
         local proxyTarget = getHostHeader(self.proxyHost, self.proxyPort)
         connectRequest:setTarget(proxyTarget)
@@ -253,7 +251,7 @@ return require('jls.lang.class').create(function(httpClient)
 
   function httpClient:receiveResponseHeaders()
     logger:finer('httpClient:receiveResponseHeaders()')
-    local response = HttpResponse:new()
+    local response = HttpMessage:new()
     local hsh = HeaderStreamHandler:new(response)
     return hsh:read(self.tcpClient):next(function(remainingBuffer)
       if logger:isLoggable(logger.FINE) then
@@ -298,7 +296,7 @@ return require('jls.lang.class').create(function(httpClient)
   end
 
   --- Sends the request then receives the response.
-  -- @treturn jls.lang.Promise a promise that resolves to the @{HttpResponse} received.
+  -- @treturn jls.lang.Promise a promise that resolves to the @{HttpMessage} received.
   function httpClient:sendReceive()
     logger:finer('httpClient:sendReceive()')
     return self:sendRequest():next(function()

@@ -2,12 +2,11 @@ local lu = require('luaunit')
 
 local form = require('jls.net.http.form')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local HttpRequest = require('jls.net.http.HttpRequest')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local strings = require('jls.util.strings')
 
 function Test_create_parse_form()
-  local request = HttpRequest:new()
+  local request = HttpMessage:new()
   local msg1 = HttpMessage:new()
   local msg2 = HttpMessage:new()
   local messages = {msg1, msg2}

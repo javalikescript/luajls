@@ -2,8 +2,6 @@ local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local UdpSocket = require('jls.net.UdpSocket')
-local HttpRequest = require('jls.net.http.HttpRequest')
-local HttpResponse = require('jls.net.http.HttpResponse')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -114,7 +112,7 @@ local ssdpPort = config['ssdp-port']
 
 if config.mode == 'client' then
   print('Searching for presentation URL...')
-  local request = HttpRequest:new()
+  local request = HttpMessage:new()
   request:setMethod('M-SEARCH')
   request:setTarget('*')
   request:setHeader(HttpMessage.CONST.HEADER_HOST, string.format('%s:%d', ssdpAddress, ssdpPort))
@@ -127,7 +125,7 @@ if config.mode == 'client' then
   sender:receiveStart(function(err, data)
     if data then
       logger:fine('received data: "%s"', data)
-      local response = HttpResponse:new()
+      local response = HttpMessage:new()
       HttpMessage.fromString(data, response)
       local location = response:getHeader('LOCATION')
       local server = response:getHeader('SERVER')
@@ -226,11 +224,12 @@ elseif config.mode == 'server' then
       receiver:close()
     elseif data then
       logger:fine('received data: "%s", addr: %s', data, tables.stringify(addr))
-      local request = HttpRequest:new()
+      local request = HttpMessage:new()
       HttpMessage.fromString(data, request)
       logger:fine('method: "%s"', request:getMethod())
       if addr and request:getMethod() == 'M-SEARCH' then
-        local response = HttpResponse:new()
+        local response = HttpMessage:new()
+        response:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
         response:setHeader('LOCATION', descriptionLocation)
         response:setHeader('SERVER', 'Linux/3.2.26, UPnP/1.0, luajls/0.1')
         response:setHeader('ST', 'ssdp:all')

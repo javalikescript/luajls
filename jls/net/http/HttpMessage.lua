@@ -1,4 +1,4 @@
---- This class provides common behavior for HTTP message.
+--- Represents an HTTP request or response.
 -- @module jls.net.http.HttpMessage
 -- @pragma nostrip
 
@@ -11,10 +11,10 @@ local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
+local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 
---- The HttpMessage class represents the base class for @{HttpRequest|request}
--- and @{HttpResponse|response}.
+--- The HttpMessage class represents the base class for HTTP request and HTTP response.
 -- The HttpMessage class inherits from @{HttpHeaders}.
 -- @type HttpMessage
 return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
@@ -23,28 +23,60 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   -- @function HttpMessage:new
   function httpMessage:initialize()
     super.initialize(self)
-    self:clearLine()
-    self.version = HttpMessage.CONST.VERSION_1_1
     self.body = ''
     self.bodyStreamHandler = StreamHandler.null
-    --self.willRead = willRead -- indicates this message direction
+    self.line = ''
+    self.version = HttpMessage.CONST.VERSION_1_1
+  end
+
+  local function isRequest(message)
+    return message and type(message.method) == 'string' and message.method ~= ''
+  end
+
+  local function isResponse(message)
+    return message and type(message.statusCode) == 'number'
   end
 
   --- Returns the first line of this HTTP message.
   -- @treturn string the first line of this HTTP message.
   function httpMessage:getLine()
+    if self.line == '' then
+      if isRequest(self) then
+        self.line = self.method..' '..self.target..' '..self:getVersion()
+      elseif isResponse(self) then
+        self.line = self:getVersion()..' '..tostring(self.statusCode)..' '..(self.reasonPhrase or '')
+      end
+    end
     return self.line
-  end
-
-  function httpMessage:clearLine()
-    self.line = ''
   end
 
   --- Sets the first line of this HTTP message.
   -- @tparam string line the first line.
   function httpMessage:setLine(line)
-    self.line = line
-    return true
+    -- see https://tools.ietf.org/html/rfc7230#section-3.1.1
+    self.line = tostring(line)
+    -- clean request and response fields
+    self.method = nil
+    self.target = nil
+    self.statusCode = nil
+    self.reasonPhrase = nil
+    self.version = nil
+    local method, target, version = string.match(line, "^(%S+)%s(%S+)%s(HTTP/%d+%.%d+)$")
+    if method then
+      self.method = string.upper(method)
+      self.target = target
+      self.version = version
+      return true
+    end
+    local statusCode, reasonPhrase
+    version, statusCode, reasonPhrase = string.match(line, "^(HTTP/%d+%.%d+)%s(%d+)%s(.*)$")
+    if version then
+      self.version = version
+      self.statusCode = tonumber(statusCode)
+      self.reasonPhrase = reasonPhrase
+      return true
+    end
+    return false -- TODO Do we need to enforce line check?
   end
 
   --- Returns the version of this HTTP message, default to `HTTP/1.0`.
@@ -56,8 +88,113 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Sets the first line of this HTTP message.
   -- @tparam string version the first line.
   function httpMessage:setVersion(version)
-    self.version = version
+    self.version = tostring(version)
+    self.line = ''
     return self
+  end
+
+  --- Returns this HTTP response status code.
+  -- @treturn string the HTTP response status code.
+  function httpMessage:getStatusCode()
+    return self.statusCode, self.reasonPhrase or ''
+  end
+
+  --- Returns this HTTP response reason phrase.
+  -- @treturn string the HTTP response reason phrase.
+  function httpMessage:getReasonPhrase()
+    return self.reasonPhrase or ''
+  end
+
+  --- Sets the status code for the response.
+  -- @tparam number status the status code.
+  -- @tparam[opt] string reason the reason phrase.
+  -- @treturn HttpMessage this message.
+  function httpMessage:setStatusCode(status, reason)
+    self.statusCode = tonumber(status)
+    if type(reason) == 'string' then
+      self.reasonPhrase = reason
+    end
+    self.line = ''
+    return self
+  end
+
+  function httpMessage:setReasonPhrase(reason)
+    if type(reason) == 'string' then
+      self.reasonPhrase = reason
+    end
+    self.line = ''
+  end
+
+  function httpMessage:setContentType(value)
+    self:setHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE, value)
+  end
+
+  function httpMessage:setCacheControl(value)
+    if type(value) == 'boolean' then
+      value = value and 604800 or -1 -- one week
+    end
+    if type(value) == 'number' then
+      if value >= 0 then
+        value = 'public, max-age='..tostring(value)..', must-revalidate'
+      else
+        value = 'no-store, no-cache, must-revalidate'
+      end
+    elseif type(value) ~= 'string' then
+      error('Invalid cache control value')
+    end
+    self:setHeader(HttpMessage.CONST.HEADER_CACHE_CONTROL, value)
+  end
+
+  function httpMessage:setLastModified(value)
+    -- All HTTP date/time stamps MUST be represented in Greenwich Mean Time (GMT)
+    if type(value) == 'number' then
+      value = Date:new(value):toRFC822String(true)
+    elseif Date:isInstance(value) then
+      value = value:toRFC822String(true)
+    end
+    self:setHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED, value)
+  end
+
+  --- Returns this HTTP request method, GET, POST.
+  -- @treturn string the HTTP request method.
+  function httpMessage:getMethod()
+    return self.method
+  end
+
+  --- Sets this HTTP request method.
+  -- @tparam string value the method.
+  function httpMessage:setMethod(value)
+    self.method = string.upper(value)
+    self.line = ''
+  end
+
+  --- Returns this HTTP request target.
+  -- @treturn string the HTTP request target.
+  function httpMessage:getTarget()
+    return self.target
+  end
+
+  --- Sets this HTTP request target.
+  -- @tparam string value the target.
+  function httpMessage:setTarget(value)
+    self.target = value
+    self.line = ''
+  end
+
+  function httpMessage:getTargetPath()
+    return string.gsub(self.target, '%?.*$', '')
+  end
+
+  function httpMessage:getTargetQuery()
+    return string.gsub(self.target, '^[^%?]*%??', '')
+  end
+
+  function httpMessage:getIfModifiedSince()
+    local value = self:getHeader('If-Modified-Since')
+    if type(value) == 'string' then
+      return Date.fromRFC822String(value)
+    end
+    return value
   end
 
   function httpMessage:getContentLength()
@@ -143,10 +280,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self.writeBodyCallback = httpMessage.writeBodyCallback
   end
 
-  function httpMessage:isResponse()
-    return type(self.getStatusCode) == 'function'
-  end
-
   --- Sets a function that will be called when the body stream handler is available to receive data.
   -- The default callback will emit the string body value.
   -- It is the caller's responsability to ensure that the content length or message headers are correctly set.
@@ -221,10 +354,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     end
   end
 
-  local function isRequest(message)
-    return message and type(message.getMethod) == 'function'
-  end
-
   function httpMessage:readHeader(client, buffer)
     local hsh = HeaderStreamHandler:new(self)
     return hsh:read(client, buffer)
@@ -236,7 +365,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     local chunkFinder = nil
     local transferEncoding = self:getHeader(HttpMessage.CONST.HEADER_TRANSFER_ENCODING)
     if transferEncoding then
-      if transferEncoding == 'chunked' then
+      if strings.equalsIgnoreCase(transferEncoding, 'chunked') then
         chunkFinder = createChunkFinder()
       else
         cb('Unsupported transfer encoding "'..transferEncoding..'"')

@@ -2,21 +2,24 @@
 -- @module jls.net.http.HttpServer
 -- @pragma nostrip
 
+local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
-local TcpServer = require('jls.net.TcpServer')
+local TcpSocket = require('jls.net.TcpSocket')
 local HttpExchange = require('jls.net.http.HttpExchange')
-local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
+local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpHandler = require('jls.net.http.HttpHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local List = require('jls.util.List')
-local HttpContext = require('jls.net.http.HttpContext')
 local HttpFilter = require('jls.net.http.HttpFilter')
+
+local HTTP_CONST = HttpMessage.CONST
 
 local function requestToString(exchange)
   local request = exchange:getRequest()
   if request then
     local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
     local path = request:getTargetPath()
-    return request:getMethod()..' '..tostring(path)..' '..tostring(hostport)
+    return request:getMethod()..' '..tostring(path)..' '..tostring(hostport)..' '..request:getVersion()
   end
   return '?'
 end
@@ -24,6 +27,14 @@ end
 local function compareByIndex(a, b)
   return a:getIndex() > b:getIndex()
 end
+
+local notFoundHandler = HttpHandler:new(function(self, httpExchange)
+  local response = httpExchange:getResponse()
+  response:setStatusCode(HttpMessage.CONST.HTTP_NOT_FOUND, 'Not Found')
+  response:setBody('<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
+end)
+
+local HttpContext
 
 --[[-- An HTTP server.
 The basic HTTP 1.1 server implementation.
@@ -44,7 +55,7 @@ end)
 event:loop()
 @type HttpServer
 ]]
-return require('jls.lang.class').create(function(httpServer)
+local HttpServer = class.create(function(httpServer)
 
   --- Creates a new HTTP server.
   -- @function HttpServer:new
@@ -53,15 +64,15 @@ return require('jls.lang.class').create(function(httpServer)
     self.contexts = {}
     self.filters = {}
     self.parentContextHolder = nil
-    self.notFoundContext = HttpContext:new('not found', HttpContext.notFoundHandler)
-    self.tcpServer = tcp or TcpServer:new()
+    self.notFoundContext = HttpContext:new('not found', notFoundHandler)
+    self.tcpServer = tcp or TcpSocket:new()
     self.tcpServer.onAccept = function(_, client)
       self:onAccept(client)
     end
     self.pendings = {}
   end
 
-  --- Creates a @{jls.net.http.HttpContext|context} in this server with the specified path and using the specified handler.
+  --- Creates a context in this server with the specified path and using the specified handler.
   -- The path is a Lua pattern that match the full path, take care of escaping the magic characters ^$()%.[]*+-?.
   -- You could use the @{jls.util.strings}.escape() function.
   -- The path is absolute and starts with a slash '/'.
@@ -231,7 +242,9 @@ return require('jls.lang.class').create(function(httpServer)
         local context = self:getMatchingContext(path, request)
         requestHeadersPromise = exchange:handleRequest(context)
       end
-      logger:finer('httpServer:onAccept() request headers processed')
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('httpServer:onAccept() request headers processed, '..request:getRawHeaders())
+      end
       return request:readBody(client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
       logger:finer('httpServer:onAccept() body done')
@@ -337,6 +350,12 @@ return require('jls.lang.class').create(function(httpServer)
   end
 end, function(HttpServer)
 
+  --- The HttpContext class.
+  HttpServer.HttpContext = HttpContext
+
+  --- The default not found handler.
+  HttpServer.notFoundHandler = notFoundHandler
+
   require('jls.lang.loader').lazyMethod(HttpServer, 'createSecure', function(secure, class)
     if not secure then
       return function()
@@ -344,13 +363,10 @@ end, function(HttpServer)
       end
     end
 
-    local HandshakeExchange = class.create('jls.net.http.Attributes', function(handshakeExchange)
-      handshakeExchange.close = class.emptyFunction
-    end)
-    local SecureTcpServer = class.create(secure.TcpServer, function(secureTcpServer)
+    local SecureTcpServer = class.create(secure.TcpSocket, function(secureTcpServer)
       function secureTcpServer:onHandshakeStarting(client)
         if self._hss then
-          local exchange = HandshakeExchange:new()
+          local exchange = HttpExchange:new()
           exchange:setAttribute('start_time', os.time())
           self._hss.pendings[client] = exchange
         end
@@ -374,3 +390,111 @@ end, function(HttpServer)
   end, 'jls.net.secure', 'jls.lang.class')
 
 end)
+
+--- The HttpContext class maps a path to a handler.
+-- The HttpContext is used by the @{HttpServer}.
+-- @type HttpContext
+HttpContext = class.create(function(httpContext, _, HttpContext)
+
+  --- Creates a new Context.
+  -- The handler will be called when the request headers have been received if specified.
+  -- The handler will be called when the body has been received if no response has been set.
+  -- @tparam string path the context path
+  -- @tparam[opt] function handler the context handler
+  --   the function takes one argument which is an @{HttpExchange}.
+  -- @function HttpContext:new
+  function httpContext:initialize(path, handler)
+    if type(path) == 'string' then
+      self.pattern = '^'..path..'$'
+    else
+      error('Invalid context path, type is '..type(path))
+    end
+    self.repl = '%1'
+    --self.index = string.len(path)
+    self.index = string.len(string.gsub(string.gsub(path, '%%.', '_'), '%([^%)]+%)', ''))
+    self:setHandler(handler or notFoundHandler)
+  end
+
+  function httpContext:getHandler()
+    return self.handler
+  end
+
+  function httpContext:setHandler(handler)
+    if type(handler) == 'function' then
+      self.handler = HttpHandler.onBodyHandler(handler)
+    elseif HttpHandler:isInstance(handler) then
+      self.handler = handler
+    elseif type(handler) == 'table' and type(handler.handle) == 'function' then
+      self.handler = handler
+    else
+      error('Invalid context handler, type is '..type(handler))
+    end
+    return self
+  end
+
+  --- Returns the context path.
+  -- @treturn string the context path.
+  function httpContext:getPath()
+    return string.sub(self.pattern, 2, -2)
+  end
+
+  function httpContext:getPathReplacement()
+    return self.repl
+  end
+
+  --- Sets the path replacement, default is '%1'.
+  -- @param repl the replacement compliant with the string.gsub function
+  -- @return this context
+  function httpContext:setPathReplacement(repl)
+    self.repl = repl
+    return self
+  end
+
+  function httpContext:setIndex(index)
+    self.index = index
+    return self
+  end
+
+  function httpContext:getIndex()
+    return self.index
+  end
+
+  --- Returns the captured values of the specified path.
+  -- @treturn string the first captured value, nil if there is no captured value.
+  function httpContext:getArguments(path)
+    return string.match(path, self.pattern)
+  end
+
+  --- Returns the target path of the specified path.
+  -- It consists in the first captured value, or the 
+  -- @treturn string the first captured value, nil if there is no captured value.
+  function httpContext:replacePath(path)
+    return string.gsub(path, self.pattern, self.repl)
+  end
+
+  function httpContext:matchRequest(path)
+    if string.match(path, self.pattern) then
+      return true
+    end
+    return false
+  end
+
+  function httpContext:handleExchange(httpExchange)
+    return self.handler:handle(httpExchange)
+  end
+
+  function httpContext:copyContext()
+    return HttpContext:new(self:getPath(), self:getHandler()):setPathReplacement(self:getPathReplacement())
+  end
+
+  function httpContext:close()
+    if type(self.handler.close) == 'function' then
+      self.handler:close()
+    end
+  end
+
+  HttpContext.notFoundHandler = notFoundHandler
+
+end)
+
+return HttpServer

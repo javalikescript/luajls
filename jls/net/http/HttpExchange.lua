@@ -1,4 +1,4 @@
---- The HttpExchange class wraps the HTTP request and response.
+--- Wraps the HTTP request and the associated response.
 -- @module jls.net.http.HttpExchange
 -- @pragma nostrip
 
@@ -7,20 +7,50 @@ local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local HttpRequest = require('jls.net.http.HttpRequest')
-local HttpResponse = require('jls.net.http.HttpResponse')
 local List = require('jls.util.List')
+local strings = require('jls.util.strings')
 local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpExchange class wraps the HTTP request and response.
 -- @type HttpExchange
-return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
+return require('jls.lang.class').create(function(httpExchange)
 
   function httpExchange:initialize(client)
-    super.initialize(self)
+    self.attributes = {}
     self.client = client
-    self.request = HttpRequest:new()
-    self.response = HttpResponse:new()
+    self.request = HttpMessage:new()
+    self.response = HttpMessage:new()
+    self.response:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
+  end
+
+  --- Sets the specified value for the specified name.
+  -- @tparam string name the attribute name
+  -- @param value the attribute value
+  function httpExchange:setAttribute(name, value)
+    self.attributes[name] = value
+    return self
+  end
+
+  --- Returns the value for the specified name.
+  -- @tparam string name the attribute name
+  -- @return the attribute value
+  function httpExchange:getAttribute(name)
+    return self.attributes[name]
+  end
+
+  function httpExchange:getAttributes()
+    return self.attributes
+  end
+
+  function httpExchange:setAttributes(attrs)
+    for name, value in pairs(attrs) do
+      self:setAttribute(name, value)
+    end
+    return self
+  end
+
+  function httpExchange:cleanAttributes()
+    self.attributes = {}
   end
 
   --- Returns the HTTP context.
@@ -35,13 +65,13 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns the HTTP request.
-  -- @treturn HttpRequest the HTTP request.
+  -- @treturn HttpMessage the HTTP request.
   function httpExchange:getRequest()
     return self.request
   end
 
   --- Returns the HTTP response.
-  -- @treturn HttpResponse the HTTP response.
+  -- @treturn HttpMessage the HTTP response.
   function httpExchange:getResponse()
     return self.response
   end
@@ -101,11 +131,11 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Sets the status code for the response.
-  -- @tparam number statusCode the status code.
-  -- @tparam[opt] string reasonPhrase the reason phrase.
+  -- @tparam number status the status code.
+  -- @tparam[opt] string reason the reason phrase.
   -- @tparam[opt] string body the response body.
-  function httpExchange:setResponseStatusCode(statusCode, reasonPhrase, body)
-    self.response:setStatusCode(statusCode, reasonPhrase)
+  function httpExchange:setResponseStatusCode(status, reason, body)
+    self.response:setStatusCode(status, reason)
     if body then
       self.response:setBody(body)
     end
@@ -115,11 +145,11 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     local connection = HttpMessage.CONST.HEADER_CONNECTION
     local requestConnection = self.request:getHeader(connection)
     local responseConnection = self.response:getHeader(connection)
-    if requestConnection == HttpMessage.CONST.CONNECTION_KEEP_ALIVE then
+    if strings.equalsIgnoreCase(requestConnection, HttpMessage.CONST.CONNECTION_KEEP_ALIVE) then
       if not responseConnection then
         self.response:setHeader(connection, requestConnection)
         return true
-      elseif responseConnection == requestConnection then
+      elseif strings.equalsIgnoreCase(responseConnection, requestConnection) then
         return true
       end
       self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
@@ -138,7 +168,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     local r = reason and tostring(reason) or 'Unkown error'
     local response = self.response
     response:close()
-    response = HttpResponse:new()
+    response = HttpMessage:new()
     response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
     self.response = response
     self:notifyRequestBody(r)
@@ -241,57 +271,57 @@ end, function(HttpExchange)
     [HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR] = '<p>Sorry something went wrong on our side.</p>',
   }
 
-  local function updateResponseFor(httpExchange, statusCode, reasonPhrase, bodyContent)
-    httpExchange:setResponseStatusCode(statusCode, reasonPhrase or HttpExchange.REASONS[statusCode], bodyContent or HttpExchange.CONTENTS[statusCode] or '')
+  local function updateResponseFor(exchange, status, reason, bodyContent)
+    exchange:setResponseStatusCode(status, reason or HttpExchange.REASONS[status], bodyContent or HttpExchange.CONTENTS[status] or '')
   end
 
   --- Updates the response with the OK status code, 200.
-  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
+  -- @tparam HttpExchange exchange ongoing HTTP exchange
   -- @tparam[opt] string body the response content.
   -- @tparam[opt] string contentType the response content type.
-  function HttpExchange.ok(httpExchange, body, contentType)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_OK, nil, body)
+  function HttpExchange.ok(exchange, body, contentType)
+    updateResponseFor(exchange, HTTP_CONST.HTTP_OK, nil, body)
     if type(contentType) == 'string' then
-      httpExchange:getResponse():setContentType(contentType)
+      exchange:getResponse():setContentType(contentType)
     end
   end
 
   --- Updates the response with the status code Bad Request, 400.
-  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  -- @tparam[opt] string reasonPhrase the response reason phrase.
-  function HttpExchange.badRequest(httpExchange, reasonPhrase)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_BAD_REQUEST, reasonPhrase)
+  -- @tparam HttpExchange exchange ongoing HTTP exchange
+  -- @tparam[opt] string reason the response reason phrase.
+  function HttpExchange.badRequest(exchange, reason)
+    updateResponseFor(exchange, HTTP_CONST.HTTP_BAD_REQUEST, reason)
   end
 
   --- Updates the response with the status code Forbidden, 403.
-  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  -- @tparam[opt] string reasonPhrase the response reason phrase.
-  function HttpExchange.forbidden(httpExchange, reasonPhrase)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_FORBIDDEN, reasonPhrase)
+  -- @tparam HttpExchange exchange ongoing HTTP exchange
+  -- @tparam[opt] string reason the response reason phrase.
+  function HttpExchange.forbidden(exchange, reason)
+    updateResponseFor(exchange, HTTP_CONST.HTTP_FORBIDDEN, reason)
   end
 
   --- Updates the response with the status code Not Found, 404.
-  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  function HttpExchange.notFound(httpExchange)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_NOT_FOUND, nil, '<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
+  -- @tparam HttpExchange exchange ongoing HTTP exchange
+  function HttpExchange.notFound(exchange)
+    updateResponseFor(exchange, HTTP_CONST.HTTP_NOT_FOUND, nil, '<p>The resource "'..exchange:getRequest():getTarget()..'" is not available.</p>')
   end
 
   --- Updates the response with the status code Method Not Allowed, 405.
-  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  function HttpExchange.methodNotAllowed(httpExchange)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_METHOD_NOT_ALLOWED)
+  -- @tparam HttpExchange exchange ongoing HTTP exchange
+  function HttpExchange.methodNotAllowed(exchange)
+    updateResponseFor(exchange, HTTP_CONST.HTTP_METHOD_NOT_ALLOWED)
   end
 
   --- Updates the response with the status code Internal Server Error, 500.
-  -- @tparam HttpExchange httpExchange ongoing HTTP exchange
-  -- @tparam[opt] string reasonPhrase the response reason phrase.
-  function HttpExchange.internalServerError(httpExchange, reasonPhrase)
-    httpExchange:getResponse():setVersion(HTTP_CONST.VERSION_1_0)
-    updateResponseFor(httpExchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, reasonPhrase)
+  -- @tparam HttpExchange exchange ongoing HTTP exchange
+  -- @tparam[opt] string reason the response reason phrase.
+  function HttpExchange.internalServerError(exchange, reason)
+    exchange:getResponse():setVersion(HTTP_CONST.VERSION_1_0)
+    updateResponseFor(exchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, reason)
   end
 
-  function HttpExchange.response(httpExchange, statusCode, reasonPhrase, bodyContent)
-    updateResponseFor(httpExchange, statusCode or HTTP_CONST.HTTP_OK, reasonPhrase, bodyContent)
+  function HttpExchange.response(exchange, status, reason, bodyContent)
+    updateResponseFor(exchange, status or HTTP_CONST.HTTP_OK, reason, bodyContent)
   end
 
   function HttpExchange.isValidSubPath(path)
@@ -300,8 +330,8 @@ end, function(HttpExchange)
     --return not string.find(path, '..', 1, true)
   end
 
-  function HttpExchange.methodAllowed(httpExchange, method)
-    local requestMethod = httpExchange:getRequestMethod()
+  function HttpExchange.methodAllowed(exchange, method)
+    local requestMethod = exchange:getRequestMethod()
     if type(method) == 'string' then
       if requestMethod == method then
         return true
@@ -311,7 +341,7 @@ end, function(HttpExchange)
         return true
       end
     end
-    HttpExchange.methodNotAllowed(httpExchange)
+    HttpExchange.methodNotAllowed(exchange)
     return false
   end
 

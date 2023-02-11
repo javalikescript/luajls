@@ -8,6 +8,9 @@ local loop = require('jls.lang.loopWithTimeout')
 
 local TEST_PORT = 3002
 
+-- TODO rename TcpSocket
+-- TODO test write with table of strings
+
 function Test_TcpClient_TcpServer()
   local server = TcpServer:new()
   assert(server:bind('127.0.0.1', TEST_PORT))
