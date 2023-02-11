@@ -11,7 +11,7 @@ local HttpHeaders = require('jls.net.http.HttpHeaders')
 local DelayedStreamHandler = require('jls.io.streams.DelayedStreamHandler')
 local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')
-local TcpClient = require('jls.net.TcpClient')
+local TcpSocket = require('jls.net.TcpSocket')
 
 --- A ProxyHttpHandler class.
 -- @type ProxyHttpHandler
@@ -165,7 +165,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     end
     local client
     return Promise:new(function(resolve, reject)
-      local targetClient = TcpClient:new()
+      local targetClient = TcpSocket:new()
       targetClient:connect(host, port):next(function()
         if logger:isLoggable(logger.FINE) then
           logger:fine('proxyHttpHandler connected to "'..hostport..'"')

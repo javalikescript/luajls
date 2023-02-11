@@ -1,12 +1,12 @@
 --[[--
-Base stream handler class.
+Provides stream handler class and utility functions.
 
 A stream handler provides a way to deal with an input stream asynchronously.
 Basicaly it consists in a function that will be called when data is available.
 If the stream ends then the data function is called with no data allowing to execute specific steps.
 If the stream has an issue then the error function is called.
 
-Streams classes are mainly used by @{jls.net.TcpClient|TCP} @{jls.net.UdpSocket|UDP} protocols.
+Streams classes are mainly used by @{jls.net.TcpSocket|TCP} and @{jls.net.UdpSocket|UDP} protocols.
 
 @module jls.io.StreamHandler
 @pragma nostrip

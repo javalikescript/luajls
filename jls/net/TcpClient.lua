@@ -1,1 +1,2 @@
-return require('jls.lang.loader').requireOne('jls.net.TcpClient-luv', 'jls.net.TcpClient-socket')
+-- Deprecated, to remove
+return require('jls.net.TcpSocket')

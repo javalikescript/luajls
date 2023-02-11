@@ -1,4 +1,4 @@
---- This module provide classes to work with MQTT.
+--- This module provides classes to work with MQTT.
 -- Message Queuing Telemetry Transport
 -- see http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
 -- @module jls.net.mqtt
@@ -6,10 +6,8 @@
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local TcpClient = require('jls.net.TcpClient')
-local TcpServer = require('jls.net.TcpServer')
+local TcpSocket = require('jls.net.TcpSocket')
 local List = require('jls.util.List')
-local Struct = require('jls.util.Struct')
 local strings = require('jls.util.strings')
 local hex = require('jls.util.hex')
 
@@ -242,7 +240,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
             break
           end
           local packetTypeAndFlags = string.byte(buffer, 1)
-          local remainingLength, offset = Struct.decodeVariableByteInteger(buffer, 2)
+          local remainingLength, offset = strings.decodeVariableByteInteger(buffer, 2)
           local packetLength = offset - 1 + remainingLength
           if bufferLength < packetLength then
             break
@@ -286,7 +284,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
     local packetTypeAndFlags = ((packetType & 0xf) << 4) | ((packetFlags or 0) & 0xf)
     local packet
     if data then
-      packet = string.char(packetTypeAndFlags)..Struct.encodeVariableByteInteger(#data)..data
+      packet = string.char(packetTypeAndFlags)..strings.encodeVariableByteInteger(#data)..data
     else
       packet = string.char(packetTypeAndFlags, 0)
     end
@@ -364,7 +362,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
     if type(options.keepAlive) == 'number' then
       self.keepAlive = options.keepAlive
     end
-    super.initialize(self, TcpClient:new())
+    super.initialize(self, TcpSocket:new())
   end
 
   function mqttClient:nextPacketId()
@@ -718,7 +716,7 @@ local MqttServer = class.create(function(mqttServer)
   function mqttServer:initialize()
     logger:finer('mqttServer:initialize(...)')
     self.clients = {}
-    self.tcpServer = TcpServer:new()
+    self.tcpServer = TcpSocket:new()
     local server = self
     function self.tcpServer:onAccept(tcpClient)
       local client = MqttClientServer:new(tcpClient, server)

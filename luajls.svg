@@ -64,7 +64,7 @@
 				</switch>
 			</g>
 		</a>
-		<a xlink:href="http://javalikescript.free.fr/lua/docs/modules/jls.net.TcpClient.html">
+		<a xlink:href="http://javalikescript.free.fr/lua/docs/modules/jls.net.TcpSocket.html">
 			<rect x="225" y="70" width="60" height="30" fill="#ffffff" stroke="#000000" pointer-events="all"/>
 			<g transform="translate(246.5,76.5)">
 				<switch>

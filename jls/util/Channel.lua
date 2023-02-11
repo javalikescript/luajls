@@ -72,8 +72,8 @@ local SCHEMES = {
   },
   tcp = {
     bind = function(self, userinfo)
-      local TcpServer = require('jls.net.TcpServer')
-      self.stream = TcpServer:new()
+      local TcpSocket = require('jls.net.TcpSocket')
+      self.stream = TcpSocket:new()
       return self.stream:bind(nil, 0):next(function()
         local host, port = self.stream:getLocalName()
         self.name = Url.format({
@@ -85,8 +85,8 @@ local SCHEMES = {
       end)
     end,
     connect = function(self, urlTable)
-      local TcpClient = require('jls.net.TcpClient')
-      self.stream = TcpClient:new()
+      local TcpSocket = require('jls.net.TcpSocket')
+      self.stream = TcpSocket:new()
       return self.stream:connect(nil, urlTable.port)
     end,
   },
