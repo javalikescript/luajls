@@ -1,7 +1,5 @@
 --[[--
-Provide WebView class.
-
-This class allow to display HTML content in a window.
+Displays HTML content in a dedicated window.
 
 The WebView highly depends on the underlying OS.
 Opening multiple WebView windows is not supported.
@@ -351,11 +349,11 @@ end, function(WebView)
   end
 
   function WebView._threadWebSocketFunction(webview, wsUrl)
-    local ws = require('jls.net.http.ws')
+    local WebSocket = require('jls.net.http.WebSocket')
     if logger:isLoggable(logger.FINE) then
       logger:fine('opening WebSocket "'..wsUrl..'"')
     end
-    local webSocket = ws.WebSocket:new(wsUrl)
+    local webSocket = WebSocket:new(wsUrl)
     webSocket:open():next(function()
       logger:fine('WebSocket opened, callback available')
       webview:callback(function(payload)
@@ -380,7 +378,8 @@ end, function(WebView)
       local url = Url.format(tUrl)
       if options.callback == true then
         local strings = require('jls.util.strings')
-        local ws = require('jls.net.http.ws')
+        local Map = require('jls.util.Map')
+        local WebSocket = require('jls.net.http.WebSocket')
         local wsPath = '/webview-callback/'
         options.fn = function(...)
           local WV = require('jls.util.WebView')
@@ -391,9 +390,11 @@ end, function(WebView)
         options.data = Url.format(tUrl)
         local wsCb
         wsPromise, wsCb = Promise.createWithCallback()
-        httpServer:createContext(strings.escape(wsPath), ws.upgradeHandler, {open = function(newWebSocket)
-          wsCb(nil, newWebSocket)
-        end})
+        httpServer:createContext(strings.escape(wsPath), Map.assign(WebSocket.UpgradeHandler:new(), {
+          onOpen = function(_, webSocket, exchange)
+            wsCb(nil, webSocket)
+          end
+        }))
         if logger:isLoggable(logger.FINE) then
           logger:fine('WebSocket context "'..wsPath..'" created')
         end

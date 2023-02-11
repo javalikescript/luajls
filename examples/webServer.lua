@@ -410,13 +410,13 @@ httpServer:createContext('/favicon.ico', function(exchange)
 end)
 
 if config.websocket.enabled then
-  local WebSocketUpgradeHandler = require('jls.net.http.ws').WebSocketUpgradeHandler
+  local WebSocket = require('jls.net.http.WebSocket')
   local websockets = {}
   local function onWebSocketClose(webSocket)
     logger:fine('WebSocket closed '..tostring(webSocket))
     List.removeFirst(websockets, webSocket)
   end
-  httpServer:createContext(config.websocket.path, Map.assign(WebSocketUpgradeHandler:new(), {
+  httpServer:createContext(config.websocket.path, Map.assign(WebSocket.UpgradeHandler:new(), {
     onOpen = function(_, webSocket, exchange)
       table.insert(websockets, webSocket)
       webSocket.onClose = onWebSocketClose

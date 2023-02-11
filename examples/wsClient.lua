@@ -2,7 +2,7 @@ local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local tables = require('jls.util.tables')
-local WebSocket = require('jls.net.http.ws').WebSocket
+local WebSocket = require('jls.net.http.WebSocket')
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
