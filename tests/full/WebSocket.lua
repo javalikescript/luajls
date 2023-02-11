@@ -1,7 +1,8 @@
 local lu = require('luaunit')
 
 local loop = require('jls.lang.loopWithTimeout')
-local ws = require('jls.net.http.ws')
+local Map = require('jls.util.Map')
+local WebSocket = require('jls.net.http.WebSocket')
 local HttpServer = require('jls.net.http.HttpServer')
 
 local TEST_PORT = 3002
@@ -9,17 +10,19 @@ local TEST_PORT = 3002
 function Test_send_receive()
   local server = HttpServer:new()
   local reply
-  server:createContext('/ws/', ws.upgradeHandler, {open = function(webSocket)
-    function webSocket:onTextMessage(payload)
-      webSocket:sendTextMessage('You said '..payload):next(function()
-        webSocket:close()
-        server:close()
-      end)
+  server:createContext('/ws/', Map.assign(WebSocket.UpgradeHandler:new(), {
+    onOpen = function(_, webSocket, exchange)
+      function webSocket:onTextMessage(payload)
+        webSocket:sendTextMessage('You said '..payload):next(function()
+          webSocket:close()
+          server:close()
+        end)
+      end
+      webSocket:readStart()
     end
-    webSocket:readStart()
-  end})
+  }))
   server:bind('::', TEST_PORT)
-  local webSocket = ws.WebSocket:new('ws://127.0.0.1:'..tostring(TEST_PORT)..'/ws/')
+  local webSocket = WebSocket:new('ws://127.0.0.1:'..tostring(TEST_PORT)..'/ws/')
   webSocket:open():next(function()
     function webSocket:onTextMessage(payload)
       reply = payload
@@ -39,22 +42,22 @@ end
 
 function Test_applyMask()
   local values = {'', 'a', 'ab', 'abc', 'abcd', 'abcde'}
-  local mask = ws.generateMask()
+  local mask = WebSocket.generateMask()
   for _, value in ipairs(values) do
-    local maskedValue = ws.applyMask(mask, value)
+    local maskedValue = WebSocket.applyMask(mask, value)
     lu.assertEquals(#maskedValue, #value)
     if value ~= '' then
       lu.assertNotEquals(maskedValue, value)
     end
-    lu.assertEquals(ws.applyMask(mask, maskedValue), value)
+    lu.assertEquals(WebSocket.applyMask(mask, maskedValue), value)
   end
 end
 
 function _Test_applyMask_perf()
-  local value = ws.randomChars(8195)
-  local mask = ws.generateMask()
+  local value = WebSocket.randomChars(8195)
+  local mask = WebSocket.generateMask()
   for _ = 1, 1000 do
-    ws.applyMask(mask, value)
+    WebSocket.applyMask(mask, value)
   end
 end
 
