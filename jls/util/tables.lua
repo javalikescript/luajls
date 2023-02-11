@@ -1,4 +1,5 @@
 --- Provide table helper functions.
+-- This module allows deep table manipulation.
 -- @module jls.util.tables
 
 local StringBuffer = require('jls.lang.StringBuffer')

@@ -1,5 +1,5 @@
 --[[--
-Provide OS file descriptor abstraction.
+Provides OS file descriptor abstraction.
 
 A FileDescriptor enables to manipulate files, reading from and writing to.
 

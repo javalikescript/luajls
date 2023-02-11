@@ -1,4 +1,4 @@
---- Provide DNS related functions.
+--- Provides DNS related functions.
 -- @module jls.net.dns
 
 local luvLib = require('luv')

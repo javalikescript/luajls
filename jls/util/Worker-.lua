@@ -1,5 +1,10 @@
---- Provide a Worker class.
--- @module jls.util.Worker
+--[[--
+Provides a way to process tasks in background.
+
+The worker thread interacts with the current thread via message passing.
+
+@module jls.util.Worker
+--]]
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')

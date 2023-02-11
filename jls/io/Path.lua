@@ -1,5 +1,5 @@
 --[[--
-Provide a representation of a file system path name.
+Provides a representation of a file system path name.
 
 @module jls.io.Path
 @pragma nostrip

@@ -1,16 +1,21 @@
 --[[--
-Provide the SerialWorker class.
+Executes functions in a dedicated thread.
 
-Allows to execute function in a single thread.
+This is a simplified @{jls.util.Worker|Worker} that allow to execute arbitrary functions in a dedicated thread.
+A single argument could be passed to the function and the function first result will be returned to the caller.
 
 @module jls.util.SerialWorker
 @pragma nostrip
 
 @usage
-  local SerialWorker = require('jls.util.SerialWorker')
 local serialWorker = SerialWorker:new()
-
-serialWorker:close()
+serialWorker:call(function(name)
+  return 'Hi '..tostring(name) -- executed in a dedicated thread
+end, 'John'):next(function(greetings)
+  print(greetings) -- prints 'Hi John' in the current thread
+  serialWorker:close()
+end)
+event:loop()
 ]]
 
 local class = require('jls.lang.class')

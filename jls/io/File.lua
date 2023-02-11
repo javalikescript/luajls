@@ -1,5 +1,5 @@
 --[[--
-Provide file system abstraction.
+Provides file system abstraction.
 
 A File extends @{Path} by adding file system manipulation, such as deleting, renaming, listing.
 

@@ -22,14 +22,16 @@ local json = {
 -- @return the encoded string.
 -- @function encode
 -- @usage
---require('jls.util.json').encode({aString = 'Hello world !'}) -- Returns '{"aString":"Hello world !"}'
+--local json = require('jls.util.json')
+--json.encode({aString = 'Hello world !'}) -- Returns '{"aString":"Hello world !"}'
 
 --- Returns the value representing the specified string.
 -- @tparam string jsonString The JSON string to decode.
 -- @return the decoded value.
 -- @function decode
 -- @usage
---require('jls.util.json').decode('{"aString":"Hello world !"}') -- Returns {aString = 'Hello world !'}
+--local json = require('jls.util.json')
+--json.decode('{"aString":"Hello world !"}') -- Returns {aString = 'Hello world !'}
 
 --- Returns the value representing the specified string.
 -- Raises an error if the value cannot be parsed.

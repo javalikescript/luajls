@@ -233,6 +233,12 @@ return require('jls.lang.class').create(function(map, _, Map)
     return Map:new(reverse(self.map))
   end
 
+  --- Returns the internal map table.
+  -- @treturn table the internal map table.
+  function map:getTable()
+    return self.map
+  end
+
   --- Sets all key-values of the specified tables to the target table.
   -- @tparam table target The table to update.
   -- @tparam table ... The tables to get key-values from.

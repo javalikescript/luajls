@@ -1,4 +1,4 @@
---- Provide UDP socket.
+--- Represents a UDP socket.
 -- @module jls.net.UdpSocket
 
 local luvLib = require('luv')

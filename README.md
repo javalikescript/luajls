@@ -50,7 +50,7 @@ Just drop the *jls* folder in your Lua path.
 The only required dependency is Lua 5.4.
 Optional dependencies are C-based or plain Lua modules such as *luafilesystem*, *luasocket*, *luv*, *lua-openssl*, *lua-cjson*.
 By example, the file system manipulation requires one of the *luafilesystem* or the *luv* dependent module.
-The recommended dependency is *luv* as you will have access to the full *io*, *lang* and *net* packages.
+The recommended dependency is *luv* as it will provide you a uniform support of the *io*, *lang* and *net* packages.
 
 Lua, luajls and all the dependencies are available in the [Lua C libraries repository](https://github.com/javalikescript/luaclibs).
 

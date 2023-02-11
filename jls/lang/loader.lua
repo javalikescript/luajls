@@ -1,4 +1,4 @@
---- This module contains helper functions to load Lua modules.
+--- Contains helper functions to load Lua modules.
 -- The loader module is fully compatible with the Lua require function.
 -- @module jls.lang.loader
 

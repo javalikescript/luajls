@@ -1,5 +1,5 @@
 --[[--
-This class enables to create a native process.
+Enables to create a native process.
 
 Note: The only full implementation is based on libuv
 
