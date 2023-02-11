@@ -7,11 +7,13 @@ local List = require('jls.util.List')
 
 local function socketToString(client)
   --local ip, port = client:getpeername()
-  local status, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
-  if status and ip then
-    return tostring(ip)..':'..tostring(port)
+  if client then
+    local status, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
+    if status and ip then
+      return tostring(ip)..':'..tostring(port)
+    end
   end
-  return string.gsub(tostring(client), '%s+', '')
+  return 'n/a'
 end
 
 local function emptyFunction() end
@@ -48,22 +50,55 @@ return require('jls.lang.class').create(function(selector)
       computedMode = computedMode | MODE_RECV
     end
     if writeData and writeCallback then
+      local position
       if socket.sendto then
+        if not (ip and port) then
+          error('missing ip and port')
+        end
+      else
+        if ip and port then
+          error('unexpected ip and port')
+        end
+        position = 0
+      end
+      local writeType = type(writeData)
+      if writeType == 'table' then
+        local callback = function(err)
+          if err then
+            writeCallback(err)
+          end
+        end
+        if #writeData <= 0 then
+          error('invalid write data type')
+        end
+        for _, d in ipairs(writeData) do
+          if type(d) ~= 'string' then
+            error('invalid write data type')
+          end
+          wf = {
+            buffer = d,
+            callback = callback,
+            ip = ip,
+            port = port,
+            length = #d,
+            position = position
+          }
+          table.insert(context.writet, wf)
+        end
+        wf.callback = writeCallback
+      elseif writeType == 'string' then
         wf = {
           buffer = writeData,
           callback = writeCallback,
           ip = ip,
-          port = port
+          port = port,
+          length = #writeData,
+          position = position
         }
+        table.insert(context.writet, wf)
       else
-        wf = {
-          buffer = writeData,
-          callback = writeCallback,
-          length = string.len(writeData),
-          position = 0
-        }
+        error('invalid write data type')
       end
-      table.insert(context.writet, wf)
       computedMode = computedMode | MODE_SEND
     end
     mode = mode or computedMode
