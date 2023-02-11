@@ -18,7 +18,7 @@ local TEST_PORT = 3002
 local function createTcpServer(onData)
   if type(onData) == 'string' then
     local replyData = onData
-    onData = function(server, client)
+    onData = function(server, client, data)
       client:write(replyData)
       onData = nil
     end

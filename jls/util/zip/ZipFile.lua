@@ -633,7 +633,7 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  local function keepFileName(name)
+  local function keepFileName(name, entry)
     return name
   end
 
