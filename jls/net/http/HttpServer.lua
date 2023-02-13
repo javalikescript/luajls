@@ -243,7 +243,7 @@ local HttpServer = class.create(function(httpServer)
         local context = self:getMatchingContext(path, request)
         requestHeadersPromise = exchange:handleRequest(context)
       end
-      local ml = request:getHeader('jls_logger_level')
+      --[[local ml = request:getHeader('jls_logger_level')
       if ml then
         ml = logger:getClass().levelFromString(ml)
         if ml then
@@ -255,7 +255,7 @@ local HttpServer = class.create(function(httpServer)
             end)
           end
         end
-      end
+      end]]
       if logger:isLoggable(logger.FINER) then
         logger:finer('httpServer:onAccept() request headers '..requestToString(exchange)..' processed')
         logger:finer(request:getRawHeaders())
@@ -371,9 +371,6 @@ local HttpServer = class.create(function(httpServer)
   end
 
 end, function(HttpServer)
-
-  --- The HttpContext class.
-  HttpServer.HttpContext = HttpContext
 
   --- The default not found handler.
   HttpServer.notFoundHandler = notFoundHandler
@@ -518,5 +515,8 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
   HttpContext.notFoundHandler = notFoundHandler
 
 end)
+
+--- The HttpContext class.
+HttpServer.HttpContext = HttpContext
 
 return HttpServer
