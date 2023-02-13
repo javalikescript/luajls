@@ -4,13 +4,14 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
+local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpHandler = require('jls.net.http.HttpHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
-local List = require('jls.util.List')
 local HttpFilter = require('jls.net.http.HttpFilter')
+local List = require('jls.util.List')
 
 local HTTP_CONST = HttpMessage.CONST
 
@@ -242,8 +243,22 @@ local HttpServer = class.create(function(httpServer)
         local context = self:getMatchingContext(path, request)
         requestHeadersPromise = exchange:handleRequest(context)
       end
+      local ml = request:getHeader('jls_logger_level')
+      if ml then
+        ml = logger:getClass().levelFromString(ml)
+        if ml then
+          local level = logger:getLevel()
+          if ml < level then
+            logger:setLevel(ml)
+            exchange:onClose():next(function()
+              logger:setLevel(level)
+            end)
+          end
+        end
+      end
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:onAccept() request headers processed, '..request:getRawHeaders())
+        logger:finer('httpServer:onAccept() request headers '..requestToString(exchange)..' processed')
+        logger:finer(request:getRawHeaders())
       end
       return request:readBody(client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
@@ -330,24 +345,31 @@ local HttpServer = class.create(function(httpServer)
   end
 
   --- Closes this server.
+  -- This method will close the pending client connections and contexts.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the server is closed.
   function httpServer:close(callback)
-    local p = self.tcpServer:close(callback)
-    local pendings = self.pendings
-    self.pendings = {}
-    local count = 0
-    for client, exchange in pairs(pendings) do
-      exchange:close()
-      client:close()
-      count = count + 1
-    end
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('httpServer:close() '..tostring(count)..' pending request(s) closed')
-    end
-    self:closeContexts()
-    return p
+    local cb, d = Promise.ensureCallback(callback)
+    self.tcpServer:close(function(err)
+      local pendings = self.pendings
+      self.pendings = {}
+      local count = 0
+      for client, exchange in pairs(pendings) do
+        exchange:close()
+        client:close()
+        count = count + 1
+      end
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('httpServer:close() '..tostring(count)..' pending request(s) closed')
+      end
+      self:closeContexts()
+      if cb then
+        cb(err)
+      end
+    end)
+    return d
   end
+
 end, function(HttpServer)
 
   --- The HttpContext class.
