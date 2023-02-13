@@ -4,6 +4,7 @@
 
 -- TODO rename as StringBuilder
 -- TODO create a StringBuffer
+-- TODO store values directly in instance table
 
 --- A StringBuffer class.
 -- The StringBuffer optimizes the addition of strings in a buffer by avoiding the use of intermediary concatenated string.

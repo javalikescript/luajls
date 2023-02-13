@@ -128,6 +128,9 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
 
   function secureTcpSocket:sslShutdown()
     logger:finer('secureTcpSocket:sslShutdown()')
+    if self.sslReading then
+      self:readStop()
+    end
     if self.ssl then
       self.ssl:shutdown()
     end
@@ -194,7 +197,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       logger:finer('secureTcpSocket:sslFlush() #chunks is '..tostring(#chunks))
     end
     if #chunks > 0 then
-      return super.write(self, table.concat(chunks), callback)
+      return super.write(self, chunks, callback)
     end
     local cb, d = Promise.ensureCallback(callback)
     if cb then
@@ -396,9 +399,20 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
         logger:finer('secureTcpSocket:write(#'..tostring(data and #data)..')')
       end
     end
+    if type(data) ~= 'string' then
+      if type(data) ~= 'table' then
+        error('invalid data type')
+      end
+      data = table.concat(data) -- TODO multiple writes
+    end
     local ret, err = self.ssl:write(data)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('ssl:write() => '..tostring(ret)..', '..tostring(err))
+    -- See https://www.openssl.org/docs/man1.0.2/man3/SSL_write.html
+    if ret > 0 then
+      -- The write operation was successful, the return value is the number of bytes actually written to the TLS/SSL connection.
+      logger:finer('ssl:write() => %s', ret)
+    else
+      -- The write operation was not successful, because either the connection was closed, an error occurred or action must be taken by the calling process.
+      logger:warn('ssl:write() => %s, "%s"', ret, err)
     end
     return self:sslFlush(callback)
   end
