@@ -428,28 +428,38 @@ function Test_HttpClientServer_body()
   lu.assertEquals(server.t_request:getMethod(), 'POST')
 end
 
+local function onWriteMessage(message, data)
+  if type(data) == 'string' then
+    data = {data}
+  end
+  local l = 0
+  for _, d in ipairs(data) do
+    l = l + #d
+  end
+  message:setContentLength(l)
+  message:onWriteBodyStreamHandler(function()
+    local bsh = message:getBodyStreamHandler()
+    for _, d in ipairs(data) do
+      bsh:onData(d)
+    end
+    bsh:onData()
+  end)
+end
+
 function Test_HttpClientServer_body_stream()
   local server, client
   createHttpServer(function(httpExchange)
     local request = httpExchange:getRequest()
     local response = httpExchange:getResponse()
     response:setStatusCode(200, 'Ok')
-    local body = '<p>Hello '..request:getBody()..'!</p>'
-    response:setContentLength(#body)
-    response:onWriteBodyStreamHandler(function()
-      StreamHandler.fill(response:getBodyStreamHandler(), body)
-    end)
+    onWriteMessage(response, '<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
   end):next(function(s)
     server = s
     client = createHttpClient()
     local request = client:getRequest()
     request:setMethod('POST')
-    local body = 'Tim'
-    request:setContentLength(#body)
-    request:onWriteBodyStreamHandler(function()
-      StreamHandler.fill(request:getBodyStreamHandler(), body)
-    end)
+    onWriteMessage(request, 'Tim')
     sendReceiveClose(client)
   end)
   if not loop(function()
@@ -460,6 +470,34 @@ function Test_HttpClientServer_body_stream()
   end
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getBody(), '<p>Hello Tim!</p>')
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_request:getMethod(), 'POST')
+end
+
+function Test_HttpsClientServer_body_stream_multiple()
+  local server, client
+  createHttpServer(function(httpExchange)
+    local request = httpExchange:getRequest()
+    local response = httpExchange:getResponse()
+    response:setStatusCode(200, 'Ok')
+    onWriteMessage(response, {'<p>Hello ', request:getBody(), '!</p>'})
+    logger:fine('http server handler => Ok')
+  end):next(function(s)
+    server = s
+    client = createHttpClient()
+    local request = client:getRequest()
+    request:setMethod('POST')
+    onWriteMessage(request, {'John, ', 'Smith'})
+    sendReceiveClose(client)
+  end)
+  if not loop(function()
+    client:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getBody(), '<p>Hello John, Smith!</p>')
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_request:getMethod(), 'POST')
 end

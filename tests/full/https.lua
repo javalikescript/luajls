@@ -68,7 +68,7 @@ local function notFoundHandler(httpExchange)
   response:setBody('The resource "'..httpExchange:getRequest():getTarget()..'" is not available.')
 end
 
-local function createHttpsServer(handler)
+local function createHttpsServer(handler, keep)
   if not handler then
     handler = notFoundHandler
   end
@@ -82,6 +82,16 @@ local function createHttpsServer(handler)
   server:createContext('/.*', function(httpExchange)
     --print('createHttpsServer() handler')
     server.t_request = httpExchange:getRequest()
+    if not keep then
+      httpExchange:onClose():next(function()
+        logger:finer('http exchange closed')
+        local keepAlive = httpExchange:getResponse():getHeader('connection') == 'keep-alive'
+        if not keepAlive then
+          logger:finer('http server closing')
+          server:close()
+        end
+      end)
+    end
     return handler(httpExchange)
   end)
   return server:bind('::', TEST_PORT):next(function()
@@ -93,10 +103,11 @@ local function sendReceiveClose(client)
   return client:connect():next(function()
     return client:sendReceive()
   end):next(function(response)
+    logger:fine('http client response received')
     client.t_response = response
     client:close()
   end, function(err)
-    --print('client error', err)
+    logger:fine('http client error: %s', err)
     client.t_err = err
     client:close()
   end)
@@ -147,13 +158,60 @@ function Test_HttpsClientServer()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
+local function onWriteMessage(message, data)
+  if type(data) == 'string' then
+    data = {data}
+  end
+  local l = 0
+  for _, d in ipairs(data) do
+    l = l + #d
+  end
+  message:setContentLength(l)
+  message:onWriteBodyStreamHandler(function()
+    local bsh = message:getBodyStreamHandler()
+    for _, d in ipairs(data) do
+      bsh:onData(d)
+    end
+    bsh:onData()
+  end)
+end
+
+function Test_HttpsClientServer_body_stream()
+  local server, client
+  createHttpsServer(function(httpExchange)
+    local request = httpExchange:getRequest()
+    local response = httpExchange:getResponse()
+    response:setStatusCode(200, 'Ok')
+    onWriteMessage(response, {'<p>Hello ', request:getBody(), '!</p>'})
+    logger:fine('http server handler => Ok')
+  end):next(function(s)
+    server = s
+    client = createHttpsClient()
+    local request = client:getRequest()
+    request:setMethod('POST')
+    onWriteMessage(request, {'John', ', ', 'Smith'})
+    logger:fine('http client request')
+    sendReceiveClose(client)
+  end)
+  if not loop(function()
+    client:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertIsNil(client.t_err)
+  lu.assertEquals(client.t_response:getBody(), '<p>Hello John, Smith!</p>')
+  lu.assertIsNil(server.t_err)
+  lu.assertEquals(server.t_request:getMethod(), 'POST')
+end
+
 function Test_HttpsServerClients()
   local server
   local count = 0
   createHttpsServer(function(httpExchange)
     HttpExchange.ok(httpExchange, '<p>Hello.</p>')
     count = count + 1
-  end):next(function(s)
+  end, true):next(function(s)
     server = s
     sendReceiveClose(createHttpsClient())
     sendReceiveClose(createHttpsClient()):next(function()
