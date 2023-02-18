@@ -202,25 +202,118 @@ return class.create(function(webSocket)
     return self
   end
 
-  --- Closes this WebSocket.
-  -- @tparam function callback an optional callback function to use in place of promise.
-  -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is closed.
-  function webSocket:close(callback)
-    if self.tcp then
-      local tcp = self.tcp
+  --- Connects this WebSocket to a server.
+  -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is opened.
+  function webSocket:open()
+    self:close(false)
+    -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
+    local key = base64.encode(randomChars(16))
+    local client = HttpClient:new({
+      url = self.url,
+      method = 'GET',
+      headers = {
+        [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
+        [HttpMessage.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
+        [HttpMessage.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
+        [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
+        [CONST.HEADER_SEC_WEBSOCKET_KEY] = key,
+        [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
+      }
+    })
+    local connectPromise = client:connect()
+    self.tcp = client:getTcpClient()
+    return connectPromise:next(function()
+      return client:sendReceive()
+    end):next(function(response)
+      if response:getStatusCode() ~= HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
+        self.tcp = nil
+        client:close()
+        return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
+      end
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('webSocket:open() Switching protocols')
+      end
+      -- TODO Check accept key
+    end, function(reason)
       self.tcp = nil
-      return tcp:close(callback)
-    end
-    if callback == nil then
-      return Promise.resolve()
-    end
-    if callback then
-      callback()
-    end
+      client:close()
+      logger:fine('webSocket:open() error: "'..tostring(reason)..'"')
+      return Promise.reject(reason)
+    end)
   end
 
-  function webSocket:isClosed()
-    return not self.tcp
+  --- Sends a message on this WebSocket.
+  -- @tparam string message the message to send.
+  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
+  function webSocket:sendTextMessage(message, callback)
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('webSocket:sendTextMessage("'..tostring(message)..'")')
+    end
+    return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, tostring(message), callback)
+  end
+
+  --- Starts receiving messages on this WebSocket.
+  function webSocket:readStart()
+    if not self.tcp then
+      return nil, 'not connected'
+    end
+    -- stream implementation that buffers and splits packets
+    local buffer = ''
+    return self.tcp:readStart(function(err, data)
+      if err then
+        self:raiseError(err)
+      elseif data then
+        buffer = buffer..data
+        while true do
+          local bufferLength = #buffer
+          if bufferLength < 2 then
+            break
+          end
+          local fin, opcode, len, sizeLength, maskLength, rsv = read2BytesHeader(buffer)
+          local headerLength = 2 + sizeLength + maskLength
+          if bufferLength < headerLength then
+            break
+          end
+          local idx = 3
+          if sizeLength > 0 then
+              len = 0
+              for i = idx, idx + sizeLength - 1 do
+                  len = (len * 256) + string_byte(buffer, i)
+              end
+              idx = idx + sizeLength
+          end
+          local maskChars
+          if maskLength > 0 then
+              maskChars = string.sub(buffer, idx, idx + maskLength - 1)
+              idx = idx + maskLength
+          end
+          local frameLength = headerLength + len
+          if bufferLength < frameLength then
+            break
+          end
+          local payload = string.sub(buffer, idx, idx + len - 1)
+          if maskChars then
+              payload = applyMask(maskChars, payload)
+          end
+          if bufferLength == frameLength then
+            buffer = ''
+          else
+            buffer = string.sub(buffer, frameLength + 1)
+          end
+          self:onReadFrame(fin, opcode, payload, rsv)
+        end
+      else
+        self:raiseError('end of stream')
+      end
+    end)
+  end
+
+  --- Stops receiving messages on this WebSocket.
+  function webSocket:readStop()
+    if self.tcp then
+      self.tcp:readStop()
+    end
   end
 
   --- Called when this WebSocket has been closed due to an error,
@@ -318,69 +411,6 @@ return class.create(function(webSocket)
     end
   end
 
-  --- Stops receiving messages on this WebSocket.
-  function webSocket:readStop()
-    if self.tcp then
-      self.tcp:readStop()
-    end
-  end
-
-  --- Starts receiving messages on this WebSocket.
-  function webSocket:readStart()
-    if not self.tcp then
-      return nil, 'not connected'
-    end
-    -- stream implementation that buffers and splits packets
-    local buffer = ''
-    return self.tcp:readStart(function(err, data)
-      if err then
-        self:raiseError(err)
-      elseif data then
-        buffer = buffer..data
-        while true do
-          local bufferLength = #buffer
-          if bufferLength < 2 then
-            break
-          end
-          local fin, opcode, len, sizeLength, maskLength, rsv = read2BytesHeader(buffer)
-          local headerLength = 2 + sizeLength + maskLength
-          if bufferLength < headerLength then
-            break
-          end
-          local idx = 3
-          if sizeLength > 0 then
-              len = 0
-              for i = idx, idx + sizeLength - 1 do
-                  len = (len * 256) + string_byte(buffer, i)
-              end
-              idx = idx + sizeLength
-          end
-          local maskChars
-          if maskLength > 0 then
-              maskChars = string.sub(buffer, idx, idx + maskLength - 1)
-              idx = idx + maskLength
-          end
-          local frameLength = headerLength + len
-          if bufferLength < frameLength then
-            break
-          end
-          local payload = string.sub(buffer, idx, idx + len - 1)
-          if maskChars then
-              payload = applyMask(maskChars, payload)
-          end
-          if bufferLength == frameLength then
-            buffer = ''
-          else
-            buffer = string.sub(buffer, frameLength + 1)
-          end
-          self:onReadFrame(fin, opcode, payload, rsv)
-        end
-      else
-        self:raiseError('end of stream')
-      end
-    end)
-  end
-
   function webSocket:sendFrame(fin, opcode, mask, payload, callback)
     if logger:isLoggable(logger.FINER) then
       logger:finer('webSocket:sendFrame(%s, %s, %s)', fin, opcode, mask)
@@ -404,55 +434,25 @@ return class.create(function(webSocket)
     return d
   end
 
-  --- Sends a message on this WebSocket.
-  -- @tparam string message the message to send.
+  --- Closes this WebSocket.
   -- @tparam function callback an optional callback function to use in place of promise.
-  -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
-  function webSocket:sendTextMessage(message, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('webSocket:sendTextMessage("'..tostring(message)..'")')
+  -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is closed.
+  function webSocket:close(callback)
+    if self.tcp then
+      local tcp = self.tcp
+      self.tcp = nil
+      return tcp:close(callback)
     end
-    return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, tostring(message), callback)
+    if callback == nil then
+      return Promise.resolve()
+    end
+    if callback then
+      callback()
+    end
   end
 
-  --- Connects this WebSocket to a server.
-  -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is opened.
-  function webSocket:open()
-    self:close(false)
-    -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
-    local key = base64.encode(randomChars(16))
-    local client = HttpClient:new({
-      url = self.url,
-      method = 'GET',
-      headers = {
-        [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
-        [HttpMessage.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
-        [HttpMessage.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
-        [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
-        [CONST.HEADER_SEC_WEBSOCKET_KEY] = key,
-        [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
-      }
-    })
-    local connectPromise = client:connect()
-    self.tcp = client:getTcpClient()
-    return connectPromise:next(function()
-      return client:sendReceive()
-    end):next(function(response)
-      if response:getStatusCode() ~= HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
-        self.tcp = nil
-        client:close()
-        return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
-      end
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('webSocket:open() Switching protocols')
-      end
-      -- TODO Check accept key
-    end, function(reason)
-      self.tcp = nil
-      client:close()
-      logger:fine('webSocket:open() error: "'..tostring(reason)..'"')
-      return Promise.reject(reason)
-    end)
+  function webSocket:isClosed()
+    return not self.tcp
   end
 
 end, function(WebSocket)

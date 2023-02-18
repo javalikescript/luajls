@@ -1,4 +1,9 @@
 --- Represents a thread of execution.
+-- The thread will call a Lua function.
+-- The function cannot share variables with the current thread, i.e. must not have upvalues.
+-- The function will load modules using the _package_ default values, except for _path_ and _cpath_.
+-- The function arguments and return values shall be primitive type: string, number, boolean or nil.
+--
 -- @module jls.lang.Thread
 -- @pragma nostrip
 
@@ -16,8 +21,6 @@ return require('jls.lang.class').create(function(thread)
   --- Creates a new Thread.
   -- @tparam[opt] function fn the function to execute in this thread.
   -- The function will receive the arguments passed in the start call and may return a single value.
-  -- Start arguments and return values shall be primitive type: string, number, boolean or nil
-  -- The function cannot share variables with the current thread, must not have upvalues.
   -- @function Thread:new
   function thread:initialize(fn)
     self:setFunction(fn)

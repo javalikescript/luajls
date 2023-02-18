@@ -1,5 +1,7 @@
 --- Represents the eventual result of an asynchronous operation.
--- see https://promisesaplus.com/
+-- **Note**: The _then_ method is replaced by _next_, because _then_ is a reserved word in Lua.
+-- see [Promises/A+](https://promisesaplus.com/)
+--
 -- @module jls.lang.Promise
 -- @pragma nostrip
 

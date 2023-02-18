@@ -1,7 +1,7 @@
 --[[--
 Enables to create a native process.
 
-Note: The only full implementation is based on libuv
+Note: The full implementation is only available with libuv
 
 @module jls.lang.ProcessBuilder
 @pragma nostrip
