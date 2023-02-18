@@ -33,6 +33,10 @@ local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local Path = require('jls.io.Path')
 
+-- Applies the specified callback as soon as possible
+-- @tparam function cb The callback to apply.
+-- @param[opt] err The error, if any.
+-- @param[opt] res The result, if any.
 local function deferCallback(cb, err, res)
   if cb then
     event:setTimeout(function()
@@ -59,17 +63,33 @@ return require('jls.lang.class').create(function(fileDescriptor)
     self.fd = fd
   end
 
-  --- Closes this file descriptor.
-  function fileDescriptor:closeSync()
-    self.fd:close()
-  end
-
-  --- Flushes all modified data of this file descriptor to the storage device.
-  function fileDescriptor:flushSync()
-    self.fd:flush()
-  end
-
   fileDescriptor.statSync = class.notImplementedFunction
+
+  --- Reads the specified data from this file descriptor.
+  -- @tparam number size The size of the data to read.
+  -- @tparam number offset The optional position at which the read is to be performed,
+  -- @tparam[opt] function callback The optional callback.
+  -- @return a Promise or nil if a callback has been specified.
+  -- @usage
+  --fd:read(1024):then(function(data)
+  --  -- process the data
+  --end)
+  -- -- or when using a callback
+  --fd:read(1024, nil, function(err, data)
+  --  if not err
+  --    -- process the data
+  --  end
+  --end)
+  function fileDescriptor:read(size, offset, callback)
+    if type(offset) == 'function' then
+      callback = offset
+      offset = nil
+    end
+    local cb, d = Promise.ensureCallback(callback)
+    local data = self:readSync(size, offset)
+    deferCallback(cb, nil, data)
+    return d
+  end
 
   --- Reads the specified data from this file descriptor.
   -- @tparam number size The size of the data to read.
@@ -85,6 +105,23 @@ return require('jls.lang.class').create(function(fileDescriptor)
       end
     end
     return self.fd:read(size)
+  end
+
+  --- Writes the specified data to this file descriptor.
+  -- @param data The data to write as a string or an array of string.
+  -- @tparam number offset The optional position at which the write is to be performed,
+  -- -1 or nil for the current file descriptor position.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
+  -- @return a Promise or nil if a callback has been specified.
+  function fileDescriptor:write(data, offset, callback)
+    if type(offset) == 'function' then
+      callback = offset
+      offset = nil
+    end
+    local cb, d = Promise.ensureCallback(callback)
+    local _, err = self:writeSync(data, offset)
+    deferCallback(cb, err)
+    return d
   end
 
   --- Writes the specified data to this file descriptor.
@@ -124,6 +161,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
 
   --- Closes this file descriptor.
   -- @tparam[opt] function callback The optional callback.
+  -- @return a Promise or nil if a callback has been specified.
   function fileDescriptor:close(callback)
     local cb, d = Promise.ensureCallback(callback)
     self:closeSync()
@@ -131,8 +169,14 @@ return require('jls.lang.class').create(function(fileDescriptor)
     return d
   end
 
+  --- Closes this file descriptor.
+  function fileDescriptor:closeSync()
+    self.fd:close()
+  end
+
   --- Flushes all modified data of this file descriptor to the storage device.
   -- @tparam[opt] function callback The optional callback.
+  -- @return a Promise or nil if a callback has been specified.
   function fileDescriptor:flush(callback)
     local cb, d = Promise.ensureCallback(callback)
     self:flushSync()
@@ -140,50 +184,12 @@ return require('jls.lang.class').create(function(fileDescriptor)
     return d
   end
 
+  --- Flushes all modified data of this file descriptor to the storage device.
+  function fileDescriptor:flushSync()
+    self.fd:flush()
+  end
+
   fileDescriptor.stat = class.notImplementedFunction
-
-  --- Reads the specified data from this file descriptor.
-  -- @tparam number size The size of the data to read.
-  -- @tparam number offset The optional position at which the read is to be performed,
-  -- @tparam[opt] function callback The optional callback.
-  -- @return a Promise or nil if a callback has been specified.
-  -- @usage
-  --fd:read(1024):then(function(data)
-  --  -- process the data
-  --end)
-  -- -- or when using a callback
-  --fd:read(1024, nil, function(err, data)
-  --  if not err
-  --    -- process the data
-  --  end
-  --end)
-  function fileDescriptor:read(size, offset, callback)
-    if type(offset) == 'function' then
-      callback = offset
-      offset = nil
-    end
-    local cb, d = Promise.ensureCallback(callback)
-    local data = self:readSync(size, offset)
-    deferCallback(cb, nil, data)
-    return d
-  end
-
-  --- Writes the specified data to this file descriptor.
-  -- @param data The data to write as a string or an array of string.
-  -- @tparam number offset The optional position at which the write is to be performed,
-  -- -1 or nil for the current file descriptor position.
-  -- @tparam[opt] function callback an optional callback function to use in place of promise.
-  -- @return a promise that resolves once the data has been wrote.
-  function fileDescriptor:write(data, offset, callback)
-    if type(offset) == 'function' then
-      callback = offset
-      offset = nil
-    end
-    local cb, d = Promise.ensureCallback(callback)
-    local _, err = self:writeSync(data, offset)
-    deferCallback(cb, err)
-    return d
-  end
 
 end, function(FileDescriptor)
   --- Returns a new FileDescriptor for the specified path name.

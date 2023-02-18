@@ -6,16 +6,8 @@ local logger = require('jls.lang.logger')
 local loader = require('jls.lang.loader')
 local StreamHandler = require('jls.io.StreamHandler')
 local event = loader.requireOne('jls.lang.event-')
+local FileDescriptor = loader.requireOne('jls.io.FileDescriptor')
 local linuxLib = loader.tryRequire('linux')
-
-local function deferCallback(cb, err, res)
-  if cb then
-    event:setTimeout(function()
-      cb(err, res)
-    end)
-  end
-end
-
 
 return class.create(function(pipe, _, Pipe)
 
@@ -28,10 +20,10 @@ return class.create(function(pipe, _, Pipe)
       local flags = linuxLib.fcntl(r, linuxLib.constants.F_GETFL)
       linuxLib.fcntl(r, linuxLib.constants.F_SETFL, flags | linuxLib.constants.O_NONBLOCK)
     end
-    self.readFd = r
-    self.writeFd = w
+    self.readFd = FileDescriptor:new(r)
+    self.writeFd = FileDescriptor:new(w)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('Pipe:new() r: '..tostring(self.readFd)..', w: '..tostring(self.writeFd))
+      logger:finest('Pipe:new() r: '..tostring(r)..', w: '..tostring(w))
     end
   end
 
@@ -47,11 +39,11 @@ return class.create(function(pipe, _, Pipe)
   end
 
   function pipe:readSync(size)
-    return self.readFd:read(size)
+    return self.readFd:readSync(size)
   end
 
   function pipe:writeSync(data)
-    return self.writeFd:write(data)
+    return self.writeFd:writeSync(data)
   end
 
   function pipe:readStart(callback)
@@ -61,8 +53,10 @@ return class.create(function(pipe, _, Pipe)
     local cb = StreamHandler.ensureCallback(callback)
     local size = 1024
     self.readTaskId = event:setTask(function()
+      local err
       if self.readFd then
-        local data, err, errnum = self.readFd:read(size) -- will block on Windows
+        local data, errnum
+        data, err, errnum = self.readFd:readSync(size) -- will block on Windows
         if data then
           cb(nil, data)
           return true
@@ -71,7 +65,7 @@ return class.create(function(pipe, _, Pipe)
         end
       end
       self.readTaskId = nil
-      cb()
+      cb(err)
       return false
     end)
   end
@@ -84,27 +78,23 @@ return class.create(function(pipe, _, Pipe)
   end
 
   function pipe:write(data, callback)
-    local cb, d = Promise.ensureCallback(callback)
-    self.writeFd:write(data)
-    deferCallback(cb)
-    return d
+    return self.writeFd:write(data, nil, callback)
   end
 
   function pipe:chmod(mode)
   end
 
   function pipe:close(callback)
-    local cb, d = Promise.ensureCallback(callback)
+    local a = {}
     if self.readFd then
-      self.readFd:close()
+      table.insert(a, self.readFd:close())
       self.readFd = nil
     end
     if self.writeFd then
-      self.writeFd:close()
+      table.insert(a, self.writeFd:close())
       self.writeFd = nil
     end
-    deferCallback(cb)
-    return d
+    return Promise.all(a)
   end
 
   function pipe:isClosed()
@@ -113,11 +103,11 @@ return class.create(function(pipe, _, Pipe)
 
   function pipe:shutdown(callback)
     logger:finest('pipe:shutdown()')
-    local cb, d = Promise.ensureCallback(callback)
-    self.writeFd:close()
-    self.writeFd = nil
-    deferCallback(cb)
-    return d
+    local fd = self.writeFd
+    if fd then
+      self.writeFd = nil
+      return fd:close(callback)
+    end
   end
 
 end)

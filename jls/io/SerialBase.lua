@@ -50,12 +50,27 @@ return class.create(function(serial)
 
   --- Writes data on this serial device.
   -- @tparam string data the data to write.
-  function serial:write(data)
+  -- @tparam[opt] function callback The optional callback.
+  -- @return a Promise or nil if a callback has been specified.
+  function serial:write(data, callback)
+    return self.fileDesc:write(data, nil, callback)
+  end
+
+  --- Writes data on this serial device.
+  -- @tparam string data the data to write.
+  function serial:writeSync(data)
     return self.fileDesc:writeSync(data)
   end
 
   --- Closes this serial device.
-  function serial:close()
+  -- @tparam[opt] function callback The optional callback.
+  -- @return a Promise that resolve when closed or nil if a callback has been specified.
+  function serial:close(callback)
+    return self.fileDesc:close(callback)
+  end
+
+  --- Closes this serial device.
+  function serial:closeSync()
     return self.fileDesc:closeSync()
   end
 
