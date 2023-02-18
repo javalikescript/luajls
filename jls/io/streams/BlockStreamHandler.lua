@@ -4,6 +4,7 @@
 
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
+local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.StreamHandler')
 
 --- A BlockStreamHandler class.
@@ -22,8 +23,16 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     end
     super.initialize(self, handler)
     self.size = size or 512
+    self.buffer = StringBuffer:new()
     self.multiple = multiple and true or false
-    self.remaining = ''
+  end
+
+  function blockStreamHandler:getStringBuffer()
+    return self.buffer
+  end
+
+  function blockStreamHandler:getBuffer()
+    return self.buffer:toString()
   end
 
   function blockStreamHandler:onData(data)
@@ -31,43 +40,35 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
       logger:finer('blockStreamHandler:onData(#'..tostring(data and #data)..')')
     end
     if data then
-      local buffer = self.remaining..data
-      local s = #buffer
-      if s == 0 then
-        return self.handler:onData(buffer)
-      end
-      if self.multiple then
-        local r = s % self.size
-        local bl = s - r
-        if r == 0 then
-          self.remaining = ''
+      self.buffer:append(data)
+      local len = self.buffer:length()
+      if len == 0 then
+        return self.handler:onData('')
+      elseif len >= self.size then
+        if self.multiple then
+          local r = len % self.size
+          local q = len - r
+          local s = self.buffer:sub(1, q)
+          return self.handler:onData(s:toString())
         else
-          self.remaining = string.sub(buffer, bl + 1, s)
-          buffer = string.sub(buffer, 1, bl)
-        end
-        if bl > 0 then
-          return self.handler:onData(buffer)
-        end
-      else
-        local i, j = 1, self.size
-        local l = {}
-        while j <= s do
-          local r = self.handler:onData(string.sub(buffer, i, j))
-          i, j = j + 1, j + self.size
-          if r then
-            table.insert(l, Promise:isInstance(r) and r or Promise.resolve(r))
+          local l = {}
+          while self.buffer:length() >= self.size do
+            local s = self.buffer:sub(1, self.size)
+            local r = self.handler:onData(s:toString())
+            if r then
+              table.insert(l, Promise:isInstance(r) and r or Promise.resolve(r))
+            end
           end
-        end
-        self.remaining = string.sub(buffer, i)
-        if #l > 0 then
-          return Promise.all(l)
+          if #l > 0 then
+            return Promise.all(l)
+          end
         end
       end
     else
       local r
-      if #self.remaining > 0 then
-        r = self.handler:onData(self.remaining)
-        self.remaining = ''
+      if self.buffer:length() > 0 then
+        r = self.handler:onData(self.buffer:toString())
+        self.buffer:clear()
       end
       self.handler:onData(nil)
       return r
