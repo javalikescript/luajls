@@ -2,10 +2,6 @@
 -- @module jls.lang.StringBuffer
 -- @pragma nostrip
 
--- TODO rename as StringBuilder
--- TODO create a StringBuffer
--- TODO store values directly in instance table
-
 --- A StringBuffer class.
 -- The StringBuffer optimizes the addition of strings in a buffer by avoiding the use of intermediary concatenated string.
 -- @type StringBuffer
@@ -38,19 +34,18 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
       valueString = tostring(value)
     elseif valueType == 'table' then
       if StringBuffer:isInstance(value) then
+        local parts = value:getParts()
+        local len = #parts
         if index then
-          for i = #value.values, 1, -1 do
-            table.insert(self.values, index, value.values[i])
-          end
+          table.move(self.values, index, index + len, index + len + 1)
         else
-          for _, s in ipairs(value.values) do
-            table.insert(self.values, s)
-          end
+          index = #self.values + 1
         end
-        self.len = self.len + value.len
+        table.move(parts, 1, len, index, self.values)
+        self.len = self.len + value:length()
         return self
-      elseif type(value.toString) == 'function' then
-        valueString = value:toString()
+      else
+        valueString = tostring(value)
       end
     end
     if valueString ~= nil and valueString ~= '' then
@@ -64,8 +59,16 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
     return self
   end
 
+  function stringBuffer:addParts(values)
+    for _, value in ipairs(values) do
+      self:addPart(value)
+    end
+    return self
+  end
+
   --- Appends the string representation of the value to this buffer.
   -- @param value the value to append.
+  -- @param ... more values to append.
   -- @treturn jls.lang.StringBuffer this buffer.
   function stringBuffer:append(value, ...)
     self:addPart(value)
@@ -111,12 +114,12 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   function stringBuffer:cut(i)
     local ii = 1
     for index, value in ipairs(self.values) do
-      local l = string.len(value)
-      local jj = ii + l
+      local jj = ii + #value
       if jj > i then
         if i > ii then
-          self.values[index] = string.sub(value, 1 + i - ii)
-          table.insert(self.values, index, string.sub(value, 1, i - ii))
+          local k = i - ii
+          self.values[index] = string.sub(value, k + 1)
+          table.insert(self.values, index, string.sub(value, 1, k))
           return self, index + 1
         end
         return self, index
@@ -126,30 +129,52 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
     return self
   end
 
-  --- Removes a part of this string buffer.
-  -- @tparam number i the index of the first byte to remove, inclusive.
-  -- @tparam[opt] number j the index of the last byte to remove, exclusive.
-  -- @treturn jls.lang.StringBuffer this buffer.
-  function stringBuffer:delete(i, j)
+  local function length(values)
+    local l = 0
+    for _, value in ipairs(values) do
+      l = l + #value
+    end
+    return l
+  end
+
+  --- Returns a part of this string buffer.
+  -- @tparam number i the index of the first byte to remove.
+  -- @tparam[opt] number j the index of the last byte to remove.
+  -- @treturn jls.lang.StringBuffer the buffer containing the sub string.
+  function stringBuffer:sub(i, j)
+    local s = StringBuffer:new()
+    if not i then
+      return s:append(self)
+    end
+    if not j or j > self.len then
+      j = self.len
+    end
+    if i > self.len or i > j then
+      return s
+    end
     local _, ii = self:cut(i)
-    local jj
-    if j then
-      _, jj = self:cut(j)
+    local _, jj = self:cut(j + 1)
+    if jj then
+      jj = jj - 1
     else
       jj = #self.values
     end
     if ii and jj then
-      if ii > jj then
-        ii, jj = jj, ii
-      end
-      local l = 0
-      for k = jj - 1, ii, -1 do
-        local s = table.remove(self.values, k)
-        local sl = string.len(s)
-        l = l + sl
-      end
-      self.len = self.len - l
+      table.move(self.values, ii, jj, 1, s.values)
+      s.len = length(s.values)
+      local len = #self.values
+      table.move(self.values, jj + 1, len + #s.values, ii)
+      self.len = self.len - s.len
     end
+    return s, ii
+  end
+
+  --- Removes a part of this string buffer.
+  -- @tparam number i the index of the first byte to remove.
+  -- @tparam[opt] number j the index of the last byte to remove.
+  -- @treturn jls.lang.StringBuffer this buffer.
+  function stringBuffer:delete(i, j)
+    local _, ii = self:sub(i, j)
     return self, ii
   end
 
@@ -158,19 +183,14 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   -- @tparam string s the string to insert.
   -- @treturn jls.lang.StringBuffer this buffer.
   function stringBuffer:insert(i, s)
-    if type(s) == 'string' and s ~= '' then
-      local _, ii = self:cut(i)
-      if ii then
-        table.insert(self.values, ii, s)
-        self.len = self.len + string.len(s)
-      end
-    end
+    local _, ii = self:cut(i)
+    self:addPart(s, ii)
     return self
   end
 
   --- Replaces a part of this string buffer by the specified string.
   -- @tparam number i the index of the byte where the string will be inserted.
-  -- @tparam number j the index of the last byte to replace, exclusive.
+  -- @tparam number j the index of the last byte to replace.
   -- @tparam string s the string to use as replacement.
   -- @treturn jls.lang.StringBuffer this buffer.
   function stringBuffer:replace(i, j, s)
