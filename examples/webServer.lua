@@ -1,6 +1,7 @@
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
+local Promise = require('jls.lang.Promise')
 local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
@@ -37,6 +38,22 @@ local CONFIG_SCHEMA = {
       title = 'The root directory to serve',
       type = 'string',
       default = '.'
+    },
+    webview = {
+      type = 'object',
+      additionalProperties = false,
+      properties = {
+        enabled = {
+          title = 'Enables WebView browser',
+          type = 'boolean',
+          default = false,
+        },
+        debug = {
+          title = 'Enables WebView debug',
+          type = 'boolean',
+          default = false,
+        },
+      }
     },
     webdav = {
       title = 'Use the WebDAV protocol',
@@ -160,6 +177,8 @@ local config = tables.createArgumentTable(system.getArguments(), {
     h = 'help',
     b = 'bind-address',
     d = 'dir',
+    wv = 'webview.enabled',
+    wvd = 'webview.debug',
     dav = 'webdav',
     ws = 'websocket.enabled',
     p = 'port',
@@ -175,9 +194,39 @@ local config = tables.createArgumentTable(system.getArguments(), {
 
 logger:setLevel(config['log-level'])
 
+local stopPromise, stopResolve = Promise.createWithCallbacks()
+
 local httpServer = HttpServer:new()
 httpServer:bind(config['bind-address'], config.port):next(function()
-  logger:info('HTTP server bound to "'..config['bind-address']..'" on port '..tostring(config.port))
+  logger:info('HTTP server bound to "%s" on port %d', config['bind-address'], config.port)
+  stopPromise:next(function()
+    logger:info('Closing HTTP server')
+    httpServer:close()
+  end)
+  if config.webview.enabled then
+    local browserScript = File:new('examples/browser.lua')
+    if browserScript:exists() then
+      local ProcessBuilder = require('jls.lang.ProcessBuilder')
+      local ProcessHandle = require('jls.lang.ProcessHandle')
+      local lua = ProcessHandle.getExecutablePath()
+      local args = {lua, browserScript:getPath(), string.format('http://localhost:%d', config.port)}
+      if config.webview.debug then
+        table.insert(args, '-dbg')
+      end
+      local pb = ProcessBuilder:new(args)
+      local ph = pb:start()
+      stopPromise:next(function()
+        logger:info('Stopping WebView')
+        ph:destroy()
+      end)
+      ph:ended():next(function()
+        logger:info('WebView closed')
+        stopResolve()
+      end)
+    else
+      print('browser script not found', browserScript:getPath())
+    end
+  end
 end, function(err) -- could failed if address is in use or hostname cannot be resolved
   print('Cannot bind HTTP server, '..tostring(err))
   os.exit(1)
@@ -432,7 +481,6 @@ if config.websocket.enabled then
   }))
 end
 
-local httpSecureServer
 if config.secure.enabled then
   local secure = require('jls.net.secure')
   local Date = require('jls.util.Date')
@@ -459,28 +507,24 @@ if config.secure.enabled then
     end
   end
 
-  httpSecureServer = HttpServer.createSecure({
+  local httpSecureServer = HttpServer.createSecure({
     certificate = certFile:getPath(),
     key = pkeyFile:getPath()
   })
   httpSecureServer:bind(config['bind-address'], config.secure.port):next(function()
     logger:info('HTTPS bound to "'..tostring(config['bind-address'])..'" on port '..tostring(config.secure.port))
+    stopPromise:next(function()
+      logger:info('Closing HTTP secure server')
+      httpSecureServer:close()
+    end)
   end, function(err)
     logger:warn('Cannot bind HTTP to "'..tostring(config['bind-address'])..'" on port '..tostring(config.secure.port)..' due to '..tostring(err))
   end)
   httpSecureServer:setParentContextHolder(httpServer)
 end
 
-local function stopHttpServer()
-  logger:info('Closing HTTP server')
-  httpServer:close()
-  if httpSecureServer then
-    httpSecureServer:close()
-  end
-end
-
 httpServer:createContext('/STOP', function(exchange)
-  event:setTimeout(stopHttpServer)
+  event:setTimeout(stopResolve)
   HttpExchange.ok(exchange)
 end)
 
@@ -489,9 +533,12 @@ do
   if hasLuv then
     local signal = luvLib.new_signal()
     luvLib.ref(signal)
-    luvLib.signal_start(signal, 'sigint', function()
+    stopPromise:next(function()
+      logger:info('Unreference signal')
       luvLib.unref(signal)
-      stopHttpServer()
+    end)
+    luvLib.signal_start(signal, 'sigint', function()
+      stopResolve()
     end)
   end
 end
