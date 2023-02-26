@@ -209,18 +209,23 @@ httpServer:bind(config['bind-address'], config.port):next(function()
       local ProcessBuilder = require('jls.lang.ProcessBuilder')
       local ProcessHandle = require('jls.lang.ProcessHandle')
       local lua = ProcessHandle.getExecutablePath()
-      local args = {lua, browserScript:getPath(), string.format('http://localhost:%d', config.port)}
+      local url = string.format('http://localhost:%d', config.port)
+      local args = {lua, browserScript:getPath(), url, '-ll', config['log-level']}
       if config.webview.debug then
-        table.insert(args, '-dbg')
+        table.insert(args, '-d')
       end
       local pb = ProcessBuilder:new(args)
+      pb:setRedirectOutput(system.output)
+      pb:setRedirectError(system.error)
+      logger:info('Starting WebView on %s', url)
+      logger:fine('Command is %s', table.concat(args, ' '))
       local ph = pb:start()
       stopPromise:next(function()
         logger:info('Stopping WebView')
         ph:destroy()
       end)
-      ph:ended():next(function()
-        logger:info('WebView closed')
+      ph:ended():next(function(code)
+        logger:info('WebView closed (%s)', code)
         stopResolve()
       end)
     else

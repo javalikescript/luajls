@@ -118,6 +118,7 @@ return require('jls.lang.class').create(function(processBuilder)
   --local fd = FileDescriptor.openSync(tmpFile, 'w')
   --local pb = ProcessBuilder:new({'lua', '-e', 'io.write("Hello")'})
   --pb:setRedirectOutput(fd)
+  --pb:setRedirectError(system.error) -- use standard error
   function processBuilder:setRedirectOutput(fd)
     self.stdout = fd
     return self

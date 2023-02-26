@@ -107,4 +107,6 @@ function search(event) {
 end
 
 local webview = WebView:new(dataUrl, config.webview)
+logger:fine('Enters WebView loop')
 webview:loop()
+logger:fine('WebView loop ended')
