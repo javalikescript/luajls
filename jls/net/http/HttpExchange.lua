@@ -160,7 +160,6 @@ return require('jls.lang.class').create(function(httpExchange)
   end
 
   function httpExchange:prepareResponseHeaders()
-    self.response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
     self.response:applyBodyLength()
   end
 

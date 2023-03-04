@@ -108,7 +108,7 @@ end, function(HttpHandler)
   --- Creates a FileHttpHandler.
   -- @tparam File rootFile the root File
   -- @tparam[opt] string permissions a string containing the granted permissions, 'rwxlcud' default is 'r'
-  -- @tparam[opt] string indexFilename the name of the file to use in case of GET request on a directory
+  -- @tparam[opt] string filename the name of the file to use in case of GET request on a directory, default is 'index.html'
   -- @treturn HttpHandler a HttpHandler.
   function HttpHandler.file(...)
     return require('jls.net.http.handler.FileHttpHandler'):new(...)

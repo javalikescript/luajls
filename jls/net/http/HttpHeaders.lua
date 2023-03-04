@@ -62,8 +62,11 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     end
   end
 
-  function httpHeaders:hasHeaderIgnoreCase(name, value)
-    return string.lower(self:getHeader(name)) == string.lower(value)
+  function httpHeaders:hasHeaderValueIgnoreCase(name, value)
+    local v = self:getHeader(name)
+    if v then
+      return string.lower(v) == string.lower(value)
+    end
   end
 
   function httpHeaders:hasHeaderValue(name, value)

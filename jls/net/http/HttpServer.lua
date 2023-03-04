@@ -149,6 +149,12 @@ local HttpServer = class.create(function(httpServer)
     return self.filters
   end
 
+  function httpServer:prepareResponseHeaders(exchange)
+    local response = exchange:getResponse()
+    response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
+    exchange:prepareResponseHeaders()
+  end
+
   function httpServer:getParentContextHolder()
     return self.parentContextHolder
   end
@@ -273,7 +279,7 @@ local HttpServer = class.create(function(httpServer)
         logger:finer('httpServer:onAccept() request '..requestToString(exchange)..' processed')
       end
       keepAlive = exchange:applyKeepAlive()
-      exchange:prepareResponseHeaders()
+      self:prepareResponseHeaders(exchange)
       return exchange:getResponse():writeHeaders(client)
     end):next(function()
       if logger:isLoggable(logger.FINER) then

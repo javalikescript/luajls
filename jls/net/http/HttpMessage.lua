@@ -261,6 +261,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
   function httpMessage:applyBodyLength()
     if not self:getContentLength() then
+      -- We may check the connection header
       self:setContentLength(self:getBodyLength())
     end
   end
