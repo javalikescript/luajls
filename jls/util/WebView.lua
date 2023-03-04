@@ -8,6 +8,7 @@ A webview requires a thread to run its own event loop, which is not compatible w
 This class provide helpers to start webview in a dedicated thread so that the base event loop can be used.
 
 @module jls.util.WebView
+@pragma nostrip
 
 --]]
 
@@ -34,22 +35,9 @@ local function webviewLib_init(wv)
 end
 
 local function optionsToArgs(options)
-  return options.title, options.width, options.height, options.resizable, options.debug
-end
-
-local function argsToOptions(title, width, height, resizable, debug, fn, data)
-  if type(title) == 'table' then
-    return title
+  if options then
+    return options.title, options.width, options.height, options.resizable, options.debug
   end
-  return {
-    title = title,
-    width = width,
-    height = height,
-    resizable = resizable,
-    debug = debug,
-    fn = fn,
-    data = data
-  }
 end
 
 --- The WebView class.
@@ -60,19 +48,19 @@ return class.create(function(webView)
 Creates a new WebView.
 The URL accepts the data, file and http schemes.
 @tparam string url the URL of the resource to be viewed.
-@tparam[opt] string title the title of the window.
-@tparam[opt] number width the width of the opened window.
-@tparam[opt] number height the height of the opened window.
-@tparam[opt] boolean resizable true if the opened window could be resized.
-@tparam[opt] boolean debug true to enable devtools.
+@tparam[opt] table options A table describing the WebView options.
+@tparam[opt] string options.title the title of the window.
+@tparam[opt] number options.width the width of the opened window.
+@tparam[opt] number options.height the height of the opened window.
+@tparam[opt] boolean options.resizable true if the opened window could be resized.
+@tparam[opt] boolean options.debug true to enable devtools.
 @function WebView:new
 @usage
 local WebView = require('jls.util.WebView')
 local webview = WebView:new(WebView.toDataUrl('<html><body>It works!</body></thread>'))
 webview:loop()
 ]]
-  function webView:initialize(url, title, width, height, resizable, debug)
-    local options = argsToOptions(title, width, height, resizable, debug)
+  function webView:initialize(url, options)
     self._webview = webviewLib.new(url, optionsToArgs(options))
   end
 
@@ -439,20 +427,21 @@ end, function(WebView)
 Opens the specified URL in a new window and returns when the window has been closed.
 Passing a function will block the event loop not this function.
 @tparam string url the URL of the resource to be viewed.
-@param[opt] title the title of the window or a table containing the options.
-@tparam[opt] number width the width of the opened window.
-@tparam[opt] number height the height of the opened window.
-@tparam[opt] boolean resizable true if the opened window could be resized.
-@tparam[opt] boolean debug true to enable devtools.
-@tparam[opt] function fn a function to be called in a dedicated thread, requires the event loop.
-@tparam[opt] string data the data to be passed to the function as a string.
+@tparam[opt] table options A table describing the WebView options.
+@tparam[opt] string options.title the title of the window.
+@tparam[opt] number options.width the width of the opened window.
+@tparam[opt] number options.height the height of the opened window.
+@tparam[opt] boolean options.resizable true if the opened window could be resized.
+@tparam[opt] boolean options.debug true to enable devtools.
+@tparam[opt] function options.fn a function to be called in a dedicated thread, requires the event loop.
+@tparam[opt] string options.data the data to be passed to the function as a string.
 @treturn jls.lang.Promise a promise that resolve when the webview is closed or nil.
 @usage
 local WebView = require('jls.util.WebView')
 WebView.openSync('https://www.lua.org/')
 ]]
-  function WebView.openSync(url, title, width, height, resizable, debug, fn, data)
-    local options = argsToOptions(title, width, height, resizable, debug, fn, data)
+  function WebView.openSync(url, options)
+    local options = options or {}
     if options.fn then
       return openWithThreadAndChannel(url, options)
     end
@@ -464,15 +453,19 @@ WebView.openSync('https://www.lua.org/')
   --[[--
 Opens the specified URL in a new window.
 Opening a webview in a dedicated thread may not be supported on all platform.
-You could specify an HTTP URL with a port to 0 to indicate that an HTTP server should be started on a random port.
+You could specify an HTTP URL with a port to 0 to indicate that an HTTP server should be started on a free port.
 @tparam string url the URL of the resource to be viewed.
-@param[opt] title the title of the window or a table containing the options.
-@tparam[opt] number width the width of the opened window.
-@tparam[opt] number height the height of the opened window.
-@tparam[opt] boolean resizable true if the opened window could be resized.
-@tparam[opt] boolean debug true to enable devtools.
-@tparam[opt] function fn a function to be called in the webview context or true to indicate that no callback will be used.
-@tparam[opt] string data the data to be passed to the function as a string.
+@tparam[opt] table options A table describing the WebView options.
+@tparam[opt] string options.title the title of the window.
+@tparam[opt] number options.width the width of the opened window.
+@tparam[opt] number options.height the height of the opened window.
+@tparam[opt] boolean options.resizable true if the opened window could be resized.
+@tparam[opt] boolean options.debug true to enable devtools.
+@tparam[opt] function options.fn a function to be called in the webview context or true to indicate that no callback will be used.
+@tparam[opt] string options.data the data to be passed to the function as a string.
+@tparam[opt] table options.contexts the HTTP contexts to create.
+@tparam[opt] boolean options.bindAny true to bind on any rather than the specified host name.
+@tparam[opt] boolean options.callback true to enable the callback on HTTP using WebSocket.
 @treturn jls.lang.Promise a promise that resolve when the webview is available.
 @usage
 local WebView = require('jls.util.WebView')
@@ -486,8 +479,8 @@ WebView.open('http://localhost:0/index.html', {
   print('HTTP Server bound on port '..tostring(select(2, httpServer:getAddress())))
 end)
 ]]
-  function WebView.open(url, title, width, height, resizable, debug, fn, data)
-    local options = argsToOptions(title, width, height, resizable, debug, fn, data)
+  function WebView.open(url, options)
+    options = options or {}
     if options.fn then
       return openInThread(url, options)
     end
