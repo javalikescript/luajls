@@ -250,10 +250,11 @@ return class.create(function(channel, _, Channel)
     return Promise.reject('Invalid channel name "'..tostring(name)..'"')
   end
 
-  local MT_CLOSE = 0
-  local MT_CONNECT = 1
-  local MT_USER = 2
-  Channel.MESSAGE_TYPE_USER = MT_USER
+  local MSG_ID_CLOSE = 0
+  local MSG_ID_CONNECT = 1
+  local MSG_ID_USER = 2
+  Channel.MESSAGE_ID_USER = MSG_ID_USER
+  Channel.MESSAGE_TYPE_USER = MSG_ID_USER -- deprecated to remove
 
   --- Starts receiving messages on this channel.
   -- The handler will be called with the payload and the message type.
@@ -279,7 +280,7 @@ return class.create(function(channel, _, Channel)
           if bufferLength < 5 then
             break
           end
-          local messageType, remainingLength, offset = string.unpack('>BI4', buffer)
+          local id, remainingLength, offset = string.unpack('>BI4', buffer)
           local messageLength = offset - 1 + remainingLength
           if bufferLength < messageLength then
             break
@@ -293,11 +294,11 @@ return class.create(function(channel, _, Channel)
           end
           local payload = string.sub(buffer, offset)
           if logger:isLoggable(logger.FINEST) then
-            logger:finest('channel received message type '..tostring(messageType)..', payload "'..tostring(payload)..'"')
+            logger:finest('channel received message id '..tostring(id)..', payload "'..tostring(payload)..'"')
           end
-          if messageType >= MT_USER and self.authorized then
-            handleMessage(payload, messageType)
-          elseif messageType == MT_CONNECT and payload == self.privateKey then
+          if id >= MSG_ID_USER and self.authorized then
+            handleMessage(payload, id)
+          elseif id == MSG_ID_CONNECT and payload == self.privateKey then
             self.authorized = true
           else
             self:close(false)
@@ -321,12 +322,13 @@ return class.create(function(channel, _, Channel)
 
   --- Writes a message on this channel.
   -- @tparam string payload the message to send
-  -- @tparam[opt] number messageType the message type, default is Channel.MESSAGE_TYPE_USER.
+  -- @tparam[opt] number id the message identifier, default is `Channel.MESSAGE_ID_USER`.
+  -- You are free to use ids greater than or equal to `MESSAGE_ID_USER`.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the message has been sent.
-  function channel:writeMessage(payload, messageType, callback)
+  function channel:writeMessage(payload, id, callback)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('channel['..tostring(self)..']:writeMessage('..tostring(messageType)..', "'..tostring(payload)..'")')
+      logger:finest('channel['..tostring(self)..']:writeMessage('..tostring(id)..', "'..tostring(payload)..'")')
     end
     local cb, p = Promise.ensureCallback(callback)
     local wcb = cb or false
@@ -335,16 +337,16 @@ return class.create(function(channel, _, Channel)
         if reason then
           logger:fine('channel write error "'..tostring(reason)..'"')
         elseif logger:isLoggable(logger.FINEST) then
-          logger:finest('channel message sent '..tostring(messageType))
+          logger:finest('channel message sent '..tostring(id))
         end
         if cb then
           cb(reason)
         end
       end
     end
-    local data = string.pack('>Bs4', messageType or MT_USER, payload or '')
+    local data = string.pack('>Bs4', id or MSG_ID_USER, payload or '')
     if self.publicKey then
-      data = string.pack('>Bs4', MT_CONNECT, self.publicKey)..data
+      data = string.pack('>Bs4', MSG_ID_CONNECT, self.publicKey)..data
       self.publicKey = nil
     end
     local _, req, err = self.stream:write(data, wcb)
@@ -358,7 +360,7 @@ return class.create(function(channel, _, Channel)
   end
 
   function channel:writeCloseMessage(callback)
-    return self:writeMessage(nil, MT_CLOSE, callback)
+    return self:writeMessage(nil, MSG_ID_CLOSE, callback)
   end
 
 end)

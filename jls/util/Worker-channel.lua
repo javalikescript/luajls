@@ -7,9 +7,9 @@ local Thread = require('jls.lang.Thread')
 local Channel = require('jls.util.Channel')
 local json = require('jls.util.json')
 
-local MT_STRING = Channel.MESSAGE_TYPE_USER
-local MT_JSON = Channel.MESSAGE_TYPE_USER + 1
-local MT_ERROR = Channel.MESSAGE_TYPE_USER + 2
+local MT_STRING = Channel.MESSAGE_ID_USER
+local MT_JSON = Channel.MESSAGE_ID_USER + 1
+local MT_ERROR = Channel.MESSAGE_ID_USER + 2
 
 local function postMessage(channel, message)
   if type(message) == 'string' then
