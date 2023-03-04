@@ -7,6 +7,7 @@ A class can implement an initialize method that will be called for new instances
 A class can inherit from another class, prototype methods are inherited by the subclasses.
 
 @module jls.lang.class
+@pragma nostrip
 
 @usage
 local class = require('jls.lang.class')

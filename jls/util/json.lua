@@ -1,5 +1,6 @@
 --- Provide JavaScript Object Notation (JSON) codec.
 -- @module jls.util.json
+-- @pragma nostrip
 
 local jsonLib = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
 local StringBuffer = require('jls.lang.StringBuffer')

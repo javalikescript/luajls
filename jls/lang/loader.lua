@@ -1,6 +1,7 @@
 --- Contains helper functions to load Lua modules.
 -- The loader module is fully compatible with the Lua require function.
 -- @module jls.lang.loader
+-- @pragma nostrip
 
 local logger = require('jls.lang.logger')
 

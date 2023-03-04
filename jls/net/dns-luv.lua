@@ -1,5 +1,6 @@
 --- Provides DNS related functions.
 -- @module jls.net.dns
+-- @pragma nostrip
 
 local luvLib = require('luv')
 

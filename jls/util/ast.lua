@@ -10,6 +10,7 @@
 -- The table fields are: `adjustToOne`, `arguments`, `attribute`, `body`, `bodyFalse`, `bodyTrue`, `callee`, `condition`, `declaration`, `expression`, `fields`, `kind`, `label`, `left`, `member`, `method`, `name`, `names`, `object`, `operator`, `parameters`, `right`, `statements`, `targets`, `type`, `value`, `values`
 --
 -- @module jls.util.ast
+-- @pragma nostrip
 
 local dumbParser = require('dumbParser')
 

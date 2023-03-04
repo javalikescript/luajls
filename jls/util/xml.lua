@@ -4,6 +4,7 @@
 -- The table has the properties 'name' and optionally 'attr' to store
 -- the node name and the node attributes using a table with key value pairs.
 -- @module jls.util.xml
+-- @pragma nostrip
 
 local XmlParser = require('XmlParser') -- xml2lua parser
 local class = require('jls.lang.class')

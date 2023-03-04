@@ -1,5 +1,6 @@
 --- Provide EventPublisher class.
 -- @module jls.util.EventPublisher
+-- @pragma nostrip
 
 local logger = require('jls.lang.logger')
 local Exception = require('jls.lang.Exception')

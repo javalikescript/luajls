@@ -4,6 +4,7 @@ Provides a way to process tasks in background.
 The worker thread interacts with the current thread via message passing.
 
 @module jls.util.Worker
+@pragma nostrip
 --]]
 
 local class = require('jls.lang.class')

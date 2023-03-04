@@ -1,5 +1,5 @@
 --- Represents a list.
--- The functions could be used for Lua tables.
+-- The class functions could be used for Lua tables.
 -- @module jls.util.List
 -- @pragma nostrip
 

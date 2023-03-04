@@ -1,6 +1,3 @@
--- secure module.
--- @module jls.net.secure
-
 local opensslLib = require('openssl')
 
 local class = require('jls.lang.class')

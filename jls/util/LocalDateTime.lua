@@ -1,5 +1,6 @@
 --- Provide a simple LocalDateTime class.
 -- @module jls.util.LocalDateTime
+-- @pragma nostrip
 
 local function isLeapYear(year)
   -- there is a leap year every 4 years except every 100 years but still every 400 years

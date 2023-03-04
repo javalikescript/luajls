@@ -1,6 +1,7 @@
 --- Provide codec functions.
 -- Available algorithms are base64, deflate, gzip, hex.
 -- @module jls.util.codec
+-- @pragma nostrip
 
 --local class = require('jls.lang.class')
 

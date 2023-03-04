@@ -39,8 +39,9 @@ local ISO_FORMAT_UTC = '!%Y-%m-%dT%H:%M:%S'
 return require('jls.lang.class').create(function(date)
 
   --- Creates a new Date.
+  -- With no parameters, the date represents the current date and time.
   -- @function Date:new
-  -- @tparam number yearOrTime the year or the time in milliseconds.
+  -- @tparam[opt] number year the year or the the number of milliseconds since epoch
   -- @tparam[opt] number month the month
   -- @tparam[opt] number day the day
   -- @tparam[opt] number hour the hour
@@ -50,11 +51,11 @@ return require('jls.lang.class').create(function(date)
   -- @return a new Date
   -- @usage Date:new(2017, 12, 4, 0, 1, 18) or Date:new(2017, 12)
   -- Date:new() or Date:new(1512345678000)
-  function date:initialize(yearOrTime, month, day, hour, min, sec, ms)
+  function date:initialize(year, month, day, hour, min, sec, ms)
     if month then
       -- hour, min, wday, day, month, year, sec, yday, isdst
       self.field = {
-        year = yearOrTime,
+        year = year,
         month = month,
         day = day or 1,
         hour = hour or 0,
@@ -64,7 +65,8 @@ return require('jls.lang.class').create(function(date)
       }
       --self.time = os.time(self.field)
     else
-      self:setTime(yearOrTime)
+      -- we may accept a table with field
+      self:setTime(year)
     end
   end
 

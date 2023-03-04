@@ -1,6 +1,7 @@
 --- Provide tar file utility.
 -- Tar files are archives that allow to store multiple files.
 -- @module jls.util.zip.tar
+-- @pragma nostrip
 
 local logger = require('jls.lang.logger')
 local strings = require('jls.util.strings')

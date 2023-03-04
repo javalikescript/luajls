@@ -1,5 +1,6 @@
 --- Provide gzip utility functions.
 -- @module jls.util.zip.gzip
+-- @pragma nostrip
 
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')

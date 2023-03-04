@@ -5,6 +5,7 @@ Access to environnement variables and default standard file handles.
 Operation such as the exit method and the garbage collection.
 
 @module jls.lang.system
+@pragma nostrip
 ]]
 
 local sysLib = require('jls.lang.sys')

@@ -5,6 +5,7 @@
 -- The encryption and multiple volumes features are not supported.
 -- Note that CRC32 is not verified.
 -- @module jls.util.zip.ZipFile
+-- @pragma nostrip
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')

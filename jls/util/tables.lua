@@ -1,6 +1,7 @@
 --- Provide table helper functions.
 -- This module allows deep table manipulation.
 -- @module jls.util.tables
+-- @pragma nostrip
 
 local StringBuffer = require('jls.lang.StringBuffer')
 local List = require('jls.util.List')
@@ -680,7 +681,7 @@ local function isNearInteger(value)
   return math.abs(value - math.floor(value + 0.5)) < 0.0000001
 end
 
-local function getSchemaValue(rootSchema, schema, value, translateValues, onError, path)
+local function getSchemaValue(rootSchema, schema, value, populate, onError, path)
   if type(schema) ~= 'table' then
     return nil, onError('MISSING_SCHEMA', schema, value, path)
   end
@@ -691,7 +692,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
   if type(schema.allOf) == 'table' then
     local ofValue, err
     for _, ofSchema in ipairs(schema.allOf) do
-      ofValue, err = getSchemaValue(rootSchema, ofSchema, value, translateValues, onError, path)
+      ofValue, err = getSchemaValue(rootSchema, ofSchema, value, populate, onError, path)
       if err then
         return nil, err
       end
@@ -702,7 +703,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
   elseif type(schema.anyOf) == 'table' then
     local ofValue, err
     for _, ofSchema in ipairs(schema.anyOf) do
-      ofValue, err = getSchemaValue(rootSchema, ofSchema, value, translateValues, table.pack, path)
+      ofValue, err = getSchemaValue(rootSchema, ofSchema, value, populate, table.pack, path)
       if not err then
         break
       end
@@ -716,7 +717,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
     local ofValue, err, v
     local found = false
     for _, ofSchema in ipairs(schema.oneOf) do
-      v, err = getSchemaValue(rootSchema, ofSchema, value, translateValues, table.pack, path)
+      v, err = getSchemaValue(rootSchema, ofSchema, value, populate, table.pack, path)
       if not err then
         if found then
           return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
@@ -736,7 +737,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
     end
   end
   if type(schema['not']) == 'table' then
-    local _, err = getSchemaValue(rootSchema, schema['not'], value, translateValues, table.pack, path)
+    local _, err = getSchemaValue(rootSchema, schema['not'], value, populate, table.pack, path)
     if not err then
       return nil, onError('UNMATCHED_COMPOSITION', schema, value, path)
     end
@@ -745,7 +746,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
     -- TODO support type list
     return nil, onError('INVALID_SCHEMA_TYPE', schema, value, path)
   elseif value == nil then
-    if translateValues then
+    if populate then
       return schema.default or schema.const
     end
     return nil
@@ -789,7 +790,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
     else
       return nil, onError('INCOMPATIBLE_VALUE_TYPE', schema, value, path)
     end
-    if not translateValues then
+    if not populate then
       return value
     end
     local t = {}
@@ -845,7 +846,7 @@ local function getSchemaValue(rootSchema, schema, value, translateValues, onErro
   end
   -- parsing simple types
   local valueType = type(value)
-  if translateValues then
+  if populate then
     if valueType == 'string' and schemaType ~= 'string' then
       local parsedValue
       if schemaType == 'number' or schemaType == 'integer' then
@@ -908,12 +909,12 @@ end
 -- See https://json-schema.org/
 -- @tparam table schema the JSON schema.
 -- @param value the value to get from.
--- @tparam[opt] boolean translateValues true to parse string values and populate objects, default is false.
+-- @tparam[opt] boolean populate true to parse string values and populate objects, default is false.
 -- @tparam[opt] function onError a function that will be called when a validation error has been found.
 -- the function is called with the arguments: code, schema, value, path.
 -- @return the value validated against the schema.
-function tables.getSchemaValue(schema, value, translateValues, onError)
-  return getSchemaValue(schema, schema, value, translateValues, onError or returnError, '')
+function tables.getSchemaValue(schema, value, populate, onError)
+  return getSchemaValue(schema, schema, value, populate, onError or returnError, '')
 end
 
 -- Command line argument parsing

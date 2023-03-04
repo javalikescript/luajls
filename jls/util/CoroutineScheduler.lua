@@ -1,6 +1,7 @@
 --- Provide a simple scheduler for coroutines.
 -- The coroutines cooperates to allow concurrent programming, coroutines shall not block.
 -- @module jls.util.CoroutineScheduler
+-- @pragma nostrip
 
 local logger = require('jls.lang.logger')
 local sysLib = require('jls.lang.sys')

@@ -148,13 +148,13 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   --- Creates a file @{HttpHandler}.
   -- @tparam File rootFile the root File
   -- @tparam[opt] string permissions a string containing the granted permissions, 'rwxlcud' default is 'r'
-  -- @tparam[opt] string indexFilename the name of the file to use in case of GET request on a directory
+  -- @tparam[opt] string filename the name of the file to use in case of GET request on a directory, default is 'index.html'
   -- @function FileHttpHandler:new
-  function fileHttpHandler:initialize(rootFile, permissions, indexFilename)
+  function fileHttpHandler:initialize(rootFile, permissions, filename)
     self.rootFile = File.asFile(rootFile)
-    if indexFilename then
-      if type(indexFilename) == 'string' and indexFilename ~= '' then
-        self.defaultFile = indexFilename
+    if filename then
+      if type(filename) == 'string' and filename ~= '' then
+        self.defaultFile = filename
       end
     else
       self.defaultFile = 'index.html'

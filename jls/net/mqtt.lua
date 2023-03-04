@@ -1,7 +1,10 @@
 --- This module provides classes to work with MQTT.
 -- Message Queuing Telemetry Transport
--- see http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
+--
+-- see [MQTT Version 3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html)
+
 -- @module jls.net.mqtt
+-- @pragma nostrip
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')

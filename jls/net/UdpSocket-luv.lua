@@ -1,5 +1,6 @@
 --- Represents a UDP socket.
 -- @module jls.net.UdpSocket
+-- @pragma nostrip
 
 local luvLib = require('luv')
 

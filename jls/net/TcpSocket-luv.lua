@@ -5,6 +5,7 @@ The network operations are only provided as asynchronous operations and thus
 should be used together with an @{jls.lang.event|event} loop.
 
 @module jls.net.TcpSocket
+@pragma nostrip
 
 @usage
 local TcpSocket = require('jls.net.TcpSocket')

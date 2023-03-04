@@ -1,5 +1,6 @@
 -- Provide color functions.
 -- @module jls.util.color
+-- @pragma nostrip
 
 local color = {}
 

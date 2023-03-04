@@ -1,5 +1,6 @@
 --- Provide compression using the ZLIB library.
 -- @module jls.util.zip.Deflater
+-- @pragma nostrip
 
 local zLib = require('zlib')
 

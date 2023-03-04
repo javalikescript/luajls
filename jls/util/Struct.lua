@@ -1,5 +1,6 @@
 --- Provide Struct class.
 -- @module jls.util.Struct
+-- @pragma nostrip
 
 local strings = require('jls.util.strings')
 

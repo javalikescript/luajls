@@ -1,5 +1,6 @@
 --- Provide decompression using the ZLIB library.
 -- @module jls.util.zip.Inflater
+-- @pragma nostrip
 
 local zLib = require('zlib')
 

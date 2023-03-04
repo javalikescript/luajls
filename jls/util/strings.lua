@@ -1,5 +1,6 @@
 --- Provide string helper functions.
 -- @module jls.util.strings
+-- @pragma nostrip
 
 local strings = {}
 
