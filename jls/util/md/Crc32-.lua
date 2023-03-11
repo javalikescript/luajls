@@ -45,10 +45,10 @@ local function compute(s, crc)
   return crc
 end
 
-return require('jls.lang.class').create(function(crc32)
+return require('jls.lang.class').create('jls.util.MessageDigest', function(crc32)
 
   function crc32:initialize()
-    self.value = MAX
+    self:reset()
   end
 
   function crc32:update(s)
@@ -56,14 +56,16 @@ return require('jls.lang.class').create(function(crc32)
     return self
   end
 
-  function crc32:final()
+  function crc32:digest()
     return self.value ~ MAX
   end
 
-end, function(Crc32)
+  function crc32:reset()
+    self.value = MAX
+  end
 
-  function Crc32:digest(m)
-    return compute(m) ~ MAX
+  function crc32:getAlgorithm()
+    return 'crc32'
   end
 
 end)

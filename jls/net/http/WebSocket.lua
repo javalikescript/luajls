@@ -1,4 +1,7 @@
 --- This module provides classes to work with WebSocket.
+--
+-- see [WebSocket Protocol](https://datatracker.ietf.org/doc/html/rfc6455)
+--
 -- @module jls.net.http.WebSocket
 -- @pragma nostrip
 
@@ -9,7 +12,7 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
 local base64 = require('jls.util.base64')
-local md = require('jls.util.MessageDigest'):new('sha1')
+local MessageDigest = require('jls.util.MessageDigest')
 
 local hex = require('jls.util.hex')
 
@@ -45,7 +48,9 @@ local CONST = {
    |Sec-WebSocket-Accept| header field.
 ]]
 local function hashWebSocketKey(key)
-  return base64.encode(md:digest(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
+  local md = MessageDigest.getInstance('sha1')
+  md:update(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+  return base64.encode(md:digest())
 end
 
 local math_random = math.random

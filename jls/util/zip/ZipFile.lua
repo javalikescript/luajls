@@ -438,14 +438,14 @@ return class.create(function(zipFile, _, ZipFile)
     if f:isDirectory() then
       name = name..'/'
     elseif uncompressedSize > 0 then
-      local md = MessageDigest:new('Crc32')
+      local md = MessageDigest.getInstance('Crc32')
       local d
       if uncompressedSize > 200 then
         method = ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED
         d = Deflater:new(nil, -15)
       end
       blocks, uncompressedSize, compressedSize = readFileBlocks(f, md, d, 4096)
-      crc32 = md:finish()
+      crc32 = md:digest()
       logger:finer('crc32 for "%s" is %d', name, crc32)
     end
     local entry = ZipEntry:new(name, comment, extra)
@@ -659,6 +659,10 @@ return class.create(function(zipFile, _, ZipFile)
     newRemoveRoot = newRemoveRootFileName
   }
 
+  --- Extracts files from a ZIP file.
+  -- @tparam File file the zip file.
+  -- @tparam File directory the directory to extract files to.
+  -- @tparam[opt] function adaptFileName a function that will be call for each entry to adapt the extracted filename.
   function ZipFile.unzipToSync(file, directory, adaptFileName)
     if logger:isLoggable(logger.FINER) then
       logger:finer('ZipFile.unzipToSync()')
@@ -738,10 +742,15 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  function ZipFile.zipToSync(file, directoryOrFiles, overwrite, path)
+  --- Creates a ZIP file containing the specified files.
+  -- @tparam File file the zip file.
+  -- @param files the directory or files to include
+  -- @tparam[opt] boolean overwrite true to indicate that the zip file shall be overwrited
+  -- @tparam[opt] string path the base path in the zip file, default to the empty string
+  function ZipFile.zipToSync(file, files, overwrite, path)
     logger:finer('ZipFile.zipToSync()')
     local zFile = ZipFile:new(file, true, overwrite)
-    forEachFiles(path or '', asFiles(directoryOrFiles), function(f, name)
+    forEachFiles(path or '', asFiles(files), function(f, name)
       zFile:addFile(f, name)
     end)
     zFile:close()
@@ -770,20 +779,28 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  function ZipFile.zipToAsync(file, directoryOrFiles, overwrite, path)
+  --- Creates a ZIP file containing the specified files.
+  -- @tparam File file the zip file.
+  -- @param files the directory or files to include
+  -- @tparam[opt] boolean overwrite true to indicate that the zip file shall be overwrited
+  -- @tparam[opt] string path the base path in the zip file, default to the empty string
+  -- @treturn jls.lang.Promise a promise that resolves once the ZIP file as been created.
+  function ZipFile.zipToAsync(file, files, overwrite, path)
     local defer = requireDefer()
     logger:finer('ZipFile.zipToAsync()')
     local zFile
     local p = defer(function()
       zFile = ZipFile:new(file, true, overwrite)
     end)
-    forEachFiles(path or '', asFiles(directoryOrFiles), function(f, name)
+    forEachFiles(path or '', asFiles(files), function(f, name)
       p = p:next(function()
         return defer(zFile.addFile, zFile, f, name)
       end)
     end)
     p:finally(function()
-      zFile:close()
+      if zFile then
+        zFile:close()
+      end
     end)
     return p
   end

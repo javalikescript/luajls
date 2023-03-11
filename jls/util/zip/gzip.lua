@@ -134,18 +134,18 @@ function gzip.compressStream(sh, header, compressionLevel)
   local cb = StreamHandler.ensureCallback(sh)
   cb(nil, gzip.formatHeader(header))
   local size = 0
-  local crc = Crc32:new()
+  local md = Crc32:new()
   local deflater = Deflater:new(compressionLevel, -15)
   return StreamHandler:new(function(err, data)
     if err then
       return cb(err)
     end
     if data then
-      crc:update(data)
+      md:update(data)
       size = size + #data
       return cb(nil, deflater:deflate(data))
     end
-    local r = cb(nil, deflater:finish()..string.pack('<I4I4', crc:final(), size))
+    local r = cb(nil, deflater:finish()..string.pack('<I4I4', md:digest(), size))
     cb()
     return r
   end)
@@ -175,7 +175,7 @@ function gzip.decompressStream(sh, onHeader)
   local header, inflated
   local buffer = ''
   local size = 0
-  local crc = Crc32:new()
+  local md = Crc32:new()
   local inflater = Inflater:new(-15)
   return StreamHandler:new(function(err, data)
     if err then
@@ -199,7 +199,7 @@ function gzip.decompressStream(sh, onHeader)
           end
         end
         inflated = inflater:inflate(buffer)
-        crc:update(inflated)
+        md:update(inflated)
         size = size + #inflated
         local r = cb(nil, inflated)
         if data then
@@ -207,11 +207,12 @@ function gzip.decompressStream(sh, onHeader)
           return r
         end
         local crcFooter, sizeFooter = string.unpack('<I4I4', footer)
+        local crc = md:digest()
         if logger:isLoggable(logger.FINER) then
-          logger:finer('decompressStream() CRC '..tostring(crc:final())..'/'..tostring(crcFooter)..', size '..tostring(size)..' expected '..tostring(sizeFooter))
+          logger:finer('decompressStream() CRC '..tostring(crc)..'/'..tostring(crcFooter)..', size '..tostring(size)..' expected '..tostring(sizeFooter))
         end
-        if crcFooter ~= crc:final() then
-          err = 'Bad CRC (found '..tostring(crc:final())..' expected '..tostring(crcFooter)..')'
+        if crcFooter ~= crc then
+          err = 'Bad CRC (found '..tostring(crc)..' expected '..tostring(crcFooter)..')'
         elseif sizeFooter ~= size then
           err = 'Bad size (found '..tostring(size)..' expected '..tostring(sizeFooter)..')'
         else

@@ -1,1 +1,1 @@
-return require('openssl').digest.get('md5')
+return require('jls.util.MessageDigest').fromOpenssl('md5')

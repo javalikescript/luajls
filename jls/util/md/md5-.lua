@@ -173,15 +173,10 @@ local function transform(A,B,C,D,X)
          bit_and(C+c,0xFFFFFFFF),bit_and(D+d,0xFFFFFFFF)
 end
 
-return require('jls.lang.class').create(function(md5)
+return require('jls.lang.class').create('jls.util.MessageDigest', function(md5)
 
   function md5:initialize()
-    self.a = CONSTS[65]
-    self.b = CONSTS[66]
-    self.c = CONSTS[67]
-    self.d = CONSTS[68]
-    self.pos = 0
-    self.buf = ''
+    self:reset()
   end
 
   function md5:update(s)
@@ -197,7 +192,7 @@ return require('jls.lang.class').create(function(md5)
     return self
   end
 
-  function md5:final()
+  function md5:digest()
     local msgLen = self.pos
     local padLen = 56 - msgLen % 64
 
@@ -212,10 +207,18 @@ return require('jls.lang.class').create(function(md5)
     return lei2str(self.a) .. lei2str(self.b) .. lei2str(self.c) .. lei2str(self.d)
   end
 
-end, function(Md5)
+  function md5:reset()
+    self.a = CONSTS[65]
+    self.b = CONSTS[66]
+    self.c = CONSTS[67]
+    self.d = CONSTS[68]
+    self.pos = 0
+    self.buf = ''
+    return self
+  end
 
-  function Md5:digest(m)
-    return Md5:new():update(m):final()
+  function md5:getAlgorithm()
+    return 'md5'
   end
 
 end)

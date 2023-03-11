@@ -71,7 +71,7 @@ elseif options.action == 'list' then
   end
 elseif options.action == 'check' then
   local MessageDigest = require('jls.util.MessageDigest')
-  local md = MessageDigest:new('Crc32')
+  local md = MessageDigest.getInstance('Crc32')
   local zFile = ZipFile:new(options.file, false)
   local entries = zFile:getEntries()
   print('Name', 'CRC', 'Check', 'Method', 'CompressedSize', 'Size')
@@ -80,7 +80,7 @@ elseif options.action == 'check' then
     local computedCrc32 = 0
     if entry:getSize() > 0 and crc32 ~= 0 then
       local rawContent = assert(zFile:getContentSync(entry))
-      computedCrc32 = md:digest(rawContent)
+      computedCrc32 = md:update(rawContent):digest()
     end
     print(entry:getName(), crc32, crc32 == computedCrc32 and 'ok' or computedCrc32, entry:getMethod(), entry:getCompressedSize(), entry:getSize())
   end

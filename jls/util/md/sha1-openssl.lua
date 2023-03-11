@@ -1,1 +1,1 @@
-return require('openssl').digest.get('sha1')
+return require('jls.util.MessageDigest').fromOpenssl('sha1')
