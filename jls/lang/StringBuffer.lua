@@ -69,7 +69,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   --- Appends the string representation of the value to this buffer.
   -- @param value the value to append.
   -- @param ... more values to append.
-  -- @treturn jls.lang.StringBuffer this buffer.
+  -- @treturn StringBuffer this buffer.
   function stringBuffer:append(value, ...)
     self:addPart(value)
     local l = select('#', ...)
@@ -140,7 +140,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   --- Returns a part of this string buffer.
   -- @tparam number i the index of the first byte to remove.
   -- @tparam[opt] number j the index of the last byte to remove.
-  -- @treturn jls.lang.StringBuffer the buffer containing the sub string.
+  -- @treturn StringBuffer the buffer containing the sub string.
   function stringBuffer:sub(i, j)
     local s = StringBuffer:new()
     if not i then
@@ -172,7 +172,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   --- Removes a part of this string buffer.
   -- @tparam number i the index of the first byte to remove.
   -- @tparam[opt] number j the index of the last byte to remove.
-  -- @treturn jls.lang.StringBuffer this buffer.
+  -- @treturn StringBuffer this buffer.
   function stringBuffer:delete(i, j)
     local _, ii = self:sub(i, j)
     return self, ii
@@ -181,7 +181,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   --- Inserts a string to this string buffer at the specified position.
   -- @tparam number i the index of the byte where the string will be inserted.
   -- @tparam string s the string to insert.
-  -- @treturn jls.lang.StringBuffer this buffer.
+  -- @treturn StringBuffer this buffer.
   function stringBuffer:insert(i, s)
     local _, ii = self:cut(i)
     self:addPart(s, ii)
@@ -192,7 +192,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
   -- @tparam number i the index of the byte where the string will be inserted.
   -- @tparam number j the index of the last byte to replace.
   -- @tparam string s the string to use as replacement.
-  -- @treturn jls.lang.StringBuffer this buffer.
+  -- @treturn StringBuffer this buffer.
   function stringBuffer:replace(i, j, s)
     local len = self:length()
     local jj = len
@@ -210,9 +210,31 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
     return self
   end
 
+  --- Clears this string buffer.
+  -- @treturn StringBuffer this buffer.
   function stringBuffer:clear()
     self.len = 0
     self.values = {}
+    return self
+  end
+
+  --- Sets the length of this string buffer.
+  -- Padding will be done with zeros '\0'.
+  -- @tparam number i the new length.
+  -- @treturn StringBuffer this buffer.
+  function stringBuffer:setLength(i)
+    if i <= 0 then
+      self.len = 0
+      self.values = {}
+    elseif i < self.len then
+      local _, ii = self:cut(i)
+      for j = ii, #self.values do
+        self.values[j] = nil
+      end
+      self.len = i
+    elseif i > self.len then
+      self:addPart(string.rep('\0', i - self.len))
+    end
     return self
   end
 
