@@ -236,6 +236,28 @@ end)
 event:loop()
 ```
 
+The `async` and `await` functions allows asynchronous/non-blocking functions to be written in a traditional synchronous/blocking style.
+
+```lua
+local event = require('jls.lang.event')
+local Promise = require('jls.lang.Promise')
+
+local function incrementLater(n, millis)
+  return Promise:new(function(resolve, reject)
+    event:setTimeout(function()
+      resolve(n + 1)
+    end, millis or 0)
+  end)
+end
+
+Promise.async(function(await)
+  local n = await(incrementLater(0, 1000)) -- returns 1 after 1 second
+  print(await(incrementLater(n, 1000))) -- prints 2 after another second
+end):catch(error)
+
+event:loop()
+```
+
 You also benefits of the whole Promise API, such as executing multiple parallel promises.
 
 ```lua

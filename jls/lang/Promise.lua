@@ -148,7 +148,7 @@ or returns any other value, then returns a resolved Promise.
  This function has one argument, the fulfillment value.
 @tparam[opt] function onRejected A Function called when the Promise is rejected.
  This function has one argument, the rejection reason.
-@return A new promise.
+@treturn Promise A new promise.
 ]]
 function promise:next(onFulfilled, onRejected)
   local p = Promise:new()
@@ -173,7 +173,7 @@ end
 -- or to its original fulfillment value if the promise is instead fulfilled.
 --
 -- @tparam function onRejected A Function called when the Promise is rejected.
--- @return A new promise.
+-- @treturn Promise A new promise.
 function promise:catch(onRejected)
   return self:next(nil, onRejected)
 end
@@ -187,7 +187,7 @@ end
 -- In case of error or returning a rejected promise in the finally callback will reject the returned promise.
 --
 -- @tparam function onFinally A Function called when the Promise is either fulfilled or rejected.
--- @return A new promise.
+-- @treturn Promise A new promise.
 function promise:finally(onFinally)
   -- finally call will usually chain through an equivalent to the original promise
   -- onFinally shall not receive any argument
@@ -212,51 +212,12 @@ function promise:finally(onFinally)
 end
 
 
---[[--
-Returns a new promise and its associated callback.
-@usage
-local promise, cb = Promise.createWithCallback()
---]]
-function Promise.createWithCallback()
-  local p = Promise:new()
-  return p, asCallback(p)
-end
-
-function Promise.createWeakWithCallback(prepare)
-  local p = Promise:new()
-  function p:next(onFulfilled, onRejected)
-    self.next = nil -- remove overrided next function to only call prepare once
-    if type(prepare) == 'function' then
-      prepare(asCallback(self))
-    end
-    return self:next(onFulfilled, onRejected)
-  end
-  return p
-end
-
-function Promise.createWithCallbacks()
-  local p = Promise:new()
-  return p, asCallbacks(p)
-end
-
-function Promise.newCallback(executor)
-  local p = Promise:new()
-  executor(asCallback(p))
-  return p
-end
-
-function Promise.newCallbacks(executor)
-  local p = Promise:new()
-  executor(asCallbacks(p))
-  return p
-end
-
 --- Returns a promise that either fulfills when all of the promises in the
 -- iterable argument have fulfilled or rejects as soon as one of the
 -- promises in the iterable argument rejects.
 --
 -- @tparam table promises The promises list.
--- @return A promise.
+-- @treturn Promise A promise.
 function Promise.all(promises)
   local count = #promises
   local values = {}
@@ -343,7 +304,7 @@ end
 -- from that promise.
 --
 -- @tparam table promises The promises list.
--- @return A promise.
+-- @treturn Promise A promise.
 function Promise.race(promises)
   local ps, resolve, reject = Promise.createWithCallbacks()
   for _, p in ipairs(promises) do
@@ -355,7 +316,7 @@ end
 --- Returns a Promise object that is rejected with the given reason.
 --
 -- @param reason The reason for the rejection.
--- @return A rejected promise.
+-- @treturn Promise A rejected promise.
 function Promise.reject(reason)
   local p = Promise:new()
   applyPromise(p, reason, REJECTED)
@@ -368,17 +329,142 @@ end
 -- otherwise the returned promise will be fulfilled with the value.
 --
 -- @param value The resolving value.
--- @return A resolved promise.
+-- @treturn Promise A resolved promise.
 function Promise.resolve(value)
   local p = Promise:new()
   applyPromise(p, value, FULFILLED)
   return p
 end
 
+local function resume(cr, cb, ...)
+  local status, result = coroutine.resume(cr, ...)
+  if status then
+    status = coroutine.status(cr)
+    if status == 'dead' then
+      cb(nil, result)
+    elseif status == 'suspended' then
+      if isPromise(result) then
+        result:next(function(r)
+          resume(cr, cb, true, r)
+        end, function(r)
+          resume(cr, cb, false, r)
+        end)
+      else
+        cb('invalid await/yield argument, '..tostring(result)..', expected a Promise')
+      end
+    else
+      cb('invalid async coroutine status, '..tostring(status))
+    end
+  else
+    cb(result or 'unknown reason')
+  end
+end
+
+--[[--
+Calls the specified function as a coroutine.
+The async and await functions allows asynchronous/non-blocking functions to be written in a traditional synchronous/blocking style.
+
+The function will be called with its `await` function as first argument.
+
+The `await` function waits for the Promise on which its is called then returns its fulfillment value or throws the rejection reason if the promise is rejected.
+
+@tparam function fn the async function to call.
+@param[opt] ... the optional parameters to pass to the function after the `await` function.
+@treturn Promise a promise that resolves once the coroutine ends.
+@usage
+local Promise = require('jls.lang.Promise')
+local HttpClient = require('jls.net.http.HttpClient')
+
+Promise.async(function(await)
+  local client = await(HttpClient:new({ url = 'http://www.lua.org' }):connect())
+  local response = await(client:sendReceive())
+  print(response:getStatusCode())
+end):catch(error)
+
+require('jls.lang.event'):loop()
+]]
+function Promise.async(fn, ...)
+  local cr = coroutine.create(fn)
+  local function await(p)
+    if not isPromise(p) then
+      --p = Promise.resolve(p)
+      return p
+    end
+    local status, result
+    local state = p._state
+    if state == PENDING then
+      if coroutine.running() ~= cr then
+        error('attempt to await from outside the corresponding async')
+      end
+      status, result = coroutine.yield(p)
+    elseif state == FULFILLED then
+      status, result = true, p._result
+    elseif state == REJECTED then
+      status, result = false, p._result
+    elseif state == ERROR then
+      p._result.uncaught = false
+      status, result = false, p._result.message
+    end
+    if status then
+      return result
+    end
+    error(result or 'unknown reason', 0)
+  end
+  local p = Promise:new()
+  resume(cr, asCallback(p), await, ...)
+  return p
+end
+
+--- Return true if the specified value is a promise.
+-- @param promise The value to test.
+-- @treturn boolean true if the specified value is a promise.
+-- @function Promise.isPromise
+Promise.isPromise = isPromise
+
+--- Returns a new promise and its associated callback.
+-- @treturn Promise a new promise.
+-- @treturn function the associated callback.
+-- @usage
+-- local promise, cb = Promise.createWithCallback()
+function Promise.createWithCallback()
+  local p = Promise:new()
+  return p, asCallback(p)
+end
+
+function Promise.createWeakWithCallback(prepare)
+  local p = Promise:new()
+  function p:next(onFulfilled, onRejected)
+    self.next = nil -- remove overrided next function to only call prepare once
+    if type(prepare) == 'function' then
+      prepare(asCallback(self))
+    end
+    return self:next(onFulfilled, onRejected)
+  end
+  return p
+end
+
+function Promise.createWithCallbacks()
+  local p = Promise:new()
+  return p, asCallbacks(p)
+end
+
+function Promise.newCallback(executor)
+  local p = Promise:new()
+  executor(asCallback(p))
+  return p
+end
+
+function Promise.newCallbacks(executor)
+  local p = Promise:new()
+  executor(asCallbacks(p))
+  return p
+end
+
 --- Returns the specified callback if any or a callback and its associated promise.
 -- This function helps to create asynchronous functions with an optional ending callback parameter.
 -- @param callback An optional existing callback or false to indicate that no promise is expected.
--- @return a callback and an associated promise if necessary.
+-- @treturn function the callback.
+-- @treturn Promise an associated promise if necessary.
 -- @usage function readAsync(callback)
 --   local cb, promise = Promise.ensureCallback(callback)
 --   -- call cb(nil, value) on success or cb(reason) on error
@@ -406,12 +492,6 @@ function Promise.callbackToNext(callback)
     return callback(reason or 'Unknown error')
   end
 end
-
---- Return true if the specified value is a promise.
--- @param promise The value to test.
--- @treturn boolean true if the specified value is a promise.
--- @function Promise.isPromise
-Promise.isPromise = isPromise
 
 function Promise.setProtectedCall(value)
   protectedCall = value or pcall

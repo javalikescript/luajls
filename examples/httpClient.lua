@@ -1,5 +1,6 @@
 local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
+local Promise = require('jls.lang.Promise')
 local HttpClient = require('jls.net.http.HttpClient')
 local StreamHandler = require('jls.io.StreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
@@ -12,12 +13,18 @@ local Url = require('jls.net.Url')
 local ZipFile = require('jls.util.zip.ZipFile')
 
 --[[
-lua examples\httpClient.lua -loglevel fine -maxRedirectCount 3 -out.headers true
+lua examples\httpClient.lua -loglevel fine -maxRedirectCount 3 -out.headers true -out.body false
 ]]
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'url',
+  aliases = {
+    h = 'help',
+    m = 'method',
+    r = 'maxRedirectCount',
+    ll = 'loglevel',
+  },
   schema = {
     title = 'Request an URL',
     type = 'object',
@@ -122,13 +129,16 @@ end
 
 local client = HttpClient:new(options)
 
-logger:finer('connecting client')
-client:connect():next(function()
+Promise.async(function(await)
+
+  logger:finer('connecting client')
+  await(client:connect())
   logger:finer('client connected')
-  return client:sendRequest()
-end):next(function()
-  return client:receiveResponseHeaders()
-end):next(function(remainingBuffer)
+
+  await(client:sendRequest())
+
+  local remainingBuffer = await(client:receiveResponseHeaders())
+
   local response = client:getResponse()
   if options.out.headers then
     local lines = {}
@@ -143,18 +153,21 @@ end):next(function(remainingBuffer)
   if options.out.body then
     response:setBodyStreamHandler(responseStreamHandler)
   end
-  return client:receiveResponseBody(remainingBuffer)
-end):next(function()
+
+  await(client:receiveResponseBody(remainingBuffer))
+
   logger:finer('closing client')
-  client:close()
+  await(client:close())
+  logger:finer('client closed')
+
   if outFile and outFile:isFile() and unzipTo then
     ZipFile.unzipTo(outFile, unzipTo)
     outFile:delete()
   end
-end, function(err)
-  print('error: ', err)
+
+end):catch(function(reason)
+  print('error: ', reason)
   client:close()
 end)
 
 event:loop()
-logger:finer('client closed')
