@@ -43,6 +43,28 @@ end)
 event:loop()
 ```
 
+luajls supports the async/await pattern.
+
+```lua
+local event = require('jls.lang.event')
+local Promise = require('jls.lang.Promise')
+local HttpClient = require('jls.net.http.HttpClient')
+
+local function asyncGetTitle(await, url)
+  local client = await(HttpClient:new({ url = url }):connect())
+  local response = await(client:sendReceive())
+  local title = string.match(response:getBody(), '<%s*[tT][iI][tT][lL][eE]%s*>%s*([^<]*)%s*<%s*/%s*[tT][iI][tT][lL][eE]%s*>')
+  return title
+end
+
+Promise.async(function(await)
+  print(asyncGetTitle(await, 'http://www.lua.org'))
+  print(asyncGetTitle(await, 'http://www.lua.org/about.html'))
+end):catch(error)
+
+event:loop()
+```
+
 ## How to install and use it?
 
 Just drop the *jls* folder in your Lua path.
