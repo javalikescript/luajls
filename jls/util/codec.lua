@@ -3,31 +3,17 @@
 -- @module jls.util.codec
 -- @pragma nostrip
 
+-- TODO Create a Codec class with a getInstance() function
+
 --local class = require('jls.lang.class')
 
 local codec = {}
-
-local CODEC_MAP = {}
 
 --- Returns a codec.
 -- @tparam string alg the name of the encoding or decoding algorithm
 -- @return the codec
 function codec.getCodec(alg)
-  if type(alg) == 'string' then
-    local cd = CODEC_MAP[alg] or require('jls.util.cd.'..alg)
-    -- TODO codec should be an instance
-    --if class.isClass(cd) then
-    --  return cd:new(...)
-    --end
-    -- TODO wrapped required codec if there are missing methods
-    return cd
-  end
-  error('Algorithm not found')
-end
-
-function codec.registerCodec(alg, m)
-  CODEC_MAP[alg] = m
-  return m
+  return require('jls.util.cd.'..alg)
 end
 
 --- Returns the decoded data.

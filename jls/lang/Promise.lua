@@ -366,7 +366,8 @@ The async and await functions allows asynchronous/non-blocking functions to be w
 
 The function will be called with its `await` function as first argument.
 
-The `await` function waits for the Promise on which its is called then returns its fulfillment value or throws the rejection reason if the promise is rejected.
+The `await` function waits for the Promise on which its is called then returns its fulfillment value
+or raises an error with the rejection reason if the promise is rejected.
 
 @tparam function fn the async function to call.
 @param[opt] ... the optional parameters to pass to the function after the `await` function.

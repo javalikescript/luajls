@@ -25,6 +25,7 @@ return require('jls.lang.class').create(function(event)
   Registers a timer which executes a function once after the timer expires.
   @tparam function callback A function that is executed once after the timer expires.
   @tparam[opt=0] number delayMs The time, in milliseconds, the timer should wait before the specified function is executed.
+  @param[opt] ... the parameters to pass when calling the function.
   @return An opaque value identifying the timer that can be used to cancel it.
   @usage
   event:setTimeout(function()
