@@ -359,12 +359,13 @@ function Test_getSchemaValue_ref()
 end
 
 function Test_createArgumentTableWithCommas()
-  local arguments = {'-h', '-x', 'y', '-u', 'v', 'w'}
-  local t = tables.createArgumentTable(arguments, {keepComma = true})
-  lu.assertEquals(tables.getArgument(t, '-x'), 'y')
-  lu.assertEquals(tables.getArgument(t, '-u'), 'v')
-  lu.assertNil(tables.getArgument(t, '-t'))
-  lu.assertNotNil(tables.getArgument(t, '-h'))
+  local arguments = {'-h', '-x', 'y', '-u', '---v', 'w'}
+  local t = tables.createArgumentTable(arguments)
+  lu.assertEquals(tables.getArgument(t, 'x'), 'y')
+  lu.assertEquals(tables.getArgument(t, 'u'), '-v')
+  lu.assertNil(tables.getArgument(t, 'v'))
+  lu.assertNil(tables.getArgument(t, 't'))
+  lu.assertNotNil(tables.getArgument(t, 'h'))
 end
 
 function Test_createArgumentTable()
@@ -377,13 +378,17 @@ function Test_createArgumentTable()
 end
 
 function Test_createArgumentTablePath()
-  local arguments = {'-h', '-x', 'y', '-a.b', 'v', '-a.c', 'w', 'w'}
-  local t = tables.createArgumentTable(arguments)
-  tables.merge(t, {a = {c = 'ww', d = 'x'}}, true)
+  local arguments = {'-h', '-x', 'y', '-a.b', 'v', '-a.c', 'u', 'v', '-a.e', 'u', '-a.e', 'v'}
+  local t = tables.createArgumentTable(arguments, {
+    defaultValues = {a = {c = 'ww', d = 'x'}}
+  })
+  --print(tables.stringify(t, 2))
   lu.assertEquals(tables.getArgument(t, 'x'), 'y')
   lu.assertEquals(tables.getArgument(t, 'a.b'), 'v')
-  lu.assertEquals(tables.getArgument(t, 'a.c'), 'w')
+  lu.assertEquals(tables.getArgument(t, 'a.c'), 'u')
   lu.assertEquals(tables.getArgument(t, 'a.d'), 'x')
+  lu.assertEquals(t['0'], 'v')
+  lu.assertEquals(t.a.e, {'u', 'v'})
   lu.assertNil(tables.getArgument(t, 't'))
   lu.assertNotNil(tables.getArgument(t, 'h'))
 end

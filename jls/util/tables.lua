@@ -945,7 +945,9 @@ end
 
 --- Returns a table containing an entry for each argument name.
 -- An entry contains a string or a list of string.
--- An argument name starts with a comma ('-').
+-- An argument name is prefixed by one or two commas ('-') and starts with a letter.
+-- An argument value could be prefixed by three commas to escape a starting comma, '---a' means '-a'.
+-- A missing argument value results in the value 'true', multiple argument values result in a table value.
 -- @tparam string arguments the command line containing the arguments.
 -- @tparam[opt] table options the options.
 -- @tparam[opt] string options.separator the path separator, default is the dot ('.').
@@ -956,8 +958,6 @@ end
 -- @tparam[opt] string options.configPath the path for a configuration file.
 -- @tparam[opt] function options.configLoader the function to load the configuration file, could be a module name.
 -- @tparam[opt] table options.schema the schema to validate the argument table, could be a module name.
--- @tparam[opt] boolean options.keepComma true to keep leading commas from argument names.
--- @tparam[opt] string options.argumentPattern the pattern used to match the argument name, default is '^-+(.+)$'.
 -- @treturn table the arguments as a table.
 -- @treturn table the custom arguments from command line and configuration file.
 function tables.createArgumentTable(arguments, options)
@@ -966,9 +966,6 @@ function tables.createArgumentTable(arguments, options)
   end
   local separator = options.separator or ARGUMENT_PATH_SEPARATOR
   local emptyPath = options.emptyPath or ARGUMENT_DEFAULT_PATH
-  local argumentPattern = options.argumentPattern or '^-+(.+)$'
-  local argumentPrefix = options.argumentPrefix or '-'
-  local keepComma = options.keepComma == true
   local aliases = options.aliases or {}
   local t = {}
   local name = emptyPath
@@ -981,27 +978,29 @@ function tables.createArgumentTable(arguments, options)
     error('Invalid default values type')
   end
   for _, argument in ipairs(arguments) do
-    local argumentName = string.match(argument, argumentPattern)
-    -- Do not accept number as argument name, number is value only
-    if argumentName and not tonumber(argument) then
-      name = keepComma and argument or argumentName
-      name = aliases[name] or name
+    local argumentName = string.match(argument, '^%-%-?(%a.*)$')
+    if argumentName then
+      name = aliases[argumentName] or argumentName
       if tables.getPath(t, name, nil, separator) == nil then
         tables.setPath(t, name, true, separator)
       end
     else
+      local argumentValue = argument
+      if string.find(argument, '^%-%-%-') then
+        argumentValue = string.sub(argument, 3)
+      end
       local value
       local currentValue = tables.getPath(t, name, nil, separator)
       if currentValue == true or currentValue == nil then
-        value = argument
+        value = argumentValue
       elseif type(currentValue) == 'table' then
         if List.isList(currentValue) then
-          table.insert(currentValue, argument)
+          table.insert(currentValue, argumentValue)
         else
-          value = argument
+          value = argumentValue
         end
       else
-        value = {currentValue, argument}
+        value = {currentValue, argumentValue}
       end
       if value then
         tables.setPath(t, name, value, separator)
@@ -1061,9 +1060,9 @@ function tables.createArgumentTable(arguments, options)
         buffer:append('  ')
         local alias = aliasMap[path]
         if alias then
-          buffer:append(argumentPrefix, alias, ' or ')
+          buffer:append('-', alias, ' or ')
         end
-        buffer:append(argumentPrefix, path)
+        buffer:append('--', path)
         if s.default ~= nil then
           buffer:append(' =', tables.stringify(s.default))
         end
@@ -1087,7 +1086,7 @@ function tables.createArgumentTable(arguments, options)
       print('Default values:')
       local valuesByPath = tables.mapValuesByPath(defaultValues, '', separator)
       for path, v in Map.spairs(valuesByPath) do
-        print('  '..argumentPrefix..string.sub(path, 2)..' ='..tostring(v))
+        print('  '..'--'..string.sub(path, 2)..' ='..tostring(v))
       end
     end
     os.exit(0)
@@ -1104,17 +1103,26 @@ function tables.createArgumentTable(arguments, options)
   return t, ct
 end
 
-function tables.getArgument(t, name, defaultValue, index, asString, separator)
-  local value = tables.getPath(t, name or ARGUMENT_DEFAULT_PATH, nil, separator or ARGUMENT_PATH_SEPARATOR)
-  if value == nil then
-    return defaultValue
-  elseif asString and type(value) == 'boolean' then
-    return tostring(value)
-  elseif type(value) == 'table' then
-    return value[index or 1] or defaultValue
+--- Returns the argument value for the specified argument name.
+-- @tparam table t the argument table.
+-- @tparam string name the argument name.
+-- @tparam[opt] any def the value to return when the argument name is not found, default is nil.
+-- @tparam[opt] number i the index to return when the value is a table, default is 1.
+-- @tparam[opt] boolean asString true to return a string.
+-- @tparam[opt] string sep the path separator, default is '.'.
+-- @return the argument value or the default value.
+function tables.getArgument(t, name, def, i, asString, sep)
+  local value = tables.getPath(t, name or ARGUMENT_DEFAULT_PATH, nil, sep or ARGUMENT_PATH_SEPARATOR)
+  if type(value) == 'table' then
+    value = value[i or 1]
+  elseif i and i ~= 1 then
+    value = nil
   end
-  if index and index ~= 1 then
-    return defaultValue
+  if value == nil then
+    return def
+  end
+  if asString and type(value) ~= 'string' then
+    value = tostring(value)
   end
   return value
 end
