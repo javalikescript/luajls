@@ -23,8 +23,8 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     self.size = 0
   end
 
-  -- Returns a Promise that resolves once the stream is closed.
-  -- @treturn jls.lang.Promise a promise that resolves once the stream is closed.
+  -- Returns a Promise that resolves once the stream ends.
+  -- @treturn jls.lang.Promise a promise that resolves once the stream ends.
   function promiseStreamHandler:getPromise()
     return self.promise
   end

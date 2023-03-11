@@ -180,7 +180,7 @@ end, function(FileStreamHandler)
   end
 
   function FileStreamHandler.readAll(file, stream, size)
-    FileStreamHandler.read(file, stream, nil, nil, size)
+    return FileStreamHandler.read(file, stream, nil, nil, size)
   end
 
   local function readFdSync(fd, sh, offset, length, size)
