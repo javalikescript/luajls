@@ -30,11 +30,12 @@ return require('jls.lang.class').create(function(httpFilter)
 
 end, function(HttpFilter)
 
-  --- Creates a BasicAuthenticationHttpFilter.
-  -- @param checkCredentials a table with user name and password pairs or a function.
+  --- Creates a basic authentication filter.
+  -- @param credentials a table with user name and password pairs or a function.
+  -- The function receives the user and the password and return true when they match an existing credential.
   -- @tparam[opt] string realm an optional message.
   -- @treturn HttpFilter a HttpFilter.
-  function HttpFilter.basicAuthentication(...)
+  function HttpFilter.basicAuth(...)
     return require('jls.net.http.filter.BasicAuthenticationHttpFilter'):new(...)
   end
 

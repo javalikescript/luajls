@@ -1,5 +1,5 @@
 --- Provide a simple HTTP handler for Lua tables.
--- This handler allows to access and maintian a Lua table.
+-- This handler allows to access and maintain a deep Lua table.
 -- Exposes a table content throught HTTP REST APIs.
 -- @module jls.net.http.handler.TableHttpHandler
 -- @pragma nostrip

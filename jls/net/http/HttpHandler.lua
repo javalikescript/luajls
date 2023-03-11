@@ -105,44 +105,75 @@ end, function(HttpHandler)
     end)
   end
 
-  --- Creates a FileHttpHandler.
-  -- @tparam File rootFile the root File
-  -- @tparam[opt] string permissions a string containing the granted permissions, 'rwxlcud' default is 'r'
-  -- @tparam[opt] string filename the name of the file to use in case of GET request on a directory, default is 'index.html'
+  --- Exposes a file system directory.
+  -- @tparam File dir the base directory or a ZIP file.
+  -- @tparam[opt] string permissions a string containing the granted permissions, 'rwxlcud' default is 'r'.
+  -- @tparam[opt] string filename the name of the file to use in case of GET request on a directory, default is 'index.html'.
   -- @treturn HttpHandler a HttpHandler.
-  function HttpHandler.file(...)
-    return require('jls.net.http.handler.FileHttpHandler'):new(...)
+  function HttpHandler.file(dir, ...)
+    local file = require('jls.io.File').asFile(dir)
+    if file:isFile() and file:getExtension() == 'zip' then
+      return require('jls.net.http.handler.ZipFileHttpHandler'):new(file)
+    end
+    return require('jls.net.http.handler.FileHttpHandler'):new(file, ...)
   end
-  --- Creates a ProxyHttpHandler.
+  --- Proxies HTTP requests and responses.
   -- @treturn HttpHandler a HttpHandler.
-  function HttpHandler.proxy(...)
-    return require('jls.net.http.handler.ProxyHttpHandler'):new(...)
+  function HttpHandler.proxy()
+    return require('jls.net.http.handler.ProxyHttpHandler'):new()
   end
-  --- Creates a RestHttpHandler.
-  -- @tparam table handlers the REST path handlers as a Lua table.
-  -- @treturn HttpHandler a HttpHandler.
+  --[[-- Creates a REST like HTTP handler.
+  
+  The `handlers` consists in a deep table of functions representing the resource paths.
+  By default the request body is processed and the JSON value is available with the attribute `requestJson`.
+
+  The function returned value is used for the HTTP response.
+  A table will be returned as a JSON value.
+  The returned value could also be a @{jls.lang.Promise}.
+
+  An empty string is used as table key for the root resource.
+  The special table key `{name}` is used to match any key and provide the value in the attribue `name`.
+  
+  @tparam table handlers the REST path handlers as a Lua table.
+  @treturn HttpHandler a HttpHandler.
+  @usage
+  local users = {}
+  httpServer:createContext('/(.*)', HttpHandler.rest({
+    users = {
+      [''] = function(exchange)
+        return users
+      end,
+      -- additional handler
+      ['{+}?method=GET'] = function(exchange, userId)
+        exchange:setAttribute('user', users[userId])
+      end,
+      ['{userId}'] = {
+        ['(user)?method=GET'] = function(exchange, user)
+          return user
+        end,
+        ['(userId, requestJson)?method=POST,PUT'] = function(exchange, userId, requestJson)
+          users[userId] = requestJson
+        end,
+        -- will be available at /rest/users/{userId}/greetings
+        ['greetings(user)?method=GET'] = function(exchange, user)
+          return 'Hello '..user.firstname
+        end
+      },
+    }
+  }))
+  ]]
   function HttpHandler.rest(...)
     return require('jls.net.http.handler.RestHttpHandler'):new(...)
   end
-  --- Creates a TableHttpHandler.
+  --- Exposes a table content throught HTTP REST APIs.
+  -- This handler allows to access and maintain a deep Lua table.
+  -- The GET response is a JSON with a 'value' key containing the table path value.
   -- @tparam table table the table.
   -- @tparam[opt] string path the table base path.
   -- @tparam[opt] boolean editable true to indicate that the table can be modified.
   -- @treturn HttpHandler a HttpHandler.
   function HttpHandler.table(...)
     return require('jls.net.http.handler.TableHttpHandler'):new(...)
-  end
-  --- Creates a WebDavHttpHandler.
-  -- See FileHttpHandler
-  -- @treturn HttpHandler a HttpHandler.
-  function HttpHandler.webDav(...)
-    return require('jls.net.http.handler.WebDavHttpHandler'):new(...)
-  end
-  --- Creates a ZipFileHttpHandler.
-  -- @tparam jls.io.File zipFile the ZIP file.
-  -- @treturn HttpHandler a HttpHandler.
-  function HttpHandler.zipFile(...)
-    return require('jls.net.http.handler.ZipFileHttpHandler'):new(...)
   end
 
 end)
