@@ -336,35 +336,37 @@ function Promise.resolve(value)
   return p
 end
 
-local function resume(cr, cb, ...)
+local function resume(cr, p, ...)
+  local state = REJECTED
   local status, result = coroutine.resume(cr, ...)
   if status then
     status = coroutine.status(cr)
-    if status == 'dead' then
-      cb(nil, result)
-    elseif status == 'suspended' then
+    if status == 'suspended' then
       if isPromise(result) then
         result:next(function(r)
-          resume(cr, cb, true, r)
+          resume(cr, p, true, r)
         end, function(r)
-          resume(cr, cb, false, r)
+          resume(cr, p, false, r)
         end)
-      else
-        cb('invalid await/yield argument, '..tostring(result)..', expected a Promise')
+        return
       end
+      result = 'invalid await/yield argument, '..type(result)..', expected a Promise'
+    elseif status == 'dead' then
+      state = FULFILLED
     else
-      cb('invalid async coroutine status, '..tostring(status))
+      result = 'invalid async coroutine status, '..tostring(status)
     end
   else
-    cb(result or 'unknown reason')
+    result = result or 'unknown reason'
   end
+  applyPromise(p, result, state)
 end
 
 --[[--
 Calls the specified function as a coroutine.
 The async and await functions allows asynchronous/non-blocking functions to be written in a traditional synchronous/blocking style.
 
-The function will be called with its `await` function as first argument.
+The function will be called with a corresponding `await` function as first argument.
 
 The `await` function waits for the Promise on which its is called then returns its fulfillment value
 or raises an error with the rejection reason if the promise is rejected.
@@ -388,14 +390,13 @@ function Promise.async(fn, ...)
   local cr = coroutine.create(fn)
   local function await(p)
     if not isPromise(p) then
-      --p = Promise.resolve(p)
       return p
     end
     local status, result
     local state = p._state
     if state == PENDING then
       if coroutine.running() ~= cr then
-        error('attempt to await from outside the corresponding async')
+        error('attempt to call await from outside the corresponding async')
       end
       status, result = coroutine.yield(p)
     elseif state == FULFILLED then
@@ -412,7 +413,7 @@ function Promise.async(fn, ...)
     error(result or 'unknown reason', 0)
   end
   local p = Promise:new()
-  resume(cr, asCallback(p), await, ...)
+  resume(cr, p, await, ...)
   return p
 end
 
