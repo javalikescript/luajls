@@ -38,9 +38,9 @@ return require('jls.lang.class').create(function(eventPublisher)
   -- When the handler raises an error, the 'error' event is published,
   -- if there is no handler then the error is propagated.
   -- @tparam string name the event name
-  -- @tparam function fn the function to call when the event is published
+  -- @param handler the function to call when the event is published
   -- @return an opaque key that could be used to unsubscribe
-  function eventPublisher:subscribeEvent(name, fn)
+  function eventPublisher:subscribeEvent(name, handler)
     local handlers = self.eventHandlers[name]
     if not handlers then
       handlers = {}
@@ -48,17 +48,17 @@ return require('jls.lang.class').create(function(eventPublisher)
     end
     local eventFn
     --if EventPublisher:isInstance(fn) then
-    if type(fn) == 'table' and type(fn.publishEvent) == 'function' then
+    if type(handler) == 'table' and type(handler.publishEvent) == 'function' then
       eventFn = function(...)
-        fn:publishEvent(name, ...)
+        handler:publishEvent(name, ...)
       end
-    elseif type(fn) == 'function' then
-      if List.contains(handlers, fn) then
+    elseif type(handler) == 'function' then
+      if List.contains(handlers, handler) then
         eventFn = function(...)
-          fn(...)
+          handler(...)
         end
       else
-        eventFn = fn
+        eventFn = handler
       end
     else
       error('Invalid function argument')
@@ -67,6 +67,11 @@ return require('jls.lang.class').create(function(eventPublisher)
     return eventFn -- as opaque key
   end
 
+  --- Subscribes once to the specified event name with the specified function.
+  -- On the first publication, the subscription will be removed prior to call the handler.
+  -- @tparam string name the event name
+  -- @tparam function fn the function to call when the event is published
+  -- @return an opaque key that could be used to unsubscribe
   function eventPublisher:subscribeEventOnce(name, fn)
     local key
     key = self:subscribeEvent(name, function(...)
@@ -76,12 +81,17 @@ return require('jls.lang.class').create(function(eventPublisher)
     return key
   end
 
+  --- Returns the subscribed event names.
+  -- @treturn table the event names
   function eventPublisher:eventNames()
     local names = tables.keys(self.eventHandlers)
     table.sort(names)
     return names
   end
 
+  --- Returns the number of handlers for the specified event name.
+  -- @tparam string name the event name
+  -- @treturn number the number of handlers
   function eventPublisher:subscriptionCount(name)
     local handlers = self.eventHandlers[name]
     if handlers then
@@ -111,8 +121,9 @@ return require('jls.lang.class').create(function(eventPublisher)
   end
 
   --- Publishes the specified event name.
-  -- Fires an event
+  -- Calls each subscribed handler for the event name in the subscription order.
   -- @tparam string name the event name
+  -- @param[opt] ... the optional parameters to pass to the handler.
   -- @treturn boolean true if the event had subscriptions, false otherwise
   function eventPublisher:publishEvent(name, ...)
     local handlers = self.eventHandlers[name]

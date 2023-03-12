@@ -7,6 +7,12 @@ Note: The full implementation is only available with libuv
 @pragma nostrip
 ]]
 
+--[[
+  TODO group ProcessBuilder and ProcessHandle
+  the ProcessHandle static methods will perfectly fit in a process module
+  a single module process would be a good entry point but does not fit with ProcessBuilder
+]]
+
 local ProcessHandle = require('jls.lang.ProcessHandle')
 
 local function capitalize(s)
