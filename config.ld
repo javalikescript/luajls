@@ -42,7 +42,7 @@ The luajls library provides abstraction interfaces for general-purpose scripting
 --no_summary = true
 --no_space_before_args = true 
 --sort = true
---style = "!fixed"
+style = "!fixed"
 --no_lua_ref = true
 topics = "doc_topics"
 package = "jls"
