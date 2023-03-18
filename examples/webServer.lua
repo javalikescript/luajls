@@ -257,19 +257,8 @@ end
 
 if config.cipher and config.cipher.enabled then
   local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
-  local cipher = require('jls.util.cd.cipher')
-  local deflate = false -- require('jls.util.cd.deflate')
-  local Struct = require('jls.util.Struct')
-  local base64 = require('jls.util.cd.base64')
-  local alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+  local Codec = require('jls.util.Codec')
 
-  local struct = Struct:new({
-    {name = 'name', type = 's4'},
-    {name = 'size', type = 'I8'},
-    {name = 'time', type = 'I8'},
-  }, '<')
-  local mdAlg = 'aes256'
-  local alg = config.cipher.alg
   local extension = config.cipher.extension
   local key
   if config.cipher.keyFile then
@@ -278,7 +267,7 @@ if config.cipher and config.cipher.enabled then
     if keyFile:isFile() then
       key = keyFile:readAll()
     else
-      local info = opensslLib.cipher.get(alg):info()
+      local info = opensslLib.cipher.get(config.cipher.alg):info()
       key = opensslLib.random(info and info.key_length or 512, true)
       keyFile:write(key)
       print('Cipher key generated in '..keyFile:getPath())
@@ -286,6 +275,11 @@ if config.cipher and config.cipher.enabled then
   else
     key = config.cipher.key or 'secret'
   end
+
+  local cipher = Codec.getInstance('cipher', config.cipher.alg, key)
+  local mdCipher = Codec.getInstance('cipher', 'aes256', key)
+  local deflate = false --Codec.getInstance('deflate', -15)
+  local base64 = Codec.getInstance('base64', 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_', false)
 
   httpServer:createContext('/KEY', function(exchange)
     local request = exchange:getRequest()
@@ -300,9 +294,9 @@ if config.cipher and config.cipher.enabled then
   local function generateEncName(md)
     local plain = strings.encodeVariableByteInteger(md.size)..md.name
     if deflate then
-      plain = deflate.encode(plain, nil, -15)
+      plain = deflate:encode(plain)
     end
-    return base64.encode(cipher.encode(plain, mdAlg, key), alpha, false)..'.'..extension
+    return base64:encode(mdCipher:encode(plain))..'.'..extension
   end
 
   local function try(status, ...)
@@ -313,12 +307,12 @@ if config.cipher and config.cipher.enabled then
   end
   local function readEncFileMetadata(encFile, full)
     local name = string.sub(encFile:getName(), 1, -5)
-    local content = try(pcall(base64.decode, name, alpha))
+    local content = try(pcall(base64.decode, base64, name))
     if content then
-      local plain = cipher.decode(content, mdAlg, key)
+      local plain = mdCipher:decode(content)
       if plain then
         if deflate then
-          plain = deflate.decode(plain, -15)
+          plain = deflate:decode(plain)
         end
         local size, offset = strings.decodeVariableByteInteger(plain)
         local md = {
@@ -330,22 +324,6 @@ if config.cipher and config.cipher.enabled then
           md.encFile = encFile
         end
         return md
-      end
-    end
-    local file = File:new(encFile:getParentFile(), encFile:getBaseName()..'.emd')
-    content = file:readAll()
-    if content then
-      local plain = cipher.decode(content, 'aes128', key)
-      if plain then
-        local md = struct:fromString(plain)
-        local f = File:new(encFile:getParent(), generateEncName(md))
-        if encFile:renameTo(f) then
-          logger:warn('The file metadata '..file:getName()..' has been migrated and could be deleted')
-          if full then
-            md.encFile = f
-          end
-          return md
-        end
       end
     end
   end
@@ -425,7 +403,7 @@ if config.cipher and config.cipher.enabled then
       if md and md.encFile then
         file = md.encFile
         -- curl -o file -r 0- http://localhost:8000/file
-        sh, offset, length = cipher.decodeStreamPart(sh, alg, key, nil, offset, length)
+        sh, offset, length = cipher:decodeStreamPart(sh, nil, offset, length)
         if logger:isLoggable(logger.FINE) then
           logger:fine('cipher.decodeStreamPart() => '..tostring(offset)..', '..tostring(length))
         end
@@ -450,7 +428,7 @@ if config.cipher and config.cipher.enabled then
           encFile:renameTo(File:new(file:getParent(), generateEncName(md)))
         end)
       end
-      return cipher.encodeStreamPart(sh, alg, key)
+      return cipher:encodeStreamPart(sh)
     end,
   })
 end

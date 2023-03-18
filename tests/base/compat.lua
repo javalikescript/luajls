@@ -2,8 +2,6 @@ local lu = require('luaunit')
 
 local compat = require('jls.util.compat')
 
---local hex = require('jls.util.cd.hex')
-
 function Test_len()
   lu.assertEquals(compat.len('a'), 1)
   lu.assertEquals(compat.len({'a'}), 1)

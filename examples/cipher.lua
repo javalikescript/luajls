@@ -4,7 +4,7 @@ local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local tables = require('jls.util.tables')
-local cipher = require('jls.util.cd.cipher')
+local Codec = require('jls.util.Codec')
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
@@ -26,7 +26,6 @@ local options = tables.createArgumentTable(system.getArguments(), {
     title = 'Cipher utility',
     type = 'object',
     additionalProperties = false,
-    required = {'file'},
     properties = {
       help = {
         title = 'Show the help',
@@ -43,6 +42,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
       },
       info = {
         title = 'Prints algorithm information',
+        type = 'boolean',
+        default = false
+      },
+      list = {
+        title = 'Lists algorithm',
         type = 'boolean',
         default = false
       },
@@ -70,7 +74,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'integer',
       },
       overwrite = {
-        title = 'Overwrite existing ZIP file',
+        title = 'Overwrite existing output file',
         type = 'boolean',
         default = false
       },
@@ -96,7 +100,14 @@ local options = tables.createArgumentTable(system.getArguments(), {
 
 logger:setLevel(options.loglevel)
 
-if options.info then
+if options.list then
+  local opensslLib = require('openssl')
+  print('Cipher algorithms:')
+  for _, v in pairs(opensslLib.cipher.list()) do
+    print('', v)
+  end
+  os.exit(0)
+elseif options.info then
   local cipherLib = require('openssl').cipher
   local info = cipherLib.get(options.alg):info()
   print(options.alg)
@@ -106,7 +117,18 @@ if options.info then
   os.exit(0)
 end
 
+if not options.file then
+  print('Please specify an input file')
+  os.exit(1)
+end
+
+local cipher = Codec.getInstance('cipher', options.alg, options.key)
+
 local inFile = File:new(options.file)
+if not inFile:exists() then
+  print('The input file does not exist', inFile:getPath())
+  os.exit(1)
+end
 
 local offset = options.offset
 local length = options.length
@@ -121,22 +143,22 @@ end
 local sh
 if options.out then
   local outFile = File:new(options.out)
-  sh = StreamHandler.file(outFile, options.overwrite, nil, nil, true)
+  sh = StreamHandler.toFile(outFile, options.overwrite, nil, nil, true)
 else
   sh = StreamHandler.std
 end
 local o, l = offset, length
 if options.part then
   if options.decode then
-    sh, o, l = cipher.decodeStreamPart(sh, options.alg, options.key, nil, offset, length)
+    sh, o, l = cipher:decodeStreamPart(sh, nil, offset, length)
   elseif options.encode then
-    sh = cipher.encodeStreamPart(sh, options.alg, options.key)
+    sh = cipher:encodeStreamPart(sh)
   end
 else
   if options.decode then
-    sh = cipher.decodeStream(sh, options.alg, options.key)
+    sh = cipher:decodeStream(sh)
   elseif options.encode then
-    sh = cipher.encodeStream(sh, options.alg, options.key)
+    sh = cipher:encodeStream(sh)
   end
 end
 FileStreamHandler.readSync(inFile, sh, o, l)

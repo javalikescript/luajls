@@ -4,9 +4,9 @@ local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 
 local DecodeStreamHandler = class.create(WrappedStreamHandler, function(decodeStreamHandler, super)
-  function decodeStreamHandler:initialize(handler, ...)
+  function decodeStreamHandler:initialize(handler, inflater)
     super.initialize(self, handler)
-    self.inflater = Inflater:new(...)
+    self.inflater = inflater
   end
   function decodeStreamHandler:onData(data)
     return self.handler:onData(data and self.inflater:inflate(data))
@@ -14,9 +14,9 @@ local DecodeStreamHandler = class.create(WrappedStreamHandler, function(decodeSt
 end)
 
 local EncodeStreamHandler = class.create(WrappedStreamHandler, function(encodeStreamHandler, super)
-  function encodeStreamHandler:initialize(handler, ...)
+  function encodeStreamHandler:initialize(handler, deflater)
     super.initialize(self, handler)
-    self.deflater = Deflater:new(...)
+    self.deflater = deflater
   end
   function encodeStreamHandler:onData(data)
     if data then
@@ -27,17 +27,31 @@ local EncodeStreamHandler = class.create(WrappedStreamHandler, function(encodeSt
   end
 end)
 
-return {
-  decode = function(data, ...)
-    return Inflater:new(...):inflate(data)
-  end,
-  encode = function(data, ...)
-    return Deflater:new(...):deflate(data, 'finish')
-  end,
-  decodeStream = function(handler, ...)
-    return DecodeStreamHandler:new(handler, ...)
-  end,
-  encodeStream = function(handler, ...)
-    return EncodeStreamHandler:new(handler, ...)
-  end,
-}
+return require('jls.lang.class').create('jls.util.Codec', function(deflate)
+
+  function deflate:initialize(windowBits, compressionLevel)
+    self.windowBits = windowBits
+    self.compressionLevel = compressionLevel
+  end
+
+  function deflate:decode(value)
+    return Inflater:new(self.windowBits):inflate(value)
+  end
+
+  function deflate:encode(value)
+    return Deflater:new(self.compressionLevel, self.windowBits):deflate(value, 'finish')
+  end
+
+  function deflate:decodeStream(sh)
+    return DecodeStreamHandler:new(sh, Inflater:new(self.windowBits))
+  end
+
+  function deflate:encodeStream(sh)
+    return EncodeStreamHandler:new(sh, Deflater:new(self.compressionLevel, self.windowBits))
+  end
+
+  function deflate:getName()
+    return 'deflate'
+  end
+
+end)

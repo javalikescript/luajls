@@ -69,13 +69,30 @@ local EncodeStreamHandler = class.create(require('jls.io.StreamHandler').Wrapped
   end
 end)
 
-return {
-  decode = decode,
-  encode = encode,
-  decodeStream = function(sh)
+return require('jls.lang.class').create('jls.util.Codec', function(hex)
+
+  function hex:initialize(lowerCase)
+    self.lowerCase = lowerCase
+  end
+
+  function hex:decode(value)
+    return decode(value)
+  end
+
+  function hex:encode(value)
+    return encode(value, self.lowerCase)
+  end
+
+  function hex:decodeStream(sh)
     return DecodeStreamHandler:new(sh)
-  end,
-  encodeStream = function(sh, lc)
-    return EncodeStreamHandler:new(sh, lc)
-  end,
-}
+  end
+
+  function hex:encodeStream(sh)
+    return EncodeStreamHandler:new(sh, self.lowerCase)
+  end
+
+  function hex:getName()
+    return 'hex'
+  end
+
+end)

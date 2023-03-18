@@ -1,26 +1,9 @@
 local class = require('jls.lang.class')
 local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
 
--- Provide base 64 codec.
--- @module jls.util.cd.base64
--- @pragma nostrip
-
--- see openssl.base64(msg, true, true)
-
-local function assertLen(alpha)
-  if type(alpha) ~= 'string' then
-    error('Invalid base64 alphabet type, '..type(alpha))
-  end
-  local i = #alpha
-  if i ~= 64 then
-    error('Invalid base64 alphabet length, '..tostring(i))
-  end
-  return i
-end
-
 local function getIndices(alpha)
   local indices = {}
-  for i = 1, assertLen(alpha) do
+  for i = 1, #alpha do
     local letter = string.sub(alpha, i, i)
     indices[letter] = i - 1
   end
@@ -29,7 +12,7 @@ end
 
 local function getLetters(alpha)
   local letters = {}
-  for i = 1, assertLen(alpha) do
+  for i = 1, #alpha do
     local letter = string.sub(alpha, i, i)
     letters[i - 1] = letter
   end
@@ -92,39 +75,64 @@ local function encode(value, letters, pad)
   end))
 end
 
-local DEFAULT_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-local DEFAULT_INDICES = getIndices(DEFAULT_ALPHA)
-local DEFAULT_LETTERS = getLetters(DEFAULT_ALPHA)
-
 local DecodeStreamHandler = class.create(BlockStreamHandler, function(decodeStreamHandler, super)
-  function decodeStreamHandler:initialize(handler)
+  function decodeStreamHandler:initialize(handler, codec)
     super.initialize(self, handler, 4, true)
+    self.indices = codec.indices
   end
   function decodeStreamHandler:onData(data)
-    return self.handler:onData(data and decode(data))
+    return self.handler:onData(data and decode(data, self.indices))
   end
 end)
 
 local EncodeStreamHandler = class.create(BlockStreamHandler, function(encodeStreamHandler, super)
-  function encodeStreamHandler:initialize(handler)
+  function encodeStreamHandler:initialize(handler, codec)
     super.initialize(self, handler, 3, true)
+    self.letters = codec.letters
+    self.pad = codec.pad
   end
   function encodeStreamHandler:onData(data)
-    return self.handler:onData(data and encode(data))
+    return self.handler:onData(data and encode(data, self.letters, self.pad))
   end
 end)
 
-return {
-  decode = function(value, alpha)
-    return decode(value, alpha and getIndices(alpha) or DEFAULT_INDICES)
-  end,
-  encode = function(value, alpha, pad)
-    return encode(value, alpha and getLetters(alpha) or DEFAULT_LETTERS, pad ~= false)
-  end,
-  decodeStream = function(sh)
-    return DecodeStreamHandler:new(sh)
-  end,
-  encodeStream = function(sh, lc)
-    return EncodeStreamHandler:new(sh, lc)
-  end,
-}
+local DEFAULT_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+return require('jls.lang.class').create('jls.util.Codec', function(base64)
+
+  function base64:initialize(alpha, pad)
+    if alpha == nil then
+      alpha = DEFAULT_ALPHA
+    elseif type(alpha) == 'string' then
+      if #alpha ~= 64 then
+        error('invalid base64 alphabet length, '..tostring(#alpha)..', expected 64')
+      end
+    else
+      error('invalid base64 alphabet type, '..type(alpha)..', expected string')
+    end
+    self.indices = getIndices(alpha)
+    self.letters = getLetters(alpha)
+    self.pad = pad ~= false
+  end
+
+  function base64:decode(value)
+    return decode(value, self.indices)
+  end
+
+  function base64:encode(value)
+    return encode(value, self.letters, self.pad)
+  end
+
+  function base64:decodeStream(sh)
+    return DecodeStreamHandler:new(sh, self)
+  end
+
+  function base64:encodeStream(sh)
+    return EncodeStreamHandler:new(sh, self)
+  end
+
+  function base64:getName()
+    return 'Base64'
+  end
+
+end)

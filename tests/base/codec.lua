@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local codec = require('jls.util.codec')
+local codec = require('jls.util.Codec')
 
 function Test_decode()
   lu.assertEquals(codec.decode('hex', '48656c6c6f20776f726c6421'), 'Hello world!')

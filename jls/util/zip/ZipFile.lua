@@ -18,8 +18,10 @@ local LocalDateTime = require('jls.util.LocalDateTime')
 local Date = require('jls.util.Date')
 local Struct = require('jls.util.Struct')
 local MessageDigest = require('jls.util.MessageDigest')
-local inflateStream = require('jls.util.cd.deflate').decodeStream -- Inflater.inflateStream
+local Codec = require('jls.util.Codec')
 
+local INFLATER_WINDOW_BITS = -15
+local deflate = Codec.getInstance('deflate', INFLATER_WINDOW_BITS)
 
 local ZipEntry = class.create(function(zipEntry)
 
@@ -438,7 +440,7 @@ return class.create(function(zipFile, _, ZipFile)
     if f:isDirectory() then
       name = name..'/'
     elseif uncompressedSize > 0 then
-      local md = MessageDigest.getInstance('Crc32')
+      local md = MessageDigest.getInstance('CRC32')
       local d
       if uncompressedSize > 200 then
         method = ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED
@@ -593,8 +595,6 @@ return class.create(function(zipFile, _, ZipFile)
     end
   end
 
-  local INFLATER_WINDOW_BITS = -15
-
   --- Returns the content of the specified entry.
   -- @param entry the entry
   -- @treturn string the entry content
@@ -628,7 +628,7 @@ return class.create(function(zipFile, _, ZipFile)
     if entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_STORED then
       self:readRawContentParts(entry, stream, async)
     elseif entry:getMethod() == ZipFile.CONSTANT.COMPRESSION_METHOD_DEFLATED then
-      self:readRawContentParts(entry, inflateStream(stream, INFLATER_WINDOW_BITS), async)
+      self:readRawContentParts(entry, deflate:decodeStream(stream), async)
     else
       stream:onError('Unsupported method ('..tostring(entry:getMethod())..')')
     end

@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local cipher = require('jls.util.cd.cipher')
+local Codec = require('jls.util.Codec')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 
 local function chars(l)
@@ -20,7 +20,8 @@ end
 
 function Test_encode_decode()
   local function assertEncodeDecode(s, alg, key)
-    lu.assertEquals(cipher.decode(cipher.encode(s, alg, key), alg, key), s)
+    local cipher = Codec.getInstance('cipher', alg, key)
+    lu.assertEquals(cipher:decode(cipher:encode(s)), s)
   end
   assertEncodeDecode('')
   assertEncodeDecode('!')
@@ -32,12 +33,13 @@ end
 
 function Test_encode_decode_stream()
   local function assertEncodeDecode(s, alg, key)
+    local cipher = Codec.getInstance('cipher', alg, key)
     local bsh = BufferedStreamHandler:new()
-    local esh = cipher.encodeStream(bsh, alg, key)
+    local esh = cipher:encodeStream(bsh)
     BufferedStreamHandler.fill(esh, s)
     local es = bsh:getBuffer()
     bsh:getStringBuffer():clear()
-    local dsh = cipher.decodeStream(bsh, alg, key)
+    local dsh = cipher:decodeStream(bsh)
     BufferedStreamHandler.fill(dsh, es)
     local ds = bsh:getBuffer()
     --print('encoded size is '..tostring(#es)..'/'..tostring(#s))
@@ -57,13 +59,14 @@ function Test_encode_decode_stream_part()
   local s = chars(2 ^ 20) -- 7
   local alg, key = 'aes-128-ctr', 'secret'
   local bsh = BufferedStreamHandler:new()
-  local esh = cipher.encodeStreamPart(bsh, alg, key)
+  local cipher = Codec.getInstance('cipher', alg, key)
+  local esh = cipher:encodeStreamPart(bsh)
   BufferedStreamHandler.fill(esh, s)
   local es = bsh:getBuffer()
   local function assertDecodePart(offset, length)
     length = length or (#s - offset)
     bsh:getStringBuffer():clear()
-    local dsh, o, l = cipher.decodeStreamPart(bsh, alg, key, nil, offset, length)
+    local dsh, o, l = cipher:decodeStreamPart(bsh, nil, offset, length)
     --print('assertDecode('..tostring(offset)..', '..tostring(length)..') => '..tostring(o)..', '..tostring(l))
     BufferedStreamHandler.fill(dsh, sub(es, o, l))
     local ds = bsh:getBuffer()
@@ -76,6 +79,19 @@ function Test_encode_decode_stream_part()
   local m = math.floor(#s / 32) * 2
   assertDecodePart(m)
   assertDecodePart(m + 10)
+end
+
+if false then
+  local opensslLib = require('openssl')
+  print('Digest algorithms:')
+  for _, v in pairs(opensslLib.digest.list()) do
+    print('', v)
+  end
+  print('Cipher algorithms:')
+  for _, v in pairs(opensslLib.cipher.list()) do
+    print('', v)
+  end
+  os.exit(0)
 end
 
 os.exit(lu.LuaUnit.run())
