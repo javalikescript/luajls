@@ -196,6 +196,9 @@ return require('jls.lang.class').create(function(list, _, List)
     return concat(List:new(), self, ...)
   end
 
+  --- Returns a list containing the result of the function called on each element.
+  -- @tparam function f The function to call on each element.
+  -- @treturn jls.util.List the new list.
   function list:map(f)
     return map(List:new(), self, f)
   end
@@ -335,6 +338,12 @@ return require('jls.lang.class').create(function(list, _, List)
 
   List.concat = concat
 
+  --- Returns a table containing the result of the function called on each element of the source table.
+  -- @tparam[opt] table d the destination table, if missing then a new table will be returned.
+  -- @tparam table t the table containing the elements to map.
+  -- @tparam function f the function to call on each element.
+  -- @treturn table the destination table.
+  -- @function List.map
   List.map = map
 
   local function isInteger(v)
