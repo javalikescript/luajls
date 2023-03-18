@@ -5,17 +5,19 @@ local system = require('jls.lang.system')
 local File = require('jls.io.File')
 local loop = require('jls.lang.loopWithTimeout')
 
-local logger = require('jls.lang.logger')
-
+local TEST_FILENAME = 'examples/README.md'
+local TMP_FILENAME = 'tests/to_remove.tmp'
+local TMP_2_FILENAME = 'tests/to_remove_2.tmp'
+local TEST_PORT = 8765
 local LUA_PATH = ProcessBuilder.getExecutablePath()
-logger:fine('Lua path is "'..tostring(LUA_PATH)..'"')
 
 local function assertExitCode(ph, value, message)
   local exitCode
   ph:ended():next(function(c)
     exitCode = c
   end)
-  if not loop(30000) then
+  if not loop(15000) then
+    ph:destroy()
     lu.fail('Timeout reached')
   end
   lu.assertEquals(exitCode, value or 0, message)
@@ -49,11 +51,6 @@ function Test_help()
   end
 end
 
-local TEST_FILENAME = 'examples/README.md'
-local TMP_FILENAME = 'tests/to_remove.tmp'
-local TMP_2_FILENAME = 'tests/to_remove_2.tmp'
-local TEST_PORT = 8765
-
 function Test_cipher()
   exec({LUA_PATH, 'examples/cipher.lua', '-e', '--file', TEST_FILENAME, '--out', TMP_FILENAME, '--overwrite'}, 0)
   exec({LUA_PATH, 'examples/cipher.lua', '-d', '--file', TMP_FILENAME, '--out', TMP_2_FILENAME, '--overwrite'}, 0)
@@ -68,7 +65,9 @@ function Test_httpClient_webServer()
     --print('closing server')
     phServer:destroy()
   end)
-  if not loop(30000) then
+  if not loop(15000) then
+    phServer:destroy()
+    phClient:destroy()
     lu.fail('Timeout reached')
   end
   assertFileEquals(TEST_FILENAME, TMP_FILENAME)
