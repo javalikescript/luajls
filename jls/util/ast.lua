@@ -178,7 +178,7 @@ local compatMap51 = {
   },
   lookup = {
     coroutine = {
-      close = {level = 2, name = 'notAvailable'},
+      close = {level = 2, name = 'ignored'},
       isyieldable = {level = 2, name = 'notAvailable'},
     },
     debug = {

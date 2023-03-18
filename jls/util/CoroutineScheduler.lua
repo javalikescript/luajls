@@ -5,6 +5,7 @@
 
 local logger = require('jls.lang.logger')
 local sysLib = require('jls.lang.sys')
+local Exception = require('jls.lang.Exception')
 local List = require('jls.util.List')
 
 --logger = logger:getClass():new(logger.FINE)
@@ -27,6 +28,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   end
 
   --- Schedules the specified coroutine.
+  -- The cooperation is based on the time.
   -- When yielding the coroutine may indicate the delay or timestamp before this scheduler shall resume it.
   -- When the delay is more than twenty five days, it is considered as a timestamp.
   -- A negative delay indicates the schedule shall receive a timeout argument.
@@ -93,13 +95,13 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     self.running = false
   end
 
-  function coroutineScheduler:onError(resumeResult)
-    logger:warn('Scheduled coroutine failed due to "'..tostring(resumeResult)..'"')
+  function coroutineScheduler:onError(e)
+    logger:warn('Scheduled coroutine failed due to "%s"', e)
   end
 
   function coroutineScheduler:runOnce(noWait)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('coroutineScheduler:runOnce('..tostring(noWait)..') #'..tostring(#self.schedules))
+      logger:finest('coroutineScheduler:runOnce(%s) #%d', noWait, #self.schedules)
     end
     local startTime = sysLib.timems()
     local currentTime = startTime
@@ -140,9 +142,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
                     timeout = self.maxWait
                   end
                   -- TODO we do not want the last blocking schedule to block
-                  if logger:isLoggable(logger.FINER) then
-                    logger:finer('Schedule timeout is '..tostring(timeout))
-                  end
+                  logger:finer('Schedule timeout is %d', timeout)
                 end
               end
             end
@@ -152,9 +152,9 @@ return require('jls.lang.class').create(function(coroutineScheduler)
           if logger:isLoggable(logger.FINE) then
             local st = ct - currentTime
             if st > 100 then
-              logger:fine('Schedule time was '..tostring(st))
+              logger:fine('Schedule time was %d', st)
             else
-              logger:finest('Schedule time was '..tostring(st))
+              logger:finest('Schedule time was %d', st)
             end
           end
           currentTime = ct
@@ -169,15 +169,19 @@ return require('jls.lang.class').create(function(coroutineScheduler)
                 nextAt = resumeResult
               end
             else
-              if resumeResult ~= nil  and logger:isLoggable(logger.FINEST) then
-                logger:finest('Schedule resume result is '..tostring(resumeResult))
+              if resumeResult ~= nil then
+                logger:finest('Schedule resume result is %s', resumeResult)
               end
               if coroutine.status(schedule.cr) ~= 'dead' then
                 nextAt = currentTime
               end
             end
           else
-            self:onError(resumeResult)
+            if Exception:isInstance(resumeResult) then
+              self:onError(resumeResult)
+            else
+              self:onError(Exception:new(resumeResult, nil, debug.traceback(schedule.cr)))
+            end
           end
           schedule.at = nextAt
         else
@@ -185,9 +189,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
         end
       elseif crStatus ~= 'dead' then -- normal or running, not supported
         nextAt = at
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('Schedule status is '..tostring(crStatus))
-        end
+        logger:fine('Schedule status is %s', crStatus)
       end
       if nextAt then
         if nextAt < 0 then
@@ -200,6 +202,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
         end
         i = i + 1
       else
+        coroutine.close(schedule.cr)
         table.remove(self.schedules, i)
       end
     end
@@ -212,8 +215,8 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     end
     if nextTime > currentTime and not hasTimeout and not noWait then
       local st = nextTime - currentTime
-      if st > 100 and logger:isLoggable(logger.FINE) then
-        logger:fine('Scheduler sleep time was '..tostring(st))
+      if st > 100 then
+        logger:fine('Scheduler sleep time was %d', st)
       end
       sysLib.sleep(st)
     end

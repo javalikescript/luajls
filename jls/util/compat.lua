@@ -11,6 +11,9 @@ function compat.notAvailable()
   error('No compatibility available')
 end
 
+function compat.ignored()
+end
+
 local function len(v)
   return #v
 end

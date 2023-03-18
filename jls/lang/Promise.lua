@@ -338,11 +338,11 @@ end
 
 local function resume(cr, p, ...)
   local state = REJECTED
-  local status, result = coroutine.resume(cr, ...)
-  if status then
-    status = coroutine.status(cr)
-    if status == 'suspended' then
-      if isPromise(result) then
+  local success, status, result = coroutine.resume(cr, ...)
+  if success then
+    local crStatus = coroutine.status(cr)
+    if crStatus == 'suspended' then
+      if status and isPromise(result) then
         result:next(function(r)
           resume(cr, p, true, r)
         end, function(r)
@@ -351,12 +351,17 @@ local function resume(cr, p, ...)
         return
       end
       result = 'invalid await/yield argument, '..type(result)..', expected a Promise'
-    elseif status == 'dead' then
-      state = FULFILLED
+    elseif crStatus == 'dead' then
+      coroutine.close(cr)
+      if status then
+        state = FULFILLED
+      end
     else
-      result = 'invalid async coroutine status, '..tostring(status)
+      result = 'invalid async coroutine status, '..tostring(crStatus)
     end
   else
+    -- we could get the stack to create an exception using debug.traceback(cr)
+    coroutine.close(cr)
     result = result or 'unknown reason'
   end
   applyPromise(p, result, state)
@@ -387,7 +392,7 @@ end):catch(error)
 require('jls.lang.event'):loop()
 ]]
 function Promise.async(fn, ...)
-  local cr = coroutine.create(fn)
+  local cr = coroutine.create(protectedCall)
   local function await(p)
     if not isPromise(p) then
       return p
@@ -398,7 +403,7 @@ function Promise.async(fn, ...)
       if coroutine.running() ~= cr then
         error('attempt to call await from outside the corresponding async')
       end
-      status, result = coroutine.yield(p)
+      status, result = coroutine.yield(true, p)
     elseif state == FULFILLED then
       status, result = true, p._result
     elseif state == REJECTED then
@@ -413,7 +418,7 @@ function Promise.async(fn, ...)
     error(result or 'unknown reason', 0)
   end
   local p = Promise:new()
-  resume(cr, p, await, ...)
+  resume(cr, p, fn, await, ...)
   return p
 end
 

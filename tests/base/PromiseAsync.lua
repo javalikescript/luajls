@@ -2,6 +2,7 @@ local lu = require('luaunit')
 
 local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
+local Exception = require('jls.lang.Exception')
 
 local function future(value, millis)
   return Promise:new(function(resolve, reject)
@@ -44,6 +45,35 @@ function Test_async_await_n()
 end
 
 function Test_async_await_error()
+  --[[
+    local cr = coroutine.create(function()
+      local function r()
+        error('ouch')
+        --void()
+      end
+      r()
+    end)
+    print('resume:', coroutine.resume(cr))
+    print('traceback:', debug.traceback(cr, nil, 1))
+  ]]
+  local v
+  Promise.async(function(await)
+    await(future())
+    local function aFunction()
+      error('ouch', 0)
+      --void()
+    end
+    aFunction()
+  end):catch(function(e)
+    v = e
+  end)
+  lu.assertNil(v)
+  event:loop()
+  print(v)
+  lu.assertEquals(Exception.getMessage(v), 'ouch')
+end
+
+function Test_async_await_reject()
   local v
   Promise.async(function(await)
     await(future(Promise.reject('ouch')))
@@ -52,7 +82,7 @@ function Test_async_await_error()
   end)
   lu.assertNil(v)
   event:loop()
-  lu.assertEquals(v, 'ouch')
+  lu.assertEquals(Exception.getMessage(v), 'ouch')
 end
 
 function Test_async_n_await()
