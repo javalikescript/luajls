@@ -178,9 +178,41 @@ print(luke, #luke, luke == Person('Luke')) -- prints 'Luke 4 true'
 ```
 
 
+## Exception
+
+The exception class groups the error message and the associated stack.
+It provides a common way to deal with errors.
+Promise and EventPublisher call functions and wrap Lua error in Exception.
+
+```lua
+local Exception = require('jls.lang.Exception')
+local e = Exception('ouch')
+print('message:', e:getMessage()) -- prints 'ouch'
+print(e) --[[ prints the name, the message and the stack trace:
+jls.lang.Exception: ouch
+stack traceback:
+        (command line):2: in main chunk
+        [C]: in ?
+]]
+e:throw() -- raise the error e
+```
+
+For example, a promise needs to call the fulfillment and rejection handlers in protected mode and properly reject in case of error.
+At this time, we do not know if the caller is interested by the stack or just the error message.
+With the exception, the caller could later decide to use only the error message or to print the stack trace.
+
+The `Exception.getMessage` function unwraps, if necessary, the error message.
+
+The `Exception.pcall` function is similar to the Lua function, except that it returns an exception instance.
+
+An exception may have a cause, allowing to preserve this information when you do not want to rethrow the exception.
+
+Additionnaly, it is possible to create specialized sub class of exception.
+
+
 ## Concurrent Programming
 
-## Event Loop
+### Event Loop
 
 In order to deal with blocking I/O operations such as getting a network resource, luajls provides an event loop. Blocking operations take a callback function as argument that will be called when the operation completes or when data shall be processed.
 
@@ -236,28 +268,6 @@ end)
 event:loop()
 ```
 
-The `async` and `await` functions allows asynchronous/non-blocking functions to be written in a traditional synchronous/blocking style.
-
-```lua
-local event = require('jls.lang.event')
-local Promise = require('jls.lang.Promise')
-
-local function incrementLater(n, millis)
-  return Promise:new(function(resolve, reject)
-    event:setTimeout(function()
-      resolve(n + 1)
-    end, millis or 0)
-  end)
-end
-
-Promise.async(function(await)
-  local n = await(incrementLater(0, 1000)) -- returns 1 after 1 second
-  print(await(incrementLater(n, 1000))) -- prints 2 after another second
-end):catch(error)
-
-event:loop()
-```
-
 You also benefits of the whole Promise API, such as executing multiple parallel promises.
 
 ```lua
@@ -277,6 +287,31 @@ end)
 Promise.race({wait(1500), wait(1000)}):next(function()
   print('Do that after 1 second') -- after the first completed promise
 end)
+
+event:loop()
+```
+
+
+### Async/Await
+
+The `async` and `await` functions allows asynchronous/non-blocking functions to be written in a traditional synchronous/blocking style.
+
+```lua
+local event = require('jls.lang.event')
+local Promise = require('jls.lang.Promise')
+
+local function incrementLater(n, millis)
+  return Promise:new(function(resolve, reject)
+    event:setTimeout(function()
+      resolve(n + 1)
+    end, millis or 0)
+  end)
+end
+
+Promise.async(function(await)
+  local n = await(incrementLater(0, 1000)) -- returns 1 after 1 second
+  print(await(incrementLater(n, 1000))) -- prints 2 after another second
+end):catch(error)
 
 event:loop()
 ```
@@ -324,7 +359,8 @@ FileStreamHandler.readAll('./README.md', std)
 require('jls.lang.event'):loop()
 ```
 
-# Data Storage
+
+# Data Storage and Transformation
 
 ## File System
 
@@ -381,6 +417,32 @@ fileDesc:closeSync()
 ```
 
 
+## Data Transformation
+
+### Codec
+
+The codec class allows to encode or decode a string into another string.
+The codec also provides a encoding/decoding stream handlers.
+The available codec are Base64, Hexadecimal(hex), cipher, deflate and GZip.
+
+```lua
+local codec = Codec.getInstance('Base64')
+print(codec:encode('Hello !')) -- prints 'SGVsbG8gIQ=='
+```
+
+
+### Message Digest
+
+The message digest class allows to transform a string into a string with a fixed size.
+You provide the input string by successive calls to update then get the output string by calling digest. 
+The available hash algorithms are MD5, SHA-1, CRC32.
+
+```lua
+local md = MessageDigest.getInstance('MD5')
+md:update('The quick brown fox jumps over the lazy dog'):digest()
+```
+
+
 # Network Programming
 
 This section introduces the main classes to interact with the network.
@@ -423,6 +485,7 @@ function server:onAccept(client)
 end
 require('jls.lang.event'):loop()
 ```
+
 
 ### User Datagram Protocol (UDP)
 
@@ -470,6 +533,7 @@ end)
 require('jls.lang.event'):loop()
 ```
 
+
 ### HTTP Server
 
 The HTTP server allows you to serve any kind of resource.
@@ -495,10 +559,10 @@ A basic use case is to serve local files.
 
 ```lua
 local HttpServer = require('jls.net.http.HttpServer')
-local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
+local HttpHandler = require('jls.net.http.HttpHandler')
 local httpServer = HttpServer:new()
 httpServer:bind('::', 8080)
-httpServer:createContext('/rest/(.*)', FileHttpHandler:new('.', 'rl'))
+httpServer:createContext('/rest/(.*)', HttpHandler.file('.', 'rl'))
 require('jls.lang.event'):loop()
 ```
 
@@ -506,10 +570,10 @@ Another use case is to expose a HTTP APIs.
 
 ```lua
 local HttpServer = require('jls.net.http.HttpServer')
-local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
+local HttpHandler = require('jls.net.http.HttpHandler')
 local httpServer = HttpServer:new()
 httpServer:bind('::', 8080)
-httpServer:createContext('/(.*)', RestHttpHandler:new({
+httpServer:createContext('/(.*)', HttpHandler.rest({
   admin = {
     stop = function(httpExchange)
       httpServer:close()
@@ -519,6 +583,7 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
 }))
 require('jls.lang.event'):loop()
 ```
+
 
 ### WebSocket
 

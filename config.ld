@@ -21,10 +21,11 @@ The luajls library provides abstraction interfaces for general-purpose scripting
 * Basic Concepts
     * @{manual.md.Namespace_and_Modules|Namespace and Modules}
     * @{manual.md.Object_Oriented_Programming|Object Oriented Programming}
+    * @{manual.md.Exception|Exception}
     * @{manual.md.Concurrent_Programming|Concurrent Programming}
-    * @{manual.md.Event_Loop|Event Loop}
-* Data Storage
+* Data Storage and Transformation
     * @{manual.md.File_System|File System}
+    * @{manual.md.Data_Transformation|Data Transformation}
 * Network Programming
     * @{manual.md.Network_Socket|Network Socket}
     * @{manual.md.Hypertext_Transfer_Protocol__HTTP_|Hypertext Transfer Protocol (HTTP)}
