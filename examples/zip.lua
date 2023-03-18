@@ -71,7 +71,7 @@ elseif options.action == 'list' then
   end
 elseif options.action == 'check' then
   local MessageDigest = require('jls.util.MessageDigest')
-  local md = MessageDigest.getInstance('Crc32')
+  local md = MessageDigest.getInstance('CRC32')
   local zFile = ZipFile:new(options.file, false)
   local entries = zFile:getEntries()
   print('Name', 'CRC', 'Check', 'Method', 'CompressedSize', 'Size')

@@ -22,7 +22,7 @@ return require('jls.lang.class').create('jls.util.MessageDigest', function(crc32
   end
 
   function crc32:getAlgorithm()
-    return 'crc32'
+    return 'CRC32'
   end
 
 end)

@@ -7,7 +7,7 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local StreamHandler = require('jls.io.StreamHandler')
-local Crc32 = require('jls.util.md.Crc32')
+local Crc32 = require('jls.util.md.crc32')
 
 -- see https://tools.ietf.org/html/rfc1952
 

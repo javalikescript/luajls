@@ -22,7 +22,7 @@ return require('jls.lang.class').create('jls.util.MessageDigest', function(sha1)
   end
 
   function sha1:getAlgorithm()
-    return 'sha1'
+    return 'SHA-1'
   end
 
 end)

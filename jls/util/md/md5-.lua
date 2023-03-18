@@ -218,7 +218,7 @@ return require('jls.lang.class').create('jls.util.MessageDigest', function(md5)
   end
 
   function md5:getAlgorithm()
-    return 'md5'
+    return 'MD5'
   end
 
 end)

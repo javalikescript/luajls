@@ -48,7 +48,7 @@ local CONST = {
    |Sec-WebSocket-Accept| header field.
 ]]
 local function hashWebSocketKey(key)
-  local md = MessageDigest.getInstance('sha1')
+  local md = MessageDigest.getInstance('SHA-1')
   md:update(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
   return base64.encode(md:digest())
 end
@@ -235,10 +235,14 @@ return class.create(function(webSocket)
         client:close()
         return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
       end
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('webSocket:open() Switching protocols')
+      local acceptKey = response:getHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT)
+      --local protocol = response:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
+      if acceptKey ~= hashWebSocketKey(key) then
+        self.tcp = nil
+        client:close()
+        return Promise.reject('Bad key')
       end
-      -- TODO Check accept key
+      logger:fine('webSocket:open() Switching protocols')
     end, function(reason)
       self.tcp = nil
       client:close()

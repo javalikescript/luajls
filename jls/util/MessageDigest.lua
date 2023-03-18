@@ -1,5 +1,5 @@
 --- Provide MessageDigest class.
--- Available algorithms are sha1, md5, Crc32.
+-- Available algorithms are SHA-1, MD5, CRC32.
 -- @module jls.util.MessageDigest
 -- @pragma nostrip
 
@@ -51,7 +51,7 @@ return class.create(function(messageDigest)
   end
 
   function messageDigest:getAlgorithm()
-    return self.alg
+    return self.alg or class.getName(self:getClass()) or 'MessageDigest'
   end
 
   function messageDigest:finish(m)
@@ -71,14 +71,14 @@ end, function(MessageDigest)
   -- @tparam string alg The name of the algorithm.
   -- @return The MessageDigest class
   function MessageDigest.getMessageDigest(alg)
-    return require('jls.util.md.'..alg)
+    return require('jls.util.md.'..string.lower(string.gsub(alg, '[%s%-]', '')))
   end
 
   --- Creates a new MessageDigest.
   -- @tparam string alg The name of the algorithm.
   -- @treturn MessageDigest a new MessageDigest
   -- @usage
-  --local md = MessageDigest.getInstance('md5')
+  --local md = MessageDigest.getInstance('MD5')
   --md:update('The quick brown fox jumps over the lazy dog'):digest()
   function MessageDigest.getInstance(alg, ...)
     return MessageDigest.getMessageDigest(alg):new(...)
