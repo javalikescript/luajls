@@ -9,7 +9,23 @@ local class = require('jls.lang.class')
 -- @type Exception
 return class.create(function(exception, _, Exception)
 
+  local function cleanMessage(message, stack)
+    if type(message) == 'string' then
+      local i = string.find(message, ': ', 2, true)
+      if i and i < 512 then
+        local prefix = string.sub(message, 1, i + 1)
+        i = string.find(stack, prefix, 16, true) -- skip "stack traceback:"
+        if i and i < 512 then
+          -- the prefix is available in the stack so unnecessary in the message
+          return string.sub(message, #prefix + 1)
+        end
+      end
+    end
+    return message
+  end
+
   --- Creates a new Exception.
+  -- The stack is removed from the message.
   -- The stack trace and the name will be generated automatically.
   -- @param[opt] message the exception message.
   -- @param[opt] cause the exception cause.
@@ -17,17 +33,26 @@ return class.create(function(exception, _, Exception)
   -- @tparam[opt] string name the exception name.
   -- @function StringBuffer:new
   function exception:initialize(message, cause, stack, name)
-    self.name = name or class.getName(self:getClass()) or 'Exception'
-    self.message = message
+    if type(name) == 'string' then
+      self.name = name
+    end
+    if type(stack) == 'string' then
+      self.stack = stack
+    elseif type(stack) == 'number' then
+      self.stack = debug.traceback(nil, stack)
+    else
+      self.stack = debug.traceback(nil, 3) -- initialize is called be new, we skip both
+    end
     self.cause = cause
-    self.stack = stack or debug.traceback(nil, 3)
+    self.message = cleanMessage(message, self.stack)
   end
 
   function exception:getName()
-    return self.name
+    return self.name or class.getName(self:getClass()) or 'Exception'
   end
 
   --- Returns the message of this exception.
+  -- The message is the error object passed to the error function.
   -- @return the message of this exception possibly nil.
   function exception:getMessage()
     return self.message
@@ -40,6 +65,7 @@ return class.create(function(exception, _, Exception)
   end
 
   --- Returns the stack of this exception.
+  -- A traceback of the call stack when this exception was created and thrown
   -- @treturn string the stack of this exception.
   function exception:getStackTrace()
     return self.stack
@@ -54,7 +80,7 @@ return class.create(function(exception, _, Exception)
   -- It includes the name, message, stack and cause.
   -- @treturn string the string representation of this exception.
   function exception:toString()
-    local s = self.name..': '..tostring(self.message)..'\n'..self.stack
+    local s = self:getName()..': '..tostring(self.message)..'\n'..self.stack
     if self.cause ~= nil then
       s = s..'\nCaused by: '..tostring(self.cause)
     end
@@ -66,6 +92,10 @@ return class.create(function(exception, _, Exception)
     Exception:new(...):throw()
   end
 
+  function Exception.error(message)
+    error(message, 0)
+  end
+
   function Exception.getMessage(e)
     if Exception:isInstance(e) then
       return e:getMessage()
@@ -73,11 +103,12 @@ return class.create(function(exception, _, Exception)
     return e
   end
 
-  local function handleError(err)
-    if Exception:isInstance(err) then
-      return err
+  local function handleError(message)
+    if Exception:isInstance(message) then
+      return message
     end
-    return Exception:new(err, nil, debug.traceback(nil, 2))
+    local stack = debug.traceback(nil, 2) -- we skip handleError
+    return Exception:new(message, nil, stack)
   end
 
   --- Calls the specified function with the given arguments in protected mode.

@@ -28,6 +28,21 @@ function Test_toString()
   lu.assertStrContains(s, 'msg f')
 end
 
+function Test_pcall()
+  local status, e
+  status, e = Exception.pcall(function()
+    return 'ok'
+  end)
+  lu.assertTrue(status)
+  lu.assertEquals(e, 'ok')
+  status, e = Exception.pcall(function()
+    error('ouch')
+  end)
+  lu.assertFalse(status)
+  --print(e)
+  lu.assertEquals(e:getMessage(), 'ouch')
+end
+
 local function nextCatch(t)
   local nr, ce
   t:next(function(...)
