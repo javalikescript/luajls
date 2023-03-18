@@ -216,6 +216,7 @@ return class.create(function(channel, _, Channel)
       end, timeout or 5000)
       function self:onAccept(ch)
         event:clearTimeout(timer)
+        self.onAccept = channel.onAccept
         self:close(false)
         resolve(ch)
       end
