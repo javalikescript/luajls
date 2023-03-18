@@ -12,7 +12,7 @@ The main targeted operating systems are Linux and Windows.
 ## What are the features?
 
 luajls provides:
-* language basics such as class definition, module loading, logging, promise, event loop, threads, processes
+* language basics such as class definition, module loading, logging, exception, promise, event loop, threads, processes
 * file system manipulation, I/O, file and networking access, serial communication, pipe, streams
 * HTTP, WebSocket, MQTT client and server with support for secured communication using SSL
 * utility modules for List and Map, date and time, JSON and XML formats, AST, deflate, ZIP and tar files, scheduling, worker and web view
@@ -25,11 +25,8 @@ The following is the hello world HTTP server script.
 local event = require('jls.lang.event')
 local HttpServer = require('jls.net.http.HttpServer')
 
-local hostname, port = '::', 8080
 local httpServer = HttpServer:new()
-httpServer:bind(hostname, port):next(function()
-  print('Server bound to "'..hostname..'" on port '..tostring(port))
-end)
+httpServer:bind('::', 8000)
 httpServer:createContext('/', function(httpExchange)
   local response = httpExchange:getResponse()
   response:setBody([[<!DOCTYPE html>
@@ -40,6 +37,7 @@ httpServer:createContext('/', function(httpExchange)
   </html>
   ]])
 end)
+
 event:loop()
 ```
 
