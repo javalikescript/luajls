@@ -60,11 +60,4 @@ return require('jls.lang.class').create(function(inflater)
     return self.eof
   end
 
-end, function(Inflater)
-
-  -- for compatibility, deprecated
-  require('jls.lang.loader').lazyMethod(Inflater, 'inflateStream', function(deflate)
-    return deflate.decodeStream
-  end, 'jls.util.cd.deflate')
-
 end)
