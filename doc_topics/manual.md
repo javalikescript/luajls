@@ -300,17 +300,15 @@ The `async` and `await` functions allows asynchronous/non-blocking functions to 
 local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
 
-local function incrementLater(n, millis)
-  return Promise:new(function(resolve, reject)
-    event:setTimeout(function()
-      resolve(n + 1)
-    end, millis or 0)
+local function incrementLater(n, millis) -- asynchronous function that return a promise that will resolve after a timeout
+  return Promise:new(function(resolve)
+    event:setTimeout(resolve, millis or 0, n + 1)
   end)
 end
 
-Promise.async(function(await)
-  local n = await(incrementLater(0, 1000)) -- returns 1 after 1 second
-  print(await(incrementLater(n, 1000))) -- prints 2 after another second
+Promise.async(function(await) -- async itself is asynchronous and return a promise
+  local n = await(incrementLater(1, 1000)) -- await will block then return 2 after 1 second
+  print(await(incrementLater(n, 1000))) -- prints 3 after another second
 end):catch(error)
 
 event:loop()

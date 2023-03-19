@@ -31,7 +31,7 @@ return class.create(function(exception, _, Exception)
   -- @param[opt] cause the exception cause.
   -- @tparam[opt] string stack the exception stack.
   -- @tparam[opt] string name the exception name.
-  -- @function StringBuffer:new
+  -- @function Exception:new
   function exception:initialize(message, cause, stack, name)
     if type(name) == 'string' then
       self.name = name
@@ -96,6 +96,9 @@ return class.create(function(exception, _, Exception)
     error(message, 0)
   end
 
+  --- Returns the message of the specified value if it is an exception or the specified value itself.
+  -- @param e the exception or error message.
+  -- @return the message of the exception possibly nil.
   function Exception.getMessage(e)
     if Exception:isInstance(e) then
       return e:getMessage()
