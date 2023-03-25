@@ -23,8 +23,8 @@ local function assertExitCode(ph, value, message)
   lu.assertEquals(exitCode, value or 0, message)
 end
 
-local function assertFileEquals(file1, file2, message)
-  lu.assertEquals(File.asFile(file1):readAll(), File.asFile(file2):readAll(), message)
+local function assertFileEquals(file, expectedFile, message)
+  lu.assertEquals(File.asFile(file):readAll(), File.asFile(expectedFile):readAll(), message)
 end
 
 local function deleteFiles(...)
@@ -33,10 +33,12 @@ local function deleteFiles(...)
   end
 end
 
-local function exec(command, expectedExitCode)
+local function exec(command, expectedExitCode, redirect)
   local pb = ProcessBuilder:new(command)
-  --pb:setRedirectOutput(system.output)
-  --pb:setRedirectError(system.error)
+  if redirect then
+    pb:setRedirectOutput(system.output)
+    pb:setRedirectError(system.error)
+  end
   local ph = pb:start()
   if expectedExitCode then
     assertExitCode(ph, expectedExitCode, table.concat(command, ' '))
@@ -59,8 +61,9 @@ function Test_cipher()
 end
 
 function Test_httpClient_webServer()
-  local phServer = system.exec({LUA_PATH, 'examples/webServer.lua', '--port', tostring(TEST_PORT)})
-  local phClient = system.exec({LUA_PATH, 'examples/httpClient.lua', '--url', string.format('http://localhost:%d/%s', TEST_PORT, TEST_FILENAME), '--out.file', TMP_FILENAME, '--out.overwrite'})
+  local phServer = exec({LUA_PATH, 'examples/webServer.lua', '--port', tostring(TEST_PORT)})
+  system.sleep(500) -- let server starts
+  local phClient = exec({LUA_PATH, 'examples/httpClient.lua', '--url', string.format('http://localhost:%d/%s', TEST_PORT, TEST_FILENAME), '--out.file', TMP_FILENAME, '--out.overwrite'})
   phClient:ended():finally(function()
     --print('closing server')
     phServer:destroy()
@@ -70,7 +73,7 @@ function Test_httpClient_webServer()
     phClient:destroy()
     lu.fail('Timeout reached')
   end
-  assertFileEquals(TEST_FILENAME, TMP_FILENAME)
+  assertFileEquals(TMP_FILENAME, TEST_FILENAME)
   deleteFiles(TMP_FILENAME)
 end
 

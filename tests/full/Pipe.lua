@@ -10,6 +10,7 @@ function Test_default()
   if event ~= loader.getRequired('jls.lang.event-luv') then
     print('/!\\ skipping default test')
     lu.success()
+    return
   end
   local received
   local pipeName = 'pipe.test'
