@@ -293,6 +293,13 @@ function StreamHandler.promise(...)
   local sh = require('jls.io.streams.PromiseStreamHandler'):new(...)
   return sh:getPromise(), sh
 end
+--- Creates a StreamHandler with a `read()` method.
+-- Each call to `read` returns a promise that resolves to the next available data or nil if the stream ended.
+-- The promise is rejected if there is an error or the stream ended.
+-- @treturn StreamHandler a StreamHandler.
+function StreamHandler.promises()
+  return require('jls.io.streams.PromisesStreamHandler'):new()
+end
 
 --- The standard stream writing data to standard output and error to standard error.
 StreamHandler.std = StreamHandler:new(function(err, data)
