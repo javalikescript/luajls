@@ -223,7 +223,7 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
     local status, result = Exception.pcall(restPart, self.handlers, exchange, path)
     if status then
       if Promise.isPromise(result) then
-        return result:next(function(r)
+        return Promise.resolve(result):next(function(r)
           processRestResponse(exchange, r)
           return true
         end)

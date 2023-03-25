@@ -194,7 +194,7 @@ local config = tables.createArgumentTable(system.getArguments(), {
 
 logger:setLevel(config['log-level'])
 
-local stopPromise, stopResolve = Promise.createWithCallbacks()
+local stopPromise, stopCallback = Promise.createWithCallback()
 
 local httpServer = HttpServer:new()
 httpServer:bind(config['bind-address'], config.port):next(function()
@@ -226,7 +226,7 @@ httpServer:bind(config['bind-address'], config.port):next(function()
       end)
       ph:ended():next(function(code)
         logger:info('WebView closed (%s)', code)
-        stopResolve()
+        stopCallback()
       end)
     else
       print('browser script not found', browserScript:getPath())
@@ -507,7 +507,7 @@ if config.secure.enabled then
 end
 
 httpServer:createContext('/STOP', function(exchange)
-  event:setTimeout(stopResolve)
+  event:setTimeout(stopCallback)
   HttpExchange.ok(exchange)
 end)
 
@@ -521,7 +521,7 @@ do
       luvLib.unref(signal)
     end)
     luvLib.signal_start(signal, 'sigint', function()
-      stopResolve()
+      stopCallback()
     end)
   end
 end

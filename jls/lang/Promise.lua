@@ -1,11 +1,17 @@
---- Represents the eventual result of an asynchronous operation.
---
--- **Note**: The _then_ method is replaced by _next_, because _then_ is a reserved word in Lua.
---
--- see [Promises/A+](https://promisesaplus.com/)
---
--- @module jls.lang.Promise
--- @pragma nostrip
+--[[--
+Represents the eventual result of an asynchronous operation.
+
+**Notes**:
+* The _then_ method is replaced by _next_, because _then_ is a reserved word in Lua.
+* The promises are not guaranteed to be asynchronous.
+
+see [Promises/A+](https://promisesaplus.com/)
+
+@module jls.lang.Promise
+@pragma nostrip
+]]
+
+local class = require('jls.lang.class')
 
 local PENDING = 0
 local FULFILLED = 1
@@ -49,7 +55,7 @@ local function isPromise(promise)
   return type(promise) == 'table' and type(promise.next) == 'function'
 end
 
-applyPromiseHandler = function(promise, handler)
+local function applyPromiseHandlerDo(promise, handler)
   local status, result = true, NO_VALUE
   local state = promise._state
   if state == FULFILLED then
@@ -96,6 +102,8 @@ applyPromiseHandler = function(promise, handler)
   end
 end
 
+applyPromiseHandler = applyPromiseHandlerDo
+
 local function asCallback(promise)
   return function(reason, value)
     if reason then
@@ -116,7 +124,7 @@ end
 
 --- A promise represents the completion (or failure) of an asynchronous operation, and its resulting value (or error).
 -- @type Promise
-return require('jls.lang.class').create(function(promise, _, Promise)
+return class.create(function(promise, _, Promise)
 --[[--
 Creates a promise.
 @function Promise:new
@@ -161,8 +169,7 @@ function promise:next(onFulfilled, onRejected)
   if self._handlers ~= nil then
     table.insert(self._handlers, handler)
   else
-    -- onFulfilled and onRejected must be called asynchronously;
-    -- TODO defer
+    -- onFulfilled and onRejected should be called asynchronously
     applyPromiseHandler(self, handler)
   end
   return p
@@ -219,84 +226,84 @@ end
 -- @tparam table promises The promises list.
 -- @treturn Promise A promise.
 function Promise.all(promises)
-  local count = #promises
-  local values = {}
-  local ps, resolve, reject = Promise.createWithCallbacks()
-  if count > 0 then
-    local function resolveAt(index)
-      return function(value)
-        values[index] = value
-        count = count - 1
-        if count == 0 then
-          resolve(values)
+  return Promise:new(function(resolve, reject)
+    local count = #promises
+    local values = {}
+    if count > 0 then
+      local function resolveAt(index)
+        return function(value)
+          values[index] = value
+          count = count - 1
+          if count == 0 then
+            resolve(values)
+          end
         end
       end
+      for i, p in ipairs(promises) do
+        p:next(resolveAt(i), reject)
+      end
+    else
+      resolve(values)
     end
-    for i, p in ipairs(promises) do
-      p:next(resolveAt(i), reject)
-    end
-  else
-    resolve(values)
-  end
-  return ps
+  end)
 end
 
 function Promise.allSettled(promises)
-  local count = #promises
-  local values = {}
-  local ps, resolve, reject = Promise.createWithCallbacks()
-  if count > 0 then
-    local function callbackAt(index, rejected)
-      return function(value)
-        local outcome
-        if rejected then
-          outcome = {
-            status = 'rejected',
-            reason = value
-          }
-        else
-          outcome = {
-            status = 'fulfilled',
-            value = value
-          }
-        end
-        values[index] = outcome
-        count = count - 1
-        if count == 0 then
-          resolve(values)
+  return Promise:new(function(resolve, reject)
+    local count = #promises
+    local values = {}
+    if count > 0 then
+      local function callbackAt(index, rejected)
+        return function(value)
+          local outcome
+          if rejected then
+            outcome = {
+              status = 'rejected',
+              reason = value
+            }
+          else
+            outcome = {
+              status = 'fulfilled',
+              value = value
+            }
+          end
+          values[index] = outcome
+          count = count - 1
+          if count == 0 then
+            resolve(values)
+          end
         end
       end
+      for i, p in ipairs(promises) do
+        p:next(callbackAt(i), callbackAt(i, true))
+      end
+    else
+      resolve(values)
     end
-    for i, p in ipairs(promises) do
-      p:next(callbackAt(i), callbackAt(i, true))
-    end
-  else
-    resolve(values)
-  end
-  return ps
+  end)
 end
 
 function Promise.any(promises)
-  local count = #promises
-  local reasons = {}
-  local ps, resolve, reject = Promise.createWithCallbacks()
-  if count > 0 then
-    local function rejectAt(index)
-      return function(value)
-        reasons[index] = value
-        count = count - 1
-        if count == 0 then
-          reject(reasons)
+  return Promise:new(function(resolve, reject)
+    local count = #promises
+    local reasons = {}
+    if count > 0 then
+      local function rejectAt(index)
+        return function(value)
+          reasons[index] = value
+          count = count - 1
+          if count == 0 then
+            reject(reasons)
+          end
         end
       end
+      for i, p in ipairs(promises) do
+        p:next(resolve, rejectAt(i))
+      end
+    else
+      reject()
     end
-    for i, p in ipairs(promises) do
-      p:next(resolve, rejectAt(i))
-    end
-  else
-    reject()
-  end
-  return ps
+  end)
 end
 
 --- Returns a promise that fulfills or rejects as soon as one of the
@@ -306,11 +313,11 @@ end
 -- @tparam table promises The promises list.
 -- @treturn Promise A promise.
 function Promise.race(promises)
-  local ps, resolve, reject = Promise.createWithCallbacks()
-  for _, p in ipairs(promises) do
-    p:next(resolve, reject)
-  end
-  return ps
+  return Promise:new(function(resolve, reject)
+    for _, p in ipairs(promises) do
+      p:next(resolve, reject)
+    end
+  end)
 end
 
 --- Returns a Promise object that is rejected with the given reason.
@@ -331,13 +338,24 @@ end
 -- @param value The resolving value.
 -- @treturn Promise A resolved promise.
 function Promise.resolve(value)
+  if Promise:isInstance(value) then
+    return value
+  end
   local p = Promise:new()
-  applyPromise(p, value, FULFILLED)
+  if isPromise(value) then
+    value:next(function(result)
+      applyPromise(p, result, FULFILLED)
+    end, function(reason)
+      applyPromise(p, reason, REJECTED)
+    end)
+  else
+    applyPromise(p, value, FULFILLED)
+  end
   return p
 end
 
 local function resume(cr, p, ...)
-  local state = REJECTED
+  local state = ERROR
   local success, status, result = coroutine.resume(cr, ...)
   if success then
     local crStatus = coroutine.status(cr)
@@ -355,6 +373,8 @@ local function resume(cr, p, ...)
       coroutine.close(cr)
       if status then
         state = FULFILLED
+      else
+        state = REJECTED
       end
     else
       result = 'invalid async coroutine status, '..tostring(crStatus)
@@ -364,7 +384,11 @@ local function resume(cr, p, ...)
     coroutine.close(cr)
     result = result or 'unknown reason'
   end
-  applyPromise(p, result, state)
+  if state == ERROR then
+    applyPromise(p, wrapError(result), state)
+  else
+    applyPromise(p, result, state)
+  end
 end
 
 --[[--
@@ -375,6 +399,8 @@ The function will be called with a corresponding `await` function as first argum
 
 The `await` function waits for the Promise on which its is called then returns its fulfillment value
 or raises an error with the rejection reason if the promise is rejected.
+
+The `await` function can only be called on the `async` function body not in a callback.
 
 @tparam function fn the async function to call.
 @param[opt] ... the optional parameters to pass to the function after the `await` function.
@@ -387,30 +413,28 @@ Promise.async(function(await)
   local client = await(HttpClient:new({ url = 'http://www.lua.org' }):connect())
   local response = await(client:sendReceive())
   print(response:getStatusCode())
-end):catch(error)
+end)
 
 require('jls.lang.event'):loop()
 ]]
 function Promise.async(fn, ...)
   local cr = coroutine.create(protectedCall)
   local function await(p)
-    if not isPromise(p) then
-      return p
-    end
+    local q = Promise.resolve(p)
     local status, result
-    local state = p._state
+    local state = q._state
     if state == PENDING then
       if coroutine.running() ~= cr then
         error('attempt to call await from outside the corresponding async')
       end
-      status, result = coroutine.yield(true, p)
+      status, result = coroutine.yield(true, q)
     elseif state == FULFILLED then
-      status, result = true, p._result
+      status, result = true, q._result
     elseif state == REJECTED then
-      status, result = false, p._result
+      status, result = false, q._result
     elseif state == ERROR then
-      p._result.uncaught = false
-      status, result = false, p._result.message
+      q._result.uncaught = false
+      status, result = false, q._result.message
     end
     if status then
       return result
@@ -421,6 +445,20 @@ function Promise.async(fn, ...)
   resume(cr, p, fn, await, ...)
   return p
 end
+
+--[[
+Waits for the specified Promise then returns its fulfillment value.
+
+Raises an error if the promise is rejected.
+
+This function can only be called on the main thread not in a loop callback.
+This function is only available with an event module.
+
+@tparam Promise p A promise to wait for.
+@return The fulfillment value of the promise.
+@function Promise.await
+]]
+Promise.await = class.notImplementedFunction
 
 --- Return true if the specified value is a promise.
 -- @param promise The value to test.
@@ -461,12 +499,6 @@ function Promise.newCallback(executor)
   return p
 end
 
-function Promise.newCallbacks(executor)
-  local p = Promise:new()
-  executor(asCallbacks(p))
-  return p
-end
-
 --- Returns the specified callback if any or a callback and its associated promise.
 -- This function helps to create asynchronous functions with an optional ending callback parameter.
 -- @param callback An optional existing callback or false to indicate that no promise is expected.
@@ -483,7 +515,7 @@ function Promise.ensureCallback(callback)
   elseif callback == false then
     return nil, nil
   elseif callback ~= nil then
-    error('Invalid callback')
+    error('invalid callback')
   end
   local p, resolutionCallback = Promise.createWithCallback()
   return resolutionCallback, p
@@ -496,7 +528,7 @@ function Promise.callbackToNext(callback)
   return function(value)
     return callback(nil, value)
   end, function(reason)
-    return callback(reason or 'Unknown error')
+    return callback(reason or 'unknown reason')
   end
 end
 
@@ -508,6 +540,50 @@ function Promise.onUncaughtError(value)
   onUncaughtError = value or print
 end
 
+do
+  local eventStatus, event = pcall(require, 'jls.lang.event')
+  if eventStatus then
+    local function pawait(p)
+      if select(2, coroutine.running()) ~= true then
+        error('attempt to call await from outside the main thread')
+      end
+      local q = Promise.resolve(p)
+      local status, result
+      local state = q._state
+      if state == PENDING then
+        q:next(function(value)
+          status, result = true, value
+          event:stop()
+        end, function(reason)
+          status, result = false, reason
+          event:stop()
+        end)
+        event:loop()
+      elseif state == FULFILLED then
+        status, result = true, q._result
+      elseif state == REJECTED then
+        status, result = false, q._result
+      elseif state == ERROR then
+        q._result.uncaught = false
+        status, result = false, q._result.message
+      end
+      return status, result
+    end
+    Promise.pawait = pawait
+    function Promise.await(p)
+      local status, result = pawait(p)
+      if status then
+        return result
+      end
+      error(result or 'unknown reason', 0)
+    end
+    if os.getenv('JLS_PROMISE_APPLY_ASYNC') then
+      applyPromiseHandler = function(...)
+        event:setTimeout(applyPromiseHandlerDo, 0, ...)
+      end
+    end
+  end
+end
 do
   local status, Exception = pcall(require, 'jls.lang.Exception')
   if status then

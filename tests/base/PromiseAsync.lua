@@ -69,7 +69,7 @@ function Test_async_await_error()
   end)
   lu.assertNil(v)
   event:loop()
-  print(v)
+  --print(v)
   lu.assertEquals(Exception.getMessage(v), 'ouch')
 end
 
@@ -100,6 +100,11 @@ function Test_async_n_await()
   lu.assertNil(v)
   event:loop()
   lu.assertEquals(v, 4)
+end
+
+function Test_await()
+  local v = Promise.await(future('ok'))
+  lu.assertEquals(v, 'ok')
 end
 
 os.exit(lu.LuaUnit.run())
