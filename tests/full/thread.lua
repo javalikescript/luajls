@@ -1,10 +1,14 @@
 local lu = require('luaunit')
 
 local Thread = require('jls.lang.Thread')
+local Exception = require('jls.lang.Exception')
 local loop = require('jls.lang.loopWithTimeout')
 
--- (export JLS_REQUIRES=\!luv; lua tests/full/thread.lua)
---for name, mod in pairs(package.loaded) do if mod == Thread and name ~= 'jls.lang.Thread' then print('Thread library is '..name) end end
+--[[
+JLS_LOGGER_LEVEL=finest JLS_REQUIRES=\!luv lua tests/full/thread.lua Test_one_arg_one_result
+(export JLS_REQUIRES=\!luv; lua tests/full/thread.lua)
+for name, mod in pairs(package.loaded) do if mod == Thread and name ~= 'jls.lang.Thread' then print('Thread library is '..name) end end
+]]
 
 local function onThreadError(reason)
   print('Unexpected error: '..tostring(reason))
@@ -42,10 +46,12 @@ end
 
 function Test_sleep()
   local called = false
+  local result = nil
   Thread:new(function()
     local system = require('jls.lang.system')
     system.sleep(100)
-  end):start():ended():next(function()
+  end):start():ended():next(function(res)
+    result = res
     called = true
   end, onThreadError)
   lu.assertFalse(called)
@@ -53,6 +59,54 @@ function Test_sleep()
     lu.fail('Timeout reached')
   end
   lu.assertTrue(called)
+  lu.assertNil(result)
+end
+
+function Test_promise()
+  local result = nil
+  Thread:new(function(value)
+    local event = require('jls.lang.event')
+    local Promise = require('jls.lang.Promise')
+    return Promise:new(function(resolve)
+      event:setTimeout(resolve, 100, value)
+    end)
+  end):start('after'):ended():next(function(res)
+    result = res
+  end, onThreadError)
+  lu.assertNil(result)
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
+  lu.assertEquals(result, 'after')
+end
+
+function Test_failure()
+  local result = nil
+  Thread:new(function(value)
+    return nil, 'Ouch '..tostring(value)
+  end):start('John'):ended():next(onThreadError, function(res)
+    result = res
+  end)
+  lu.assertNil(result)
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
+  lu.assertEquals(result, 'Ouch John')
+end
+
+function Test_error()
+  local result = nil
+  Thread:new(function(value)
+    error('Ouch '..tostring(value))
+  end):start('John'):ended():next(onThreadError, function(res)
+    result = res
+  end)
+  lu.assertNil(result)
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
+  --print(result)
+  lu.assertEquals(Exception.getMessage(result), 'Ouch John')
 end
 
 os.exit(lu.LuaUnit.run())

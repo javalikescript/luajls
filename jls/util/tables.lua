@@ -75,6 +75,8 @@ else
 end
 
 --- Returns a string representing the specifed value.
+-- The value must be of type boolean, number, string or table.
+-- Lenient mode allows to ignore cycles and invalid types.
 -- @param value the value to convert.
 -- @tparam[opt] string space The indent value to use.
 -- @tparam[opt] boolean lenient whether or not be lenient.
@@ -149,9 +151,9 @@ function tables.stringify(value, space, lenient)
       sb:append(tostring(val))
     else
       if lenient then
-        sb:append(string.format('%q', valueType))
+        sb:append(string.format('%q', tostring(val)))
       else
-        error('Invalid type '..valueType)
+        error('invalid type '..valueType)
       end
     end
   end

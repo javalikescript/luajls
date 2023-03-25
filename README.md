@@ -58,7 +58,7 @@ end
 Promise.async(function(await)
   print(asyncGetTitle(await, 'http://www.lua.org'))
   print(asyncGetTitle(await, 'http://www.lua.org/about.html'))
-end):catch(error)
+end)
 
 event:loop()
 ```

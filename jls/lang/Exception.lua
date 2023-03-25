@@ -88,6 +88,19 @@ return class.create(function(exception, _, Exception)
     return s
   end
 
+  function exception:toJSON()
+    return {
+      name = self:getName(),
+      stack = self:getStackTrace(),
+      cause = self:getCause(),
+      message = self:getMessage(),
+    }
+  end
+
+  function Exception.fromJSON(t)
+    return Exception:new(t.message, t.cause, t.stack, t.name)
+  end
+
   function Exception.throw(...)
     Exception:new(...):throw()
   end
@@ -123,24 +136,42 @@ return class.create(function(exception, _, Exception)
     return xpcall(fn, handleError, ...)
   end
 
-  function Exception.try(fn, ...)
-    local results = table.pack(Exception.pcall(fn, ...))
-    local function apply(t, f)
+  local Try = class.create(function(try, _, Try)
+    function try:initialize(fn, ...)
+      self._results = table.pack(Exception.pcall(fn, ...))
+    end
+    function try:apply(f)
       if type(f) == 'function' then
-        return Exception.try(f, table.unpack(results, 2, results.n))
+        return Try:new(f, table.unpack(self._results, 2, self._results.n))
       end
-      return t
+      return self
     end
-    if results[1] then
-      return {
-        catch = function(t) return t end,
-        next = apply
-      }
+    function try:finally(f)
+      if type(f) == 'function' then
+        return Try:new(f)
+      end
+      return self
     end
-    return {
-      catch = apply,
-      next = function(t, _, f) return apply(t, f) end
-    }
+    function try:next(onSuccess, onError)
+      if self._results[1] then
+        return self:apply(onSuccess)
+      end
+      return self:apply(onError)
+    end
+    function try:catch(onError)
+      if not self._results[1] then
+        return self:apply(onError)
+      end
+      return self
+    end
+  end)
+
+  -- Calls the specified function with the given arguments in protected mode.
+  -- @tparam function fn the function to call in protected mode.
+  -- @param[opt] ... the arguments to call the function with.
+  -- @return an object on which you could call `next`, `catch` or `finally`.
+  function Exception.try(fn, ...)
+    return Try:new(fn, ...)
   end
 
 end)

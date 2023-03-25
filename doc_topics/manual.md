@@ -182,7 +182,7 @@ print(luke, #luke, luke == Person('Luke')) -- prints 'Luke 4 true'
 
 The exception class groups the error message and the associated stack.
 It provides a common way to deal with errors.
-Promise and EventPublisher call functions and wrap Lua error in Exception.
+`Promise`, `EventPublisher` and `Thread` call functions and wrap Lua error in Exception.
 
 ```lua
 local Exception = require('jls.lang.Exception')
@@ -309,7 +309,7 @@ end
 Promise.async(function(await) -- async itself is asynchronous and return a promise
   local n = await(incrementLater(1, 1000)) -- await will block then return 2 after 1 second
   print(await(incrementLater(n, 1000))) -- prints 3 after another second
-end):catch(error)
+end)
 
 event:loop()
 ```
