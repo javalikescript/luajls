@@ -12,10 +12,10 @@ The main targeted operating systems are Linux and Windows.
 ## What are the features?
 
 luajls provides:
-* language basics such as class definition, module loading, logging, exception, promise, event loop, threads, processes
+* language basics such as class definition, logging, exception, promise, event loop, threads, processes
 * file system manipulation, I/O, file and networking access, serial communication, pipe, streams
-* HTTP, WebSocket, MQTT client and server with support for secured communication using SSL
-* utility modules for List and Map, date and time, JSON and XML formats, AST, deflate, ZIP and tar files, scheduling, worker and web view
+* TCP, UDP, HTTP, WebSocket, MQTT client and server with support for secured communication using SSL
+* utility modules for list and map, date and time, JSON and XML formats, AST, codec, message digest, deflate, ZIP and tar files, scheduling, worker and web view
 
 ## What does it look like?
 
@@ -86,4 +86,4 @@ or applications such as [Fast Cut](https://github.com/javalikescript/fcut) and [
 
 Read the [user manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md) or the [API documentation](https://javalikescript.github.io/luajls/).
 
-Download [binaries](https://github.com/javalikescript/luajls/releases/latest) or access the [source code](https://github.com/javalikescript/luajls).
+Download [binaries](https://github.com/javalikescript/luajls/releases/latest "Windows 64bits, Linux 64bits, WD MyCloud (Gen1, Sequoia), Raspberry Pi (3 Model B+)") or access the [source code](https://github.com/javalikescript/luajls).
