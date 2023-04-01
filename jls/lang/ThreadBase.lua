@@ -1,9 +1,9 @@
 --[[--
 Represents a thread of execution.
 The thread will call a Lua function.
-The function cannot share variables with the current thread, i.e. must not have upvalues.
-The function will load modules using the _package_ default values, except for _path_ and _cpath_.
 The function arguments and return values shall be primitive type: _string_, _number_, _boolean_ or _nil_.
+The function cannot share variables with the current thread, i.e. must not have upvalues.
+The _package_ curent values _path_, _cpath_ and _preload_ are transfered to the thread function.
 
 @module jls.lang.Thread
 @pragma nostrip
@@ -22,11 +22,23 @@ do
   end
 end
 
-local CHUNK_MAIN = string.dump(load([[
-package.path = ...
-package.cpath = select(2, ...)
-return require('jls.lang.Thread')._main(select(3, ...))
-]], 'thread', 't'))
+local CHUNK_MAIN = string.dump(function(path, cpath, preloads, ...)
+  if path then
+    package.path = path
+  end
+  if cpath then
+    package.cpath = cpath
+  end
+  if preloads then
+    local p, l = 1, #preloads - 5
+    while p < l do
+      local name, chunk
+      name, chunk, p = string.unpack('s2s3', preloads, p)
+      package.preload[name] = load(chunk, name, 'b')
+    end
+  end
+  return require('jls.lang.Thread')._main(...)
+end)
 
 --- A Thread class.
 -- @type Thread
@@ -40,6 +52,7 @@ return class.create(function(thread)
   -- @function Thread:new
   function thread:initialize(fn)
     self:setFunction(fn)
+    self.preloads = true
   end
 
   -- Sets this Thread function.
@@ -55,7 +68,22 @@ return class.create(function(thread)
     end
   end
 
+  function thread:setTransferPreload(value)
+    self.preloads = value == true
+  end
+
   function thread:_arg(...)
+    -- Lua static uses package.searchers to provide bundled modules
+    -- C modules will not be available
+    local preloads
+    if self.preloads then
+      local t = {}
+      for name, fn in pairs(package.preload) do
+        table.insert(t, string.pack('s2s3', name, string.dump(fn)))
+      end
+      preloads = table.concat(t)
+      logger:fine('preload size is %d', #preloads) -- 530k for jls
+    end
     -- check if the function has upvalues
     if logger:isLoggable(logger.FINE) then
       local name = debug and debug.getupvalue(self.fn, 2)
@@ -63,7 +91,7 @@ return class.create(function(thread)
         logger:fine('Thread function upvalues (%s, ...) will be nil', name)
       end
     end
-    return CHUNK_MAIN, package.path, package.cpath, string.dump(self.fn), ...
+    return CHUNK_MAIN, package.path, package.cpath, preloads, string.dump(self.fn), ...
   end
 
   --- Starts this Thread.

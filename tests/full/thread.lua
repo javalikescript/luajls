@@ -109,4 +109,26 @@ function Test_error()
   lu.assertEquals(Exception.getMessage(result), 'Ouch John')
 end
 
+function Test_preload()
+  local moduleName = 'test__'
+  package.preload[moduleName] = function()
+    return {
+      value = 'test'
+    }
+  end
+  local result = nil
+  Thread:new(function(name)
+    return require(name).value
+  end):start(moduleName):ended():next(function(res)
+    result = res
+  end, onThreadError)
+  lu.assertNil(result)
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
+  package.preload[moduleName] = nil
+  --print(result)
+  lu.assertEquals(result, 'test')
+end
+
 os.exit(lu.LuaUnit.run())
