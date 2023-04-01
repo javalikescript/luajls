@@ -85,9 +85,10 @@ end, function(MessageDigest)
   end
 
   function MessageDigest.fromOpenssl(alg)
+    local opensslLib = require('openssl') -- fail quickly if not available
     return class.create(MessageDigest, function(md)
       function md:initialize()
-        self.md = require('openssl').digest.new(alg)
+        self.md = opensslLib.digest.new(alg)
       end
       function md:update(m)
         self.md:update(m)
