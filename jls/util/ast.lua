@@ -29,9 +29,9 @@ end
 -- @tparam[opt] boolean verbose whether or not to include extra information such as the line number.
 -- @treturn table the AST representing the Lua.
 function ast.parse(lua, verbose)
-  local tree = dumbParser.parse(lua)
-  if verbose then
-    return tree
+  local tree, err = dumbParser.parse(lua)
+  if not tree or verbose then
+    return tree, err
   end
   dumbParser.traverseTree(tree, cleanNode)
   return tree
@@ -42,9 +42,9 @@ end
 -- @tparam[opt] boolean verbose whether or not to include extra information such as the line number.
 -- @treturn table the AST representing the Lua.
 function ast.parseExpression(lua, verbose)
-  local tree = dumbParser.parseExpression(lua)
-  if verbose then
-    return tree
+  local tree, err = dumbParser.parseExpression(lua)
+  if not tree or verbose then
+    return tree, err
   end
   dumbParser.traverseTree(tree, cleanNode)
   return tree

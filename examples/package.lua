@@ -108,22 +108,27 @@ end
 
 local function writeModuleContent(out, content, name, options)
   if options.strip or options.target ~= 'same' then
-    local tree = ast.parse(content)
-    if options.target == '5.1' and name ~= 'jls.util.compat' then
-      local _, updated = ast.traverse(tree, ast.toLua51)
-      if updated then
-        out:writeSync('local compat = require("jls.util.compat")')
-        if options.pretty then
-          out:writeSync(options.lf and '\n' or system.lineSeparator)
-        else
-          out:writeSync(';')
+    local tree, err = ast.parse(content)
+    if tree then
+      if options.target == '5.1' and name ~= 'jls.util.compat' then
+        local _, updated = ast.traverse(tree, ast.toLua51)
+        if updated then
+          out:writeSync('local compat = require("jls.util.compat")')
+          if options.pretty then
+            out:writeSync(options.lf and '\n' or system.lineSeparator)
+          else
+            out:writeSync(';')
+          end
         end
       end
+      if options.pretty then
+        tree.pretty = true
+      end
+      out:writeSync(ast.generate(tree))
+    else
+      print(string.format('unable to parse module %s due to %s', name, err))
+      out:writeSync(content)
     end
-    if options.pretty then
-      tree.pretty = true
-    end
-    out:writeSync(ast.generate(tree))
   else
     out:writeSync(content)
   end
@@ -163,6 +168,14 @@ local options = tables.createArgumentTable(system.getArguments(), {
       dir = {
         title = 'The directory containing the modules',
         type = 'string'
+      },
+      files = {
+        title = 'The modules to pack',
+        type = 'array',
+        items = {
+          title = 'The modules filename',
+          type = 'string'
+        }
       },
       outdir = {
         title = 'The output directory for the modules',
@@ -211,7 +224,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
         title = 'Dependencies processing',
         type = 'string',
         default = 'pattern',
-        enum = {'ast', 'pattern', 'require'},
+        enum = {'ast', 'none', 'pattern', 'require'},
       },
       requireOne = {
         title = 'Selects only one module',
@@ -314,6 +327,18 @@ if options.dir then
     end
   end, true)
 end
+if options.files then
+  for _, filename in ipairs(options.files) do
+    local file = File:new(filename)
+    if file:exists() then
+      local name = file:getExtension() == 'lua' and file:getBaseName() or file:getName()
+      modules[name] = {
+        content = file:readAll(),
+        file = file
+      }
+    end
+  end
+end
 
 -- compute dependencies
 if options.dependency == 'pattern' then
@@ -338,6 +363,10 @@ elseif options.dependency == 'require' then
       print('Unable to get required for "'..name..'"')
       module.allRequires = {}
     end
+  end
+else
+  for name, module in pairs(modules) do
+    module.allRequires = {}
   end
 end
 
@@ -446,7 +475,7 @@ elseif options.action == 'compat' then
     for name, module in Map.spairs(modules) do
       local list = {}
       local lines = strings.split(module.content, '\r?\n')
-      local tree = ast.parse(module.content, true)
+      local tree = assert(ast.parse(module.content, true))
       ast.traverse(tree, function(node)
         local newNode = ast.toLua51(node, options.level)
         if newNode then

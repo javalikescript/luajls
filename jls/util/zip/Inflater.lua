@@ -19,7 +19,7 @@ return require('jls.lang.class').create(function(inflater)
     windowBits can also be greater than 15 for optional gzip decoding.
     Add 32 to windowBits to enable zlib and gzip decoding with automatic headerdetection,
     or add 16 to decode only the gzip format (the zlib format will return a Z_DATA_ERROR).
-    If a gzip stream is being decoded, strm->adler is a CRC-32 instead of an Adler-32. 
+    If a gzip stream is being decoded, strm->adler is a CRC-32 instead of an Adler-32.
 
     By default, we will do gzip header detection w/ max window size */
 
