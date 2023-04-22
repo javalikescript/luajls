@@ -90,7 +90,7 @@ end, function(Serial)
   -- @tparam number options.stopBits The number of stop bits to be used.
   -- @tparam number options.parity The parity scheme, 0 for no parity.
   -- @return a new Serial or nil.
-  function Serial.open(name, options)
+  function Serial:open(name, options)
     if type(options) ~= 'table' then
       options = {}
     end
@@ -105,7 +105,7 @@ end, function(Serial)
     end
     serialLib.setSerial(fileDesc.fd, options.baudRate, options.dataBits, options.stopBits, options.parity)
     --serialLib.setTimeOut(fileDesc.fd, 5000, 5000)
-    return Serial:new(fileDesc)
+    return self:new(fileDesc)
   end
 end)
 

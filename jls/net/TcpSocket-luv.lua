@@ -48,7 +48,6 @@ if not isWindowsOS and not os.getenv('JLS_DO_NOT_IGNORE_SIGPIPE') then
   end
   local state, linuxLib = pcall(require, 'linux')
   if state then
-    -- TODO test
     linuxLib.signal(linuxLib.constants.SIGPIPE, 'SIG_IGN')
   else
     pcall(require, 'socket.core')

@@ -16,7 +16,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
           self.streamCallback(err)
         end
       else
-        serial:readAvailable(self.streamCallback)
+        self:readAvailable(self.streamCallback)
       end
     end)
     self.waitThread = luvLib.new_thread(function(fd, async)
@@ -25,7 +25,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
         local status, err = serialLib.waitDataAvailable(fd, 5000) -- will block
         if not status then
           if err ~= 'timeout' then
-            async:send(err)
+            async:send(err or 'unknown error')
             break
           end
         else
