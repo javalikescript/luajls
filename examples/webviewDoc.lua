@@ -54,6 +54,12 @@ end
 contentBody = contentBody..'</div><iframe name="iframe" src="docs/index.html"></iframe></body>'
 
 local scriptFile = File:new(arg[0]):getAbsoluteFile()
+if not scriptFile:exists() then
+  local filename = package.searchpath('examples.webviewDoc', package.path)
+  if filename then
+    scriptFile = File:new(filename):getAbsoluteFile()
+  end
+end
 local scriptDir = scriptFile:getParentFile()
 local devDir = File:new('../luaclibs')
 

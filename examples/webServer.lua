@@ -12,6 +12,7 @@ local Map = require('jls.util.Map')
 local List = require('jls.util.List')
 
 -- see https://openjdk.java.net/jeps/408
+-- https://www.npmjs.com/package/http-server
 
 local CONFIG_SCHEMA = {
   title = 'Web Server',
