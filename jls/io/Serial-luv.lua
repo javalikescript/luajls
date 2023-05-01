@@ -19,7 +19,9 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
         self:readAvailable(self.streamCallback)
       end
     end)
-    self.waitThread = luvLib.new_thread(function(fd, async)
+    self.waitThread = luvLib.new_thread(function(fd, async, path, cpath)
+      package.path = path
+      package.cpath = cpath
       local serialLib = require('serial')
       while true do
         local status, err = serialLib.waitDataAvailable(fd, 5000) -- will block
@@ -33,7 +35,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
         end
       end
       async:close()
-    end, self.fileDesc.fd, waitAsync)
+    end, self.fileDesc.fd, waitAsync, package.path, package.cpath)
   end
 
   function serial:readStop()

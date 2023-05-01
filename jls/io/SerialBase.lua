@@ -78,11 +78,16 @@ return class.create(function(serial)
     return serialLib.flush(self.fileDesc.fd)
   end
 
+  function serial:getInfos()
+    return serialLib.getSerial(self.fileDesc.fd)
+  end
+
 end, function(Serial)
 
   local FileDescriptor = require('jls.io.FileDescriptor')
 
   --- Returns a new Serial for the specified name.
+  -- The name is OS dependend, /dev/ttyUSB0 for Linux and COM3 for Windows
   -- @tparam string name The name of the serial device to open.
   -- @tparam table options The serial options.
   -- @tparam number options.baudRate The baud rate.
@@ -103,7 +108,9 @@ end, function(Serial)
       logger:debug('Serial:open() flushing')
       serialLib.flush(fileDesc.fd)
     end
-    serialLib.setSerial(fileDesc.fd, options.baudRate, options.dataBits, options.stopBits, options.parity)
+    if next(options) ~= nil then
+      serialLib.setSerial(fileDesc.fd, options.baudRate, options.dataBits, options.stopBits, options.parity)
+    end
     --serialLib.setTimeOut(fileDesc.fd, 5000, 5000)
     return self:new(fileDesc)
   end
