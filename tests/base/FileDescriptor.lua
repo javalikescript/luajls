@@ -6,13 +6,13 @@ local Path = require('jls.io.Path')
 local TMP_FILENAME = Path.cleanPath('tests/test_fd.tmp')
 
 local function createFile(path, content)
-  local file = io.open(path, 'wb')
+  local file = assert(io.open(path, 'wb'))
   file:write(content) -- TODO check for errors
   file:close()
 end
 
 local function assertFileContent(path, expectedContent)
-  local file = io.open(path, 'rb')
+  local file = assert(io.open(path, 'rb'))
   lu.assertNotIsNil(file)
   local fileContent = file:read('*a') -- TODO check for errors
   file:close()

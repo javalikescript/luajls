@@ -1,6 +1,6 @@
 local lu = require('luaunit')
 
-local strings = require("jls.util.strings")
+local strings = require('jls.util.strings')
 
 function Test_equalsIgnoreCase()
   lu.assertTrue(strings.equalsIgnoreCase(nil, nil))
