@@ -13,6 +13,8 @@ local function c2n(c)
     return c - 55
   elseif c >= 97 and c <= 102 then
     return c - 87
+  else
+    error('invalid hexa character '..tostring(c))
   end
 end
 
@@ -32,13 +34,6 @@ local function decode(value)
   return (string.gsub(value, '..', function(cc)
     local c1, c2 = string_byte(cc, 1, 2)
     local hn, ln = c2n(c1), c2n(c2)
-    return string_char((hn << 4) + ln)
-  end))
-end
-
-local function decode1(value)
-  return (string.gsub(value, '(.)(.)', function(c1, c2)
-    local hn, ln = c2n(string_byte(c1)), c2n(string_byte(c2))
     return string_char((hn << 4) + ln)
   end))
 end

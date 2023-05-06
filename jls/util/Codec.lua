@@ -5,6 +5,7 @@
 
 local class = require('jls.lang.class')
 local WrappedStreamHandler = require('jls.io.StreamHandler').WrappedStreamHandler
+local Exception = require('jls.lang.Exception')
 
 local DecodeStreamHandler = class.create(WrappedStreamHandler, function(decodeStreamHandler, super)
   function decodeStreamHandler:initialize(handler, codec)
@@ -34,12 +35,26 @@ return class.create(function(codec)
   --- Decodes the specified string.
   -- @tparam string value the data to decode.
   -- @treturn string the decoded string.
-  -- @function codec:decode
+  -- @raise codec dependent message in case of decoding failure
+  function codec:decode(value)
+    return value
+  end
 
   --- Encodes the specified string.
   -- @tparam string value the data to encode.
   -- @treturn string the encoded string.
-  -- @function codec:encode
+  -- @raise codec dependent message in case of encoding failure
+  function codec:encode(value)
+    return value
+  end
+
+  function codec:decodeSafe(value)
+    return Exception.try(self.decode, self, value)
+  end
+
+  function codec:encodeSafe(value)
+    return Exception.try(self.encode, self, value)
+  end
 
   --- Returns a decoding @{jls.io.StreamHandler}.
   -- The default implentation consists in using the decode method.
@@ -59,8 +74,6 @@ return class.create(function(codec)
 
   --- Returns the name of the codec.
   -- @treturn string the name of the codec.
-  -- @function codec:getName
-
   function codec:getName()
     return self.name or class.getName(self:getClass()) or 'Codec'
   end

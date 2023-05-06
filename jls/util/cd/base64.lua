@@ -101,8 +101,10 @@ local DEFAULT_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234
 return require('jls.lang.class').create('jls.util.Codec', function(base64)
 
   function base64:initialize(alpha, pad)
-    if alpha == nil then
+    if alpha == nil or alpha == 'default' then
       alpha = DEFAULT_ALPHA
+    elseif alpha == 'safe' then -- URL and Filename safe alphabet
+      alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
     elseif type(alpha) == 'string' then
       if #alpha ~= 64 then
         error('invalid base64 alphabet length, '..tostring(#alpha)..', expected 64')
