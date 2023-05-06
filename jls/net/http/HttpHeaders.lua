@@ -6,6 +6,7 @@ local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
 local strings = require('jls.util.strings')
 local Map = require('jls.util.Map')
+local List = require('jls.util.List')
 
 local function normalizeName(name)
   return string.lower(name)
@@ -104,6 +105,40 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     end
   end
 
+  local HEADER_SET_COOKIE = 'set-cookie'
+
+  function httpHeaders:setCookie(name, value, options)
+    local list = self.headers[HEADER_SET_COOKIE]
+    local nameEq = name..'='
+    if type(list) == 'table' then
+      List.removeIf(list, function(v)
+        return string.sub(v, 1, #nameEq) == nameEq
+      end)
+    else
+      list = {}
+      self.headers[HEADER_SET_COOKIE] = list
+    end
+    if type(options) == 'table' then
+      value = value..'; '..table.concat(options, '; ')
+    end
+    table.insert(list, nameEq..value)
+  end
+
+  function httpHeaders:getCookies()
+    local map = {}
+    local values = self.headers['cookie']
+    if type(values) == 'string' then
+      for name, value in string.gmatch(values, '([^=;%s]+)%s*=%s*([^=;%s]+)') do
+        map[name] = value
+      end
+    end
+    return map
+  end
+
+  function httpHeaders:getCookie(name)
+    return self:getCookies()[name]
+  end
+
   --- Adds the specified header value.
   -- @tparam string name the name of the value.
   -- @tparam string value the value to set.
@@ -114,7 +149,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
       self.headers[key] = tostring(value)
     elseif type(val) == 'string' then
       -- the "Set-Cookie" response header field often appears multiple times in a response message and does not use the list syntax
-      if key == 'set-cookie' then
+      if key == HEADER_SET_COOKIE then
         self.headers[key] = {val, tostring(value)}
       else
         self.headers[key] = val..', '..tostring(value)
@@ -145,7 +180,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   end
 
   function httpHeaders:appendHeaders(buffer)
-    for name, value in Map.spairs(self:getHeadersTable()) do
+    for name, value in Map.spairs(self.headers) do
       if type(value) == 'string' then
         buffer:append(name, ': ', value, '\r\n')
       elseif type(value) == 'table' then

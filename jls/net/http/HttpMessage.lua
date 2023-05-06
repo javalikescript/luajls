@@ -145,6 +145,13 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self:setHeader(HttpMessage.CONST.HEADER_CACHE_CONTROL, value)
   end
 
+  function httpMessage:getLastModified()
+    local value = self:getHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED)
+    if value then
+      return Date.fromRFC822String(value)
+    end
+  end
+
   function httpMessage:setLastModified(value)
     -- All HTTP date/time stamps MUST be represented in Greenwich Mean Time (GMT)
     if type(value) == 'number' then
@@ -593,6 +600,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     HEADER_LOCATION = 'location',
     HEADER_UPGRADE = 'upgrade',
     HEADER_COOKIE = 'cookie',
+    HEADER_SET_COOKIE = 'set-cookie',
     HEADER_SERVER = 'server',
     HEADER_CACHE_CONTROL = 'cache-control',
     HEADER_CONTENT_DISPOSITION = 'content-disposition',
