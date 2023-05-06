@@ -13,44 +13,14 @@ local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpExchange class wraps the HTTP request and response.
 -- @type HttpExchange
-return require('jls.lang.class').create(function(httpExchange)
+return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
 
   function httpExchange:initialize(client)
-    self.attributes = {}
+    super.initialize(self)
     self.client = client
     self.request = HttpMessage:new()
     self.response = HttpMessage:new()
     self.response:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
-  end
-
-  --- Sets the specified value for the specified name.
-  -- @tparam string name the attribute name
-  -- @param value the attribute value
-  function httpExchange:setAttribute(name, value)
-    self.attributes[name] = value
-    return self
-  end
-
-  --- Returns the value for the specified name.
-  -- @tparam string name the attribute name
-  -- @return the attribute value
-  function httpExchange:getAttribute(name)
-    return self.attributes[name]
-  end
-
-  function httpExchange:getAttributes()
-    return self.attributes
-  end
-
-  function httpExchange:setAttributes(attrs)
-    for name, value in pairs(attrs) do
-      self:setAttribute(name, value)
-    end
-    return self
-  end
-
-  function httpExchange:cleanAttributes()
-    self.attributes = {}
   end
 
   --- Returns the HTTP context.
@@ -62,6 +32,16 @@ return require('jls.lang.class').create(function(httpExchange)
 
   function httpExchange:setContext(context)
     self.context = context
+  end
+
+  --- Returns the HTTP session.
+  -- @treturn HttpSession the HTTP session.
+  function httpExchange:getSession()
+    return self.session
+  end
+
+  function httpExchange:setSession(session)
+    self.session = session
   end
 
   --- Returns the HTTP request.
