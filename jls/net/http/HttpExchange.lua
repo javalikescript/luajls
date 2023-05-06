@@ -12,6 +12,7 @@ local strings = require('jls.util.strings')
 local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpExchange class wraps the HTTP request and response.
+-- This class inherits from @{HttpHeaders}.
 -- @type HttpExchange
 return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
 

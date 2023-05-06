@@ -15,7 +15,7 @@ local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 
 --- The HttpMessage class represents the base class for HTTP request and HTTP response.
--- The HttpMessage class inherits from @{HttpHeaders}.
+-- This class inherits from @{HttpHeaders}.
 -- @type HttpMessage
 return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
 

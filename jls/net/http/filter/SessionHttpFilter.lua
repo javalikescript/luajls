@@ -1,6 +1,6 @@
 --[[-- Provide a simple HTTP filter for session.
 
-This filter add a session id cookie to the response
+This filter add a session id cookie to the response and maintain the exchange session.
 
 @module jls.net.http.filter.SessionHttpFilter
 @pragma nostrip
@@ -14,9 +14,9 @@ local HttpSession = require('jls.net.http.HttpSession')
 return require('jls.lang.class').create('jls.net.http.HttpFilter', function(sessionHttpFilter)
 
   --- Creates a basic session @{HttpFilter}.
-  function sessionHttpFilter:initialize(name)
+  function sessionHttpFilter:initialize(name, maxAge)
     self.name = name or 'jls-session-id'
-    self.maxAge = 43200 -- 12 hours in seconds
+    self.maxAge = maxAge or 43200 -- 12 hours in seconds
     self.sessions = {}
     self.options = {
       'max-age='..tostring(self.maxAge),

@@ -1,5 +1,7 @@
 --[[-- Provide a simple HTTP filter for logging.
 
+After adding this filter, any request containing the header *jls-logger-level* will increase the global log level.
+
 @module jls.net.http.filter.LogHttpFilter
 @pragma nostrip
 ]]
