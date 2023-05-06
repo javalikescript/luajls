@@ -12,6 +12,9 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial, su
 
   function serial:readStart(stream)
     logger:finer('serial:readStart()')
+    if self.readTaskId then
+      error('read already started')
+    end
     local cb = StreamHandler.ensureCallback(stream)
     self.readTaskId = event:setTask(function(timeoutMs)
       local status, err = serialLib.waitDataAvailable(self.fileDesc.fd, timeoutMs)

@@ -9,6 +9,7 @@ local serialLib = require('serial')
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
+local Exception = require('jls.lang.Exception')
 
 --- A Serial class.
 -- A Serial instance represents a serial device.
@@ -32,20 +33,25 @@ return class.create(function(serial)
 
   --- Stops reading data on this serial device.
   -- @function serial:readStop
-  serial.readStop = class.notImplementedFunction
+  serial.readStop = class.emptyFunction
 
   function serial:readAvailable(callback)
-    local done = false
-    while true do
-      local count = serialLib.available(self.fileDesc.fd)
-      if not count or count <= 0 then
-        break
+    local count, err = serialLib.available(self.fileDesc.fd)
+    local data = nil
+    if count then
+      if count <= 0 then
+        logger:fine('serial:readAvailable() has nothing to read')
+        return
       end
-      done = true
-      local data = self.fileDesc:readSync(count) -- should not block
-      callback(nil, data)
+      data, err = self.fileDesc:readSync(count)
+    else
+      err = err or 'unkown error'
     end
-    return done
+    local status, e = Exception.pcall(callback, err, data)
+    if status or not err and Exception.pcall(callback, e) then
+      return
+    end
+    logger:warn('serial:readAvailable() callback in error due to %s', e)
   end
 
   --- Writes data on this serial device.
