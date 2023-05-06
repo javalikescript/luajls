@@ -62,8 +62,12 @@ return require('jls.lang.class').create(StreamHandler, function(promisesStreamHa
     end
   end
 
-  function promisesStreamHandler:onData(...)
-    write(self, nil, ...)
+  function promisesStreamHandler:available()
+    return self.writeIndex > self.readIndex
+  end
+
+  function promisesStreamHandler:onData(data)
+    write(self, nil, data)
   end
 
   function promisesStreamHandler:onError(err)
