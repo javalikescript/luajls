@@ -28,6 +28,11 @@ return require('jls.lang.class').create(function(httpFilter)
   function httpFilter:doFilter(httpExchange)
   end
 
+  --- Closes this filter.
+  -- Do nothing by default. Must support to be called multiple times.
+  function httpFilter:close()
+  end
+
 end, function(HttpFilter)
 
   --- Creates a basic authentication filter.

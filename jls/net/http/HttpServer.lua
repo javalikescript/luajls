@@ -64,7 +64,7 @@ local HttpServer = class.create(function(httpServer)
   function httpServer:initialize(tcp)
     self.contexts = {}
     self.filters = {}
-    self.parentContextHolder = nil
+    self.parent = nil
     self.notFoundContext = HttpContext:new('not found', notFoundHandler)
     self.tcpServer = tcp or TcpSocket:new()
     self.tcpServer.onAccept = function(_, client)
@@ -155,12 +155,20 @@ local HttpServer = class.create(function(httpServer)
     exchange:prepareResponseHeaders()
   end
 
+  -- TODO remove
   function httpServer:getParentContextHolder()
-    return self.parentContextHolder
+    return self.parent
   end
 
+  -- TODO remove
   function httpServer:setParentContextHolder(parent)
-    self.parentContextHolder = parent
+    logger:warn('this method is deprecated, please use setParent')
+    self.parent = parent
+    return self
+  end
+
+  function httpServer:setParent(parent)
+    self.parent = parent
     return self
   end
 
@@ -185,8 +193,8 @@ local HttpServer = class.create(function(httpServer)
   function httpServer:getMatchingContext(path, request)
     local context = self:findContext(path, request)
     if not context then
-      if self.parentContextHolder then
-        context = self.parentContextHolder:findContext(path, request) or self.notFoundContext
+      if self.parent then
+        context = self.parent:findContext(path, request) or self.notFoundContext
       else
         context = self.notFoundContext
       end
@@ -195,12 +203,6 @@ local HttpServer = class.create(function(httpServer)
       logger:finer('httpServer:getMatchingContext("'..path..'") => "'..context:getPath()..'"')
     end
     return context
-  end
-
-  function httpServer:closeContexts()
-    for _, context in ipairs(self.contexts) do
-      context:close()
-    end
   end
 
   -- TODO Remove
@@ -213,10 +215,13 @@ local HttpServer = class.create(function(httpServer)
   end
 
   function httpServer:preFilter(exchange)
-    for _, filter in ipairs(self:getFilters()) do
+    for _, filter in ipairs(self.filters) do
       if filter:doFilter(exchange) == false then
         return false
       end
+    end
+    if self.parent then
+      return self.parent:preFilter(exchange)
     end
     return true
   end
@@ -249,19 +254,6 @@ local HttpServer = class.create(function(httpServer)
         local context = self:getMatchingContext(path, request)
         requestHeadersPromise = exchange:handleRequest(context)
       end
-      --[[local ml = request:getHeader('jls_logger_level')
-      if ml then
-        ml = logger:getClass().levelFromString(ml)
-        if ml then
-          local level = logger:getLevel()
-          if ml < level then
-            logger:setLevel(ml)
-            exchange:onClose():next(function()
-              logger:setLevel(level)
-            end)
-          end
-        end
-      end]]
       if logger:isLoggable(logger.FINER) then
         logger:finer('httpServer:onAccept() request headers '..requestToString(exchange)..' processed')
         logger:finer(request:getRawHeaders())
@@ -368,7 +360,16 @@ local HttpServer = class.create(function(httpServer)
       if logger:isLoggable(logger.FINE) then
         logger:fine('httpServer:close() '..tostring(count)..' pending request(s) closed')
       end
-      self:closeContexts()
+      local contexts = self.contexts
+      self.contexts = {}
+      for _, context in ipairs(contexts) do
+        context:close()
+      end
+      local filters = self.filters
+      self.filters = {}
+      for _, filter in ipairs(filters) do
+        filter:close()
+      end
       if cb then
         cb(err)
       end
