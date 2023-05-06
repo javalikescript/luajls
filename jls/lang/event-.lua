@@ -143,6 +143,10 @@ return require('jls.lang.class').create(function(event)
     self.scheduler:runOnce()
   end
 
+  function event:runNoWait()
+    self.scheduler:runOnce(true)
+  end
+
   --- Closes this event.
   function event:close()
   end

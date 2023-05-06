@@ -49,14 +49,14 @@ return class.create(function(event)
     end
   end
 
-  function event:loop(mode)
+  function event:loop()
     -- returns true if uv_stop() was called and there are still active handles or requests, false otherwise
     -- may returns nil then an error message in case of libuv returning <0
-    local ret, err = luvLib.run(mode)
+    local ret, err = luvLib.run()
     if ret then
-      logger:fine('event:loop(%s) return %s', mode, ret)
+      logger:fine('event:loop() return %s', ret)
     elseif ret == nil then
-      logger:fine('event:loop(%s) in error %s', mode, err)
+      logger:fine('event:loop() in error %s', err)
     end
   end
 
@@ -69,7 +69,11 @@ return class.create(function(event)
   end
 
   function event:runOnce()
-    self:loop('once')
+    luvLib.run('once')
+  end
+
+  function event:runNoWait()
+    luvLib.run('nowait')
   end
 
   function event:close()
