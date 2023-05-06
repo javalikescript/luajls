@@ -43,27 +43,4 @@ function Test_pcall()
   lu.assertEquals(e:getMessage(), 'ouch')
 end
 
-local function nextCatch(t)
-  local nr, ce
-  t:next(function(...)
-    nr = {n = select('#', ...), ...}
-  end):catch(function(e)
-    ce = e
-  end)
-  return nr, ce
-end
-
-function Test_try()
-  local nr, ce = nextCatch(Exception.try(function(...)
-    return ...
-  end, 'Hi', 1))
-  lu.assertNil(ce)
-  lu.assertEquals(nr, {'Hi', 1, n = 2})
-  nr, ce = nextCatch(Exception.try(function(...)
-    error('Ouch', 0)
-  end, 'Hi', 1))
-  lu.assertNil(nr)
-  lu.assertEquals(ce:getMessage(), 'Ouch')
-end
-
 os.exit(lu.LuaUnit.run())

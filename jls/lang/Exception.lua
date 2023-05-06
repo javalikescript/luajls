@@ -136,42 +136,19 @@ return class.create(function(exception, _, Exception)
     return xpcall(fn, handleError, ...)
   end
 
-  local Try = class.create(function(try, _, Try)
-    function try:initialize(fn, ...)
-      self._results = table.pack(Exception.pcall(fn, ...))
+  local function fail(status, ...)
+    if status == true then
+      return ...
     end
-    function try:apply(f)
-      if type(f) == 'function' then
-        return Try:new(f, table.unpack(self._results, 2, self._results.n))
-      end
-      return self
-    end
-    function try:finally(f)
-      if type(f) == 'function' then
-        return Try:new(f)
-      end
-      return self
-    end
-    function try:next(onSuccess, onError)
-      if self._results[1] then
-        return self:apply(onSuccess)
-      end
-      return self:apply(onError)
-    end
-    function try:catch(onError)
-      if not self._results[1] then
-        return self:apply(onError)
-      end
-      return self
-    end
-  end)
+    return nil, ...
+  end
 
-  -- Calls the specified function with the given arguments in protected mode.
+  --- Calls the specified function with the given arguments in protected mode.
   -- @tparam function fn the function to call in protected mode.
   -- @param[opt] ... the arguments to call the function with.
-  -- @return an object on which you could call `next`, `catch` or `finally`.
+  -- @return the returned values of the call or nil plus the Exception in case of error.
   function Exception.try(fn, ...)
-    return Try:new(fn, ...)
+    return fail(xpcall(fn, handleError, ...))
   end
 
 end)
