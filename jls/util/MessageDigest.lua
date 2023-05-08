@@ -8,7 +8,7 @@ local class = require('jls.lang.class')
 --- The MessageDigest class.
 -- The MessageDigest class provides access to algorithms that compute message digest or hash from any string or message.
 -- @type MessageDigest
-return class.create(function(messageDigest)
+return class.create(function(messageDigest, _, MessageDigest)
 
   --- Updates the digest using the specified string.
   -- @tparam string m a message to update the digest.
@@ -46,7 +46,7 @@ return class.create(function(messageDigest)
   end
 
   function messageDigest:reset()
-    self.md = require('jls.util.MessageDigest').getMessageDigest(self.alg)
+    self.md = MessageDigest.getInstance(self.alg)
     return self
   end
 
