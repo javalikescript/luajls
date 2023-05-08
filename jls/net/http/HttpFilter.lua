@@ -23,9 +23,9 @@ return require('jls.lang.class').create(function(httpFilter)
 
   --- Filters the specified exchange.
   -- Called when the request headers have been received.
-  -- @tparam HttpExchange httpExchange the HTTP exchange to filter
+  -- @tparam HttpExchange exchange the HTTP exchange to filter
   -- @treturn boolean false to indicate the request must not handled.
-  function httpFilter:doFilter(httpExchange)
+  function httpFilter:doFilter(exchange)
   end
 
   --- Closes this filter.
@@ -42,6 +42,14 @@ end, function(HttpFilter)
   -- @treturn HttpFilter a HttpFilter.
   function HttpFilter.basicAuth(...)
     return require('jls.net.http.filter.BasicAuthenticationHttpFilter'):new(...)
+  end
+
+  function HttpFilter.session(...)
+    return require('jls.net.http.filter.SessionHttpFilter'):new(...)
+  end
+
+  function HttpFilter.byPath(...)
+    return require('jls.net.http.filter.PathHttpFilter'):new(...)
   end
 
 end)
