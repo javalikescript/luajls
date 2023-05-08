@@ -62,10 +62,10 @@ local function checkCertificateAndPrivateKey()
   end
 end
 
-local function notFoundHandler(httpExchange)
-  local response = httpExchange:getResponse()
+local function notFoundHandler(exchange)
+  local response = exchange:getResponse()
   response:setStatusCode(404, 'Not Found')
-  response:setBody('The resource "'..httpExchange:getRequest():getTarget()..'" is not available.')
+  response:setBody('The resource "'..exchange:getRequest():getTarget()..'" is not available.')
 end
 
 local function createHttpsServer(handler, keep)
@@ -79,20 +79,20 @@ local function createHttpsServer(handler, keep)
   })
   tcp:setSecureContext(secureContext)
   local server = HttpServer:new(tcp)
-  server:createContext('/.*', function(httpExchange)
+  server:createContext('/.*', function(exchange)
     --print('createHttpsServer() handler')
-    server.t_request = httpExchange:getRequest()
+    server.t_request = exchange:getRequest()
     if not keep then
-      httpExchange:onClose():next(function()
+      exchange:onClose():next(function()
         logger:finer('http exchange closed')
-        local keepAlive = httpExchange:getResponse():getHeader('connection') == 'keep-alive'
+        local keepAlive = exchange:getResponse():getHeader('connection') == 'keep-alive'
         if not keepAlive then
           logger:finer('http server closing')
           server:close()
         end
       end)
     end
-    return handler(httpExchange)
+    return handler(exchange)
   end)
   return server:bind('::', TEST_PORT):next(function()
     return server
@@ -135,8 +135,8 @@ end
 function Test_HttpsClientServer()
   local body = '<p>Hello.</p>'
   local server, client
-  createHttpsServer(function(httpExchange)
-    HttpExchange.ok(httpExchange, body)
+  createHttpsServer(function(exchange)
+    HttpExchange.ok(exchange, body)
   end):next(function(s)
     server = s
     client = createHttpsClient()
@@ -178,9 +178,9 @@ end
 
 function Test_HttpsClientServer_body_stream()
   local server, client
-  createHttpsServer(function(httpExchange)
-    local request = httpExchange:getRequest()
-    local response = httpExchange:getResponse()
+  createHttpsServer(function(exchange)
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
     onWriteMessage(response, {'<p>Hello ', request:getBody(), '!</p>'})
     logger:fine('http server handler => Ok')
@@ -208,8 +208,8 @@ end
 function Test_HttpsServerClients()
   local server
   local count = 0
-  createHttpsServer(function(httpExchange)
-    HttpExchange.ok(httpExchange, '<p>Hello.</p>')
+  createHttpsServer(function(exchange)
+    HttpExchange.ok(exchange, '<p>Hello.</p>')
     count = count + 1
   end, true):next(function(s)
     server = s
@@ -232,8 +232,8 @@ end
 function Test_HttpsServerClientsKeepAlive()
   local server, client
   local count = 0
-  createHttpsServer(function(httpExchange)
-    HttpExchange.ok(httpExchange, '<p>Hello.</p>')
+  createHttpsServer(function(exchange)
+    HttpExchange.ok(exchange, '<p>Hello.</p>')
     count = count + 1
   end):next(function(s)
     server = s
@@ -305,8 +305,8 @@ end
 
 function Test_HttpsClientServerConnectionCloseAfterHandshake()
   local server, client
-  createHttpsServer(function(httpExchange)
-    HttpExchange.ok(httpExchange, '<p>Hello.</p>')
+  createHttpsServer(function(exchange)
+    HttpExchange.ok(exchange, '<p>Hello.</p>')
     logger:info('server replied')
   end):next(function(s)
     server = s
@@ -331,8 +331,8 @@ end
 if canResetConnection() then
   function Test_HttpsClientServerConnectionResetAfterHandshake()
     local server, client
-    createHttpsServer(function(httpExchange)
-      HttpExchange.ok(httpExchange, '<p>Hello.</p>')
+    createHttpsServer(function(exchange)
+      HttpExchange.ok(exchange, '<p>Hello.</p>')
       logger:info('server replied')
     end):next(function(s)
       server = s

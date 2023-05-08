@@ -18,27 +18,27 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(zip
     self.zipFile = ZipFile:new(zipFile, false)
   end
 
-  function zipFileHttpHandler:handle(httpExchange)
-    if not HttpExchange.methodAllowed(httpExchange, {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD}) then
+  function zipFileHttpHandler:handle(exchange)
+    if not HttpExchange.methodAllowed(exchange, {HTTP_CONST.METHOD_GET, HTTP_CONST.METHOD_HEAD}) then
       return
     end
-    local response = httpExchange:getResponse()
+    local response = exchange:getResponse()
     local zipFile = self.zipFile
-    local path = httpExchange:getRequestPath()
+    local path = exchange:getRequestPath()
     local entry = zipFile:getEntry(path)
     if entry and not entry:isDirectory() then
       response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
       response:setContentType(FileHttpHandler.guessContentType(path))
       response:setCacheControl(true)
       response:setContentLength(entry:getSize())
-      if httpExchange:getRequestMethod() == HTTP_CONST.METHOD_GET then
+      if exchange:getRequestMethod() == HTTP_CONST.METHOD_GET then
         --response:setBody(zipFile:getContent(entry))
         response:onWriteBodyStreamHandler(function()
           zipFile:getContent(entry, response:getBodyStreamHandler(), true)
         end)
       end
     else
-      HttpExchange.notFound(httpExchange)
+      HttpExchange.notFound(exchange)
     end
   end
 

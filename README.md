@@ -27,8 +27,8 @@ local HttpServer = require('jls.net.http.HttpServer')
 
 local httpServer = HttpServer:new()
 httpServer:bind('::', 8000)
-httpServer:createContext('/', function(httpExchange)
-  local response = httpExchange:getResponse()
+httpServer:createContext('/', function(exchange)
+  local response = exchange:getResponse()
   response:setBody([[<!DOCTYPE html>
   <html>
     <body>

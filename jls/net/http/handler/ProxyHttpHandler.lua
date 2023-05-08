@@ -81,43 +81,43 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     HTTP_CONST.METHOD_OPTIONS,
   }
 
-  function proxyHttpHandler:acceptMethod(httpExchange, method)
-    return HttpExchange.methodAllowed(httpExchange, ALLOWED_METHODS)
+  function proxyHttpHandler:acceptMethod(exchange, method)
+    return HttpExchange.methodAllowed(exchange, ALLOWED_METHODS)
   end
 
-  function proxyHttpHandler:acceptHost(httpExchange, host)
+  function proxyHttpHandler:acceptHost(exchange, host)
     logger:info('Proxy host "'..tostring(host)..'"')
     if host == nil then
-      HttpExchange.forbidden(httpExchange)
+      HttpExchange.forbidden(exchange)
       return false
     end
     return true
   end
 
-  function proxyHttpHandler:getBaseUrl(httpExchange)
+  function proxyHttpHandler:getBaseUrl(exchange)
     if self.baseUrls then
       self.baseUrlIndex = (self.baseUrlIndex % #self.baseUrls) + 1
       local baseUrl = self.baseUrls[self.baseUrlIndex]
       return baseUrl
     end
-    local hostport = httpExchange:getRequest():getHeader(HTTP_CONST.HEADER_HOST)
+    local hostport = exchange:getRequest():getHeader(HTTP_CONST.HEADER_HOST)
     if hostport and hostport ~= '' then
       return 'http://'..hostport
     end
     return nil
   end
 
-  function proxyHttpHandler:getTargetUrl(httpExchange)
+  function proxyHttpHandler:getTargetUrl(exchange)
     if self.isReverse then
-      local baseUrl = self:getBaseUrl(httpExchange)
+      local baseUrl = self:getBaseUrl(exchange)
       if baseUrl then
-        local path = httpExchange:getRequestPath()
+        local path = exchange:getRequestPath()
         if path then
           return Url.fromString(baseUrl..string.gsub(path, '^/*', '/'))
         end
       end
     else
-      local target = httpExchange:getRequest():getTarget()
+      local target = exchange:getRequest():getTarget()
       local targetUrl = Url.fromString(target)
       if targetUrl and targetUrl:getProtocol() ~= 'http' then
         return nil
@@ -145,19 +145,19 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     return false
   end
 
-  function proxyHttpHandler:handleConnect(httpExchange)
-    local hostport = httpExchange:getRequest():getTarget()
+  function proxyHttpHandler:handleConnect(exchange)
+    local hostport = exchange:getRequest():getTarget()
     local host, port = string.match(hostport, '^(.+):(%d+)$')
     if not host then
-      HttpExchange.badRequest(httpExchange)
+      HttpExchange.badRequest(exchange)
       return
     end
     port = tonumber(port) or 443
     if port ~= 443 and not self.allowConnectAnyPort then
-      HttpExchange.forbidden(httpExchange)
+      HttpExchange.forbidden(exchange)
       return
     end
-    if not self:acceptHost(httpExchange, host) then
+    if not self:acceptHost(exchange, host) then
       return
     end
     if logger:isLoggable(logger.FINER) then
@@ -170,11 +170,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
         if logger:isLoggable(logger.FINE) then
           logger:fine('proxyHttpHandler connected to "'..hostport..'"')
         end
-        httpExchange.applyKeepAlive = returnFalse
-        function httpExchange.close()
-          client = httpExchange:removeClient()
+        exchange.applyKeepAlive = returnFalse
+        function exchange.close()
+          client = exchange:removeClient()
           self.pendings[client] = targetClient
-          HttpExchange.prototype.close(httpExchange)
+          HttpExchange.prototype.close(exchange)
           local onStreamClosed = function()
             if self.pendings[client] then
               if logger:isLoggable(logger.FINE) then
@@ -188,7 +188,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
           connectStream(client, targetClient, onStreamClosed)
           connectStream(targetClient, client, onStreamClosed)
         end
-        HttpExchange.ok(httpExchange)
+        HttpExchange.ok(exchange)
         resolve()
       end, function(err)
         if logger:isLoggable(logger.FINE) then
@@ -202,22 +202,22 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     end)
   end
 
-  function proxyHttpHandler:handle(httpExchange)
-    local request = httpExchange:getRequest()
-    local response = httpExchange:getResponse()
+  function proxyHttpHandler:handle(exchange)
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
     local method = request:getMethod()
     if method == HTTP_CONST.METHOD_CONNECT and self.allowConnect then
-      return self:handleConnect(httpExchange)
+      return self:handleConnect(exchange)
     end
-    if not self:acceptMethod(httpExchange, method) then
+    if not self:acceptMethod(exchange, method) then
       return
     end
-    local targetUrl = self:getTargetUrl(httpExchange)
+    local targetUrl = self:getTargetUrl(exchange)
     if not targetUrl then
-      HttpExchange.badRequest(httpExchange)
+      HttpExchange.badRequest(exchange)
       return
     end
-    if not self:acceptHost(httpExchange, targetUrl:getHost()) then
+    if not self:acceptHost(exchange, targetUrl:getHost()) then
       return
     end
     if logger:isLoggable(logger.FINE) then
@@ -229,7 +229,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
     if hostport then
       local forwarded = 'host='..hostport..';proto='..targetUrl:getProtocol()
-      local by = httpExchange:clientAsString()
+      local by = exchange:clientAsString()
       if by then
         forwarded = 'by='..by..';for='..by..';'..forwarded
       end

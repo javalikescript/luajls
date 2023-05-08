@@ -8,7 +8,7 @@ local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
 --- A BasicAuthenticationHttpFilter class.
 -- @type BasicAuthenticationHttpFilter
-return require('jls.lang.class').create('jls.net.http.HttpFilter', function(basicAuthenticationHttpFilter)
+return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filter)
 
   local function checkAnyCredentials()
     return true
@@ -17,7 +17,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(basi
   --- Creates a basic authentication @{HttpFilter}.
   -- @param checkCredentials a table with user name and password pairs or a function.
   -- @tparam[opt] string realm an optional message.
-  function basicAuthenticationHttpFilter:initialize(checkCredentials, realm)
+  function filter:initialize(checkCredentials, realm)
     if type(checkCredentials) == 'function' then
       self.checkCredentials = checkCredentials
     elseif type(checkCredentials) == 'table' then
@@ -30,11 +30,11 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(basi
     self.realm = realm or 'User Visible Realm'
   end
 
-  function basicAuthenticationHttpFilter:onAuthorizationFailed(exchange, user)
+  function filter:onAuthorizationFailed(exchange, user)
     logger:warn('basicAuthentication() user "'..user..'" from '..exchange:clientAsString()..' is not authorized')
   end
 
-  function basicAuthenticationHttpFilter:doFilter(exchange)
+  function filter:doFilter(exchange)
     local request = exchange:getRequest()
     local response = exchange:getResponse()
     local authorization = request:getHeader(HTTP_CONST.HEADER_AUTHORIZATION)

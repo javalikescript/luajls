@@ -1,4 +1,5 @@
---- A class that holds attributes.
+--- A class that holds attributes as key-value pairs.
+-- The attributes are stored in the table field "attributes".
 -- @module jls.net.http.Attributes
 -- @pragma nostrip
 

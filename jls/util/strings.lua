@@ -131,7 +131,7 @@ function strings.decodeVariableByteInteger(s, offset)
       return i, offset + l + 1
     end
   end
-  return nil
+  return nil, 'unexpected end of string'
 end
 
 -- The character order is respected to allow comparison

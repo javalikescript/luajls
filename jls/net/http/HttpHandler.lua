@@ -9,8 +9,8 @@ has been received but before the request body was consumed.
 @pragma nostrip
 
 @usage
-local handler = HttpHandler:new(function(self, httpExchange)
-  local response = httpExchange:getResponse()
+local handler = HttpHandler:new(function(self, exchange)
+  local response = exchange:getResponse()
   response:setBody('It works !')
 end)
 ]]
@@ -33,9 +33,9 @@ return require('jls.lang.class').create(function(httpHandler)
   end
 
   --- Handles the request for the specified exchange.
-  -- @tparam HttpExchange httpExchange the HTTP exchange to handle
+  -- @tparam HttpExchange exchange the HTTP exchange to handle
   -- @treturn jls.lang.Promise a optional promise that resolves once the response is completed.
-  function httpHandler:handle(httpExchange)
+  function httpHandler:handle(exchange)
   end
 
   --- Closes this request handler.
@@ -49,9 +49,9 @@ end, function(HttpHandler)
     if type(fn) ~= 'function' then
       error('Invalid on body function handler, type is '..type(fn))
     end
-    return HttpHandler:new(function(self, httpExchange)
-      return httpExchange:onRequestBody(true):next(function()
-        local r = fn(httpExchange)
+    return HttpHandler:new(function(self, exchange)
+      return exchange:onRequestBody(true):next(function()
+        local r = fn(exchange)
         if Promise:isInstance(r) then
           return r
         end

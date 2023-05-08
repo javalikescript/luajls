@@ -10,9 +10,9 @@ local logger = require('jls.lang.logger')
 
 --- A LogHttpFilter class.
 -- @type LogHttpFilter
-return require('jls.lang.class').create('jls.net.http.HttpFilter', function(logHttpFilter)
+return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filter)
 
-  function logHttpFilter:doFilter(exchange)
+  function filter:doFilter(exchange)
     local ml = exchange:getRequest():getHeader('jls-logger-level')
     if ml then
       ml = logger:getClass().levelFromString(ml)

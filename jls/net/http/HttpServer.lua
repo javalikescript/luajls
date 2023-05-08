@@ -29,10 +29,10 @@ local function compareByIndex(a, b)
   return a:getIndex() > b:getIndex()
 end
 
-local notFoundHandler = HttpHandler:new(function(self, httpExchange)
-  local response = httpExchange:getResponse()
+local notFoundHandler = HttpHandler:new(function(self, exchange)
+  local response = exchange:getResponse()
   response:setStatusCode(HttpMessage.CONST.HTTP_NOT_FOUND, 'Not Found')
-  response:setBody('<p>The resource "'..httpExchange:getRequest():getTarget()..'" is not available.</p>')
+  response:setBody('<p>The resource "'..exchange:getRequest():getTarget()..'" is not available.</p>')
 end)
 
 local HttpContext
@@ -49,8 +49,8 @@ httpServer:bind(hostname, port):next(function()
 end, function(err) -- could failed if address is in use or hostname cannot be resolved
   print('Cannot bind HTTP server, '..tostring(err))
 end)
-httpServer:createContext('/', function(httpExchange)
-  local response = httpExchange:getResponse()
+httpServer:createContext('/', function(exchange)
+  local response = exchange:getResponse()
   response:setBody('It works !')
 end)
 event:loop()
@@ -207,10 +207,10 @@ local HttpServer = class.create(function(httpServer)
 
   -- TODO Remove
   function httpServer:toHandler()
-    return function(httpExchange)
-      local request = httpExchange:getRequest()
+    return function(exchange)
+      local request = exchange:getRequest()
       local context = self:getMatchingContext(request:getTargetPath())
-      return httpExchange:handleRequest(context)
+      return exchange:handleRequest(context)
     end
   end
 
@@ -505,8 +505,8 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
     return false
   end
 
-  function httpContext:handleExchange(httpExchange)
-    return self.handler:handle(httpExchange)
+  function httpContext:handleExchange(exchange)
+    return self.handler:handle(exchange)
   end
 
   function httpContext:copyContext()

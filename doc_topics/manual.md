@@ -545,8 +545,8 @@ The path is a pattern and allows to capture part of the path.
 local HttpServer = require('jls.net.http.HttpServer')
 local httpServer = HttpServer:new()
 httpServer:bind('::', 8080)
-httpServer:createContext('/', function(httpExchange)
-  local response = httpExchange:getResponse()
+httpServer:createContext('/', function(exchange)
+  local response = exchange:getResponse()
   response:setBody('It works !')
 end)
 require('jls.lang.event'):loop()
@@ -573,7 +573,7 @@ local httpServer = HttpServer:new()
 httpServer:bind('::', 8080)
 httpServer:createContext('/(.*)', HttpHandler.rest({
   admin = {
-    stop = function(httpExchange)
+    stop = function(exchange)
       httpServer:close()
       return 'Bye !'
     end

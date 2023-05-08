@@ -322,15 +322,17 @@ function setKey(key) {
       local plain = mdCipher:decodeSafe(content)
       if plain then
         local size, offset = strings.decodeVariableByteInteger(plain)
-        local md = {
-          name = string.sub(plain, offset),
-          size = size,
-          time = encFile:lastModified(),
-        }
-        if full then
-          md.encFile = encFile
+        if size then
+          local md = {
+            name = string.sub(plain, offset),
+            size = size,
+            time = encFile:lastModified(),
+          }
+          if full then
+            md.encFile = encFile
+          end
+          return md
         end
-        return md
       end
     end
   end

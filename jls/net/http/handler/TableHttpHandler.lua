@@ -24,25 +24,25 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
     self.editable = editable == true
   end
 
-  function tableHttpHandler:handle(httpExchange)
-    local method = httpExchange:getRequestMethod()
-    local path = httpExchange:getRequestPath()
+  function tableHttpHandler:handle(exchange)
+    local method = exchange:getRequestMethod()
+    local path = exchange:getRequestPath()
     local tp = self.path..string.gsub(path, '/$', '')
     if logger:isLoggable(logger.FINE) then
       logger:fine('httpHandler.table(), method: "'..method..'", path: "'..tp..'"')
     end
     if method == HTTP_CONST.METHOD_GET then
       local value = tables.getPath(self.table, tp)
-      HttpExchange.ok(httpExchange, json.encode({
+      HttpExchange.ok(exchange, json.encode({
         --success = true,
         --path = path,
         value = value
       }), HttpExchange.CONTENT_TYPES.json)
     elseif not self.editable then
-      HttpExchange.methodNotAllowed(httpExchange)
+      HttpExchange.methodNotAllowed(exchange)
     elseif method == HTTP_CONST.METHOD_PUT or method == HTTP_CONST.METHOD_POST or method == HTTP_CONST.METHOD_PATCH then
-      local request = httpExchange:getRequest()
-      return httpExchange:onRequestBody(true):next(function()
+      local request = exchange:getRequest()
+      return exchange:onRequestBody(true):next(function()
         if logger:isLoggable(logger.FINEST) then
           logger:finest('httpHandler.table(), request body: "'..request:getBody()..'"')
         end
@@ -61,16 +61,16 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
             end
           end
         end
-        HttpExchange.ok(httpExchange)
+        HttpExchange.ok(exchange)
       end)
     elseif method == HTTP_CONST.METHOD_DELETE then
       tables.removePath(self.table, tp)
-      HttpExchange.ok(httpExchange)
+      HttpExchange.ok(exchange)
     else
-      HttpExchange.methodNotAllowed(httpExchange)
+      HttpExchange.methodNotAllowed(exchange)
     end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('httpHandler.table(), status: '..tostring(httpExchange:getResponse():getStatusCode()))
+      logger:fine('httpHandler.table(), status: '..tostring(exchange:getResponse():getStatusCode()))
     end
   end
 

@@ -11,10 +11,10 @@ local HttpSession = require('jls.net.http.HttpSession')
 
 --- A SessionHttpFilter class.
 -- @type SessionHttpFilter
-return require('jls.lang.class').create('jls.net.http.HttpFilter', function(sessionHttpFilter)
+return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filter)
 
   --- Creates a basic session @{HttpFilter}.
-  function sessionHttpFilter:initialize(name, maxAge)
+  function filter:initialize(name, maxAge)
     self.name = name or 'jls-session-id'
     self.maxAge = maxAge or 43200 -- 12 hours in seconds
     self.sessions = {}
@@ -27,7 +27,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(sess
     self.index = math.random(0xffff)
   end
 
-  function sessionHttpFilter:cleanup(time)
+  function filter:cleanup(time)
     local creationTime = time - self.maxAge * 1000
     for sessionId, session in pairs(self.sessions) do
       if session:getCreationTime() < creationTime then
@@ -36,12 +36,12 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(sess
     end
   end
 
-  function sessionHttpFilter:generateId()
+  function filter:generateId()
     self.index = (self.index + 1) & 0xffff
     return string.format('%08x-%04x-%04x-%08x', self.time, self.index, math.random(0xffff), math.random(0xffffffff))
   end
 
-  function sessionHttpFilter:doFilter(exchange)
+  function filter:doFilter(exchange)
     local time = system.currentTimeMillis()
     self:cleanup(time)
     local request = exchange:getRequest()
@@ -61,7 +61,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(sess
     exchange:setSession(session)
   end
 
-  function sessionHttpFilter:close()
+  function filter:close()
     -- close cleanup scheduler
     self.sessions = {}
   end

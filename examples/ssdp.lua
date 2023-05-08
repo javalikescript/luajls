@@ -175,9 +175,9 @@ elseif config.mode == 'server' then
     os.exit(1)
   end)
   local baseUrl = string.format('http://%s:%d/', bindAddress, config.port)
-  httpServer:createContext('/description.xml', function(httpExchange)
-    logger:info('send description, headers: %s', httpExchange:getRequest():getRawHeaders())
-    local response = httpExchange:getResponse()
+  httpServer:createContext('/description.xml', function(exchange)
+    logger:info('send description, headers: %s', exchange:getRequest():getRawHeaders())
+    local response = exchange:getResponse()
     response:setBody([[<?xml version="1.0" encoding="UTF-8" ?>
     <root xmlns="urn:schemas-upnp-org:device-1-0">
       <specVersion>
@@ -201,9 +201,9 @@ elseif config.mode == 'server' then
     </root>
     ]])
   end)
-  httpServer:createContext('/index.html', function(httpExchange)
-    logger:info('send description, headers: %s', httpExchange:getRequest():getRawHeaders())
-    local response = httpExchange:getResponse()
+  httpServer:createContext('/index.html', function(exchange)
+    logger:info('send description, headers: %s', exchange:getRequest():getRawHeaders())
+    local response = exchange:getResponse()
     response:setBody([[<!DOCTYPE html>
     <html>
       <body>

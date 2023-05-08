@@ -95,10 +95,10 @@ local function createHttpClient(headers)
   return client
 end
 
-local function notFoundHandler(httpExchange)
-  local response = httpExchange:getResponse()
+local function notFoundHandler(exchange)
+  local response = exchange:getResponse()
   response:setStatusCode(404, 'Not Found')
-  response:setBody('The resource "'..httpExchange:getRequest():getTarget()..'" is not available.')
+  response:setBody('The resource "'..exchange:getRequest():getTarget()..'" is not available.')
 end
 
 local function createHttpServer(handler, keep)
@@ -108,29 +108,29 @@ local function createHttpServer(handler, keep)
   local server = HttpServer:new()
   server.t_requestCount = 0
   local wh = handler
-  local ch = function(httpExchange)
+  local ch = function(exchange)
     server.t_requestCount = server.t_requestCount + 1
-    server.t_request = httpExchange:getRequest()
+    server.t_request = exchange:getRequest()
     logger:finer('http server handle #'..tostring(server.t_requestCount))
     if not keep then
-      httpExchange:onClose():next(function()
+      exchange:onClose():next(function()
         logger:finer('http exchange closed')
-        local keepAlive = httpExchange:getResponse():getHeader('connection') == 'keep-alive'
+        local keepAlive = exchange:getResponse():getHeader('connection') == 'keep-alive'
         if not keepAlive then
           logger:finer('http server closing')
           server:close()
         end
       end)
     end
-    return wh(httpExchange)
+    return wh(exchange)
   end
   if HttpHandler:isInstance(handler) then
     local chf = ch
-    ch = HttpHandler:new(function(_, httpExchange)
-      return chf(httpExchange)
+    ch = HttpHandler:new(function(_, exchange)
+      return chf(exchange)
     end)
-    wh = function(httpExchange)
-      return handler:handle(httpExchange)
+    wh = function(exchange)
+      return handler:handle(exchange)
     end
   end
   server:createContext('/.*', ch)
@@ -377,8 +377,8 @@ end
 function Test_HttpClientServer()
   local body = '<p>Hello.</p>'
   local server, client
-  createHttpServer(function(httpExchange)
-    local response = httpExchange:getResponse()
+  createHttpServer(function(exchange)
+    local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
     response:setBody(body)
     logger:fine('http server handler => Ok')
@@ -402,9 +402,9 @@ end
 
 function Test_HttpClientServer_body()
   local server, client
-  createHttpServer(function(httpExchange)
-    local request = httpExchange:getRequest()
-    local response = httpExchange:getResponse()
+  createHttpServer(function(exchange)
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
     response:setBody('<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
@@ -448,9 +448,9 @@ end
 
 function Test_HttpClientServer_body_stream()
   local server, client
-  createHttpServer(function(httpExchange)
-    local request = httpExchange:getRequest()
-    local response = httpExchange:getResponse()
+  createHttpServer(function(exchange)
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
     onWriteMessage(response, '<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
@@ -476,9 +476,9 @@ end
 
 function Test_HttpsClientServer_body_stream_multiple()
   local server, client
-  createHttpServer(function(httpExchange)
-    local request = httpExchange:getRequest()
-    local response = httpExchange:getResponse()
+  createHttpServer(function(exchange)
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
     onWriteMessage(response, {'<p>Hello ', request:getBody(), '!</p>'})
     logger:fine('http server handler => Ok')
@@ -503,9 +503,9 @@ function Test_HttpsClientServer_body_stream_multiple()
 end
 
 local function createHttpServerRedirect(body, newPath, oldPath, veryOldPath)
-  return createHttpServer(function(httpExchange)
-    local target = httpExchange:getRequest():getTarget()
-    local response = httpExchange:getResponse()
+  return createHttpServer(function(exchange)
+    local target = exchange:getRequest():getTarget()
+    local response = exchange:getResponse()
     if target == newPath then
       response:setStatusCode(200, 'Ok')
       response:setBody(body)
@@ -655,9 +655,9 @@ end
 function Test_HttpClientServer_keep_alive()
   local server, client
   local count = 0
-  createHttpServer(function(httpExchange)
+  createHttpServer(function(exchange)
     logger:fine('http server created')
-    local response = httpExchange:getResponse()
+    local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
     response:setBody('<p>Hello.</p>')
     count = count + 1
