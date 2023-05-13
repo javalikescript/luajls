@@ -171,7 +171,7 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
         if logger:isLoggable(logger.FINE) then
           logger:fine('destPath: '..tostring(destPath))
         end
-        local destFile = self:findFile(destPath)
+        local destFile = self:findFile(exchange, destPath)
         if self.fs.getFileMetadata(exchange, destFile) and not overwrite then
           HttpExchange.response(exchange, HTTP_CONST.HTTP_PRECONDITION_FAILED, 'Already exists')
         elseif method == 'COPY' then

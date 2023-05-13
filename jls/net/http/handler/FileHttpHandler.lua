@@ -275,7 +275,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     response:setBody(body)
   end
 
-  function fileHttpHandler:findFile(path, readOnly)
+  function fileHttpHandler:findFile(exchange, path, readOnly)
     local file = File:new(self.rootFile, path)
     if readOnly and file:isDirectory() and not self.allowList and self.defaultFile then
       file = File:new(file, self.defaultFile)
@@ -394,7 +394,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       destination = Url.decodePercent(destination)
       local destPath = exchange:getContext():getArguments(destination)
       if destPath then
-        local destFile = self:findFile(destPath)
+        local destFile = self:findFile(exchange, destPath)
         self.fs.renameFile(exchange, file, destFile)
         HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Moved')
       else
@@ -423,7 +423,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       return
     end
     local readOnly = method == HTTP_CONST.METHOD_GET or method == HTTP_CONST.METHOD_HEAD
-    local file = self:findFile(filePath, readOnly)
+    local file = self:findFile(exchange, filePath, readOnly)
     if logger:isLoggable(logger.FINE) then
       logger:fine('fileHttpHandler method is "'..method..'" file is "'..file:getPath()..'"')
     end

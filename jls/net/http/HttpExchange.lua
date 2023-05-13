@@ -236,6 +236,7 @@ end, function(HttpExchange)
     [HTTP_CONST.HTTP_OK] = 'OK',
     [HTTP_CONST.HTTP_BAD_REQUEST] = 'Bad Request',
     [HTTP_CONST.HTTP_FORBIDDEN] = 'Forbidden',
+    [HTTP_CONST.HTTP_FOUND] = 'Found',
     [HTTP_CONST.HTTP_NOT_FOUND] = 'Not Found',
     [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = 'Method Not Allowed',
     [HTTP_CONST.HTTP_PAYLOAD_TOO_LARGE] = 'Payload Too Large',
@@ -244,8 +245,9 @@ end, function(HttpExchange)
 
   HttpExchange.CONTENTS = {
     [HTTP_CONST.HTTP_BAD_REQUEST] = '<p>Sorry something seems to be wrong in your request.</p>',
-    [HTTP_CONST.HTTP_FORBIDDEN] = '<p>The server cannot process your request.</p>',
-    [HTTP_CONST.HTTP_NOT_FOUND] = '<p>The resource is not available.</p>',
+    [HTTP_CONST.HTTP_FORBIDDEN] = '<p>Sorry you are not authorized.</p>',
+    [HTTP_CONST.HTTP_FOUND] = '<p>You are redirected.</p>',
+    [HTTP_CONST.HTTP_NOT_FOUND] = '<p>Sorry the resource is not available.</p>',
     [HTTP_CONST.HTTP_METHOD_NOT_ALLOWED] = '<p>Sorry the method is not allowed.</p>',
     [HTTP_CONST.HTTP_PAYLOAD_TOO_LARGE] = '<p>Sorry the request is too large.</p>',
     [HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR] = '<p>Sorry something went wrong on our side.</p>',
@@ -298,6 +300,11 @@ end, function(HttpExchange)
   function HttpExchange.internalServerError(exchange, reason)
     exchange:getResponse():setVersion(HTTP_CONST.VERSION_1_0)
     updateResponseFor(exchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, reason)
+  end
+
+  function HttpExchange.redirect(exchange, location, status, reason, bodyContent)
+    exchange:getResponse():setHeader(HTTP_CONST.HEADER_LOCATION, location)
+    updateResponseFor(exchange, status or HTTP_CONST.HTTP_FOUND, reason, bodyContent)
   end
 
   function HttpExchange.response(exchange, status, reason, bodyContent)
