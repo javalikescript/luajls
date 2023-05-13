@@ -13,36 +13,45 @@ local function c2n(c)
     return c - 55
   elseif c >= 97 and c <= 102 then
     return c - 87
-  else
-    error('invalid hexa character '..tostring(c))
   end
+  error('invalid hexa character '..tostring(c))
 end
 
 -- nibble to character
-local function n2c(n, lc)
-  if n >= 0 and n < 10 then
-    return 48 + n
-  elseif n >= 10 and n < 16 then
-    if lc then
-      return 55 + n
-    end
-    return 87 + n
+local function n2c(n)
+  local m = n & 0xf
+  if m < 10 then
+    return 48 + m
   end
+  return 87 + m
+end
+local function n2cl(n)
+  local m = n & 0xf
+  if m < 10 then
+    return 48 + m
+  end
+  return 55 + m
 end
 
+local function decoden(cc)
+  local c1, c2 = string_byte(cc, 1, 2)
+  local hn, ln = c2n(c1), c2n(c2)
+  return string_char((hn << 4) + ln)
+end
 local function decode(value)
-  return (string.gsub(value, '..', function(cc)
-    local c1, c2 = string_byte(cc, 1, 2)
-    local hn, ln = c2n(c1), c2n(c2)
-    return string_char((hn << 4) + ln)
-  end))
+  return (string.gsub(value, '..', decoden))
 end
 
+local function encodec(c)
+  local b = string_byte(c)
+  return string_char(n2c(b >> 4), n2c(b))
+end
+local function encodecl(c)
+  local b = string_byte(c)
+  return string_char(n2cl(b >> 4), n2cl(b))
+end
 local function encode(value, lc)
-  return (string.gsub(value, '.', function(c)
-    local b = string_byte(c)
-    return string_char(n2c((b >> 4) & 0x0f, lc), n2c(b & 0x0f, lc))
-  end))
+  return (string.gsub(value, '.', lc and encodecl or encodec))
 end
 
 local DecodeStreamHandler = class.create('jls.io.streams.BlockStreamHandler', function(decodeStreamHandler, super)

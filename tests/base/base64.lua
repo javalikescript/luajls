@@ -13,32 +13,6 @@ local function safe(fn, ...)
   unpcall(xpcall(fn, debug.traceback, ...))
 end
 
-local function chars(l)
-  local ten = '123456789 '
-  return string.rep(ten, math.floor(l / 10))..string.sub(ten, 1, l % 10)
-end
-
----@diagnostic disable-next-line: deprecated
-local table_unpack = table.unpack or _G.unpack
-
-local function randomChars(len, from, to)
-  from = from or 0
-  to = to or 255
-  if len <= 10 then
-    local bytes = {}
-    for _ = 1, len do
-      table.insert(bytes, math.random(from, to))
-    end
-    return string.char(table_unpack(bytes))
-  end
-  local parts = {}
-  for _ = 1, len / 10 do
-    table.insert(parts, randomChars(10, from, to))
-  end
-  table.insert(parts, randomChars(len % 10, from, to))
-  return table.concat(parts)
-end
-
 function Test_decode()
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQh'), 'Hello world!')
   lu.assertEquals(base64.decode('SGVsbG8gd29ybGQgIQ=='), 'Hello world !')
@@ -89,24 +63,14 @@ function Test_encode_decode()
   assertEncodeDecode('Hello world !')
 end
 
-local function time(fn, ...)
-  local system = require('jls.lang.system')
-  local startMillis = system.currentTimeMillis()
-  collectgarbage('collect')
-  collectgarbage('stop')
-  local gcCountBefore = math.floor(collectgarbage('count') * 1024)
-  fn(...)
-  local endMillis = system.currentTimeMillis()
-  local gcCountAfter = math.floor(collectgarbage('count') * 1024)
-  collectgarbage('restart')
-  return endMillis - startMillis, gcCountAfter - gcCountBefore
-end
-
 function _Test_encode_decode_perf()
+  local randomChars = require('tests.randomChars')
+  local time = require('tests.time')
   local samples = {}
   for _ = 1, 10000 do
     table.insert(samples, randomChars(math.random(5, 500)))
   end
+  print('time', 'user', 'mem')
   print(time(function()
     for _, s in ipairs(samples) do
       lu.assertEquals(base64.decode(base64.encode(s)), s)

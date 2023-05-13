@@ -322,4 +322,19 @@ function Test_fromString()
   lu.assertEquals(Url.fromString('http://hostname/'):toString(), 'http://hostname/')
 end
 
+function _Test_encode_decode_perf()
+  local randomChars = require('tests.randomChars')
+  local time = require('tests.time')
+  local samples = {}
+  for _ = 1, 10000 do
+    table.insert(samples, randomChars(math.random(5, 500)))
+  end
+  print('time', 'user', 'mem')
+  print(time(function()
+    for _, s in ipairs(samples) do
+      lu.assertEquals(Url.decodePercent(Url.encodePercent(s)), s)
+    end
+  end))
+end
+
 os.exit(lu.LuaUnit.run())

@@ -377,6 +377,14 @@ function Test_createArgumentTable()
   lu.assertNotNil(tables.getArgument(t, 'h'))
 end
 
+function Test_createArgumentTableWithRmptyPath()
+  local arguments = {'-h', '-x', 'y', 'v', 'w'}
+  local t = tables.createArgumentTable(arguments)
+  lu.assertEquals(t, {h=true, ['0']={'v', 'w'}, x='y'})
+  local t = tables.createArgumentTable(arguments, {emptyPath = 'u'})
+  lu.assertEquals(t, {h=true, u={'v', 'w'}, x='y'})
+end
+
 function Test_createArgumentTablePath()
   local arguments = {'-h', '-x', 'y', '-a.b', 'v', '-a.c', 'u', 'v', '-a.e', 'u', '-a.e', 'v'}
   local t = tables.createArgumentTable(arguments, {

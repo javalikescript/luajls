@@ -295,10 +295,11 @@ return require('jls.lang.class').create(function(url, _, Url)
     return formatCommon(tUrl):toString()
   end
 
-  local function encodePercent(value, pattern)
-    return (string.gsub(value, pattern, function(c)
+  local function encodePercentChar(c)
       return string.format('%%%02X', string.byte(c))
-    end))
+    end
+  local function encodePercent(value, pattern)
+    return (string.gsub(value, pattern, encodePercentChar))
   end
 
   function Url.encodeURIComponent(value)
@@ -313,14 +314,15 @@ return require('jls.lang.class').create(function(url, _, Url)
     return encodePercent(value, '[^%a%d%-%._~]')
   end
 
-  function Url.decodePercent(value)
-    return (string.gsub(value, '%%(%x%x)', function(v)
+  local function decodePercent(v)
       local n = tonumber(v, 16)
       if n < 256 then
         return string.char(n)
       end
       return ''
-    end))
+    end
+  function Url.decodePercent(value)
+    return (string.gsub(value, '%%(%x%x)', decodePercent))
   end
 
 end)
