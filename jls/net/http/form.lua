@@ -48,17 +48,7 @@ function form.createFormRequest(request, messages)
   request:setContentLength(#body)
 end
 
-function form.parseFormRequest(request)
-  local contentTypeRawValue = request:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
-  if not contentTypeRawValue then
-    return nil, 'Missing content type'
-  end
-  local contentType, params = HttpMessage.parseHeaderValueAsTable(contentTypeRawValue)
-  if string.lower(contentType) ~= 'multipart/form-data' then
-    -- we may also support content-type: application/x-www-form-urlencoded
-    return nil, 'Unsupported content type ('..tostring(contentType)..')'
-  end
-  local boundary = params['boundary']
+function form.parseFormData(request, boundary)
   if logger:isLoggable(logger.FINE) then
     logger:fine('boundary is "'..boundary..'"')
   end
@@ -95,6 +85,36 @@ function form.parseFormRequest(request)
     end
   end
   return messages
+end
+
+function form.parseFormUrlEncoded(request)
+  -- name=test&password=test
+  local body = request:getBody()
+  if logger:isLoggable(logger.FINEST) then
+    logger:finest('body is "'..tostring(body)..'"')
+  end
+  local map = {}
+  for _, keyValue in ipairs(strings.split(body, '&', true)) do
+    local key, value = string.match(keyValue, '([^=]+)=(.+)')
+    if key then
+      map[key] = value
+    end
+  end
+  return map
+end
+
+function form.parseFormRequest(request)
+  local contentTypeRawValue = request:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
+  if not contentTypeRawValue then
+    return nil, 'Missing content type'
+  end
+  local contentType, params = HttpMessage.parseHeaderValueAsTable(contentTypeRawValue)
+  if string.lower(contentType) == 'application/x-www-form-urlencoded' then
+    return form.parseFormUrlEncoded(request)
+  elseif string.lower(contentType) == 'multipart/form-data' then
+    return form.parseFormData(request, params['boundary'])
+  end
+  return nil, 'Unsupported content type ('..tostring(contentType)..')'
 end
 
 return form

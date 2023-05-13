@@ -22,6 +22,13 @@ function Test_create_parse_form()
   lu.assertEquals(parsedMessages[1]:getBody(), 'input value')
 end
 
+function Test_create_parse_form_url_encoded()
+  local request = HttpMessage:new()
+  request:setHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE, 'application/x-www-form-urlencoded')
+  request:setBody('name=test&password=test')
+  lu.assertEquals(form.parseFormUrlEncoded(request), {name = 'test', password = 'test'})
+end
+
 function Test_HttpHeaders()
   local headers = HttpHeaders:new()
   local lines = {
