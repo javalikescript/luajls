@@ -134,31 +134,26 @@ return class.create(function(worker, _, Worker)
     end
   end
 
-  function worker:postPendingMessages(reason)
+  function worker:postPendingMessages()
     local messages = self.pendingMessages
-    if not messages then
-      return Promise.resolve()
-    end
+    local cb = self.postMessageCallback
     self.pendingMessages = nil
+    self.postMessagePromise = nil
+    self.postMessageCallback = nil
+    if not messages then
+      return
+    end
     if logger:isLoggable(logger.FINER) then
       logger:finer('worker post '..tostring(#messages)..' pending messages')
     end
-    local cb = self.postMessageCallback
-    self.postMessagePromise = nil
-    self.postMessageCallback = nil
-    if reason then
-      cb(reason)
-      return Promise.resolve()
-    end
     local promises = {}
     for _, message in ipairs(messages) do
-      table.insert(promises, self:postMessage(message))
-    end
-    Promise.all(promises):next(function()
-      if cb then
-        cb()
+      local p = self:postMessage(message)
+      if p then
+        table.insert(promises, p)
       end
-    end)
+    end
+    Promise.all(promises):next(Promise.callbackToNext(cb))
   end
 
   function worker:postMessage(message)

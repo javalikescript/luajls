@@ -5,13 +5,8 @@ local lu = require('luaunit')
 
 local FileDescriptor = require('jls.io.FileDescriptor')
 local File = require('jls.io.File')
+local Promise = require('jls.lang.Promise')
 local loop = require('jls.lang.loopWithTimeout')
-
-local function collectError(errors, err)
-  if err then
-    table.insert(errors, err)
-  end
-end
 
 function Test_openSync_r()
   local fd, err = FileDescriptor.openSync('tests/does_not_exist', 'r')
@@ -75,17 +70,12 @@ function Test_read()
   TMP_FILE:write(part1..part2)
   local fd = FileDescriptor.openSync(TMP_FILENAME, 'r')
   lu.assertNotNil(fd)
-  fd:read(#part1, function(err, d)
-    collectError(errors, err)
-    data1 = d
-  end)
-  fd:read(1024, function(err, d)
-    collectError(errors, err)
-    data2 = d
-  end)
-  fd:read(1024, function(err, d)
-    collectError(errors, err)
-    data3 = d
+  Promise.async(function(await)
+    data1 = await(fd:read(#part1))
+    data2 = await(fd:read(1024))
+    data3 = await(fd:read(1024))
+  end):catch(function(reason)
+    print(reason)
   end)
   --require('jls.lang.event'):loop()
   loop()
