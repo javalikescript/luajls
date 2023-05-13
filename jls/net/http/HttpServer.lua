@@ -215,15 +215,10 @@ local HttpServer = class.create(function(httpServer)
   end
 
   function httpServer:preFilter(exchange)
-    for _, filter in ipairs(self.filters) do
-      if filter:doFilter(exchange) == false then
-        return false
-      end
+    if self.parent and self.parent:preFilter(exchange) == false then
+      return false
     end
-    if self.parent then
-      return self.parent:preFilter(exchange)
-    end
-    return true
+    return HttpFilter.filter(exchange, self.filters)
   end
 
   --[[

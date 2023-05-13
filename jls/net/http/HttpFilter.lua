@@ -35,6 +35,29 @@ return require('jls.lang.class').create(function(httpFilter)
 
 end, function(HttpFilter)
 
+  --- Applies the specified filters in the specified order.
+  -- @tparam HttpExchange exchange the HTTP exchange to filter
+  -- @param ... the filters.
+  -- @treturn boolean false to indicate the request must not handled.
+  function HttpFilter.filter(exchange, filters)
+    for _, filter in ipairs(filters) do
+      if filter:doFilter(exchange) == false then
+        return false
+      end
+    end
+    return true
+  end
+
+  --- Returns a filter applying all the specified filters.
+  -- @param ... the filters.
+  -- @treturn HttpFilter a HttpFilter.
+  function HttpFilter.multiple(...)
+    local filters = {...}
+    return HttpFilter:new(function(_, exchange)
+      return HttpFilter.filter(exchange, filters)
+    end)
+  end
+
   --- Creates a basic authentication filter.
   -- @param credentials a table with user name and password pairs or a function.
   -- The function receives the user and the password and return true when they match an existing credential.
@@ -44,10 +67,20 @@ end, function(HttpFilter)
     return require('jls.net.http.filter.BasicAuthenticationHttpFilter'):new(...)
   end
 
+  --- Returns a session filter.
+  -- This filter add a session id cookie to the response and maintain the exchange session.
+  -- @tparam[opt] number maxAge the session max age in seconds, default to 12 hours.
+  -- @treturn HttpFilter a HttpFilter.
   function HttpFilter.session(...)
     return require('jls.net.http.filter.SessionHttpFilter'):new(...)
   end
 
+  --- Returns a filter by path.
+  -- This filter allows to restrict a filter to a set of allowed or excluded path patterns.
+  -- @tparam HttpFilter filter the filter to apply depending on the allowed/excluded patterns.
+  -- @tparam[opt] table patterns a list of allowed patterns.
+  -- @tparam[opt] table excludedPatterns a list of excluded patterns.
+  -- @treturn HttpFilter a HttpFilter.
   function HttpFilter.byPath(...)
     return require('jls.net.http.filter.PathHttpFilter'):new(...)
   end

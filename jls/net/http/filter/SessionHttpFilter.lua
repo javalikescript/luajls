@@ -1,21 +1,21 @@
---[[-- Provide a simple HTTP filter for session.
+--- Provide a simple HTTP filter for session.
+-- @module jls.net.http.filter.SessionHttpFilter
+-- @pragma nostrip
 
-This filter add a session id cookie to the response and maintain the exchange session.
-
-@module jls.net.http.filter.SessionHttpFilter
-@pragma nostrip
-]]
-
+local class = require('jls.lang.class')
 local system = require('jls.lang.system')
 local HttpSession = require('jls.net.http.HttpSession')
 
 --- A SessionHttpFilter class.
 -- @type SessionHttpFilter
-return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filter)
+return class.create('jls.net.http.HttpFilter', function(filter)
 
   --- Creates a basic session @{HttpFilter}.
-  function filter:initialize(name, maxAge)
-    self.name = name or 'jls-session-id'
+  -- This filter add a session id cookie to the response and maintain the exchange session.
+  -- @tparam[opt] number maxAge the session max age in seconds, default to 12 hours.
+  -- @function SessionHttpFilter:new
+  function filter:initialize(maxAge)
+    self.name = 'jls-session-id'
     self.maxAge = maxAge or 43200 -- 12 hours in seconds
     self.sessions = {}
     self.options = {
@@ -23,22 +23,34 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
       'HttpOnly',
       'SameSite=Strict'
     }
-    self.time = system.currentTimeMillis()
-    self.index = math.random(0xffff)
+    self.id = system.currentTimeMillis() & 0xffffffff
   end
 
+  function filter:generateId()
+    local sessionId
+    repeat
+      sessionId = string.format('%012x-%08x', math.random(0xffffffffffff), self.id)
+    until not self.sessions[sessionId]
+    return sessionId
+  end
+
+  function filter:onCreated(session)
+  end
+
+  function filter:onDestroyed(session)
+  end
+
+  --- Removes the invalid sessions.
+  -- @tparam[opt] number time the reference time to compute the age of the session.
   function filter:cleanup(time)
+    time = time or system.currentTimeMillis()
     local creationTime = time - self.maxAge * 1000
     for sessionId, session in pairs(self.sessions) do
       if session:getCreationTime() < creationTime then
         self.sessions[sessionId] = nil
+        self:onDestroyed(session)
       end
     end
-  end
-
-  function filter:generateId()
-    self.index = (self.index + 1) & 0xffff
-    return string.format('%08x-%04x-%04x-%08x', self.time, self.index, math.random(0xffff), math.random(0xffffffff))
   end
 
   function filter:doFilter(exchange)
@@ -53,6 +65,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
     if not session then
       sessionId = self:generateId()
       session = HttpSession:new(sessionId, time)
+      self:onCreated(session)
       self.sessions[sessionId] = session
       local response = exchange:getResponse()
       response:setCookie(self.name, sessionId, self.options)
@@ -62,7 +75,9 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
   end
 
   function filter:close()
-    -- close cleanup scheduler
+    for _, session in pairs(self.sessions) do
+      self:onDestroyed(session)
+    end
     self.sessions = {}
   end
 
