@@ -485,9 +485,14 @@ local function createCertificate(options)
   local cadn = opensslLib.x509.name.new(names)
   local pkey = options.privateKey or createPrivateKey()
   local req = opensslLib.x509.req.new(cadn, pkey)
-  local cacert = opensslLib.x509.new(1, req)
-  local duration = options.duration or (3600 * 24 * (365 + 31)) -- one year
   local time = os.time()
+  local serialNumber = options.serialNumber
+  if not serialNumber then
+    local d = os.date('*t', time)
+    serialNumber = math.random(0xffffffff) * 0x10000 + d.year * 12 + d.month
+  end
+  local cacert = opensslLib.x509.new(serialNumber, req)
+  local duration = options.duration or (3600 * 24 * (365 + 31)) -- one year
   cacert:validat(time, time + duration)
   cacert:sign(pkey, cacert) -- self sign
   return cacert, pkey
