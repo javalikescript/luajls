@@ -8,9 +8,11 @@ It can be used for tasks such as authentication, access control, logging.
 @pragma nostrip
 ]]
 
+local class = require('jls.lang.class')
+
 --- A HttpFilter class.
 -- @type HttpFilter
-return require('jls.lang.class').create(function(httpFilter)
+return class.create(function(httpFilter)
 
   --- Creates an HTTP filter.
   -- @tparam[opt] function fn a function that will be call to filter the HTTP exchange
@@ -48,14 +50,24 @@ end, function(HttpFilter)
     return true
   end
 
+  local MultipleHttpFilter = class.create(HttpFilter, function(filter)
+    function filter:initialize(...)
+      self.filters = {...}
+    end
+    function filter:addFilter(f)
+      table.insert(self.filters, f)
+      return self
+    end
+    function filter:doFilter(exchange)
+      return HttpFilter.filter(exchange, self.filters)
+    end
+  end)
+
   --- Returns a filter applying all the specified filters.
   -- @param ... the filters.
   -- @treturn HttpFilter a HttpFilter.
   function HttpFilter.multiple(...)
-    local filters = {...}
-    return HttpFilter:new(function(_, exchange)
-      return HttpFilter.filter(exchange, filters)
-    end)
+    return MultipleHttpFilter:new(...)
   end
 
   --- Creates a basic authentication filter.
