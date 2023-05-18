@@ -39,7 +39,7 @@ end, function(HttpFilter)
 
   --- Applies the specified filters in the specified order.
   -- @tparam HttpExchange exchange the HTTP exchange to filter
-  -- @param ... the filters.
+  -- @tparam table filters the filters.
   -- @treturn boolean false to indicate the request must not handled.
   function HttpFilter.filter(exchange, filters)
     for _, filter in ipairs(filters) do
