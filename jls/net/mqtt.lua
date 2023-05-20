@@ -8,11 +8,11 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
+local system = require('jls.lang.system')
 local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local List = require('jls.util.List')
 local strings = require('jls.util.strings')
-local hex = require('jls.util.hex')
 
 --[[
   mosquitto -v
@@ -151,7 +151,7 @@ local SUBSCRIBE_CODE = {
   FAILURE = 0x80,
 }
 
-local CLIENT_ID_PREFIX = 'JLS'..strings.formatInteger(require('jls.lang.system').currentTimeMillis(), 64)..'-'
+local CLIENT_ID_PREFIX = 'JLS'..strings.formatInteger(system.currentTimeMillis(), 64)..'-'
 local CLIENT_ID_UID = 0
 
 local function nextClientId()
@@ -178,9 +178,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
   end
 
   function mqttClientBase:onError(err)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('mqttClientBase:onError("'..tostring(err)..'") '..tostring(self.clientId))
-    end
+    logger:fine('mqttClientBase:onError("%s") %s', err, self.clientId)
   end
 
   function mqttClientBase:raiseError(reason)
@@ -189,22 +187,16 @@ local MqttClientBase = class.create(function(mqttClientBase)
   end
 
   function mqttClientBase:onPublish(topicName, payload, qos, retain, dup, packetId)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientBase:onPublish("'..tostring(topicName)..'", "'..tostring(payload)..'", dup: '..tostring(dup)..', qos: '..tostring(qos)..', retain: '..tostring(retain)..', packetId: '..tostring(packetId)..') '..tostring(self.clientId))
-    end
+    logger:finer('mqttClientBase:onPublish("%s", "%s", dup: %s, qos: %s, retain: %s, packetId: %s) %s', topicName, payload, dup, qos, retain, packetId, self.clientId)
   end
 
   function mqttClientBase:onReadPacket(packetType, packetFlags, data, offset, len)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientBase:onReadPacket('..tostring(packetType)..') '..tostring(self.clientId))
-    end
+    logger:finer('mqttClientBase:onReadPacket(%s) %s', packetType, self.clientId)
     if packetType == CONTROL_PACKET_TYPE.PUBLISH then
       local dup = packetFlags & 8 ~= 0
       local qos = (packetFlags >> 1) & 3
       local retain = packetFlags & 1 ~= 0
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('publish dup: '..tostring(dup)..', qos: '..tostring(qos)..', retain: '..tostring(retain))
-      end
+      logger:finer('publish dup: %s, qos: %s, retain: %s', dup, qos, retain)
       local topicName, packetId
       topicName, offset = decodeData(data, offset)
       if qos > 0 then
@@ -256,7 +248,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
             buffer = string.sub(buffer, 1, packetLength)
           end
           if logger:isLoggable(logger.FINEST) then
-            logger:finest('mqttClientBase:read '..tostring(self.clientId)..' "'..hex.encode(buffer)..'"')
+            logger:finest('mqttClientBase:read %s "%s"', self.clientId, require('jls.util.hex').encode(buffer))
           end
           self:onReadPacket(packetTypeAndFlags >> 4, packetTypeAndFlags & 0xf, buffer, offset, remainingLength)
           buffer = remainingBuffer
@@ -269,7 +261,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
 
   function mqttClientBase:write(data, callback)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('mqttClientBase:write() "'..hex.encode(data)..'"')
+      logger:finest('mqttClientBase:write() "%s"', require('jls.util.hex').encode(data))
     end
     local cb, d = Promise.ensureCallback(callback)
     self.tcpClient:write(data, function(err)
@@ -303,8 +295,8 @@ local MqttClientBase = class.create(function(mqttClientBase)
   -- Retain flag, will be delivered to future subscribers
   function mqttClientBase:publish(topicName, payload, qos, retain, dup, packetId, callback)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientBase:publish("'..tostring(topicName)..'", "'..tostring(payload)..'") '..tostring(self.clientId))
-      logger:finer('publish dup: '..tostring(dup)..', qos: '..tostring(qos)..', retain: '..tostring(retain)..', packetId: '..tostring(packetId))
+      logger:finer('mqttClientBase:publish("%s", "%s") %s', topicName, payload, self.clientId)
+      logger:finer('publish dup: %s, qos: %s, retain: %s, packetId: %s', dup, qos, retain, packetId)
     end
     qos = (qos or 0) & 3
     local packetFlags = (qos << 1)
@@ -417,15 +409,11 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
     elseif packetType == CONTROL_PACKET_TYPE.SUBACK then
       local packetId = decodeUInt16(data, offset)
       local returnCodes = table.pack(string.byte(data, offset + 2, len))
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('subscribed('..tostring(packetId)..', #'..tostring(#returnCodes)..')')
-      end
+      logger:finer('subscribed(%s, #%s)', packetId, #returnCodes)
       self:onPacketId(packetId, nil, returnCodes)
     elseif packetType == CONTROL_PACKET_TYPE.UNSUBACK then
       local packetId = decodeUInt16(data, offset)
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('unsubscribed('..tostring(packetId)..')')
-      end
+      logger:finer('unsubscribed(%s)', packetId)
       self:onPacketId(packetId)
     else
       super.onReadPacket(self, packetType, packetFlags, data, offset, len)
@@ -433,7 +421,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   end
 
   function mqttClient:onConnected(code, sessionPresent)
-    logger:fine('mqttClient:onConnected('..tostring(code)..', '..tostring(sessionPresent)..')')
+    logger:fine('mqttClient:onConnected(%s, %s)', code, sessionPresent)
   end
 
   function mqttClient:onPong()
@@ -465,15 +453,11 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam string topicName The name of the topic.
   -- @tparam string payload The message payload.
   function mqttClient:onMessage(topicName, payload)
-    if logger:isLoggable(logger.INFO) then
-      logger:info('mqttClient:onMessage("'..tostring(topicName)..'", "'..tostring(payload)..'")')
-    end
+    logger:info('mqttClient:onMessage("%s", "%s")', topicName, payload)
   end
 
   function mqttClient:onPublish(topicName, payload, qos, retain, dup, packetId)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClient:onPublish("'..tostring(topicName)..'", "'..tostring(payload)..'")')
-    end
+    logger:finer('mqttClient:onPublish("%s", "%s")', topicName, payload)
     self:onMessage(topicName, payload)
   end
 
@@ -505,9 +489,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam number qos The QoS.
   -- @return a promise that resolves once the message is sent.
   function mqttClient:subscribe(topicName, qos)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClient:subscribe("'..tostring(topicName)..'", '..tostring(qos)..')')
-    end
+    logger:finer('mqttClient:subscribe("%s", %s)', topicName, qos)
     local packetId = self:nextPacketId()
     local data = encodeUInt16(packetId)
     if type(topicName) == 'table' then
@@ -526,9 +508,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam string topicName The name of the topic.
   -- @return a promise that resolves once the message is sent.
   function mqttClient:unsubscribe(topicName)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClient:subscribe("'..tostring(topicName)..'")')
-    end
+    logger:finer('mqttClient:subscribe("%s")', topicName)
     local packetId = self:nextPacketId()
     local data = encodeUInt16(packetId)
     if type(topicName) == 'table' then
@@ -597,9 +577,7 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
 
   function mqttClientServer:onSubscribe(topicFilter, qos)
     local pattern = topicFilterToPattern(topicFilter)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientServer:onSubscribe("'..tostring(topicFilter)..'", qos: '..tostring(qos)..') "'..tostring(pattern)..'"')
-    end
+    logger:finer('mqttClientServer:onSubscribe("%s", qos: %s) "%s"', topicFilter, qos, pattern)
     table.insert(self.topics, {
       pattern = pattern,
       qos = qos
@@ -608,32 +586,24 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
 
   function mqttClientServer:onUnsubscribe(topicFilter)
     local pattern = topicFilterToPattern(topicFilter)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientServer:onUnsubscribe("'..tostring(topicFilter)..'") "'..tostring(pattern)..'"')
-    end
+    logger:finer('mqttClientServer:onUnsubscribe("%s") "%s"', topicFilter, pattern)
     List.removeIf(self.topics, function(topic)
       return topic.pattern == pattern
     end)
   end
 
   function mqttClientServer:onPublish(topicName, payload, qos, retain, dup, packetId)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientServer:onPublish("'..tostring(topicName)..'", "'..tostring(payload)..'", dup: '..tostring(dup)..', qos: '..tostring(qos)..', retain: '..tostring(retain)..')')
-    end
+    logger:finer('mqttClientServer:onPublish("%s", "%s", dup: %s, qos: %s, retain: %s)', topicName, payload, dup, qos, retain)
     self.server:publish(topicName, payload, qos, retain, dup, packetId)
   end
 
   function mqttClientServer:publish(topicName, payload, qos, retain, dup, packetId)
     local topic = self:findTopic(topicName)
     if topic then
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('mqttClientServer:publish("'..tostring(topicName)..'", "'..tostring(payload)..'") clientId: "'..tostring(self.clientId)..'"')
-      end
+      logger:finer('mqttClientServer:publish("%s", "%s") clientId: "%s"', topicName, payload, self.clientId)
       super.publish(self, topicName, payload, qos, retain, dup, packetId)
     else
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('mqttClientServer:publish("'..tostring(topicName)..'") clientId: "'..tostring(self.clientId)..'" topic not registered')
-      end
+      logger:finer('mqttClientServer:publish("%s") clientId: "%s" topic not registered', topicName, self.clientId)
     end
   end
 
@@ -645,13 +615,11 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
       local protocolLevel = string.byte(data, offset)
       local connectFlags = string.byte(data, offset + 1)
       self.keepAlive = decodeUInt16(data, offset + 2)
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('connect protocol: "'..tostring(protocolName)..'", level: '..tostring(protocolLevel)..', flags: '..tostring(connectFlags)..', keep alive: '..tostring(self.keepAlive)..'')
-      end
+      logger:finer('connect protocol: "%s", level: %s, flags: %s, keep alive: %s', protocolName, protocolLevel, connectFlags, self.keepAlive)
       self.clientId, offset = decodeData(data, offset + 4)
       if logger:isLoggable(logger.FINE) then
         local addr, port = self.tcpClient:getRemoteName()
-        logger:fine('New client connected from '..tostring(addr)..':'..tostring(port)..' as "'..tostring(self.clientId)..'"')
+        logger:fine('New client connected from %s:%s as "%s"', addr, port, self.clientId)
       end
       self.server:registerClient(self)
       local sessionPresent = false
@@ -688,9 +656,7 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
       self:unregisterClient()
       self:close()
     elseif packetType == CONTROL_PACKET_TYPE.PINGREQ then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('Ping from client "'..tostring(self.clientId)..'"')
-      end
+      logger:fine('Ping from client "%s"', self.clientId)
       self:writePacket(CONTROL_PACKET_TYPE.PINGRESP)
     else
       super.onReadPacket(self, packetType, packetFlags, data, offset, len)
@@ -762,9 +728,7 @@ local MqttServer = class.create(function(mqttServer)
   end
 
   function mqttServer:publish(topicName, payload, qos, retain, dup, packetId)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttServer:publish("'..tostring(topicName)..'", "'..tostring(payload)..'")')
-    end
+    logger:finer('mqttServer:publish("%s", "%s")', topicName, payload)
     for _, client in pairs(self.clients) do
       client:publish(topicName, payload, qos, retain, dup, packetId)
     end
