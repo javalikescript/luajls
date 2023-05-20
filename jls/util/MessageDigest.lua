@@ -71,7 +71,17 @@ end, function(MessageDigest)
   -- @tparam string alg The name of the algorithm.
   -- @return The MessageDigest class
   function MessageDigest.getMessageDigest(alg)
-    return require('jls.util.md.'..string.lower(string.gsub(alg, '[%s%-]', '')))
+    local a = string.lower(string.gsub(alg, '[%s%-]', ''))
+    local status, m
+    status, m = pcall(require, 'jls.util.md.'..a)
+    if status then
+      return m
+    end
+    status, m = pcall(MessageDigest.fromOpenssl, a)
+    if status then
+      return m
+    end
+    error('Algorithm "'..alg..'" not found')
   end
 
   --- Creates a new MessageDigest.
@@ -85,10 +95,10 @@ end, function(MessageDigest)
   end
 
   function MessageDigest.fromOpenssl(alg)
-    local opensslLib = require('openssl') -- fail quickly if not available
+    local mdc = assert(require('openssl').digest.get(alg)) -- fail quickly if not available
     return class.create(MessageDigest, function(md)
       function md:initialize()
-        self.md = opensslLib.digest.new(alg)
+        self.md = mdc:new()
       end
       function md:update(m)
         self.md:update(m)
