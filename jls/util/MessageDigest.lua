@@ -4,6 +4,24 @@
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
+local StreamHandler = require('jls.io.StreamHandler')
+
+local DigestStreamHandler = class.create(StreamHandler, function(digestStreamHandler, super)
+  function digestStreamHandler:initialize(md)
+    super.initialize(self)
+    self.md = md
+  end
+  function digestStreamHandler:digest()
+    return self._digest
+  end
+  function digestStreamHandler:onData(data)
+    if data then
+      self.md:update(data)
+    elseif not self._digest then
+      self._digest = self.md:digest()
+    end
+  end
+end)
 
 --- The MessageDigest class.
 -- The MessageDigest class provides access to algorithms that compute message digest or hash from any string or message.
@@ -92,6 +110,10 @@ end, function(MessageDigest)
   --md:update('The quick brown fox jumps over the lazy dog'):digest()
   function MessageDigest.getInstance(alg, ...)
     return MessageDigest.getMessageDigest(alg):new(...)
+  end
+
+  function MessageDigest.decodeStream(alg, ...)
+    return DigestStreamHandler:new(MessageDigest.getInstance(alg, ...))
   end
 
   function MessageDigest.fromOpenssl(alg)

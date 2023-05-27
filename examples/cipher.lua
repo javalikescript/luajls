@@ -5,6 +5,7 @@ local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local tables = require('jls.util.tables')
 local Codec = require('jls.util.Codec')
+local hex = Codec.getInstance('hex')
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
@@ -50,6 +51,17 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'boolean',
         default = false
       },
+      digest = {
+        title = 'Digest input rather than cipher',
+        type = 'boolean',
+        default = false
+      },
+      encoding = {
+        title = 'The output encoding',
+        type = 'string',
+        default = 'none',
+        enum = {'none', 'base64', 'hex'},
+      },
       decode = {
         title = 'Enables decoding',
         type = 'boolean',
@@ -65,6 +77,12 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'boolean',
         default = false
       },
+      iv = {
+        title = 'The initial vector in hexadecimal',
+        type = 'string',
+        pattern = '^%x+$',
+        default = '0'
+      },
       offset = {
         title = 'The start offset',
         type = 'integer',
@@ -79,9 +97,8 @@ local options = tables.createArgumentTable(system.getArguments(), {
         default = false
       },
       alg = {
-        title = 'The cipher algorithm',
+        title = 'The algorithm',
         type = 'string',
-        default = 'aes-128-ctr',
       },
       key = {
         title = 'The secret key',
@@ -102,8 +119,9 @@ logger:setLevel(options.loglevel)
 
 if options.list then
   local opensslLib = require('openssl')
-  print('Cipher algorithms:')
-  for _, v in pairs(opensslLib.cipher.list()) do
+  local libKey = options.digest and 'digest' or 'cipher'
+  print(libKey..' algorithms:')
+  for _, v in pairs(opensslLib[libKey].list()) do
     print('', v)
   end
   os.exit(0)
@@ -122,14 +140,11 @@ if not options.file then
   os.exit(1)
 end
 
-local cipher = Codec.getInstance('cipher', options.alg, options.key)
-
 local inFile = File:new(options.file)
 if not inFile:exists() then
   print('The input file does not exist', inFile:getPath())
   os.exit(1)
 end
-
 local offset = options.offset
 local length = options.length
 if offset or length then
@@ -139,7 +154,6 @@ end
 if length and length < 0 then
   length = inFile:length() - offset
 end
-
 local sh
 if options.out then
   local outFile = File:new(options.out)
@@ -147,18 +161,41 @@ if options.out then
 else
   sh = StreamHandler.std
 end
-local o, l = offset, length
-if options.part then
-  if options.decode then
-    sh, o, l = cipher:decodeStreamPart(sh, nil, offset, length)
-  elseif options.encode then
-    sh = cipher:encodeStreamPart(sh)
-  end
+if options.encoding ~= 'none' then
+  local codec = Codec.getInstance(options.encoding)
+  sh = codec:encodeStream(sh)
+end
+
+if options.digest then
+  local MessageDigest = require('jls.util.MessageDigest')
+  local md = MessageDigest.getInstance(options.alg or 'md5')
+  local osh = sh
+  sh = StreamHandler:new(function(err, data)
+    if err then
+      error(err)
+    end
+    if data then
+      md:update(data)
+    else
+      osh:onData(md:digest())
+    end
+  end)
 else
-  if options.decode then
-    sh = cipher:decodeStream(sh)
-  elseif options.encode then
-    sh = cipher:encodeStream(sh)
+  local cipher = Codec.getInstance('cipher', options.alg, options.key)
+  if options.part then
+    local iv = hex:decode(options.iv)
+    if options.decode then
+      sh, offset, length = cipher:decodeStreamPart(sh, iv, offset, length)
+    elseif options.encode then
+      sh = cipher:encodeStreamPart(sh, iv)
+    end
+  else
+    if options.decode then
+      sh = cipher:decodeStream(sh)
+    elseif options.encode then
+      sh = cipher:encodeStream(sh)
+    end
   end
 end
-FileStreamHandler.readSync(inFile, sh, o, l)
+
+FileStreamHandler.readSync(inFile, sh, offset, length)
