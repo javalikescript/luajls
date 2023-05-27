@@ -489,7 +489,7 @@ local function createCertificate(options)
   local serialNumber = options.serialNumber
   if not serialNumber then
     local d = os.date('*t', time)
-    serialNumber = math.random(0xffffffff) * 0x10000 + d.year * 12 + d.month
+    serialNumber = math.random(0, 0xffffffff) * 0x10000 + d.year * 12 + d.month
   end
   local cacert = opensslLib.x509.new(serialNumber, req)
   local duration = options.duration or (3600 * 24 * (365 + 31)) -- one year

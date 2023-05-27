@@ -29,7 +29,7 @@ return class.create('jls.net.http.HttpFilter', function(filter)
   function filter:generateId()
     local sessionId
     repeat
-      sessionId = string.format('%012x-%08x', math.random(0xffffffffffff), self.id)
+      sessionId = string.format('%012x-%08x', math.random(0, 0xffffffffffff), self.id)
     until not self.sessions[sessionId]
     return sessionId
   end

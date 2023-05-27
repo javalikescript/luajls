@@ -66,7 +66,7 @@ local function randomChars(len)
 end
 
 local function generateMask()
-  return string_char(math_random(1, 255), math_random(1, 255), math_random(1, 255), math_random(1, 255))
+  return string_char(math_random(255), math_random(255), math_random(255), math_random(255))
 end
 
 local function applyMask(mask, payload)
