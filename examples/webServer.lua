@@ -278,9 +278,11 @@ end
 
 if config.cipher and config.cipher.enabled then
   local SessionHttpFilter = require('jls.net.http.filter.SessionHttpFilter')
-  local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
+  local FileDescriptor = require('jls.io.FileDescriptor')
   local Codec = require('jls.util.Codec')
   local base64 = Codec.getInstance('base64', 'safe', false)
+  local headerFormat = '>c2I8I8'
+  local headerSize = string.packsize(headerFormat)
   local extension = config.cipher.extension
   httpServer:addFilter(SessionHttpFilter:new())
   httpServer:createContext(config.cipher.path, function(exchange)
@@ -311,145 +313,152 @@ function setKey(key) {
 </script>
 <a href="#" onclick="setKey(window.prompt('Enter the new cipher key?'))" title="Set the cipher key">[&#x1F511;]</a>
 ]])
-  local function generateEncName(mdCipher, md)
-    local plain = strings.encodeVariableByteInteger(md.size)..md.name
-    return base64:encode(mdCipher:encode(plain))..'.'..extension
+  local function generateEncName(mdCipher, name)
+    -- the same plain name must result to the same encoded name
+    return base64:encode(mdCipher:encode(name))..'.'..extension
   end
-  local function readEncFileMetadata(mdCipher, encFile, full)
-    local name = string.sub(encFile:getName(), 1, -(#extension + 2))
-    local content = base64:decodeSafe(name)
-    if content then
-      local plain = mdCipher:decodeSafe(content)
-      if plain then
-        local size, offset = strings.decodeVariableByteInteger(plain)
-        if size then
-          local md = {
-            name = string.sub(plain, offset),
-            size = size,
+  local function readEncFileMetadata(mdCipher, encFile)
+    local parts = strings.split(encFile:getName(), '.', true)
+    if #parts == 2 and parts[2] == extension then
+      local cname = base64:decodeSafe(parts[1])
+      if cname then
+        local name = mdCipher:decodeSafe(cname)
+        if name then
+          return {
+            name = name,
+            size = encFile:length() - headerSize, -- possibly incorrect
             time = encFile:lastModified(),
-          }
-          if full then
-            md.encFile = encFile
-          end
-          return md
+          } -- we could read the header to check the signature and get the size
         end
       end
     end
   end
   local function getEncFileMetadata(mdCipher, file, full)
     local dir = file:getParentFile()
-    if dir and dir:isDirectory() then
+    if dir then
       local name = file:getName()
-      for _, f in ipairs(dir:listFiles()) do
-        if f:getExtension() == extension then
-          local md = readEncFileMetadata(mdCipher, f, full)
-          if md and md.name == name then
-            return md
+      local encFile = File:new(dir, generateEncName(mdCipher, name))
+      if encFile:isFile() then
+        local md = {
+          name = name,
+          time = encFile:lastModified(),
+          encFile = encFile,
+        }
+        if not full then
+          return md
+        end
+        local fd = FileDescriptor.openSync(encFile, 'r')
+        if fd then
+          local header = fd:readSync(headerSize)
+          fd:closeSync()
+          if header then
+            local sig, size, salt = string.unpack(headerFormat, header)
+            if sig == 'EC' then
+              md.size = size
+              md.salt = salt
+              return md
+            end
           end
         end
       end
     end
+  end
+  local function getIv(salt, ctr)
+    return string.pack('>I8I8', salt, ctr or 0)
   end
 
   local fs = handler:getFileSystem()
   handler:setFileSystem({
     getFileMetadata = function(exchange, file)
       local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if file:isDirectory() or not mdCipher then
-        return fs.getFileMetadata(exchange, file)
+      if mdCipher and not file:isDirectory() then
+        return getEncFileMetadata(mdCipher, file, true)
       end
-      return getEncFileMetadata(mdCipher, file, true)
+      return fs.getFileMetadata(exchange, file)
     end,
     listFileMetadata = function(exchange, dir)
       local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if not mdCipher then
-        return fs.listFileMetadata(exchange, dir)
-      end
-      local files = {}
-      for _, file in ipairs(dir:listFiles()) do
-        local md
-        if file:isDirectory() then
-          md = fs.getFileMetadata(exchange, file)
-          md.name = file:getName()
-        elseif file:getExtension() == extension then
-          md = readEncFileMetadata(mdCipher, file)
+      if mdCipher and dir:isDirectory() then
+        local files = {}
+        for _, file in ipairs(dir:listFiles()) do
+          local md
+          if file:isDirectory() then
+            md = fs.getFileMetadata(exchange, file)
+            md.name = file:getName()
+          else
+            md = readEncFileMetadata(mdCipher, file)
+          end
+          if md then
+            table.insert(files, md)
+          end
         end
-        if md then
-          table.insert(files, md)
-        end
+        return files
       end
-      return files
+      return fs.listFileMetadata(exchange, dir)
     end,
     createDirectory = fs.createDirectory,
     copyFile = function(exchange, file, destFile)
       local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if file:isDirectory() or not mdCipher then
-        return fs.copyFile(exchange, file, destFile)
+      if mdCipher then
+        local md = getEncFileMetadata(mdCipher, file)
+        if md then
+          file = md.encFile
+          destFile = File:new(destFile:getParent(), generateEncName(mdCipher, destFile:getName()))
+        end
       end
-      local md = getEncFileMetadata(mdCipher, file, true)
-      if md then
-        md.name = destFile:getName()
-        local encFile = File:new(destFile:getParent(), generateEncName(mdCipher, md))
-        return fs.copyFile(exchange, md.encFile, encFile)
-      end
+      return fs.copyFile(exchange, file, destFile)
     end,
     renameFile = function(exchange, file, destFile)
       local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if file:isDirectory() or not mdCipher then
-        return fs.renameFile(exchange, file, destFile)
+      if mdCipher then
+        local md = getEncFileMetadata(mdCipher, file)
+        if md then
+          return md.encFile:renameTo(File:new(file:getParent(), generateEncName(mdCipher, destFile:getName())))
+        end
       end
-      local md = getEncFileMetadata(mdCipher, file, true)
-      if md then
-        md.name = destFile:getName()
-        return md.encFile:renameTo(File:new(file:getParent(), generateEncName(mdCipher, md)))
-      end
+      return fs.renameFile(exchange, file, destFile)
     end,
     deleteFile = function(exchange, file, recursive)
       local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if file:isDirectory() or not mdCipher then
-        return fs.deleteFile(exchange, file, recursive)
+      if mdCipher then
+        local md = getEncFileMetadata(mdCipher, file)
+        if md then
+          file = md.encFile
+        end
       end
-      local md = getEncFileMetadata(mdCipher, file, true)
-      if md then
-        return fs.deleteFile(exchange, md.encFile, recursive)
-      end
-      return true
+      return fs.deleteFile(exchange, file, recursive)
     end,
     setFileStreamHandler = function(exchange, file, sh, md, offset, length)
       local cipher = exchange:getSession():getAttribute('cipher')
-      logger:fine('setFileStreamHandler('..tostring(offset)..', '..tostring(length)..')')
-      if cipher and md and md.encFile then
-        file = md.encFile
-        -- curl -o file -r 0- http://localhost:8000/file
-        sh, offset, length = cipher:decodeStreamPart(sh, nil, offset, length)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('cipher.decodeStreamPart() => '..tostring(offset)..', '..tostring(length))
+      logger:fine('setFileStreamHandler(..., %s, %s)', offset, length)
+      if cipher then
+        if not (md and md.encFile and md.salt) then
+          error('metadata are missing')
         end
+        -- curl -o file -r 0- http://localhost:8000/file
+        sh, offset, length = cipher:decodeStreamPart(sh, getIv(md.salt), offset, length)
+        logger:fine('cipher:decodeStreamPart(0x%x) => %s, %s', md.salt, offset, length)
+        offset = headerSize + (offset or 0)
+        file = md.encFile
       end
       fs.setFileStreamHandler(exchange, file, sh, md, offset, length)
     end,
-    getFileStreamHandler = function(exchange, file, time)
+    getFileStreamHandler = function(exchange, file, ...)
       local cipher = exchange:getSession():getAttribute('cipher')
       local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if not cipher or not mdCipher then
-        return fs.getFileStreamHandler(exchange, file, time)
+      if cipher and mdCipher then
+        local size = exchange:getRequest():getContentLength()
+        if not size then
+          error('content length is missing')
+        end
+        local encFile = File:new(file:getParent(), generateEncName(mdCipher, file:getName()))
+        local sh = fs.getFileStreamHandler(exchange, encFile, ...)
+        local salt = math.random(0, 0xffffffff)
+        sh:onData(string.pack(headerFormat, 'EC', size, salt))
+        logger:fine('cipher:encodeStreamPart(%d, 0x%x)', size, salt)
+        return cipher:encodeStreamPart(sh, getIv(salt))
       end
-      local size = exchange:getRequest():getContentLength()
-      local md = {
-        name = file:getName(),
-        size = size or 0,
-      }
-      local encFile = File:new(file:getParent(), generateEncName(mdCipher, md))
-      local sh = fs.getFileStreamHandler(exchange, encFile, time)
-      if not size then
-        sh = PromiseStreamHandler:new(sh)
-        sh:getPromise():next(function(s)
-          logger:fine('getFileStreamHandler('..file:getName()..') size: '..tostring(size))
-          md.size = s
-          encFile:renameTo(File:new(file:getParent(), generateEncName(mdCipher, md)))
-        end)
-      end
-      return cipher:encodeStreamPart(sh)
+      return fs.getFileStreamHandler(exchange, file, ...)
     end,
   })
 end
@@ -466,7 +475,7 @@ if config.websocket.enabled then
   local WebSocket = require('jls.net.http.WebSocket')
   local websockets = {}
   local function onWebSocketClose(webSocket)
-    logger:fine('WebSocket closed '..tostring(webSocket))
+    logger:fine('WebSocket closed (%s)', webSocket)
     List.removeFirst(websockets, webSocket)
   end
   httpServer:createContext(config.websocket.path, Map.assign(WebSocket.UpgradeHandler:new(), {
@@ -499,15 +508,15 @@ if config.secure.enabled then
     local pkeyPem  = pkey:export('pem')
     certFile:write(cacertPem)
     pkeyFile:write(pkeyPem)
-    logger:info('Generate certificate '..certFile:getPath()..' and associated private key '..pkeyFile:getPath())
+    logger:info('Generate certificate %s and associated private key %s', certFile:getPath(), pkeyFile:getPath())
   else
     local cert = secure.readCertificate(certFile:readAll())
     local isValid, notbefore, notafter = cert:validat()
     local notafterDate = Date:new(notafter:get() * 1000)
     local notafterText = notafterDate:toISOString(true)
-    logger:info('Using certificate '..certFile:getPath()..' valid until '..notafterText)
+    logger:info('Using certificate %s valid until %s', certFile:getPath(), notafterText)
     if not isValid then
-      logger:warn('The certificate is no more valid since '..notafterText)
+      logger:warn('The certificate is no more valid since %s', notafterText)
     end
   end
 
@@ -516,13 +525,13 @@ if config.secure.enabled then
     key = pkeyFile:getPath()
   })
   httpSecureServer:bind(config['bind-address'], config.secure.port):next(function()
-    logger:info('HTTPS bound to "'..tostring(config['bind-address'])..'" on port '..tostring(config.secure.port))
+    logger:info('HTTPS bound to "%s" on port %d', config['bind-address'], config.secure.port)
     stopPromise:next(function()
       logger:info('Closing HTTP secure server')
       httpSecureServer:close()
     end)
   end, function(err)
-    logger:warn('Cannot bind HTTP to "'..tostring(config['bind-address'])..'" on port '..tostring(config.secure.port)..' due to '..tostring(err))
+    logger:warn('Cannot bind HTTP to "%s" on port %d due to %s', config['bind-address'], config.secure.port, err)
   end)
   httpSecureServer:setParent(httpServer)
 end
