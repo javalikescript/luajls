@@ -72,18 +72,20 @@ function stopEvent(e) {
   e.stopPropagation();
 } 
 function putFiles(files) {
-  files = Array.prototype.slice.call(files);
-  Promise.all(files.map(function(file) {
-    return fetch(file.name, {
-      method: "PUT",
-      headers: {
-        "jls-last-modified": file.lastModified
-      },
-      body: file
+  if (files && files.length > 0) {
+    files = Array.prototype.slice.call(files);
+    Promise.all(files.map(function(file) {
+      return fetch(file.name, {
+        method: "PUT",
+        headers: {
+          "jls-last-modified": file.lastModified
+        },
+        body: file
+      });
+    })).then(function() {
+      window.location.reload();
     });
-  })).then(function() {
-    window.location.reload();
-  });
+  }
 }
 if (window.File && window.FileReader && window.FileList && window.Blob) {
   document.addEventListener("dragover", stopEvent);
@@ -206,7 +208,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   end
 
   function fileHttpHandler:appendFileHtmlBody(buffer, file)
-    buffer:append('<a href="', Url.encodeURIComponent(file.name))
+    buffer:append('<a href="', Url.encodeURIComponent(file.link or file.name))
     if file.isDir then
       buffer:append('/')
     end
@@ -257,7 +259,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       response:setContentType(HttpExchange.CONTENT_TYPES.json)
     else
       local buffer = StringBuffer:new()
-      buffer:append('<html><head><meta charset="UTF-8">\n')
+      buffer:append('<!DOCTYPE html><html><head><meta charset="UTF-8">\n')
       buffer:append(DIRECTORY_STYLE)
       local bodyAtttributes = ''
       if self.allowCreate then
@@ -320,9 +322,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         response:setStatusCode(HTTP_CONST.HTTP_PARTIAL_CONTENT, 'Partial')
         response:setContentLength(length)
         local contentRange = 'bytes '..tostring(offset)..'-'..tostring(offset + length - 1)..'/'..tostring(md.size)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('Content-Range: '..contentRange..', from Range: '..range)
-        end
+        logger:fine('Content-Range: %s, from Range: %s', contentRange, range)
         response:setHeader('Content-Range', contentRange)
       end
       response:onWriteBodyStreamHandler(function()
@@ -425,7 +425,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     local readOnly = method == HTTP_CONST.METHOD_GET or method == HTTP_CONST.METHOD_HEAD
     local file = self:findFile(exchange, filePath, readOnly)
     if logger:isLoggable(logger.FINE) then
-      logger:fine('fileHttpHandler method is "'..method..'" file is "'..file:getPath()..'"')
+      logger:fine('fileHttpHandler method is "%s" file is "%s"', method, file:getPath())
     end
     return self:handleFile(exchange, file, isDirectoryPath)
   end
