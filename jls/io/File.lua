@@ -239,18 +239,18 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   end
 
   function file:forEachFile(fn, recursive, filter)
-    if not self:isDirectory() then
-      return
-    end
-    for _, f in ipairs(self:listFiles()) do
-      local r
-      if recursive and f:isDirectory() then
-        r = f:forEachFile(fn, recursive, filter)
-      elseif not filter or filter(f) then
-        r = fn(self, f)
-      end
-      if r then
-        return r
+    local files = self:listFiles()
+    if files then
+      for _, f in ipairs(files) do
+        local r
+        if recursive and f:isDirectory() then
+          r = f:forEachFile(fn, recursive, filter)
+        elseif not filter or filter(f) then
+          r = fn(self, f)
+        end
+        if r then
+          return r
+        end
       end
     end
   end
