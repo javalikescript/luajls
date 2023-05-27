@@ -315,7 +315,7 @@ function setKey(key) {
 ]])
   local function generateEncName(mdCipher, name)
     -- the same plain name must result to the same encoded name
-    return base64:encode(mdCipher:encode(name))..'.'..extension
+    return base64:encode(mdCipher:encode('\7'..name))..'.'..extension
   end
   local function readEncFileMetadata(mdCipher, encFile)
     local parts = strings.split(encFile:getName(), '.', true)
@@ -323,9 +323,9 @@ function setKey(key) {
       local cname = base64:decodeSafe(parts[1])
       if cname then
         local name = mdCipher:decodeSafe(cname)
-        if name then
+        if name and string.byte(name, 1) == 7 then
           return {
-            name = name,
+            name = string.sub(name, 2),
             size = encFile:length() - headerSize, -- possibly incorrect
             time = encFile:lastModified(),
           } -- we could read the header to check the signature and get the size
@@ -545,11 +545,13 @@ if config.stop.enabled then
   end)
   table.insert(htmlHeaders, [[<script>
 function stopServer() {
-  fetch(']]..config.stop.path..[[', {
-    method: "POST"
-  }).then(function() {
-    window.location = 'about:blank';
-  });
+  if (window.confirm('Stop the server?')) {
+    fetch(']]..config.stop.path..[[', {
+      method: "POST"
+    }).then(function() {
+      document.body.innerHTML = '<p>bye</p>';
+    });
+  }
 }
 </script>
 <a href="#" onclick="stopServer()" title="Stop the server">[&#x2715;]</a>

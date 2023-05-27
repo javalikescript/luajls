@@ -15,6 +15,9 @@ local Date = require('jls.util.Date')
 local json = require('jls.util.json')
 
 local DIRECTORY_STYLE = [[<style>
+body {
+  font-family: system-ui, sans-serif;
+}
 a {
   text-decoration: none;
   color: inherit;
@@ -74,6 +77,7 @@ function stopEvent(e) {
 function putFiles(files) {
   if (files && files.length > 0) {
     files = Array.prototype.slice.call(files);
+    document.body.innerHTML = '<p>in progress...</p>';
     Promise.all(files.map(function(file) {
       return fetch(file.name, {
         method: "PUT",
