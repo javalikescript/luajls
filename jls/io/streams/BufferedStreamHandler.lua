@@ -28,6 +28,9 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function bufferedStreamHandler:getBuffer()
+    if self.err then
+      return nil, self.err
+    end
     return self.buffer:toString()
   end
 
@@ -43,6 +46,14 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
       end
       return self.handler:onData(nil)
     end
+  end
+
+  function bufferedStreamHandler:onError(err)
+    logger:fine('buffered stream handler on error due to %s', err)
+    if not self.err then
+      self.err = err
+    end
+    self.handler:onError(err)
   end
 
 end)

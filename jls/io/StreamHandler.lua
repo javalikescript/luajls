@@ -34,6 +34,7 @@ end)
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
+local logger = require('jls.lang.logger')
 
 local function onDataCallback(self, ...)
   return self.cb(nil, ...)
@@ -77,6 +78,7 @@ local StreamHandler = class.create(function(streamHandler)
   --- The specified error occured on this stream.
   -- @param err the error that occured on this stream.
   function streamHandler:onError(err)
+    logger:warn('stream handler on error due to %s', err)
   end
 
   --- Closes this stream handler.
@@ -311,6 +313,6 @@ StreamHandler.std = StreamHandler:new(function(err, data)
 end)
 
 --- The null stream.
-StreamHandler.null = StreamHandler:new()
+StreamHandler.null = StreamHandler:new(class.emptyFunction, class.emptyFunction)
 
 return StreamHandler

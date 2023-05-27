@@ -94,8 +94,15 @@ end, function(FileStreamHandler)
 
   FileStreamHandler.DEFAULT_BLOCK_SIZE = 4096
 
+  -- Reads the specified file descriptor using the stream handler.
+  -- @param fd The file descriptor to read.
+  -- @param stream The stream handler to use with the file content.
+  -- @tparam[opt] number offset The offset.
+  -- @tparam[opt] number length The length to read.
+  -- @tparam[opt] number size The read block size.
+  -- @return a promise that resolves once the file has been fully read.
   local function readFd(fd, sh, offset, length, size, callback)
-    --logger:info('readFd(?, ?, '..tostring(offset)..', '..tostring(length)..', '..tostring(size)..')')
+    logger:finer('readFd(?, ?, %s, %s, %s)', offset, length, size)
     local cb, d = Promise.ensureCallback(callback)
     if not size then
       size = FileStreamHandler.DEFAULT_BLOCK_SIZE
@@ -131,9 +138,7 @@ end, function(FileStreamHandler)
               r:next(function()
                 fd:read(size, offset, readCallback)
               end, function(reason)
-                if logger:isLoggable(logger.FINE) then
-                  logger:fine('readCallback() onData() error, '..tostring(reason))
-                end
+                logger:fine('readCallback() onData() error, %s', reason)
                 sh:onError(reason)
                 cb(reason)
               end)
@@ -198,9 +203,7 @@ end, function(FileStreamHandler)
       else
         local r = sh:onData(data)
         if Promise:isInstance(r) then
-          if logger:isLoggable(logger.WARN) then
-            logger:fine('readFdSync() unsupported onData() promise return')
-          end
+          logger:warn('readFdSync() unsupported onData() promise return')
         end
         if data then
           local l = #data

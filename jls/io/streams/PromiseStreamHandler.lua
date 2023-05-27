@@ -6,7 +6,7 @@ local Promise = require('jls.lang.Promise')
 local StreamHandler = require('jls.io.StreamHandler')
 
 -- A PromiseStreamHandler class.
--- This class provides a promise that resolves once the stream is closed.
+-- This class provides a promise that resolves once the stream ended.
 -- @type PromiseStreamHandler
 return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(promiseStreamHandler, super)
 
@@ -34,7 +34,13 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     if data then
       self.size = self.size + #data
     else
-      self.promiseCallback(nil, self.size)
+      if Promise:isInstance(result) then
+        result:next(function()
+          self.promiseCallback(nil, self.size)
+        end)
+      else
+        self.promiseCallback(nil, self.size)
+      end
     end
     return result
   end
