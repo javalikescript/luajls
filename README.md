@@ -76,6 +76,11 @@ Lua, luajls and all the dependencies are available in the [Lua C libraries repos
 
 As luajls is composed of Lua modules, you need to adapt the environment variables *LUA_PATH* and *LUA_CPATH* to include the luajls home directory.
 
+luajls is available on winget 
+```sh
+winget install luajls
+```
+
 luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescript/luajls).
 
 
