@@ -31,13 +31,29 @@ function Test_encode_decode()
   assertEncodeDecode(chars(128), 'aes-128-ctr', 'secret')
 end
 
+function Test_decode_stream_error()
+  local cipher = Codec.getInstance('cipher', 'aes128', 'secret')
+  local bsh = BufferedStreamHandler:new()
+  local esh = cipher:encodeStream(bsh)
+  BufferedStreamHandler.fill(esh, 'Hi')
+  local es = assert(bsh:getBuffer())
+
+  bsh:getStringBuffer():clear()
+  cipher = Codec.getInstance('cipher', 'aes128', 'secret2')
+  local dsh = cipher:decodeStream(bsh)
+  BufferedStreamHandler.fill(dsh, es)
+  local ds, err = bsh:getBuffer()
+  lu.assertNil(ds)
+  lu.assertEquals(err, 'bad decrypt')
+end
+
 function Test_encode_decode_stream()
   local function assertEncodeDecode(s, alg, key)
     local cipher = Codec.getInstance('cipher', alg, key)
     local bsh = BufferedStreamHandler:new()
     local esh = cipher:encodeStream(bsh)
     BufferedStreamHandler.fill(esh, s)
-    local es = bsh:getBuffer()
+    local es = assert(bsh:getBuffer())
     bsh:getStringBuffer():clear()
     local dsh = cipher:decodeStream(bsh)
     BufferedStreamHandler.fill(dsh, es)
@@ -45,14 +61,21 @@ function Test_encode_decode_stream()
     --print('encoded size is '..tostring(#es)..'/'..tostring(#s))
     lu.assertEquals(ds, s)
   end
-  assertEncodeDecode('')
-  assertEncodeDecode('!')
-  assertEncodeDecode('Hi')
-  assertEncodeDecode('Hello world !')
-  assertEncodeDecode(chars(16))
-  assertEncodeDecode(chars(128))
-  assertEncodeDecode(chars(2000))
-  assertEncodeDecode(chars(128), 'aes-128-ctr', 'secret')
+  local values = {
+    '',
+    '!',
+    'Hi',
+    'Hello world !',
+    chars(16),
+    chars(128),
+    chars(2000),
+  }
+  for _, value in ipairs(values) do
+    assertEncodeDecode(value)
+  end
+  for _, value in ipairs(values) do
+    assertEncodeDecode(value, 'aes-128-ctr', 'secret')
+  end
 end
 
 function Test_encode_decode_stream_part()
