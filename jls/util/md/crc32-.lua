@@ -62,6 +62,7 @@ return require('jls.lang.class').create('jls.util.MessageDigest', function(crc32
 
   function crc32:reset()
     self.value = MAX
+    return self
   end
 
   function crc32:getAlgorithm()
