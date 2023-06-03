@@ -70,7 +70,7 @@ function system.getArguments()
   if not system.arguments then
     local shiftArguments = require('jls.lang.shiftArguments')
     if win32Lib then
-      system.arguments = shiftArguments(table.pack(win32Lib.GetCommandLineArguments()))
+      system.arguments = shiftArguments({win32Lib.GetCommandLineArguments()})
     elseif not arg and process and type(process.argv) == 'table' then
       system.arguments = shiftArguments(process.argv, 1)
     else
