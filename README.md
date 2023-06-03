@@ -1,3 +1,16 @@
+<div align="center">
+
+•
+[User manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md)
+•
+[API documentation](https://javalikescript.github.io/luajls/)
+•
+[Download binaries](https://github.com/javalikescript/luajls/releases/latest)
+•
+
+</div>
+
+
 ## What is luajls?
 
 luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.org/) applications.
@@ -67,7 +80,7 @@ event:loop()
 
 Just drop the *jls* folder in your Lua path.
 
-The only required dependency is Lua 5.4.
+The only required dependency is Lua.
 Optional dependencies are C-based or plain Lua modules such as *luafilesystem*, *luasocket*, *luv*, *lua-openssl*, *lua-cjson*.
 By example, the file system manipulation requires one of the *luafilesystem* or the *luv* dependent module.
 The recommended dependency is *luv* as it will provide you a uniform support of the *io*, *lang* and *net* packages.
@@ -82,6 +95,13 @@ winget install luajls
 ```
 
 luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescript/luajls).
+
+
+## What are the supported Lua versions?
+
+The only fully supported version is the latest, currently Lua 5.4.
+
+In order to support the majority of Lua engines, an effort is made to provide a good level of compatibility for Lua 5.1 and LuaJIT.
 
 
 ## What do you want to do?
