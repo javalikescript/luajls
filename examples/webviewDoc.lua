@@ -1,4 +1,5 @@
 local event = require('jls.lang.event')
+local system = require('jls.lang.system')
 local File = require('jls.io.File')
 local WebView = require('jls.util.WebView')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
@@ -53,7 +54,7 @@ for i, frame in ipairs(frames) do
 end
 contentBody = contentBody..'</div><iframe name="iframe" src="docs/index.html"></iframe></body>'
 
-local scriptFile = File:new(arg[0]):getAbsoluteFile()
+local scriptFile = File:new(system.getArguments()[0]):getAbsoluteFile()
 if not scriptFile:exists() then
   local filename = package.searchpath('examples.webviewDoc', package.path)
   if filename then

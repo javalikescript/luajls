@@ -465,7 +465,7 @@ end
 
 httpServer:createContext('/?(.*)', handler)
 
-local scriptDir = File:new(arg[0] or './na.lua'):getAbsoluteFile():getParentFile()
+local scriptDir = File:new(system.getArguments()[0] or './na.lua'):getAbsoluteFile():getParentFile()
 local faviconFile = File:new(scriptDir, 'favicon.ico')
 httpServer:createContext('/favicon.ico', function(exchange)
   HttpExchange.ok(exchange, faviconFile:readAll(), FileHttpHandler.guessContentType(faviconFile:getName()))
