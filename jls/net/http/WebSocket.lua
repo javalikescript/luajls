@@ -1,4 +1,4 @@
---- This module provides classes to work with WebSocket.
+--- Provides WebSocket client and upgrade handler.
 --
 -- see [WebSocket Protocol](https://datatracker.ietf.org/doc/html/rfc6455)
 --

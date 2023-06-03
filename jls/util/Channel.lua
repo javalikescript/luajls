@@ -1,5 +1,5 @@
 --[[--
-Provide the Channel class.
+Allows to send and receive messages.
 
 Provides a local message passing interface suitable for process and thread event based message passing.
 

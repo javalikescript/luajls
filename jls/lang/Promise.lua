@@ -402,6 +402,8 @@ or raises an error with the rejection reason if the promise is rejected.
 
 The `await` function can only be called on the `async` function body not in a callback.
 
+Prior Lua 5.2 and LuaJIT you cannot yield when having a C function between yield and resume.
+
 @tparam function fn the async function to call.
 @param[opt] ... the optional parameters to pass to the function after the `await` function.
 @treturn Promise a promise that resolves once the coroutine ends.

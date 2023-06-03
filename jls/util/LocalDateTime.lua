@@ -1,4 +1,4 @@
---- Provide a simple LocalDateTime class.
+--- Represents a date time independent of any time zone.
 -- @module jls.util.LocalDateTime
 -- @pragma nostrip
 

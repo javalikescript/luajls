@@ -5,7 +5,6 @@ local class = require('jls.lang.class')
 function Test_initialize()
   local initialized = false
   local selfInitialized = nil
-  local initializationFirstArg = nil
   local Account = class.create()
   function Account.prototype:initialize(a, b)
     initialized = true

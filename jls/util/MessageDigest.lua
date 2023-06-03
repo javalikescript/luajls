@@ -1,4 +1,4 @@
---- Provide MessageDigest class.
+--- Provide message digest algorithm functionality.
 -- Available algorithms are SHA-1, MD5, CRC32.
 -- @module jls.util.MessageDigest
 -- @pragma nostrip

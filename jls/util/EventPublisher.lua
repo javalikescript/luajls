@@ -1,4 +1,4 @@
---- Provide EventPublisher class.
+--- Allows to publish and subscribe to events.
 -- @module jls.util.EventPublisher
 -- @pragma nostrip
 

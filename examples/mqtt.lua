@@ -8,6 +8,10 @@ local mqtt = require('jls.net.mqtt')
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'url',
+  aliases = {
+    h = 'help',
+    ll = 'loglevel',
+  },
   schema = {
     title = 'MQTT client and server',
     description = [[Allows to publish or subscribe to a MQTT broker.

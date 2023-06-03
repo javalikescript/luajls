@@ -1,4 +1,4 @@
---- Provide a simple Date class.
+--- Represents a date time with a time zone or using UTC.
 -- @module jls.util.Date
 -- @pragma nostrip
 

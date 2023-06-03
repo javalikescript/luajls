@@ -1,4 +1,4 @@
---- Provide encoders/decoders.
+--- Represents an encoder/decoder for string or stream.
 -- Available codecs are base64, deflate, gzip, hex.
 -- @module jls.util.Codec
 -- @pragma nostrip
