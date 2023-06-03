@@ -1,12 +1,12 @@
 local lu = require('luaunit')
 
-local runtime = require('jls.lang.runtime')
+local system = require('jls.lang.system')
 local loop = require('jls.lang.loopWithTimeout')
 
 local LUA_EXE_PATH = require('jls.lang.ProcessBuilder').getExecutablePath()
 
 local function commandLine(code)
-  return runtime.formatCommandLine({
+  return system.formatCommandLine({
     LUA_EXE_PATH,
     '-e',
     'os.exit('..tostring(code)..')'
@@ -15,7 +15,7 @@ end
 
 function Test_execute_success()
   local success = false
-  runtime.execute(commandLine(0)):next(function()
+  system.execute(commandLine(0)):next(function()
     success = true
   end)
   if not loop() then
@@ -27,7 +27,7 @@ end
 function Test_execute_failure()
   local failure = false
   local failureReason = nil
-  runtime.execute(commandLine(1)):catch(function(reason)
+  system.execute(commandLine(1)):catch(function(reason)
     failureReason = reason
     failure = true
   end)
@@ -40,7 +40,7 @@ end
 
 local function assertExitCode(code)
   local exitCode = nil
-  runtime.execute(commandLine(code), true):next(function(info)
+  system.execute(commandLine(code), true):next(function(info)
     exitCode = info.code
   end)
   if not loop() then

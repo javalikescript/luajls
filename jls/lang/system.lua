@@ -67,25 +67,17 @@ end
 --- Returns the arguments used when calling the Lua standalone executable.
 -- @treturn table The arguments.
 function system.getArguments()
-  if win32Lib then
-    local args = table.pack(win32Lib.GetCommandLineArguments())
-    local scriptName = arg[0]
-    local scriptIndex = 0
-    for i, v in ipairs(args) do
-      if v == scriptName then
-        scriptIndex = i
-        break
-      end
+  if not system.arguments then
+    local shiftArguments = require('jls.lang.shiftArguments')
+    if win32Lib then
+      system.arguments = shiftArguments(table.pack(win32Lib.GetCommandLineArguments()))
+    elseif not arg and process and type(process.argv) == 'table' then
+      system.arguments = shiftArguments(process.argv, 1)
+    else
+      system.arguments = arg or {} -- arg is nil in a thread
     end
-    -- Before running any code, lua collects all command-line arguments in a global table called arg.
-    -- The script name goes to index 0, the first argument after the script name goes to index 1, and so on.
-    local narg = {}
-    for i, v in ipairs(args) do
-      narg[i - scriptIndex] = v
-    end
-    return narg
   end
-  return arg
+  return system.arguments
 end
 
 function system.getLibraryExtension()

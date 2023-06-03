@@ -13,6 +13,10 @@ local logger = require('jls.lang.logger')
 
 local LUA_PATH = ProcessBuilder.getExecutablePath()
 logger:fine('Lua path is "'..tostring(LUA_PATH)..'"')
+local WRITE = 'io.write'
+if string.find(LUA_PATH, 'luvit$') then
+  WRITE = 'print'
+end
 
 function Test_pipe_redirect()
   if not Pipe then
@@ -20,7 +24,7 @@ function Test_pipe_redirect()
     lu.success()
   end
   local text = 'Hello world!'
-  local pb = ProcessBuilder:new(LUA_PATH, '-e', 'io.write("'..text..'")')
+  local pb = ProcessBuilder:new(LUA_PATH, '-e', WRITE..'("'..text..'")')
   local p = Pipe:new()
   pb:redirectOutput(p)
   local ph, err = pb:start()
@@ -43,7 +47,7 @@ function Test_pipe_redirect()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(outputData, text)
+  lu.assertStrContains(outputData, text)
   --lu.assertEquals(ph:isAlive(), false)
 end
 
@@ -53,7 +57,7 @@ function Test_env()
     lu.success()
   end
   local text = 'Hello world!'
-  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'io.write(os.getenv("A_KEY"))'})
+  local pb = ProcessBuilder:new({LUA_PATH, '-e', WRITE..'(os.getenv("A_KEY"))'})
   pb:environment({A_KEY = text, B_KEY = 'VALUE B'})
   local p = Pipe:new()
   pb:redirectOutput(p)
@@ -71,7 +75,7 @@ function Test_env()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(outputData, text)
+  lu.assertStrContains(outputData, text)
   --lu.assertEquals(ph:isAlive(), false)
 end
 
@@ -102,7 +106,7 @@ function Test_file_redirect()
     tmpFile:delete()
   end
   local fd = FileDescriptor.openSync(tmpFile, 'w')
-  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'io.write("Hello")'})
+  local pb = ProcessBuilder:new({LUA_PATH, '-e', WRITE..'("Hello")'})
   pb:redirectOutput(fd)
   local ph = pb:start()
   ph:ended():next(function(c)
@@ -117,7 +121,7 @@ function Test_file_redirect()
   end
   local output = tmpFile:readAll()
   tmpFile:delete()
-  lu.assertEquals(output, 'Hello')
+  lu.assertStrContains(output, 'Hello')
 end
 
 os.exit(lu.LuaUnit.run())

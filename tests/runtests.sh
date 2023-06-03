@@ -1,9 +1,12 @@
 #!/bin/sh
 
-lua=lua
-if which lua5.4 >/dev/null
+if test -z ${lua+x}
 then
-  lua=lua5.4
+  lua=lua
+  if which lua5.4 >/dev/null
+  then
+    lua=lua5.4
+  fi
 fi
 
 #LUA_CPATH=none

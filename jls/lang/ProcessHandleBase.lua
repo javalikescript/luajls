@@ -10,7 +10,7 @@ local EXECUTABLE_PATH = 'lua' -- fallback
 
 -- look for the lua path in the arguments
 if arg then
-  for i = 0, -10, -1 do
+  for i = -1, -10, -1 do
     if arg[i] then
       EXECUTABLE_PATH = arg[i]
     else
