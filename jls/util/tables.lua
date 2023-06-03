@@ -1080,6 +1080,10 @@ function tables.createArgumentTable(arguments, options)
         if s.title then
           buffer:append(': ', tostring(s.title))
         end
+        if s.description then
+          print(buffer:toString())
+          buffer:clear():append('  ', '  ', tostring(s.description))
+        end
         print(buffer:toString())
         buffer:clear()
       end
