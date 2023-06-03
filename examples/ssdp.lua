@@ -3,6 +3,7 @@ local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local UdpSocket = require('jls.net.UdpSocket')
 local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
 local tables = require('jls.util.tables')
@@ -15,18 +16,6 @@ local CONFIG_SCHEMA = {
   type = 'object',
   additionalProperties = false,
   properties = {
-    ['bind-address'] = {
-      title = 'The binding address, use :: to bind on any',
-      type = 'string',
-      default = '127.0.0.1'
-    },
-    port = {
-      title = 'The web server port',
-      type = 'integer',
-      default = 8000,
-      minimum = 0,
-      maximum = 65535,
-    },
     ['ssdp-address'] = {
       title = 'The SSDP IP address',
       type = 'string',
@@ -39,17 +28,36 @@ local CONFIG_SCHEMA = {
       minimum = 0,
       maximum = 65535,
     },
-    timeout = {
-      type = 'number',
-      default = 5,
-      minimum = 1,
-      maximum = 30,
-    },
     mode = {
       title = 'The SSDP mode',
       type = 'string',
       default = 'client',
       enum = {'client', 'server'}
+    },
+    description = {
+      title = 'The description location to use in the server response',
+      description = 'If not provided, a web server will be started to host a test description.',
+      type = 'string',
+      pattern = '^https?://.+$',
+    },
+    timeout = {
+      title = 'The max duration, in seconds, for the client discovery',
+      type = 'number',
+      default = 5,
+      minimum = 1,
+      maximum = 30,
+    },
+    ['bind-address'] = {
+      title = 'The binding address, use :: to bind on any',
+      type = 'string',
+      default = '127.0.0.1'
+    },
+    port = {
+      title = 'The web server port',
+      type = 'integer',
+      default = 8000,
+      minimum = 0,
+      maximum = 65535,
     },
     ['log-level'] = {
       title = 'The log level',
@@ -166,53 +174,70 @@ if config.mode == 'client' then
     end, config.timeout * 1000 + 500)
   end)
 elseif config.mode == 'server' then
-  local httpServer = HttpServer:new()
-  local bindAddress = config['bind-address']
-  httpServer:bind(bindAddress, config.port):next(function()
-    logger:info('HTTP server bound to "'..bindAddress..'" on port '..tostring(config.port))
-  end, function(err)
-    print('Cannot bind HTTP server, '..tostring(err))
-    os.exit(1)
-  end)
-  local baseUrl = string.format('http://%s:%d/', bindAddress, config.port)
-  httpServer:createContext('/description.xml', function(exchange)
-    logger:info('send description, headers: %s', exchange:getRequest():getRawHeaders())
-    local response = exchange:getResponse()
-    response:setBody([[<?xml version="1.0" encoding="UTF-8" ?>
-    <root xmlns="urn:schemas-upnp-org:device-1-0">
-      <specVersion>
-        <major>1</major>
-        <minor>0</minor>
-      </specVersion>
-      <URLBase>]]..baseUrl..[[</URLBase>
-      <device>
-        <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>Test</friendlyName>
-        <manufacturer>luajls</manufacturer>
-        <manufacturerURL>https://github.com/javalikescript/luajls</manufacturerURL>
-        <modelDescription>Test</modelDescription>
-        <modelName>Test</modelName>
-        <modelNumber>Test</modelNumber>
-        <modelURL>https://github.com/javalikescript/luajls</modelURL>
-        <serialNumber>Test</serialNumber>
-        <UDN>uuid:6bcec79a-8eae-11ed-a1eb-0242ac120002</UDN>
-        <presentationURL>index.html</presentationURL>
-      </device>
-    </root>
-    ]])
-  end)
-  httpServer:createContext('/index.html', function(exchange)
-    logger:info('send description, headers: %s', exchange:getRequest():getRawHeaders())
-    local response = exchange:getResponse()
-    response:setBody([[<!DOCTYPE html>
-    <html>
-      <body>
-        <p>It works !</p>
-      </body>
-    </html>
-    ]])
+  local descriptionLocation
+  if config.description then
+    descriptionLocation = config.description
+  else
+    local httpServer = HttpServer:new()
+    local bindAddress = config['bind-address']
+    httpServer:bind(bindAddress, config.port):next(function()
+      logger:info('HTTP server bound to "'..bindAddress..'" on port '..tostring(config.port))
+    end, function(err)
+      print('Cannot bind HTTP server, '..tostring(err))
+      os.exit(1)
     end)
-  local descriptionLocation = baseUrl..'description.xml'
+    local host
+    if bindAddress == '::' or bindAddress == '0.0.0.0' then
+      host = 'localhost'
+    else
+      host = bindAddress
+    end
+    local baseUrl = string.format('http://%s:%d/', host, config.port)
+    httpServer:createContext('/description.xml', function(exchange)
+      local request = exchange:getRequest()
+      logger:info('send description, headers: %s', request:getRawHeaders())
+      local hostport = request:getHeader(HttpMessage.CONST.HEADER_HOST)
+      if not hostport then
+        HttpExchange.badRequest(exchange, 'missing host header')
+        return
+      end
+      local response = exchange:getResponse()
+      response:setBody([[<?xml version="1.0" encoding="UTF-8" ?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <URLBase>]]..baseUrl..[[</URLBase>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+    <friendlyName>Test</friendlyName>
+    <manufacturer>luajls</manufacturer>
+    <manufacturerURL>https://github.com/javalikescript/luajls</manufacturerURL>
+    <modelDescription>Test</modelDescription>
+    <modelName>Test</modelName>
+    <modelNumber>Test</modelNumber>
+    <modelURL>https://github.com/javalikescript/luajls</modelURL>
+    <serialNumber>Test</serialNumber>
+    <UDN>uuid:6bcec79a-8eae-11ed-a1eb-0242ac120002</UDN>
+    <presentationURL>index.html</presentationURL>
+  </device>
+</root>
+]])
+    end)
+    httpServer:createContext('/index.html', function(exchange)
+      logger:info('send description, headers: %s', exchange:getRequest():getRawHeaders())
+      local response = exchange:getResponse()
+      response:setBody([[<!DOCTYPE html>
+<html>
+  <body>
+    <p>It works !</p>
+  </body>
+</html>
+]])
+    end)
+    descriptionLocation = baseUrl..'description.xml'
+  end
   logger:info('description available at %s', descriptionLocation)
 
   local receiver = UdpSocket:new()
