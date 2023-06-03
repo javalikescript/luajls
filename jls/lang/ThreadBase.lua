@@ -22,22 +22,9 @@ do
   end
 end
 
-local CHUNK_MAIN = string.dump(function(path, cpath, preloads, ...)
-  if path then
-    package.path = path
-  end
-  if cpath then
-    package.cpath = cpath
-  end
-  if preloads then
-    local p, l = 1, #preloads - 5
-    while p < l do
-      local name, chunk
-      name, chunk, p = string.unpack('s2s3', preloads, p)
-      package.preload[name] = load(chunk, name, 'b')
-    end
-  end
-  return require('jls.lang.Thread')._main(...)
+local CHUNK_MAIN = string.dump(function(...)
+  local th = require('jls.lang.Thread')
+  return th._main(th._unarg(...))
 end)
 
 --- A Thread class.
@@ -79,7 +66,10 @@ return class.create(function(thread)
     if self.preloads then
       local t = {}
       for name, fn in pairs(package.preload) do
-        table.insert(t, string.pack('s2s3', name, string.dump(fn)))
+        local status, dump = pcall(string.dump, fn)
+        if status and dump then
+          table.insert(t, string.pack('>s2s3', name, dump))
+        end
       end
       preloads = table.concat(t)
       logger:fine('preload size is %d', #preloads) -- 530k for jls
@@ -123,6 +113,24 @@ return class.create(function(thread)
   end
 
 end, function(Thread)
+
+  function Thread._unarg(path, cpath, preloads, ...)
+    if path then
+      package.path = path
+    end
+    if cpath then
+      package.cpath = cpath
+    end
+    if preloads then
+      local p, l = 1, #preloads - 5
+      while p < l do
+        local name, chunk
+        name, chunk, p = string.unpack('>s2s3', preloads, p)
+        package.preload[name] = load(chunk, name, 'b')
+      end
+    end
+    return ...
+  end
 
   function Thread._main(chunk, ...)
     local fn = load(chunk, nil, 'b')

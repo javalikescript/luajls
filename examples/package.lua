@@ -8,7 +8,6 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
-local strings = require('jls.util.strings')
 local ast = require('jls.util.ast')
 
 local function isDashModule(name)
@@ -472,6 +471,7 @@ elseif options.action == 'copy' then
 elseif options.action == 'compat' then
   local map = {}
   if options.target == '5.1' then
+    local strings = require('jls.util.strings')
     for name, module in Map.spairs(modules) do
       local list = {}
       local lines = strings.split(module.content, '\r?\n')
