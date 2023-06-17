@@ -1103,8 +1103,9 @@ function tables.createArgumentTable(arguments, options)
     if serr then
       print(serr)
       os.exit(22)
+    elseif type(st) == 'table' then
+      t = st
     end
-    t = st
   end
   return t, ct
 end

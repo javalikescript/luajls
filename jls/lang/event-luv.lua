@@ -29,8 +29,10 @@ return class.create(function(event)
   end
 
   function event:clearTimeout(timer)
-    timer:stop()
-    timer:close()
+    if timer then
+      timer:stop()
+      timer:close()
+    end
   end
 
   function event:setInterval(callback, delayMs, ...)
