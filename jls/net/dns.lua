@@ -191,14 +191,34 @@ local function encodeName(name)
 end
 
 local DECODERS = {
+  [TYPES.A] = function(data, offset)
+    return string.format('%d.%d.%d.%d', string.byte(data, offset, offset + 3))
+  end,
   [TYPES.PTR] = function(data, offset)
     return decodeName(data, offset)
-  end
+  end,
+  [TYPES.SRV] = function(data, offset)
+    local priority, weight, port, target
+    priority, weight, port, offset = string.unpack('>I2I2I2', data, offset)
+    target = decodeName(data, offset)
+    return {
+      priority = priority,
+      weight = weight,
+      port = port,
+      target = target,
+    }
+  end,
 }
 local ENCODERS = {
+  [TYPES.A] = function(value)
+    return string.char(table.unpack(List.map({string.match(value, '(%d+)%.(%d+)%.(%d+)%.(%d+)')}, function(s) return tonumber(s); end)))
+  end,
   [TYPES.PTR] = function(value)
     return encodeName(value)
-  end
+  end,
+  [TYPES.SRV] = function(value)
+    return string.pack('>I2I2I2', value.priority or 0, value.weight or 0, value.port or 0)..encodeName(value.target or '')
+  end,
 }
 
 local questionFormat = '>I2I2'
