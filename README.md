@@ -1,11 +1,11 @@
 <div align="center">
 
 •
-[User manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md)
+[Manual](https://github.com/javalikescript/luajls/blob/master/doc_topics/manual.md "User manual")
 •
-[API documentation](https://javalikescript.github.io/luajls/)
+[Docs](https://javalikescript.github.io/luajls/ "API documentation")
 •
-[Download binaries](https://github.com/javalikescript/luajls/releases/latest)
+[Downloads](https://github.com/javalikescript/luajls/releases/latest "Release binaries")
 •
 
 </div>
@@ -102,6 +102,7 @@ luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescri
 The only fully supported version is the latest, currently Lua 5.4.
 
 In order to support the majority of Lua engines, an effort is made to provide a good level of compatibility for Lua 5.1 and LuaJIT.
+Lua 5.1 compatibility is achived by using a transcompiler and is available in the respective 5.1 releases, the default code base is not fully compatible with Lua 5.1.
 
 
 ## What do you want to do?

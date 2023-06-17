@@ -37,7 +37,7 @@ Building standalone application requires to use operating system features such a
 
 There are plenty of valuable C modules for various tasks such as _LuaFileSystem_, _luasocket_ and _luv_, even the Lua standard libraries provide some operating system features.
 Building upon a specific module may restrict the usage and portability. The idea is to abstract dependent external modules and to provide at least 2 implementations including a pure Lua one if possible.
-Accessing OS features is not enough, a higher level language is required to provide complex features such as HTTP client and server, Worker.
+Higher level APIs are available to provide complex features such as HTTP client and server, Worker.
 
 The luajls module library exposes a set of APIs. These APIs are inspired by JavaScript and Java due to their similarity and their large usage.
 The goal is to facilitate the learning and also the usage in combination with JavaScript for example when using an HTTP server or a WebView.
