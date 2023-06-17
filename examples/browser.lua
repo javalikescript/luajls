@@ -9,7 +9,7 @@ local CONFIG_SCHEMA = {
   additionalProperties = false,
   properties = {
     url = {
-      title = 'An URL to open',
+      title = 'An URL to open, could point to a local file',
       type = 'string'
     },
     ['search-url'] = {
