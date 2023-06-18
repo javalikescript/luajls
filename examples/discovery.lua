@@ -13,10 +13,6 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local Codec = require('jls.util.Codec')
 local hex = Codec.getInstance('hex')
 
---[[
-lua examples\discovery.lua -p mDNS -ll info -mdns.name _hue._tcp.local -mdns.type PTR
-]]
-
 local function getNodeByName(node, name)
   for _, n in ipairs(node) do
     if n.name == name then
@@ -105,13 +101,18 @@ local CONFIG_SCHEMA = {
         name = {
           title = 'The question name',
           type = 'string',
-          default = '_ipp._tcp.local',
+          default = '_services._dns-sd._udp.local',
         },
         type = {
           title = 'The question type',
           type = 'string',
           enum = {'A', 'PTR', 'TXT', 'AAAA', 'SRV', 'ANY'},
-          default = 'A',
+          default = 'PTR',
+        },
+        unicastResponse = {
+          title = 'true if the response is expected unicast',
+          type = 'boolean',
+          default = true,
         },
       }
     },
@@ -361,7 +362,7 @@ elseif config.protocol == 'mDNS' then
   local id = math.random(0xfff)
   if config.mode == 'client' then
     local sender = UdpSocket:new()
-    sender:receiveStart(function(err, data)
+    sender:receiveStart(function(err, data, addr)
       if data then
         if logger:isLoggable(logger.FINE) then
           logger:fine('received data: (%d) %s', #data, hex:encode(data))
@@ -371,7 +372,7 @@ elseif config.protocol == 'mDNS' then
           logger:fine('message: %s', tables.stringify(message, 2))
         end
         if message.id == id then
-          print(string.format('Received %s answers', #message.answers))
+          print(string.format('Received %s answers from %s', #message.answers, addr and addr.ip or '?'))
           for _, answer in ipairs(message.answers) do
             if answer.value then
               print('value', tables.stringify(answer.value, 2))
@@ -393,7 +394,7 @@ elseif config.protocol == 'mDNS' then
         name = config.mdns.name,
         type = dns.TYPES[config.mdns.type] or dns.TYPES.A,
         class = dns.CLASSES.IN,
-        unicastResponse = true,
+        unicastResponse = config.mdns.unicastResponse,
       }}
     }
     local data = dns.encodeMessage(message)
@@ -419,8 +420,8 @@ elseif config.protocol == 'mDNS' then
           logger:fine('received data: (%d) %s from %s', #data, hex:encode(data), tables.stringify(addr))
         end
         local _, message = pcall(dns.decodeMessage, data)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('message: %s', tables.stringify(message, 2))
+        if logger:isLoggable(logger.INFO) then
+          logger:info('message: %s', tables.stringify(message, 2))
         end
       else
         logger:warn('receive no data')

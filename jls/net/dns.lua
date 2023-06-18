@@ -183,7 +183,7 @@ local function encodeName(name)
   -- TODO compression
   for _, part in ipairs(parts) do
     if #part > 0 then
-      buffer:append(string.char(#part ), part)
+      buffer:append(string.char(#part), part)
     end
   end
   buffer:append('\0')
@@ -208,6 +208,23 @@ local DECODERS = {
       target = target,
     }
   end,
+  [TYPES.TXT] = function(data, offset)
+    local parts = {}
+    local size = #data
+    while offset <= size do
+      local len = string.byte(data, offset)
+      offset = offset + 1
+      local part
+      if len > 0 then
+        part = string.sub(data, offset, offset + len - 1)
+        offset = offset + len
+      else
+        part = ''
+      end
+      table.insert(parts, part)
+    end
+    return parts, offset
+  end,
 }
 local ENCODERS = {
   [TYPES.A] = function(value)
@@ -218,6 +235,13 @@ local ENCODERS = {
   end,
   [TYPES.SRV] = function(value)
     return string.pack('>I2I2I2', value.priority or 0, value.weight or 0, value.port or 0)..encodeName(value.target or '')
+  end,
+  [TYPES.TXT] = function(value)
+    local buffer = StringBuffer:new()
+    for _, part in ipairs(value) do
+      buffer:append(string.char(#part), part)
+    end
+    return buffer:toString()
   end,
 }
 
