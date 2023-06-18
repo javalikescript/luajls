@@ -1,7 +1,11 @@
-This folder contains, command line base, single file, examples, use "-help" argument to get help.
+This folder contains, command line base, single file, examples, use "--help" argument to get help.
 
-* A Cipher utility  
+* A tiny web browser  
+Allows open a web page with no tabs.
+* A cipher utility  
 Allows to encode, decode a file.
+* A discover utility  
+Allows to discover network services using mDNS or SSDP.
 * An HTTP client  
 Allows to get or post requests to an HTTP server.
 * An HTTP proxy  
@@ -11,7 +15,7 @@ Allows filtering and HTTP traffic monitoring.
 Allows to publish or subscribe to an MQTT server.
 * A WebSocket client  
 Allows to send or receive message to a WebSocket server.
-* A Web server  
+* A web server  
 Allows to serve static files.  
 Supports file upload and WebDAV.
 * A WebView with documentation  
