@@ -64,7 +64,7 @@ local function getDescription(location)
 end
 
 local CONFIG_SCHEMA = {
-  title = 'Service Discovery Protocol Client and Server',
+  title = 'Service discovery utility',
   description = 'The client searches for device, description and presentation URL, the server exposes such device.',
   type = 'object',
   additionalProperties = false,
@@ -113,6 +113,11 @@ local CONFIG_SCHEMA = {
           title = 'true if the response is expected unicast',
           type = 'boolean',
           default = true,
+        },
+        additionals = {
+          title = 'true to print the additionals responses',
+          type = 'boolean',
+          default = false,
         },
       }
     },
@@ -360,6 +365,18 @@ elseif config.protocol == 'mDNS' then
   local mdnsAddress = config.mdns.address
   local mdnsPort = config.mdns.port
   local id = math.random(0xfff)
+  local function printRRs(list, details)
+    for _, rr in ipairs(list) do
+      if details then
+        print(string.format('name "%s" type %s class %s', rr.name, dns.TYPES_MAP[rr.type] or rr.type, dns.CLASSES_MAP[rr.class] or rr.class))
+      end
+      if rr.value then
+        print('value', tables.stringify(rr.value, 2))
+      else
+        print('data', hex:encode(rr.data))
+      end
+    end
+  end
   if config.mode == 'client' then
     local sender = UdpSocket:new()
     sender:receiveStart(function(err, data, addr)
@@ -373,12 +390,10 @@ elseif config.protocol == 'mDNS' then
         end
         if message.id == id then
           print(string.format('Received %s answers from %s', #message.answers, addr and addr.ip or '?'))
-          for _, answer in ipairs(message.answers) do
-            if answer.value then
-              print('value', tables.stringify(answer.value, 2))
-            else
-              print('data', hex:encode(answer.data))
-            end
+          printRRs(message.answers)
+          if config.mdns.additionals then
+            print(string.format('Received %s additionals', #message.additionals))
+            printRRs(message.additionals, true)
           end
         end
       elseif err then
@@ -392,7 +407,7 @@ elseif config.protocol == 'mDNS' then
       id = id,
       questions = {{
         name = config.mdns.name,
-        type = dns.TYPES[config.mdns.type] or dns.TYPES.A,
+        type = dns.TYPES[config.mdns.type] or dns.TYPES.PTR,
         class = dns.CLASSES.IN,
         unicastResponse = config.mdns.unicastResponse,
       }}

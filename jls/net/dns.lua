@@ -144,6 +144,8 @@ dns.OPCODES = OPCODES
 dns.RCODES = RCODES
 dns.TYPES = TYPES
 dns.CLASSES = CLASSES
+dns.TYPES_MAP = TYPES_MAP
+dns.CLASSES_MAP = CLASSES_MAP
 
 local function decodeNameParts(data, offset)
   local parts = {}
@@ -252,7 +254,9 @@ local function decodeQuestion(data, offset)
   name, offset = decodeName(data, offset)
   logger:fine('name: "%s" => %d', name, offset)
   qtype, qclass, offset = string.unpack(questionFormat, data, offset)
-  logger:fine('question: %s(%d) %s(%d) => %d', TYPES_MAP[qtype], qtype, CLASSES_MAP[qclass], qclass, offset)
+  if logger:isLoggable(logger.FINE) then
+    logger:fine('question: %s(%d) %s(%d) => %d', TYPES_MAP[qtype], qtype, CLASSES_MAP[qclass], qclass, offset)
+  end
   return {
     name = name,
     type = qtype,
