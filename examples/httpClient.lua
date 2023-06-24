@@ -21,7 +21,9 @@ local options = tables.createArgumentTable(system.getArguments(), {
   emptyPath = 'url',
   aliases = {
     h = 'help',
+    u = 'url',
     m = 'method',
+    b = 'body',
     r = 'maxRedirectCount',
     ll = 'loglevel',
   },
@@ -52,6 +54,10 @@ local options = tables.createArgumentTable(system.getArguments(), {
           [HTTP_CONST.HEADER_USER_AGENT] = HTTP_CONST.DEFAULT_USER_AGENT,
         },
       },
+      body = {
+        title = 'The HTTP body to send',
+        type = 'string',
+      },
       out = {
         type = 'object',
         additionalProperties = false,
@@ -74,6 +80,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
             title = 'Write the response body',
             type = 'boolean',
             default = true
+          },
+          pretty = {
+            title = 'Pretty print response body',
+            type = 'boolean',
+            default = false
           },
           unzipTo = {
             title = 'Directory to unzip the received ZIP file',
@@ -148,6 +159,28 @@ Promise.async(function(await)
     end
     table.insert(lines, '')
     responseStreamHandler:onData(table.concat(lines, '\r\n'))
+  end
+  if options.out.pretty then
+    local contentType = response:getHeader('content-type')
+    if contentType then
+      contentType = string.lower(contentType)
+      if contentType == 'application/json' then
+        local json = require('jls.util.json')
+        local rsh = responseStreamHandler
+        responseStreamHandler = StreamHandler.buffer(StreamHandler:new(function(err, data)
+          if err then
+            rsh:onError(err)
+          end
+          if data then
+            local status, result = pcall(json.decode, data)
+            if status then
+              data = json.stringify(result, '  ')
+            end
+          end
+          rsh:onData(data)
+        end))
+      end
+    end
   end
   -- and response:getStatusCode() == 200
   if options.out.body then

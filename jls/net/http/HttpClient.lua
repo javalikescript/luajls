@@ -4,9 +4,11 @@
 
 local logger = require('jls.lang.logger')
 local TcpSocket = require('jls.net.TcpSocket')
+local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
+local strings = require('jls.util.strings')
 
 --[[
 The presence of a message body in a response depends on both the
@@ -108,7 +110,7 @@ return require('jls.lang.class').create(function(httpClient)
     if type(options.headers) == 'table' then
       request:setHeadersTable(options.headers)
     end
-    self.request:setMethod(options.method or 'GET')
+    request:setMethod(options.method or 'GET')
     if type(options.proxyHost) == 'string' then
       self.proxyHost = options.proxyHost
       if type(options.proxyPort) == 'number' then
@@ -160,20 +162,41 @@ return require('jls.lang.class').create(function(httpClient)
       logger:finer('httpClient:setUrl('..tostring(url)..')')
     end
     local u = Url:new(url)
-    local target = u:getFile()
-    self.isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
+    local isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
+    -- do our best to keep the client
+    if self.tcpClient and (self.proxyHost or self.host ~= u:getHost() or self.port ~= u:getPort() or self.isSecure ~= isSecure) then
+      self:closeClient(false)
+    end
+    self.isSecure = isSecure
     self.host = u:getHost()
     self.port = u:getPort()
-    self.target = target
+    self.target = u:getFile()
+    return self
   end
 
-  --- Connects this HTTP client.
-  -- @treturn jls.lang.Promise a promise that resolves once this client is connected.
-  function httpClient:connect()
-    logger:finer('httpClient:connect()')
-    if self.tcpClient then
-      self.tcpClient:close(false)
-    end
+  function httpClient:setMethod(method)
+    self.request:setMethod(method or 'GET')
+    return self
+  end
+
+  function httpClient:setTarget(target)
+    self.target = target
+    return self
+  end
+
+  function httpClient:setHeaders(headers)
+    self.request:setHeadersTable(headers)
+    return self
+  end
+
+  function httpClient:setBody(body)
+    self.request:setBody(body)
+    return self
+  end
+
+  function httpClient:reconnect()
+    logger:finer('httpClient:reconnect()')
+    self:closeClient(false)
     self.tcpClient = newTcpClient(self.isSecure)
     if self.proxyHost then
       if self.isSecure then
@@ -216,10 +239,17 @@ return require('jls.lang.class').create(function(httpClient)
     end)
   end
 
-  function httpClient:closeClient()
+  function httpClient:closeClient(callback)
     local tcpClient = self.tcpClient
-    self.tcpClient = nil
-    return tcpClient:close()
+    if tcpClient then
+      self.tcpClient = nil
+      return tcpClient:close(callback)
+    end
+    if callback then
+      callback()
+    elseif callback == nil then
+      return Promise.resolve()
+    end
   end
 
   --- Closes this HTTP client.
@@ -241,12 +271,21 @@ return require('jls.lang.class').create(function(httpClient)
   function httpClient:processResponseHeaders()
   end
 
+  --- Connects this HTTP client if not already connected.
+  -- @treturn jls.lang.Promise a promise that resolves once this client is connected.
+  function httpClient:connect()
+    logger:finer('httpClient:connect()')
+    if self.tcpClient then
+      return Promise.resolve(self)
+    end
+    return self:reconnect()
+  end
+
   function httpClient:sendRequest()
     logger:finer('httpClient:sendRequest()')
-    if not self.tcpClient then
-      error('Not connected')
-    end
-    return sendRequest(self.tcpClient, self.request)
+    return self:connect():next(function()
+      return sendRequest(self.tcpClient, self.request)
+    end)
   end
 
   function httpClient:receiveResponseHeaders()
@@ -284,7 +323,12 @@ return require('jls.lang.class').create(function(httpClient)
 
   function httpClient:receiveResponseBody(buffer)
     logger:finest('httpClient:receiveResponseBody('..tostring(buffer and #buffer)..')')
-    return self.response:readBody(self.tcpClient, buffer)
+    local connection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+    return self.response:readBody(self.tcpClient, buffer):finally(function()
+      if strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) then
+        self:closeClient(false)
+      end
+    end)
   end
 
   function httpClient:receiveResponse()
@@ -296,6 +340,7 @@ return require('jls.lang.class').create(function(httpClient)
   end
 
   --- Sends the request then receives the response.
+  -- This client is connected if necessary.
   -- @treturn jls.lang.Promise a promise that resolves to the @{HttpMessage} received.
   function httpClient:sendReceive()
     logger:finer('httpClient:sendReceive()')
