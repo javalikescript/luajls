@@ -60,13 +60,18 @@ end
 function Test_getPath_tree()
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/b'), 'A value')
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a/b'), 'A value')
+  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a/["b"]'), 'A value')
+  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a["b"]'), 'A value')
 end
 
 function Test_getPath_list()
   lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/1'), 'x')
   lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/[2]'), 'y')
+  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a[2]'), 'y')
   lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/3'), 'z')
   lu.assertNil(tables.getPath({a = {'x', 'y', 'z'}}, 'a/[4]'))
+  lu.assertEquals(tables.getPath({a = {'x', {b = 'A value'}, 'z'}}, 'a[2]/b'), 'A value')
+  lu.assertEquals(tables.getPath({a = {'x', {b = 'A value'}, 'z'}}, 'a[2]["b"]'), 'A value')
 end
 
 function Test_getPath_defaultValue()

@@ -335,17 +335,23 @@ local DEFAULT_PATH_SEPARATOR = '/'
 
 local function getPathKey(path, separator)
   local key, remainingPath
-  local sep = separator or DEFAULT_PATH_SEPARATOR
   local keyIndex = 1
+  local sbIndex = string.find(path, '[', keyIndex + 1, true)
+  local sep = separator or DEFAULT_PATH_SEPARATOR
+  local sepLength = #sep
   -- TODO correctly find protected separator
   local sepIndex = string.find(path, sep, keyIndex, true)
   if sepIndex == 1 then
-    keyIndex = keyIndex + #sep
+    keyIndex = keyIndex + sepLength
     sepIndex = string.find(path, sep, keyIndex, true)
+  end
+  if sbIndex and (not sepIndex or sbIndex < sepIndex) then
+    sepIndex = sbIndex
+    sepLength = 0
   end
   if sepIndex then
     key = string.sub(path, keyIndex, sepIndex - 1)
-    remainingPath = string.sub(path, sepIndex + #sep)
+    remainingPath = string.sub(path, sepIndex + sepLength)
   elseif keyIndex > 1 then
     key = string.sub(path, keyIndex)
   else
@@ -374,6 +380,8 @@ end
 
 --- Returns the value at the specified path in the specified table.
 -- A path consists in table keys separated by slashes.
+-- A key is interpreted as a boolean, a number then a string.
+-- A key could be protected in brackets, without separator, ["1"] is interpreted as a string, not a number.
 -- The key are considered as string, number or boolean. Table or userdata keys are not supported.
 -- @tparam table t a table.
 -- @tparam string path the path to look in the table.
@@ -1065,17 +1073,17 @@ function tables.createArgumentTable(arguments, options)
           buffer:append('-', alias, ' or ')
         end
         buffer:append('--', path)
-        if s.default ~= nil then
-          buffer:append(' =', tables.stringify(s.default))
+        if s.type then
+          buffer:append(' (', tostring(s.type), ')')
         end
         if s.enum then
-          buffer:append(' |')
+          buffer:append(' in |')
           for _, v in ipairs(s.enum) do
             buffer:append(tostring(v), '|')
           end
         end
-        if s.type then
-          buffer:append(' (', tostring(s.type), ')')
+        if s.default ~= nil then
+          buffer:append(' defaults to ', tables.stringify(s.default))
         end
         if s.title then
           buffer:append(': ', tostring(s.title))
