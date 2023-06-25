@@ -664,7 +664,7 @@ function Test_HttpClientServer_keep_alive()
   end):next(function(s)
     server = s
     client = createHttpClient({Connection = 'keep-alive'})
-    connectSendReceive(client):next(function()
+    client:sendReceive():next(function()
       logger:fine('send receive completed for first request')
       return client:sendReceive():next(function()
         logger:fine('send receive completed for second request')

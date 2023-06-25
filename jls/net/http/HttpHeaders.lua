@@ -89,8 +89,10 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   -- @param value the value to set.
   function httpHeaders:setHeader(name, value)
     local valueType = type(value)
-    if valueType == 'string' or valueType == 'number' or valueType == 'boolean' then
-      self.headers[normalizeName(name)] = tostring(value)
+    if valueType == 'string' or valueType == 'nil' then
+      -- keep value
+    elseif valueType == 'number' or valueType == 'boolean' then
+      value = tostring(value)
     elseif valueType == 'table' then
       -- We should check that values are strings
       local t = {}
@@ -99,10 +101,12 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
           table.insert(t, val)
         end
       end
-      self.headers[normalizeName(name)] = t
+      value = t
     else
-      logger:fine('httpHeaders:setHeader('..tostring(name)..', '..valueType..') Invalid value will be ignored')
+      logger:fine('httpHeaders:setHeader(%s, %s) ignoring header value', name, valueType)
+      return
     end
+    self.headers[normalizeName(name)] = value
   end
 
   local HEADER_SET_COOKIE = 'set-cookie'

@@ -176,7 +176,7 @@ end
 --[[--
 Indicates whether or not the specified instance is an instance of the specified class.
 @param class The class to check with.
-@param instance The instance to be check.
+@param instance The instance to be checked.
 @return true if the instance is an instance of the class, false otherwise.
 @function isInstance
 @usage
@@ -186,6 +186,22 @@ Vehicle:isInstance(car) -- Returns true
 ]]
 local function isInstance(class, instance)
   return isAssignableFrom(class, getClass(instance))
+end
+
+--[[--
+Returns an instance of the specified class.
+@param class The class from which an instance is expected.
+@param ... The instance to be checked or the creation parameters.
+@return an instance.
+@function asInstance
+]]
+local function asInstance(class, ...)
+  if isAssignableFrom(class, getClass(...)) then
+    return (...)
+  end
+  local instance = makeInstance(class)
+  instance:initialize(...)
+  return instance
 end
 
 -- The __len metamethod is available since Lua 5.2
@@ -199,6 +215,7 @@ local ClassIndex = {
   new = newInstance,
   getName = getName,
   isAssignableFrom = isAssignableFrom,
+  --as = asInstance,
   isInstance = isInstance
 }
 
@@ -348,6 +365,7 @@ return {
   makeInstance = makeInstance,
   newInstance = newInstance,
   modifyInstance = modifyInstance,
+  asInstance = asInstance,
   getName = getName,
   isClass = isClass,
   notImplementedFunction = notImplementedFunction

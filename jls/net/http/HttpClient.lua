@@ -2,6 +2,7 @@
 -- @module jls.net.http.HttpClient
 -- @pragma nostrip
 
+local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local TcpSocket = require('jls.net.TcpSocket')
 local Promise = require('jls.lang.Promise')
@@ -85,7 +86,7 @@ end)
 event:loop()
 @type HttpClient
 ]]
-return require('jls.lang.class').create(function(httpClient)
+return class.create(function(httpClient)
 
   --- Creates a new HTTP client.
   -- @function HttpClient:new
@@ -132,8 +133,11 @@ return require('jls.lang.class').create(function(httpClient)
       else
         self.host = 'localhost'
       end
+      self.isSecure = options.isSecure == true
       if type(options.port) == 'number' then
         self.port = options.port
+      else
+        self.port = self.isSecure and 443 or 80
       end
     end
     if type(options.maxRedirectCount) == 'number' then
@@ -161,7 +165,7 @@ return require('jls.lang.class').create(function(httpClient)
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpClient:setUrl('..tostring(url)..')')
     end
-    local u = Url:new(url)
+    local u = class.asInstance(Url, url)
     local isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
     -- do our best to keep the client
     if self.tcpClient and (self.proxyHost or self.host ~= u:getHost() or self.port ~= u:getPort() or self.isSecure ~= isSecure) then

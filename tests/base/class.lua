@@ -81,6 +81,22 @@ function Test_isInstance()
   lu.assertEquals(class.isInstance(Account, aCar), false)
 end
 
+function Test_asInstance()
+  local Car = class.create()
+  function Car.prototype:initialize(a, b)
+    self.ab = tostring(a)..' '..tostring(b)
+  end
+  local aCar = Car:new(1, 2)
+  local bCar = class.asInstance(Car, aCar)
+  local cCar = class.asInstance(Car, 3, 4)
+  lu.assertEquals(Car:isInstance(aCar), true)
+  lu.assertEquals(Car:isInstance(bCar), true)
+  lu.assertEquals(Car:isInstance(cCar), true)
+  lu.assertEquals(bCar, aCar)
+  lu.assertEquals(aCar.ab, '1 2')
+  lu.assertEquals(cCar.ab, '3 4')
+end
+
 function Test_clone()
   local Car = class.create()
   function Car.prototype:initialize(color)

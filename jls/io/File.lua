@@ -17,6 +17,7 @@ end
 
 local fs = require('jls.io.fs')
 
+local class = require('jls.lang.class')
 local Path = require('jls.io.Path')
 local FileDescriptor = require('jls.io.FileDescriptor')
 --local logger = require('jls.lang.logger')
@@ -24,7 +25,7 @@ local FileDescriptor = require('jls.io.FileDescriptor')
 --- A File class.
 -- A File instance represents a file or a directory.
 -- @type File
-return require('jls.lang.class').create(Path, function(file, _, File)
+return class.create(Path, function(file, _, File)
   --- Creates a new File with the specified name.
   -- See @{Path}
   -- @function File:new
@@ -323,10 +324,7 @@ return require('jls.lang.class').create(Path, function(file, _, File)
   -- @param value a file, a path or a string representing a path.
   -- @treturn jls.io.File a file.
   function File.asFile(value)
-    if File:isInstance(value) then
-      return value
-    end
-    return File:new(value)
+    return class.asInstance(File, value)
   end
 
 end)
