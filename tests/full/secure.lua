@@ -6,11 +6,13 @@ local StreamHandler = require('jls.io.StreamHandler')
 
 local loop = require('jls.lang.loopWithTimeout')
 
+local genCertificateAndPKey = require('tests.genCertificateAndPKey')
+local CACERT_PEM, PKEY_PEM = genCertificateAndPKey()
+
 local TEST_HOST, TEST_PORT = '127.0.0.1', 3002
 
 local function prepareServer(server)
   -- reuse previous context
-  local CACERT_PEM, PKEY_PEM = 'tests/cacert.pem', 'tests/pkey.pem'
   local secureContext = secure.Context:new({
     key = PKEY_PEM,
     certificate = CACERT_PEM
