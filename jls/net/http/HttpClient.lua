@@ -66,6 +66,14 @@ local function getHostHeader(host, port)
   return host
 end
 
+local function isUrlSecure(url)
+  return url:getProtocol() == 'https' or url:getProtocol() == 'wss'
+end
+
+local function sameClient(url1, url2)
+  return url1:getHost() == url2:getHost() and url1:getPort() == url2:getPort() and isUrlSecure(url1) == isUrlSecure(url2)
+end
+
 --[[--
 The HttpClient class enables to send an HTTP request.
 @usage
@@ -105,13 +113,35 @@ return class.create(function(httpClient)
     logger:finer('httpClient:initialize(...)')
     options = options or {}
     local request = HttpMessage:new()
-    self.isSecure = false
-    self.maxRedirectCount = 0
     self.request = request
     if type(options.headers) == 'table' then
       request:setHeadersTable(options.headers)
     end
     request:setMethod(options.method or 'GET')
+    if options.url then
+      request.url = class.asInstance(Url, options.url)
+    else
+      local protocol, host, port, target = 'http', 'localhost', nil, '/'
+      if type(options.protocol) == 'string' then
+        protocol = options.protocol
+      elseif options.isSecure == true then
+        protocol = protocol..'s'
+      end
+      if type(options.host) == 'string' then
+        host = options.host
+      end
+      if type(options.port) == 'number' then
+        port = options.port
+      end
+      if type(options.target) == 'string' then
+        target = options.target
+      end
+      request.url = Url:new(protocol, host, port, target)
+    end
+    request:setTarget(request.url:getFile())
+    if options.body then
+      request:setBody(options.body)
+    end
     if type(options.proxyHost) == 'string' then
       self.proxyHost = options.proxyHost
       if type(options.proxyPort) == 'number' then
@@ -120,39 +150,11 @@ return class.create(function(httpClient)
         self.proxyPort = 8080
       end
     end
-    if type(options.url) == 'string' then
-      self:setUrl(options.url)
-    else
-      if type(options.target) == 'string' then
-        self.target = options.target
-      else
-        self.target = '/'
-      end
-      if type(options.host) == 'string' then
-        self.host = options.host
-      else
-        self.host = 'localhost'
-      end
-      self.isSecure = options.isSecure == true
-      if type(options.port) == 'number' then
-        self.port = options.port
-      else
-        self.port = self.isSecure and 443 or 80
-      end
-    end
+    self.maxRedirectCount = 0
     if type(options.maxRedirectCount) == 'number' then
       self.maxRedirectCount = options.maxRedirectCount
     elseif options.followRedirect == true then
       self.maxRedirectCount = 3
-    end
-    if options.response and HttpMessage:isInstance(options.response) then
-      self.response = options.response
-    else
-      self.response = HttpMessage:new()
-      self.response:bufferBody()
-    end
-    if options.body then
-      request:setBody(options.body)
     end
     -- add accept headers
   end
@@ -163,47 +165,30 @@ return class.create(function(httpClient)
 
   function httpClient:setUrl(url)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('httpClient:setUrl('..tostring(url)..')')
+      logger:finer('httpClient:setUrl(%s)', url)
     end
     local u = class.asInstance(Url, url)
-    local isSecure = u:getProtocol() == 'https' or u:getProtocol() == 'wss'
     -- do our best to keep the client
-    if self.tcpClient and (self.proxyHost or self.host ~= u:getHost() or self.port ~= u:getPort() or self.isSecure ~= isSecure) then
+    if self.tcpClient and not sameClient(u, self.request.url) then
       self:closeClient(false)
     end
-    self.isSecure = isSecure
-    self.host = u:getHost()
-    self.port = u:getPort()
-    self.target = u:getFile()
-    return self
-  end
-
-  function httpClient:setMethod(method)
-    self.request:setMethod(method or 'GET')
-    return self
-  end
-
-  function httpClient:setTarget(target)
-    self.target = target
-    return self
-  end
-
-  function httpClient:setHeaders(headers)
-    self.request:setHeadersTable(headers)
-    return self
-  end
-
-  function httpClient:setBody(body)
-    self.request:setBody(body)
+    self.request.url = u
+    self.request:setTarget(self.request.url:getFile())
     return self
   end
 
   function httpClient:reconnect()
     logger:finer('httpClient:reconnect()')
     self:closeClient(false)
-    self.tcpClient = newTcpClient(self.isSecure)
+    local request = self.request
+    local url = request.url
+    local isSecure = isUrlSecure(url)
+    local host = url:getHost()
+    local port = url:getPort()
+    local target = url:getFile()
+    self.tcpClient = newTcpClient(isSecure)
     if self.proxyHost then
-      if self.isSecure then
+      if isSecure then
         local connectTcp = newTcpClient(false)
         local connectRequest = HttpMessage:new()
         local connectResponse = HttpMessage:new()
@@ -217,30 +202,37 @@ return class.create(function(httpClient)
         end):next(function(remainingBuffer)
           self.tcpClient.tcp = connectTcp.tcp
           connectTcp.tcp = nil
-          return connectTcp:onConnected(self.host, remainingBuffer)
+          return connectTcp:onConnected(host, remainingBuffer)
         end):next(function()
           return self
         end)
       else
         -- see RFC 7230 5.3.2. absolute-form
-        local url = Url.format({
+        local u = Url.format({
           scheme = 'http',
-          host = self.host,
-          port = self.port,
-          path = self.target
+          host = host,
+          port = port,
+          path = target
         })
-        self.request:setTarget(url)
-        self.request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(self.host, self.port))
+        request:setTarget(u)
+        request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
         return self.tcpClient:connect(self.proxyHost, self.proxyPort):next(function()
           return self
         end)
       end
     end
-    self.request:setTarget(self.target or '/')
-    self.request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(self.host, self.port))
-    return self.tcpClient:connect(self.host, self.port or 80):next(function()
+    request:setTarget(target)
+    request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
+    return self.tcpClient:connect(host, port or 80):next(function()
       return self
     end)
+  end
+
+  function httpClient:closeRequest()
+    self.request:close()
+    if self.response then
+      self.response:close()
+    end
   end
 
   function httpClient:closeClient(callback)
@@ -259,8 +251,7 @@ return class.create(function(httpClient)
   --- Closes this HTTP client.
   -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
   function httpClient:close()
-    self.request:close()
-    self.response:close()
+    self:closeRequest()
     return self:closeClient()
   end
 
@@ -287,6 +278,8 @@ return class.create(function(httpClient)
 
   function httpClient:sendRequest()
     logger:finer('httpClient:sendRequest()')
+    self.response = HttpMessage:new()
+    self.response:bufferBody()
     return self:connect():next(function()
       return sendRequest(self.tcpClient, self.request)
     end)
@@ -309,7 +302,7 @@ return class.create(function(httpClient)
           end
           self.maxRedirectCount = self.maxRedirectCount - 1
           return self:closeClient():next(function()
-            self:setUrl(location)
+            self:setUrl(location) -- TODO Is it ok to overwrite the url?
             return self:connect()
           end):next(function()
             return sendRequest(self.tcpClient, self.request)
@@ -329,6 +322,7 @@ return class.create(function(httpClient)
     logger:finest('httpClient:receiveResponseBody('..tostring(buffer and #buffer)..')')
     local connection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
     return self.response:readBody(self.tcpClient, buffer):finally(function()
+      self:closeRequest()
       if strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) then
         self:closeClient(false)
       end

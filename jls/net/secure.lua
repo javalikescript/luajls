@@ -447,9 +447,9 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
         end
         self:onHandshakeCompleted(client)
         self:onAccept(client)
-      end, function()
+      end, function(reason)
         client:close()
-        logger:fine('secureTcpSocket:handleAccept() handshake error')
+        logger:fine('secureTcpSocket:handleAccept() handshake error, %s', reason)
       end)
     else
       logger:fine('secureTcpSocket:handleAccept() error')
