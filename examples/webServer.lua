@@ -303,6 +303,7 @@ if config.cipher and config.cipher.enabled then
 function setKey(key) {
   if (typeof key === 'string') {
     fetch(']]..config.cipher.path..[[', {
+      credentials: "same-origin",
       method: "PUT",
       body: key
     }).then(function() {
@@ -547,6 +548,7 @@ if config.stop.enabled then
 function stopServer() {
   if (window.confirm('Stop the server?')) {
     fetch(']]..config.stop.path..[[', {
+      credentials: "same-origin",
       method: "POST"
     }).then(function() {
       document.body.innerHTML = '<p>bye</p>';

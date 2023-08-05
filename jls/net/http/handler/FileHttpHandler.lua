@@ -58,6 +58,7 @@ function delFile(e) {
   } while ((filename === '#') && target);
   if (window.confirm('Delete file "' + decodeURIComponent(filename) + '"?')) {
     fetch(filename, {
+      credentials: "same-origin",
       method: "DELETE"
     }).then(function() {
       window.location.reload();
@@ -80,6 +81,7 @@ function putFiles(files) {
     document.body.innerHTML = '<p>in progress...</p>';
     Promise.all(files.map(function(file) {
       return fetch(file.name, {
+        credentials: "same-origin",
         method: "PUT",
         headers: {
           "jls-last-modified": file.lastModified
