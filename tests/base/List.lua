@@ -209,4 +209,12 @@ function Test_isList()
   end
 end
 
+function Test_reduce()
+  local function f(a, v)
+    return a + v
+  end
+  lu.assertEquals(List.reduce({1, 2}, f), 3)
+  lu.assertEquals(List.reduce({1, 2}, f, 10), 13)
+end
+
 os.exit(lu.LuaUnit.run())

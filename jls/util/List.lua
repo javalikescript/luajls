@@ -203,6 +203,24 @@ return require('jls.lang.class').create(function(list, _, List)
     return map(List:new(), self, f)
   end
 
+  --- Returns the last result of the function called on each element.
+  -- @tparam function f The function to call on each element.
+  -- The function is called with the last result, element, index and the list.
+  -- @param[opt] value The initial value.
+  -- @return the last result of the function.
+  function list:reduce(f, value)
+    local a = value
+    for i, v in ipairs(self) do
+      if i == 1 and a == nil then
+        a = v
+      else
+        a = f(a, v, i, self)
+      end
+    end
+    return a
+  end
+
+
   function list:clone()
     return List:new():addAll(self)
   end
@@ -335,6 +353,8 @@ return require('jls.lang.class').create(function(list, _, List)
   List.pop = List.prototype.pop
 
   List.addAll = List.prototype.addAll
+
+  List.reduce = List.prototype.reduce
 
   List.concat = concat
 
