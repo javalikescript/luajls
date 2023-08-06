@@ -185,7 +185,6 @@ return class.create(function(httpClient)
     local isSecure = isUrlSecure(url)
     local host = url:getHost()
     local port = url:getPort()
-    local target = url:getFile()
     self.tcpClient = newTcpClient(isSecure)
     if self.proxyHost then
       if isSecure then
@@ -212,16 +211,15 @@ return class.create(function(httpClient)
           scheme = 'http',
           host = host,
           port = port,
-          path = target
+          path = request:getTarget()
         })
-        request:setTarget(u)
+        request:setUrl(u)
         request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
         return self.tcpClient:connect(self.proxyHost, self.proxyPort):next(function()
           return self
         end)
       end
     end
-    request:setTarget(target)
     request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
     return self.tcpClient:connect(host, port or 80):next(function()
       return self
