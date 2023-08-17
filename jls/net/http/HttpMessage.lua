@@ -65,13 +65,13 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     if method then
       self.method = string.upper(method)
       self.target = target
-      self.version = version
+      self.version = string.upper(version)
       return true
     end
     local statusCode, reasonPhrase
     version, statusCode, reasonPhrase = string.match(line, "^(HTTP/%d+%.%d+)%s(%d+)%s(.*)$")
     if version then
-      self.version = version
+      self.version = string.upper(version)
       self.statusCode = tonumber(statusCode)
       self.reasonPhrase = reasonPhrase
       return true
@@ -88,15 +88,19 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Sets the first line of this HTTP message.
   -- @tparam string version the first line.
   function httpMessage:setVersion(version)
+    if not string.find(version, 'HTTP/%d+%.%d*') then
+      error('Invalid HTTP version, '..version)
+    end
     self.version = tostring(version)
     self.line = ''
     return self
   end
 
   --- Returns this HTTP response status code.
-  -- @treturn string the HTTP response status code.
+  -- @treturn number the HTTP response status code.
+  -- @treturn string the HTTP response reason phrase.
   function httpMessage:getStatusCode()
-    return self.statusCode, self.reasonPhrase or ''
+    return self.statusCode or 0, self.reasonPhrase or ''
   end
 
   --- Returns this HTTP response reason phrase.

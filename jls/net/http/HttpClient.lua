@@ -278,9 +278,11 @@ return class.create(function(httpClient)
     logger:finer('httpClient:sendRequest()')
     self.response = HttpMessage:new()
     self.response:bufferBody()
-    return self:connect():next(function()
-      return sendRequest(self.tcpClient, self.request)
-    end)
+    -- close the connection by default
+    if not self.request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) then
+      self.request:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
+    end
+    return sendRequest(self.tcpClient, self.request)
   end
 
   function httpClient:receiveResponseHeaders()
@@ -289,15 +291,13 @@ return class.create(function(httpClient)
     local hsh = HeaderStreamHandler:new(response)
     return hsh:read(self.tcpClient):next(function(remainingBuffer)
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpClient:receiveResponseHeaders() header done, status code is '..tostring(response:getStatusCode()
-          ..', remainingBuffer is #'..tostring(remainingBuffer and #remainingBuffer)))
+        logger:fine('httpClient:receiveResponseHeaders() header done, status code is %d, remainingBuffer is #%s',
+          response:getStatusCode(), remainingBuffer and #remainingBuffer)
       end
       if self.maxRedirectCount > 0 and (response:getStatusCode() // 100) == 3 then
         local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
         if location then
-          if logger:isLoggable(logger.FINE) then
-            logger:fine('httpClient:receiveResponseHeaders() redirected #'..tostring(self.maxRedirectCount)..' to "'..tostring(location)..'"')
-          end
+          logger:fine('httpClient:receiveResponseHeaders() redirected #%d to "%s"', self.maxRedirectCount, location)
           self.maxRedirectCount = self.maxRedirectCount - 1
           return self:closeClient():next(function()
             self:setUrl(location) -- TODO Is it ok to overwrite the url?
@@ -317,11 +317,17 @@ return class.create(function(httpClient)
   end
 
   function httpClient:receiveResponseBody(buffer)
-    logger:finest('httpClient:receiveResponseBody('..tostring(buffer and #buffer)..')')
+    logger:finest('httpClient:receiveResponseBody(%s)', buffer and #buffer)
     local connection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+    local connectionClose
+    if connection then
+      connectionClose = strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE)
+    else
+      connectionClose = self.response:getVersion() ~= HttpMessage.CONST.VERSION_1_1
+    end
     return self.response:readBody(self.tcpClient, buffer):finally(function()
       self:closeRequest()
-      if strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) then
+      if connectionClose then
         self:closeClient(false)
       end
     end)
@@ -340,7 +346,9 @@ return class.create(function(httpClient)
   -- @treturn jls.lang.Promise a promise that resolves to the @{HttpMessage} received.
   function httpClient:sendReceive()
     logger:finer('httpClient:sendReceive()')
-    return self:sendRequest():next(function()
+    return self:connect():next(function()
+      return self:sendRequest()
+    end):next(function()
       logger:finer('httpClient:sendReceive() send completed')
       return self:receiveResponse()
     end):next(function()

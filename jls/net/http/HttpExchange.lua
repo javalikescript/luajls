@@ -122,22 +122,24 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     end
   end
 
+  --- Applies the connection header and returns true if keep alive applies.
+  -- Use the response connection header if any or the request one if any
+  -- otherwise default to close in version 1.0 and keep-alive in 1.1.
+  -- @treturn boolean true if keep alive applies to the response
   function httpExchange:applyKeepAlive()
-    local connection = HttpMessage.CONST.HEADER_CONNECTION
-    local requestConnection = self.request:getHeader(connection)
-    local responseConnection = self.response:getHeader(connection)
-    if strings.equalsIgnoreCase(requestConnection, HttpMessage.CONST.CONNECTION_KEEP_ALIVE) then
-      if not responseConnection then
-        self.response:setHeader(connection, requestConnection)
-        return true
-      elseif strings.equalsIgnoreCase(responseConnection, requestConnection) then
-        return true
+    local responseConnection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+    if not responseConnection then
+      local requestConnection = self.request:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+      if requestConnection then
+        responseConnection = requestConnection
+      elseif self.request:getVersion() == HttpMessage.CONST.VERSION_1_1 then
+        responseConnection = HttpMessage.CONST.CONNECTION_KEEP_ALIVE
+      else
+        responseConnection = HttpMessage.CONST.CONNECTION_CLOSE
       end
-      self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
-    elseif not responseConnection then
-      self.response:setHeader(connection, HttpMessage.CONST.CONNECTION_CLOSE)
+      self.response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, responseConnection)
     end
-    return false
+    return strings.equalsIgnoreCase(responseConnection, HttpMessage.CONST.CONNECTION_KEEP_ALIVE)
   end
 
   function httpExchange:prepareResponseHeaders()
@@ -145,7 +147,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   function httpExchange:resetResponseToError(reason)
-    local r = reason and tostring(reason) or 'Unkown error'
+    local r = reason and tostring(reason) or 'Unknown error'
     local response = self.response
     response:close()
     response = HttpMessage:new()
