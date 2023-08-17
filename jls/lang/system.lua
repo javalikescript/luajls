@@ -164,7 +164,7 @@ system.execute = loader.lazyFunction(function(Promise, Thread)
         local status, kind, code = string.match(result, '^(%a+) (%a+) %-?(%d+)$')
         applyExecuteCallback(cb, anyCode, status == 'true', kind, tonumber(code))
       end, function(reason)
-        cb(reason or 'Unkown error')
+        cb(reason or 'Unknown error')
       end)
     else
       applyExecuteCallback(cb, anyCode, os.execute(command))

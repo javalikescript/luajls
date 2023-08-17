@@ -55,7 +55,7 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
       proxyConfig = {}
     end
     self:configureForward(proxyConfig.allowConnect)
-    self.acceptUnkown = proxyConfig.acceptUnkown == true
+    self.acceptUnknown = proxyConfig.acceptUnknown == true
     self.unknownMap = readAllKeys(proxyConfig.unknownList)
     self:loadConfig(proxyConfig)
     self:save(proxyConfig)
@@ -130,7 +130,7 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
       self:log(exchange, 'denied', host)
       return false
     end
-    if self.acceptUnkown then
+    if self.acceptUnknown then
       self.unknownMap[host] = true
       return true
     end
@@ -183,7 +183,7 @@ local CONFIG_SCHEMA = {
           type = 'boolean',
           default = true
         },
-        acceptUnkown = {
+        acceptUnknown = {
           type = 'boolean',
           default = true
         },

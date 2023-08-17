@@ -45,7 +45,7 @@ return class.create(function(serial)
       end
       data, err = self.fileDesc:readSync(count)
     else
-      err = err or 'unkown error'
+      err = err or 'unknown error'
     end
     local status, e = Exception.pcall(callback, err, data)
     if status or not err and Exception.pcall(callback, e) then
