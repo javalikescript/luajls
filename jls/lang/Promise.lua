@@ -448,21 +448,6 @@ function Promise.async(fn, ...)
   return p
 end
 
---[[
-Waits for the specified Promise then returns its fulfillment value.
-
-Raises an error if the promise is rejected.
-
-This function can only be called on the main thread not in a loop callback.
-This function is only available when an event module is also available.
-It is still required to run the event loop at the end of the main thread.
-
-@tparam Promise p A promise to wait for.
-@return The fulfillment value of the promise.
-@function Promise.await
-]]
-Promise.await = class.notImplementedFunction
-
 --- Return true if the specified value is a promise.
 -- @param promise The value to test.
 -- @treturn boolean true if the specified value is a promise.
@@ -544,43 +529,9 @@ function Promise.onUncaughtError(value)
 end
 
 do
-  local eventStatus, event = pcall(require, 'jls.lang.event')
-  if eventStatus then
-    local function pawait(p)
-      if select(2, coroutine.running()) ~= true then
-        error('attempt to call await from outside the main thread')
-      end
-      local q = Promise.resolve(p)
-      local status, result
-      local state = q._state
-      if state == PENDING then
-        q:next(function(value)
-          status, result = true, value
-          event:stop()
-        end, function(reason)
-          status, result = false, reason
-          event:stop()
-        end)
-        event:loop()
-      elseif state == FULFILLED then
-        status, result = true, q._result
-      elseif state == REJECTED then
-        status, result = false, q._result
-      elseif state == ERROR then
-        q._result.uncaught = false
-        status, result = false, q._result.message
-      end
-      return status, result
-    end
-    Promise.pawait = pawait
-    function Promise.await(p)
-      local status, result = pawait(p)
-      if status then
-        return result
-      end
-      error(result or 'unknown reason', 0)
-    end
-    if os.getenv('JLS_PROMISE_APPLY_ASYNC') then
+  if os.getenv('JLS_PROMISE_APPLY_ASYNC') then
+    local status, event = pcall(require, 'jls.lang.event')
+    if status then
       applyPromiseHandler = function(...)
         event:setTimeout(applyPromiseHandlerDo, 0, ...)
       end

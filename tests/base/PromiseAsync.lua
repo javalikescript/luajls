@@ -102,9 +102,4 @@ function Test_async_n_await()
   lu.assertEquals(v, 4)
 end
 
-function Test_await()
-  local v = Promise.await(future('ok'))
-  lu.assertEquals(v, 'ok')
-end
-
 os.exit(lu.LuaUnit.run())
