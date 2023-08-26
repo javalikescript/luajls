@@ -246,6 +246,10 @@ return class.create(function(httpClient)
     end
   end
 
+  function httpClient:isClosed()
+    return self.tcpClient == nil
+  end
+
   --- Closes this HTTP client.
   -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
   function httpClient:close()
@@ -291,13 +295,13 @@ return class.create(function(httpClient)
     local hsh = HeaderStreamHandler:new(response)
     return hsh:read(self.tcpClient):next(function(remainingBuffer)
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpClient:receiveResponseHeaders() header done, status code is %d, remainingBuffer is #%s',
+        logger:finer('httpClient:receiveResponseHeaders() header done, status code is %d, remainingBuffer is #%s',
           response:getStatusCode(), remainingBuffer and #remainingBuffer)
       end
       if self.maxRedirectCount > 0 and (response:getStatusCode() // 100) == 3 then
         local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
         if location then
-          logger:fine('httpClient:receiveResponseHeaders() redirected #%d to "%s"', self.maxRedirectCount, location)
+          logger:finer('httpClient:receiveResponseHeaders() redirected #%d to "%s"', self.maxRedirectCount, location)
           self.maxRedirectCount = self.maxRedirectCount - 1
           return self:closeClient():next(function()
             self:setUrl(location) -- TODO Is it ok to overwrite the url?
