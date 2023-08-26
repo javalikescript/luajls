@@ -138,8 +138,20 @@ end, function(Thread)
     if status and v == nil and e then
       status, v = false, e
     end
-    if status and Promise.isPromise(v) and Promise.pawait then
-      status, v = Promise.pawait(v)
+    if status and Promise.isPromise(v) then
+      local eventStatus, event = pcall(require, 'jls.lang.event')
+      if eventStatus then
+        local p = v
+        status, v = false, 'promise not fulfilled after loop'
+        p:next(function(value)
+          status, v = true, value
+        end, function(reason)
+          status, v = false, reason
+        end)
+        event:loop()
+      else
+        status, v = false, 'no event loop to fulfill promise'
+      end
     end
     local vt
     local t = type(v)

@@ -454,7 +454,8 @@ Waits for the specified Promise then returns its fulfillment value.
 Raises an error if the promise is rejected.
 
 This function can only be called on the main thread not in a loop callback.
-This function is only available with an event module.
+This function is only available when an event module is also available.
+It is still required to run the event loop at the end of the main thread.
 
 @tparam Promise p A promise to wait for.
 @return The fulfillment value of the promise.

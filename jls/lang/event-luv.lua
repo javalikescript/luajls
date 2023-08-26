@@ -63,6 +63,7 @@ return class.create(function(event)
   end
 
   function event:stop()
+    logger:fine('event:stop()')
     luvLib.stop()
   end
 
