@@ -70,7 +70,7 @@ end
 local LOG_FILE = io.stderr
 
 local LOG_EOL = '\n'
-if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
+if string.sub(package.config, 1, 1) == '\\' then
   LOG_EOL = '\r\n'
 end
 

@@ -33,10 +33,7 @@ local close, read_start, read_stop, write = luv_stream.close, luv_stream.read_st
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
 
-local isWindowsOS = false
-if string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll') then
-  isWindowsOS = true
-end
+local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
 
 --[[
   When a process writes to a socket that has received an RST, the SIGPIPE signal is sent to the process.

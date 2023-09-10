@@ -1,4 +1,4 @@
-local isWindowsOS = string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll')
+local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
 
 return function(args)
   local pargs = {}

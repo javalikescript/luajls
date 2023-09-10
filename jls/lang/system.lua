@@ -12,7 +12,7 @@ local sysLib = require('jls.lang.sys')
 local loader = require('jls.lang.loader')
 local FileDescriptor = loader.tryRequire('jls.io.FileDescriptor')
 
-local isWindowsOS = string.sub(package.config, 1, 1) == '\\' or string.find(package.cpath, '%.dll')
+local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
 
 local win32Lib = isWindowsOS and loader.tryRequire('win32')
 

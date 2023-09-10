@@ -1,4 +1,6 @@
+local logger = require('jls.lang.logger')
 local File = require('jls.io.File')
+local Date = require('jls.util.Date')
 
 local opensslLib = require('openssl')
 
@@ -21,11 +23,26 @@ local function writeCertificateAndPrivateKey(cacertFile, pkeyFile)
   pkeyFile:write(pkeyPem)
 end
 
+local function readCertificate(certFile)
+  return opensslLib.x509.read(certFile:readAll())
+end
+
 return function(caCertPem, pKeyPem)
   local cacertFile = File:new(caCertPem or 'tests/cacert.pem')
   local pkeyFile = File:new(pKeyPem or 'tests/pkey.pem')
   if not cacertFile:isFile() or not pkeyFile:isFile() then
+    logger:info('creating certificate')
     writeCertificateAndPrivateKey(cacertFile, pkeyFile)
+  else
+    local cert = readCertificate(cacertFile)
+    local isValid, notbefore, notafter = cert:validat()
+    local notafterDate = Date:new(notafter:get() * 1000)
+    local notafterText = notafterDate:toISOString(true)
+    logger:info('certificate valid until %s', notafterText)
+    if not isValid then
+      logger:warn('re-creating invalid certificate')
+      writeCertificateAndPrivateKey(cacertFile, pkeyFile)
+    end
   end
   return cacertFile:getPath(), pkeyFile:getPath()
 end
