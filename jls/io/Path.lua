@@ -132,9 +132,9 @@ end, function(Path)
   -- @field Path.separator
   Path.separator = string.sub(package.config, 1, 1) or '/'
 
-  --- The Operating System (OS) specific path separator.
+  --- The Operating System (OS) specific path separator, ':' on Unix and ';' on Windows.
   -- @field Path.pathSeparator
-  Path.pathSeparator = string.sub(package.config, 3, 3) or ';'
+  Path.pathSeparator = Path.separator == '/' and ':' or ';'
 
   -- Returns the path prefix and the path relative.
   -- The prefix is empty when the path is relative.
