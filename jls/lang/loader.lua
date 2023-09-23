@@ -64,7 +64,7 @@ local function singleRequirer(name)
   end
 end
 
---- Builds a function by requiring its dependencies on first call.
+-- Builds a function by requiring its dependencies on first call.
 -- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found.
 -- @treturn funtion the function returned by the providerFn parameter.
 -- @function lazyFunction
@@ -81,16 +81,25 @@ local function lazyFunction(providerFn, ...)
 end
 
 --- Adds a method by requiring its dependencies on first call.
+-- Lazy method allows cycling dependencies.
+-- The module method will be replaced on the first call, caching the boot method works but is not recommended.
 -- @tparam table m the module owning the method
 -- @tparam string key the method name
 -- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found.
 -- @treturn funtion the function returned by the providerFn parameter.
 -- @function lazyMethod
 local function lazyMethod(m, key, providerFn, ...)
+  if type(m) ~= 'table' or type(key) ~= 'string' or type(providerFn) ~= 'function' then
+    error('invalid arguments')
+  end
   local names = {...}
+  local fn
   m[key] = function(...)
-    local fn = providerFn(requireList(names, true))
-    m[key] = fn
+    if not fn then
+      fn = providerFn(requireList(names))
+      m[key] = fn
+      names, m, key, providerFn = nil, nil, nil, nil
+    end
     return fn(...)
   end
 end

@@ -93,16 +93,17 @@ end
 -- @function system.currentTime
 system.formatCommandLine = require('jls.lang.formatCommandLine')
 
-system.exec = loader.lazyFunction(function(ProcessBuilder, Path)
-  --- Executes the specified command and arguments in a separate process with the specified environment and working directory.
-  -- @param command Array of strings specifying the command-line arguments.
-  -- The first argument is the name of the executable file.
-  -- @param env Array of key=values specifying the environment strings.
-  -- If undefined, the new process inherits the environment of the parent process.
-  -- @param dir The working directory of the subprocess, or undefined
-  -- if the subprocess should inherit the working directory of the current process.
-  -- @treturn jls.lang.ProcessHandle a handle of the new process
-  system.exec = function(command, env, dir)
+--- Executes the specified command and arguments in a separate process with the specified environment and working directory.
+-- @param command Array of strings specifying the command-line arguments.
+-- The first argument is the name of the executable file.
+-- @param env Array of key=values specifying the environment strings.
+-- If undefined, the new process inherits the environment of the parent process.
+-- @param dir The working directory of the subprocess, or undefined
+-- if the subprocess should inherit the working directory of the current process.
+-- @treturn jls.lang.ProcessHandle a handle of the new process
+-- @function system.exec
+loader.lazyMethod(system, 'exec', function(ProcessBuilder, Path)
+  return function(command, env, dir)
     if type(command) == 'string' then
       command = {command}
     elseif type(command) ~= 'table' or #command < 1 then
@@ -117,11 +118,17 @@ system.exec = loader.lazyFunction(function(ProcessBuilder, Path)
     end
     return pb:start()
   end
-  return system.exec
 end, 'jls.lang.ProcessBuilder', 'jls.io.Path')
 
-system.execute = loader.lazyFunction(function(Promise, Thread)
-
+--- Executes the specified command line in a separate thread.
+-- The promise will be rejected if the process exit code is not zero.
+-- The error is a table with a code and a kind fields.
+-- @tparam string command The command-line to execute.
+-- @tparam[opt] boolean anyCode true to resolve the promise with any exit code.
+-- @tparam[opt] function callback an optional callback function to use in place of promise.
+-- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
+-- @function system.execute
+loader.lazyMethod(system, 'execute', function(Promise, Thread)
   local function applyExecuteCallback(cb, anyCode, status, kind, code)
     if anyCode then
       cb(nil, {
@@ -134,15 +141,7 @@ system.execute = loader.lazyFunction(function(Promise, Thread)
       cb('Execute fails with '..tostring(kind)..' code '..tostring(code))
     end
   end
-
-  --- Executes the specified command line in a separate thread.
-  -- The promise will be rejected if the process exit code is not zero.
-  -- The error is a table with a code and a kind fields.
-  -- @tparam string command The command-line to execute.
-  -- @tparam[opt] boolean anyCode true to resolve the promise with any exit code.
-  -- @tparam[opt] function callback an optional callback function to use in place of promise.
-  -- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
-  system.execute = function(command, anyCode, callback)
+  return function(command, anyCode, callback)
     if type(anyCode) == 'function' then
       callback = anyCode
       anyCode = false
@@ -171,8 +170,26 @@ system.execute = loader.lazyFunction(function(Promise, Thread)
     end
     return d
   end
-  return system.execute
 end, 'jls.lang.Promise', 'jls.lang.Thread')
+
+loader.lazyMethod(system, 'findExecutablePath', function(File, strings)
+  return function(name)
+    if isWindowsOS then
+      name = name..'.exe'
+    end
+    local path = os.getenv('PATH')
+    --print('locate', name, 'sep', File.pathSeparator, 'path', path)
+    if path then
+      for _, p in ipairs(strings.split(path, File.pathSeparator, true)) do
+        local f = File:new(p, name)
+        if f:exists() then
+          --print(f:getPath())
+          return f:getPath()
+        end
+      end
+    end
+  end
+end, 'jls.io.File', 'jls.util.strings')
 
 local shutdownHooks = {}
 

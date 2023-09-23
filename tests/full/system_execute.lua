@@ -54,4 +54,12 @@ function Test_execute_with_exitCode()
   assertExitCode(11)
 end
 
+function Test_findExecutablePath()
+  lu.assertNil(system.findExecutablePath('unlikely-executable-name'))
+  local executableName = system.isWindows() and 'cmd' or 'sh'
+  local executablePath = system.findExecutablePath(executableName)
+  --print(executableName, executablePath)
+  lu.assertNotNil(executablePath)
+end
+
 os.exit(lu.LuaUnit.run())
