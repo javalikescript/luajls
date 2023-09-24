@@ -48,17 +48,6 @@ end
 
 local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
 
-local function newTcpClient(isSecure)
-  local tcpClient
-  if isSecure and getSecure() then
-    tcpClient = getSecure().TcpSocket:new()
-    --tcpClient.sslCheckHost = options.checkHost == true
-  else
-    tcpClient = TcpSocket:new()
-  end
-  return tcpClient
-end
-
 local function getHostHeader(host, port)
   if port then
     return host..':'..tostring(port)
@@ -73,6 +62,8 @@ end
 local function sameClient(url1, url2)
   return url1:getHost() == url2:getHost() and url1:getPort() == url2:getPort() and isUrlSecure(url1) == isUrlSecure(url2)
 end
+
+local SECURE_CONTEXT
 
 --[[--
 The HttpClient class enables to send an HTTP request.
@@ -163,6 +154,14 @@ return class.create(function(httpClient)
     return self.tcpClient
   end
 
+  function httpClient:getSecureContext()
+    return self.secureContext
+  end
+
+  function httpClient:setSecureContext(secureContext)
+    self.secureContext = secureContext
+  end
+
   function httpClient:setUrl(url)
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpClient:setUrl(%s)', url)
@@ -185,10 +184,15 @@ return class.create(function(httpClient)
     local isSecure = isUrlSecure(url)
     local host = url:getHost()
     local port = url:getPort()
-    self.tcpClient = newTcpClient(isSecure)
+    if isSecure and getSecure() then
+      self.tcpClient = getSecure().TcpSocket:new()
+      self.tcpClient:sslInit(false, self.secureContext or SECURE_CONTEXT)
+    else
+      self.tcpClient = TcpSocket:new()
+    end
     if self.proxyHost then
       if isSecure then
-        local connectTcp = newTcpClient(false)
+        local connectTcp = TcpSocket:new()
         local connectRequest = HttpMessage:new()
         local connectResponse = HttpMessage:new()
         connectRequest:setMethod('CONNECT')
@@ -359,6 +363,16 @@ return class.create(function(httpClient)
       logger:finer('httpClient:sendReceive() receive completed')
       return self.response
     end)
+  end
+
+end, function(HttpClient)
+
+  function HttpClient.getSecureContext()
+    return DEFAULT_SECURE_CONTEXT
+  end
+
+  function HttpClient.setSecureContext(secureContext)
+    DEFAULT_SECURE_CONTEXT = secureContext
   end
 
 end)

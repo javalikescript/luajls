@@ -88,7 +88,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Sets the first line of this HTTP message.
   -- @tparam string version the first line.
   function httpMessage:setVersion(version)
-    if not string.find(version, 'HTTP/%d+%.%d*') then
+    if not string.find(version, 'HTTP/%d+%.?%d*') then
       error('Invalid HTTP version, '..version)
     end
     self.version = tostring(version)

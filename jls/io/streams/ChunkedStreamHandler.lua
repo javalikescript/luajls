@@ -36,13 +36,19 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function chunkedStreamHandler:crunch(lastIndex, nextIndex)
+    logger:finer('chunkedStreamHandler:crunch(%s, %s)', lastIndex, nextIndex)
     if not nextIndex then
       nextIndex = lastIndex + 1
     end
-    if nextIndex < 0 then
+    if nextIndex <= 0 then
       self.buffer = nil
       self.length = 0
       self.handler:onData()
+      return true
+    end
+    if nextIndex > self.length + 1 then
+      logger:warn('next index (%d) out of bound (%d)', nextIndex, self.length)
+      self:onError('next index out of bound')
       return true
     end
     local buffer = self.buffer
@@ -52,13 +58,6 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
       return false
     end
     buffer = string.sub(buffer, 1, lastIndex)
-    if logger:isLoggable(logger.FINER) then
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('chunkedStreamHandler:crunch('..tostring(lastIndex)..', '..tostring(nextIndex)..') => "'..tostring(buffer)..'"')
-      else
-        logger:finer('chunkedStreamHandler:crunch('..tostring(lastIndex)..', '..tostring(nextIndex)..') => #'..tostring(buffer and #buffer))
-      end
-    end
     self.handler:onData(buffer)
     return buffer == self.stop
   end
@@ -79,14 +78,28 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
       local length = string.len(data)
       if self.buffer then
         self.buffer = self.buffer..data
+        self.length = self.length + length
       else
         self.buffer = data
+        self.length = length
       end
-      self.length = self.length + length
       while true do
-        local lastIndex, nextIndex = self:findCut(self.buffer, self.length)
-        if not lastIndex then
-          break
+        local lastIndex, nextIndex
+        if self.lastIndex then
+          lastIndex, nextIndex = self.lastIndex, self.nextIndex
+          if lastIndex > self.length then
+            break
+          end
+          self.lastIndex, self.nextIndex = nil, nil
+        else
+          lastIndex, nextIndex = self:findCut(self.buffer, self.length)
+          if not lastIndex then
+            break
+          end
+          if lastIndex > self.length then
+            self.lastIndex, self.nextIndex = lastIndex, nextIndex
+            break
+          end
         end
         if self:crunch(lastIndex, nextIndex) then
           return
@@ -112,6 +125,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     end
   end
 
+  -- Returns the indices of s before and after the first match of pattern.
   function ChunkedStreamHandler.createPatternFinder(pattern, plain)
     return function(_, buffer, length)
       local ib, ie = string.find(buffer, pattern, 1, plain)

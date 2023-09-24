@@ -75,11 +75,15 @@ end)
 
 return require('jls.lang.class').create('jls.util.Codec', function(hex)
 
-  function hex:initialize(lowerCase)
+  function hex:initialize(lowerCase, ignoreSpaces)
     self.lowerCase = lowerCase
+    self.ignoreSpaces = ignoreSpaces
   end
 
   function hex:decode(value)
+    if self.ignoreSpaces then
+      return decode(string.gsub(value, '%s+', ''))
+    end
     return decode(value)
   end
 

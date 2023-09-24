@@ -268,6 +268,7 @@ return class.create(function(webSocket)
       return nil, 'not connected'
     end
     -- stream implementation that buffers and splits packets
+    -- TODO use chunked stream
     local buffer = ''
     return self.tcp:readStart(function(err, data)
       if err then

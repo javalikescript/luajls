@@ -5,12 +5,14 @@
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
+local StreamHandler = require('jls.io.StreamHandler')
 local TcpSocket = require('jls.net.TcpSocket')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpHandler = require('jls.net.http.HttpHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local HttpFilter = require('jls.net.http.HttpFilter')
+local Http2 = require('jls.net.http.Http2')
 local List = require('jls.util.List')
 
 local HTTP_CONST = HttpMessage.CONST
@@ -221,13 +223,62 @@ local HttpServer = class.create(function(httpServer)
     return HttpFilter.filter(exchange, self.filters)
   end
 
+  function httpServer:onAccept(client)
+    logger:finer('httpServer:onAccept()')
+    if client.sslGetAlpnSelected then -- secure
+      local alpnSelected = client:sslGetAlpnSelected()
+      if alpnSelected == 'h2' then -- HTTP/2
+        self:handleHttp2Exchange(client)
+        return
+      end
+    end
+    self:handleExchange(client)
+  end
+
+  function httpServer:onHttp2EndHeaders(stream)
+    local request = stream.message
+    local exchange = HttpExchange:new()
+    exchange.request = request
+    stream.exchange = exchange
+    if self:preFilter(exchange) then
+      local path = request:getTargetPath()
+      local context = self:getMatchingContext(path, request)
+      local requestHeadersPromise = exchange:handleRequest(context)
+    end
+  end
+  function httpServer:onHttp2Data(stream, data)
+    stream.message.bodyStreamHandler:onData(data)
+  end
+  function httpServer:onHttp2EndStream(stream)
+    local exchange = stream.exchange
+    stream.message.bodyStreamHandler:onData(nil)
+    exchange:notifyRequestBody()
+    self:prepareResponseHeaders(exchange)
+    local response = exchange:getResponse()
+    stream:sendHeaders(response):next(function()
+      response.bodyStreamHandler = StreamHandler:new(function(err, data)
+        if data then
+          stream:sendData(data)
+        end
+      end)
+      self:writeBodyCallback()
+    end)
+  end
+  function httpServer:onHttp2Error(stream)
+  end
+  function httpServer:handleHttp2Exchange(client)
+    local http2 = Http2:new(client, true, self)
+    -- TODO register client in pendings
+    http2:readStart()
+  end
+
   --[[
     The presence of a message body in a request is signaled by a
   Content-Length or Transfer-Encoding header field.  Request message
   framing is independent of method semantics, even if the method does
   not define any use for a message body
   ]]
-  function httpServer:onAccept(client, buffer)
+  function httpServer:handleExchange(client, buffer)
     logger:finer('httpServer:onAccept()')
     if self.keepAlive then
       client:setKeepAlive(true, self.keepAlive)
@@ -284,7 +335,7 @@ local HttpServer = class.create(function(httpServer)
         if c then
           logger:finer('httpServer:onAccept() keeping client alive')
           exchange:close()
-          return self:onAccept(c, remainingBuffer)
+          return self:handleExchange(c, remainingBuffer)
         end
       end
       exchange:close()
@@ -377,13 +428,7 @@ end, function(HttpServer)
   --- The default not found handler.
   HttpServer.notFoundHandler = notFoundHandler
 
-  require('jls.lang.loader').lazyMethod(HttpServer, 'createSecure', function(secure, class)
-    if not secure then
-      return function()
-        return nil, 'Not available'
-      end
-    end
-
+  require('jls.lang.loader').lazyMethod(HttpServer, 'createSecure', function(secure)
     local SecureTcpServer = class.create(secure.TcpSocket, function(secureTcpServer)
       function secureTcpServer:onHandshakeStarting(client)
         if self._hss then
@@ -398,17 +443,20 @@ end, function(HttpServer)
         end
       end
     end)
-
-    return function(secureContext)
+    return function(options)
       local tcp = SecureTcpServer:new()
-      if type(secureContext) == 'table' then
-        tcp:setSecureContext(secure.Context:new(secureContext))
+      if type(options) == 'table' then
+        if secure.Context:isInstance(options) then
+          tcp:setSecureContext(options)
+        else
+          tcp:setSecureContext(secure.Context:new(options))
+        end
       end
       local httpsServer = HttpServer:new(tcp)
       tcp._hss = httpsServer
       return httpsServer
     end
-  end, 'jls.net.secure', 'jls.lang.class')
+  end, 'jls.net.secure')
 
 end)
 

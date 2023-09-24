@@ -178,8 +178,14 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
 
   function httpHeaders:setHeadersTable(headers)
     self:clearHeaders()
-    for name, value in pairs(headers) do
-      self:setHeader(name, value)
+    if HttpHeaders:isInstance(headers) then
+      for name, value in pairs(headers:getHeadersTable()) do
+        self.headers[name] = value
+      end
+    else
+      for name, value in pairs(headers) do
+        self:setHeader(name, value)
+      end
     end
   end
 

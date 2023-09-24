@@ -6,15 +6,16 @@ local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local StreamHandler = require('jls.io.StreamHandler')
 
+--logger = logger:getClass():new(); logger:setLevel('fine')
 
-local function getLuaOpensslVersion()
-  return string.gsub(opensslLib.version(), '(%d+)', function(n) return string.sub('000'..n, -3); end)
-end
+-- LOPENSSL_VERSION_NUM: 0xMNNFFPPS
+-- OPENSSL_VERSION_NUMBER: 0xMNN00PP0L Major miNor Patch
+local LOPENSSL_VERSION_NUM, _, OPENSSL_VERSION_NUMBER = opensslLib.version(true)
 
 local BUFFER_SIZE = 8192
 
 local DEFAULT_PROTOCOL = 'TLS'
-if getLuaOpensslVersion() < '000.007.006' then
+if LOPENSSL_VERSION_NUM < 0x00706000 then -- 0.7.6
   DEFAULT_PROTOCOL = 'TLSv1_2'
 end
 
@@ -31,37 +32,36 @@ local SecureContext = class.create(function(secureContext)
     end
     self.sslContext = opensslLib.ssl.ctx_new(options.protocol or DEFAULT_PROTOCOL, options.ciphers or DEFAULT_CIPHERS)
     --self.sslContext:mode(true, 'release_buffers')
-    --self.sslContext:options(opensslLib.ssl.no_sslv2 | opensslLib.ssl.no_sslv3 | opensslLib.ssl.no_compression)
-    
-    self.sslContext:verify_mode(opensslLib.ssl.none)
-    --[[
-      self.sslContext:verify_mode(opensslLib.ssl.peer, function(arg)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('sslContext verify()')
-          for k,v in pairs(arg) do
-            logger:fine('  '..tostring(k)..': '..tostring(v))
-          end
-        end
-        return true
-      end)
-    ]]
+    if options.options then
+      -- opensslLib.ssl.no_sslv2 | opensslLib.ssl.no_sslv3 | opensslLib.ssl.no_compression
+      self.sslContext:options(options.options)
+    end
+    if type(options.peerVerifyFn) == 'function' then
+      self.sslContext:verify_mode(opensslLib.ssl.peer, options.peerVerifyFn)
+    else
+      self.sslContext:verify_mode(opensslLib.ssl.none)
+    end
     if options.certificate and options.key then
       self:use(options.certificate, options.key, options.password)
     end
-
     if options.cafile or options.capath then
       self:verifyLocations(options.cafile, options.capath)
     end
-
-    self.sslContext:set_cert_verify(function(arg)
-      --[[if logger:isLoggable(logger.FINE) then
-        logger:fine('sslContext cert_verify()')
-        for k,v in pairs(arg) do
-          logger:fine('  '..tostring(k)..': '..tostring(v))
-        end
-      end]]
-      return true
-    end)
+    if type(options.peerVerifyFn) == 'function' then
+      self.sslContext:set_cert_verify(options.peerVerifyFn)
+    else
+      self.sslContext:set_cert_verify(function()
+        return true
+      end)
+    end
+    if type(options.alpnSelectCb) == 'function' then
+      self.sslContext:set_alpn_select_cb(options.alpnSelectCb)
+    elseif type(options.alpnSelectProtos) == 'table' then
+      self:setAlpnSelectProtos(options.alpnSelectProtos)
+    end
+    if type(options.alpnProtos) == 'table' then
+      self.sslContext:set_alpn_protos(options.alpnProtos)
+    end
   end
 
   function secureContext:verifyLocations(cafile, capath)
@@ -89,21 +89,57 @@ local SecureContext = class.create(function(secureContext)
     end
     return self.sslContext:ssl(inMem, outMem, isServer)
   end
-end)
 
-local DEFAULT_SECURE_CONTEXT = nil
-
-function SecureContext.getDefault()
-  if not DEFAULT_SECURE_CONTEXT then
-    -- TODO use env
-    DEFAULT_SECURE_CONTEXT = SecureContext:new()
+  function secureContext:setAlpnSelectCb(cb)
+    return self.sslContext:set_alpn_select_cb(cb)
   end
-  return DEFAULT_SECURE_CONTEXT
-end
 
-function SecureContext.setDefault(context)
-  DEFAULT_SECURE_CONTEXT = context
-end
+  function secureContext:setAlpnSelectProtos(protoList)
+    self:setAlpnSelectCb(function(list)
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('ALPN select: %s', table.concat(list, ','))
+      end
+      for _, proto in ipairs(protoList) do
+        for _, name in ipairs(list) do
+          if name == proto then
+            logger:fine('ALPN selected: %s', name)
+            return name
+          end
+        end
+      end
+    end)
+  end
+
+  function secureContext:setAlpnProtocols(list)
+    return self.sslContext:set_alpn_protos(list)
+  end
+
+end, function(SecureContext)
+
+  local DEFAULT_SECURE_CONTEXT = nil
+
+  function SecureContext.getDefault()
+    if not DEFAULT_SECURE_CONTEXT then
+      DEFAULT_SECURE_CONTEXT = SecureContext:new()
+      local protos = os.getenv('JLS_SSL_ALPN_PROTOS')
+      if protos and OPENSSL_VERSION_NUMBER >= 0x10002000 then
+        logger:fine('Using ALPN protocols: %s', protos)
+        local protoList = {}
+        for proto in string.gmatch(protos, '[^%s]+') do
+          table.insert(protoList, proto)
+        end
+        DEFAULT_SECURE_CONTEXT:setAlpnProtocols(protoList)
+        DEFAULT_SECURE_CONTEXT:setAlpnSelectProtos(protoList)
+      end
+    end
+    return DEFAULT_SECURE_CONTEXT
+  end
+
+  function SecureContext.setDefault(context)
+    DEFAULT_SECURE_CONTEXT = context
+  end
+
+end)
 
 
 local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super, SecureTcpSocket)
@@ -113,7 +149,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     self.inMem = opensslLib.bio.mem(BUFFER_SIZE)
     self.outMem = opensslLib.bio.mem(BUFFER_SIZE)
     if not secureContext then
-      secureContext = SecureContext.getDefault()
+      secureContext = self:getSecureContext()
     end
     self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
     self.sslReading = false
@@ -121,6 +157,13 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       logger:fine('secureTcpSocket:sslInit() use default check host')
       self.sslCheckHost = not isServer
     end]]
+  end
+
+  function secureTcpSocket:sslGetAlpnSelected()
+    return self.ssl:get_alpn_selected()
+  end
+  if OPENSSL_VERSION_NUMBER < 0x10002000 then
+    secureTcpSocket.sslGetAlpnSelected = class.emptyFunction
   end
 
   function secureTcpSocket:sslShutdown()
@@ -280,7 +323,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   function secureTcpSocket:startHandshake(startData)
     logger:finer('secureTcpSocket:startHandshake()')
     if not self.ssl then
-      self:sslInit()
+      self:sslInit(false)
     end
     local promise, resolutionCallback = Promise.createWithCallback()
     if startData and #startData > 0 and self.inMem:write(startData) then
@@ -415,11 +458,10 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:getSecureContext()
-    if not self.secureContext then
-      self.secureContext = SecureContext:new()
-      --self.secureContext:use(certificate, key, password)
+    if self.secureContext then
+      return self.secureContext
     end
-    return self.secureContext
+    return SecureContext.getDefault()
   end
 
   function secureTcpSocket:setSecureContext(context)
