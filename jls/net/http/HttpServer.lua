@@ -5,7 +5,6 @@
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Promise = require('jls.lang.Promise')
-local StreamHandler = require('jls.io.StreamHandler')
 local TcpSocket = require('jls.net.TcpSocket')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpMessage = require('jls.net.http.HttpMessage')

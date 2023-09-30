@@ -3,6 +3,7 @@ file = {'jls', exclude = {
   'jls/io/streams',
   'jls/net/http/filter',
   'jls/net/http/handler',
+  'jls/net/http/Hpack.lua',
   'jls/util/CoroutineScheduler.lua',
   'jls/util/Struct.lua',
 }}

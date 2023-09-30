@@ -54,13 +54,15 @@ local SecureContext = class.create(function(secureContext)
         return true
       end)
     end
-    if type(options.alpnSelectCb) == 'function' then
-      self.sslContext:set_alpn_select_cb(options.alpnSelectCb)
-    elseif type(options.alpnSelectProtos) == 'table' then
-      self:setAlpnSelectProtos(options.alpnSelectProtos)
-    end
-    if type(options.alpnProtos) == 'table' then
-      self.sslContext:set_alpn_protos(options.alpnProtos)
+    if OPENSSL_VERSION_NUMBER >= 0x10002000 then
+      if type(options.alpnSelectCb) == 'function' then
+        self.sslContext:set_alpn_select_cb(options.alpnSelectCb)
+      elseif type(options.alpnSelectProtos) == 'table' then
+        self:setAlpnSelectProtos(options.alpnSelectProtos)
+      end
+      if type(options.alpnProtos) == 'table' then
+        self.sslContext:set_alpn_protos(options.alpnProtos)
+      end
     end
   end
 
@@ -90,28 +92,30 @@ local SecureContext = class.create(function(secureContext)
     return self.sslContext:ssl(inMem, outMem, isServer)
   end
 
-  function secureContext:setAlpnSelectCb(cb)
-    return self.sslContext:set_alpn_select_cb(cb)
-  end
+  if OPENSSL_VERSION_NUMBER >= 0x10002000 then
+    function secureContext:setAlpnSelectCb(cb)
+      return self.sslContext:set_alpn_select_cb(cb)
+    end
 
-  function secureContext:setAlpnSelectProtos(protoList)
-    self:setAlpnSelectCb(function(list)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('ALPN select: %s', table.concat(list, ','))
-      end
-      for _, proto in ipairs(protoList) do
-        for _, name in ipairs(list) do
-          if name == proto then
-            logger:fine('ALPN selected: %s', name)
-            return name
+    function secureContext:setAlpnSelectProtos(protoList)
+      self:setAlpnSelectCb(function(list)
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('ALPN select: %s', table.concat(list, ','))
+        end
+        for _, proto in ipairs(protoList) do
+          for _, name in ipairs(list) do
+            if name == proto then
+              logger:fine('ALPN selected: %s', name)
+              return name
+            end
           end
         end
-      end
-    end)
-  end
+      end)
+    end
 
-  function secureContext:setAlpnProtocols(list)
-    return self.sslContext:set_alpn_protos(list)
+    function secureContext:setAlpnProtocols(list)
+      return self.sslContext:set_alpn_protos(list)
+    end
   end
 
 end, function(SecureContext)
