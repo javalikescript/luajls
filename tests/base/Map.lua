@@ -61,6 +61,16 @@ function Test_spairs()
   lu.assertEquals(keyValues, {{'a', 1}, {'b', 2}, {'c', 3}})
 end
 
+function Test_pairs()
+  local m = {a = 1, c = 3, b = 2}
+  local keyValues = Map:new(m)
+  local n = {}
+  for k, v in pairs(keyValues) do
+    n[k] = v
+  end
+  lu.assertEquals(n, m)
+end
+
 function Test_assign()
   lu.assertEquals(Map.assign({}), {})
   lu.assertEquals(Map.assign({}, {a = true}), {a = true})

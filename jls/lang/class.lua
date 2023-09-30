@@ -196,8 +196,9 @@ Returns an instance of the specified class.
 @function asInstance
 ]]
 local function asInstance(class, ...)
-  if isAssignableFrom(class, getClass(...)) then
-    return (...)
+  local value = ...
+  if isAssignableFrom(class, getClass(value)) then
+    return value
   end
   local instance = makeInstance(class)
   instance:initialize(...)
@@ -208,7 +209,8 @@ end
 local MetatableKeys = {
   __eq = 'equals',
   __len = 'length',
-  __tostring = 'toString'
+  __pairs = 'pairs',
+  __tostring = 'toString' 
 }
 
 local ClassIndex = {
@@ -227,7 +229,7 @@ local ClassMetaTable = {
 --[[--
 Implements the specified class by setting its prototype and class methods.
 The following methods are automatically set in the metatable:
-`equals` as `__eq`, `length` as `__len`, `toString` as `__tostring`.
+`equals` as `__eq`, `length` as `__len`, `pairs` as `__pairs`, `toString` as `__tostring`.
 @param class The class to implement.
 @tparam[opt] function defineInstanceFn An optional function that will be called with the class prototype to implement
 @tparam[opt] function defineClassFn An optional function that will be called with the class

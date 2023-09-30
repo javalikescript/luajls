@@ -220,6 +220,10 @@ return require('jls.lang.class').create(function(map, _, Map)
     return spairs(self.map, comp)
   end
 
+  function map:pairs()
+    return pairs(self.map)
+  end
+
   --- Adds a new element to this map such as the key is also the value.
   -- This method allows to use this map as a set.
   -- @param ... Additional values to add.
