@@ -7,6 +7,7 @@ local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
+local Url = require('jls.net.Url')
 local List = require('jls.util.List')
 local strings = require('jls.util.strings')
 local HTTP_CONST = HttpMessage.CONST
@@ -80,6 +81,17 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   -- @treturn string the request path.
   function httpExchange:getRequestPath()
     return self.context:replacePath(self:getRequest():getTargetPath())
+  end
+
+  function httpExchange:getQueryArguments()
+    local args = {}
+    for part in strings.parts(self:getRequest():getTargetQuery(), '&', true) do
+      local k, v = string.match(part, '^([^=]+)=(.+)$')
+      if k then
+        args[Url.decodePercent(k)] = Url.decodePercent(v)
+      end
+    end
+    return args
   end
 
   --- Returns a promise that resolves once the request body is available.

@@ -131,6 +131,11 @@ local CONFIG_SCHEMA = {
       type = 'boolean',
       default = false
     },
+    module = {
+      title = 'A Lua module to load',
+      pattern = '%.lua$',
+      type = 'string',
+    },
     secure = {
       type = 'object',
       additionalProperties = false,
@@ -207,6 +212,7 @@ local config = tables.createArgumentTable(system.getArguments(), {
     stop = 'stop.enabled',
     c = 'cipher.enabled',
     s = 'secure.enabled',
+    m = 'module',
     ll = 'log-level',
   },
   schema = CONFIG_SCHEMA
@@ -498,6 +504,13 @@ if config.websocket.enabled then
       webSocket:readStart()
     end
   }))
+end
+
+if config.module then
+  logger:info('Loading module %s', config.module)
+  local env = setmetatable({}, { __index = _G })
+  local scriptFn = assert(loadfile(config.module, 't', env))
+  scriptFn(httpServer, stopPromise)
 end
 
 if config.secure.enabled then
