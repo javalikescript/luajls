@@ -12,9 +12,8 @@ local strings = {}
 -- @treturn table a list of strings split at each pattern.
 function strings.split(value, pattern, plain)
   local list = {}
-  local s = #value
   local p = 1
-  while p <= s do
+  while p <= #value do
     local pStart, pEnd = string.find(value, pattern, p, plain)
     if pStart then
       table.insert(list, string.sub(value, p, pStart - 1))
@@ -27,10 +26,7 @@ function strings.split(value, pattern, plain)
   return list
 end
 
---- Returns a list of strings cut at each length.
--- @tparam string value The string to split.
--- @tparam number ... The ordered lengths to cut.
--- @treturn table a list of strings cut at each pattern.
+-- deprecated, to remove
 function strings.cuts(value, ...)
   local lengthList = {...}
   local list = {}
@@ -42,11 +38,49 @@ function strings.cuts(value, ...)
   return list
 end
 
+--- Returns an iterator function and the string value.
+-- When used in a for loop it will iterate over all values.
+-- If the pattern is a number it will be used to cut the string in values of the same size.
+-- @tparam string value The string to split.
+-- @param pattern The pattern used to split the string.
+-- @tparam[opt] boolean plain true to find the pattern as a plain string.
+-- @treturn function an iterator function
+-- @treturn string value The string to split
+function strings.parts(value, pattern, plain)
+  if type(pattern) == 'string' then
+    local p = 1
+    return function(s)
+      if p > #s then
+        return nil
+      end
+      local i = p
+      local pStart, pEnd = string.find(s, pattern, i, plain)
+      if pStart then
+        p = pEnd + 1
+        return string.sub(s, i, pStart - 1), false, i
+      end
+      p = #s + 1
+      return string.sub(s, i), true, i
+    end, value
+  elseif type(pattern) == 'number' and pattern > 0 then
+    local index = 1
+    return function(s)
+      if index > #s then
+        return nil
+      end
+      local i = index
+      index = index + pattern
+      return string.sub(s, i, index - 1), index > #s, i
+    end, value
+  end
+  error('invalid argument')
+end
+
 --- Returns a list of strings cut with the same size.
 -- @tparam number size The size to cut.
 -- @tparam string value The string to split.
 -- @treturn table a list of strings cut at each pattern.
-function strings.cut(size, value)
+function strings.cut(size, value) -- TODO value should come first
   local list = {}
   local index = 1
   while index < #value do

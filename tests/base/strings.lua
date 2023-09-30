@@ -24,6 +24,23 @@ function Test_cut()
   lu.assertEquals(strings.cut(13, 'abc'), {'abc'})
 end
 
+local function forAsList(...)
+  local l = {}
+  for s in ... do
+    table.insert(l, s)
+  end
+  return l
+end
+
+function Test_parts()
+  lu.assertEquals(forAsList(strings.parts('abcdefghijklmnopqrstuvwxyz', 10)), {'abcdefghij', 'klmnopqrst', 'uvwxyz'})
+  lu.assertEquals(forAsList(strings.parts('abcdefghijklmnopqrstuvwxyz', 13)), {'abcdefghijklm', 'nopqrstuvwxyz'})
+  lu.assertEquals(forAsList(strings.parts('abc', 13)), {'abc'})
+  lu.assertEquals(forAsList(strings.parts('', ',')), {})
+  lu.assertEquals(forAsList(strings.parts('a', ',')), {'a'})
+  lu.assertEquals(forAsList(strings.parts('a,b,c', ',')), {'a', 'b', 'c'})
+end
+
 function Test_cuts()
   lu.assertEquals(strings.cuts('abcdefghijklmnopqrstuvwxyz', 2, 2, 3), {'ab', 'cd', 'efg'})
   lu.assertEquals(strings.cuts('abcdefghijklmnopqrstuvwxyz', 2, 2, 99), {'ab', 'cd', 'efghijklmnopqrstuvwxyz'})

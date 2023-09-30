@@ -44,16 +44,27 @@ local function parseString(value)
   return value
 end
 
+local function cuts(value, ...)
+  local lengthList = {...}
+  local list = {}
+  local index = 1
+  for _, length in ipairs(lengthList) do
+    table.insert(list, string.sub(value, index, index + length - 1))
+    index = index + length
+  end
+  return table.unpack(list)
+end
+
 local function parseHeader(block)
   if logger:isLoggable(logger.FINEST) then
     logger:finest('parseHeader(#'..tostring(#block)..': '..require('jls.util.hex').encode(block)..')')
   end
-  local name, mode, uid, gid, size, mtime, chksum, typeflag, linkname, magic, extra = table.unpack(strings.cuts(block, 100, 8, 8, 8, 12, 12, 8, 1, 100, 6, 512))
+  local name, mode, uid, gid, size, mtime, chksum, typeflag, linkname, magic, extra = cuts(block, 100, 8, 8, 8, 12, 12, 8, 1, 100, 6, 512)
   if logger:isLoggable(logger.FINER) then
     logger:finer('parseHeader(#'..tostring(#block)..') '..require('jls.util.hex').encode(name)..', '..require('jls.util.hex').encode(size)..', '..require('jls.util.hex').encode(mtime))
   end
   if magic == 'ustar\0' then
-    local version, uname, gname, devmajor, devminor, prefix = table.unpack(strings.cuts(extra, 2, 32, 32, 8, 8, 155))
+    local version, uname, gname, devmajor, devminor, prefix = cuts(extra, 2, 32, 32, 8, 8, 155)
   end
   return {
     name = parseString(name),
