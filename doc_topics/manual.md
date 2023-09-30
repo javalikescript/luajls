@@ -518,14 +518,13 @@ The HTTP client lets you send HTTP requests.
 ```lua
 local HttpClient = require('jls.net.http.HttpClient')
 
-local client = HttpClient:new({url = 'http://www.lua.org/'})
-client:connect():next(function()
-  return client:sendReceive()
-end):next(function(response)
-  client:close()
-  return response:getBody()
+local client = HttpClient:new('http://www.lua.org/')
+client:fetch('/'):next(function(response)
+  print('status code is', response:getStatusCode())
+  return response:readBody()
 end):next(function(body)
-  print('body size', #body)
+  print('body size is', #body)
+  client:close()
 end)
 
 require('jls.lang.event'):loop()

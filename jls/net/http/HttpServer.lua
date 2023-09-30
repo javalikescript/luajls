@@ -226,8 +226,7 @@ local HttpServer = class.create(function(httpServer)
   function httpServer:onAccept(client)
     logger:finer('httpServer:onAccept()')
     if client.sslGetAlpnSelected then -- secure
-      local alpnSelected = client:sslGetAlpnSelected()
-      if alpnSelected == 'h2' then -- HTTP/2
+      if client:sslGetAlpnSelected() == 'h2' then -- HTTP/2
         self:handleHttp2Exchange(client)
         return
       end
@@ -236,6 +235,7 @@ local HttpServer = class.create(function(httpServer)
   end
 
   function httpServer:onHttp2EndHeaders(stream)
+    logger:finer('httpServer:onHttp2EndHeaders(%s)', stream.id)
     local request = stream.message
     local exchange = HttpExchange:new()
     exchange.request = request
@@ -246,30 +246,28 @@ local HttpServer = class.create(function(httpServer)
       local requestHeadersPromise = exchange:handleRequest(context)
     end
   end
-  function httpServer:onHttp2Data(stream, data)
-    stream.message.bodyStreamHandler:onData(data)
-  end
   function httpServer:onHttp2EndStream(stream)
+    logger:finer('httpServer:onHttp2EndStream(%s)', stream.id)
     local exchange = stream.exchange
-    stream.message.bodyStreamHandler:onData(nil)
     exchange:notifyRequestBody()
     self:prepareResponseHeaders(exchange)
     local response = exchange:getResponse()
     stream:sendHeaders(response):next(function()
-      response.bodyStreamHandler = StreamHandler:new(function(err, data)
-        if data then
-          stream:sendData(data)
-        end
-      end)
-      self:writeBodyCallback()
+      stream:sendBody(response)
     end)
   end
-  function httpServer:onHttp2Error(stream)
+  function httpServer:onHttp2Ping(http2)
+    http2.start_time = os.time()
+  end
+  function httpServer:onHttp2Error(stream, reason)
+    logger:warn('httpServer:onHttp2Error(%s, %s)', stream and stream.id or '-', reason)
   end
   function httpServer:handleHttp2Exchange(client)
     local http2 = Http2:new(client, true, self)
     -- TODO register client in pendings
     http2:readStart()
+    http2.start_time = os.time()
+    self.pendings[client] = http2
   end
 
   --[[
@@ -279,7 +277,7 @@ local HttpServer = class.create(function(httpServer)
   not define any use for a message body
   ]]
   function httpServer:handleExchange(client, buffer)
-    logger:finer('httpServer:onAccept()')
+    logger:finer('httpServer:handleExchange()')
     if self.keepAlive then
       client:setKeepAlive(true, self.keepAlive)
     end
@@ -289,10 +287,10 @@ local HttpServer = class.create(function(httpServer)
     local requestHeadersPromise = nil
     local hsh = HeaderStreamHandler:new(exchange:getRequest())
     -- TODO limit headers
-    exchange:setAttribute('start_time', os.time())
+    exchange.start_time = os.time()
     self.pendings[client] = exchange
     hsh:read(client, buffer):next(function(remainingHeaderBuffer)
-      logger:finer('httpServer:onAccept() header read')
+      logger:finer('httpServer:handleExchange() header read')
       self.pendings[client] = nil
       local request = exchange:getRequest()
       if self:preFilter(exchange) then
@@ -301,12 +299,12 @@ local HttpServer = class.create(function(httpServer)
         requestHeadersPromise = exchange:handleRequest(context)
       end
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:onAccept() request headers '..requestToString(exchange)..' processed')
+        logger:finer('httpServer:handleExchange() request headers '..requestToString(exchange)..' processed')
         logger:finer(request:getRawHeaders())
       end
       return request:readBody(client, remainingHeaderBuffer)
     end):next(function(remainingBodyBuffer)
-      logger:finer('httpServer:onAccept() body done')
+      logger:finer('httpServer:handleExchange() body done')
       exchange:notifyRequestBody()
       remainingBuffer = remainingBodyBuffer
       if requestHeadersPromise then
@@ -314,26 +312,26 @@ local HttpServer = class.create(function(httpServer)
       end
     end):next(function()
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:onAccept() request '..requestToString(exchange)..' processed')
+        logger:finer('httpServer:handleExchange() request '..requestToString(exchange)..' processed')
       end
       keepAlive = exchange:applyKeepAlive()
       self:prepareResponseHeaders(exchange)
       return exchange:getResponse():writeHeaders(client)
     end):next(function()
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:onAccept() response headers '..requestToString(exchange)..' done')
+        logger:finer('httpServer:handleExchange() response headers '..requestToString(exchange)..' done')
       end
       -- post filter
       --exchange:prepareResponseBody()
       return exchange:getResponse():writeBody(client)
     end):next(function()
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:onAccept() response body '..requestToString(exchange)..' done '..tostring(exchange:getResponse():getStatusCode()))
+        logger:fine('httpServer:handleExchange() response body '..requestToString(exchange)..' done '..tostring(exchange:getResponse():getStatusCode()))
       end
       if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange:removeClient()
         if c then
-          logger:finer('httpServer:onAccept() keeping client alive')
+          logger:finer('httpServer:handleExchange() keeping client alive')
           exchange:close()
           return self:handleExchange(c, remainingBuffer)
         end
@@ -342,7 +340,7 @@ local HttpServer = class.create(function(httpServer)
     end, function(err)
       if not hsh:isEmpty() then
         if logger:isLoggable(logger.FINE) then
-          logger:fine('httpServer:onAccept() read header error "'..tostring(err)..'" on '..requestToString(exchange))
+          logger:fine('httpServer:handleExchange() read header error "'..tostring(err)..'" on '..requestToString(exchange))
         end
         if hsh:getErrorStatus() and not client:isClosed() then
           HttpExchange.response(exchange, hsh:getErrorStatus())
@@ -370,15 +368,24 @@ local HttpServer = class.create(function(httpServer)
     return self.tcpServer:getLocalName()
   end
 
+  local function closePending(client, closeable)
+    if type(closeable.close) == 'function' then
+      Promise.resolve(closeable:close()):next(function()
+        client:close()
+      end)
+    else
+      client:close()
+    end
+  end
+
   function httpServer:closePendings(delaySec)
     local time = os.time() - (delaySec or 0)
     local count = 0
-    for client, exchange in pairs(self.pendings) do
-      local start_time = exchange:getAttribute('start_time')
+    for client, closeable in pairs(self.pendings) do
+      local start_time = closeable.start_time
       if type(start_time) ~= 'number' or start_time < time then
-        exchange:close()
-        client:close()
         self.pendings[client] = nil
+        closePending(client, closeable)
         count = count + 1
       end
     end
@@ -398,9 +405,8 @@ local HttpServer = class.create(function(httpServer)
       local pendings = self.pendings
       self.pendings = {}
       local count = 0
-      for client, exchange in pairs(pendings) do
-        exchange:close()
-        client:close()
+      for client, closeable in pairs(pendings) do
+        closePending(client, closeable)
         count = count + 1
       end
       if logger:isLoggable(logger.FINE) then
@@ -432,9 +438,9 @@ end, function(HttpServer)
     local SecureTcpServer = class.create(secure.TcpSocket, function(secureTcpServer)
       function secureTcpServer:onHandshakeStarting(client)
         if self._hss then
-          local exchange = HttpExchange:new()
-          exchange:setAttribute('start_time', os.time())
-          self._hss.pendings[client] = exchange
+          self._hss.pendings[client] = {
+            start_time = os.time()
+          }
         end
       end
       function secureTcpServer:onHandshakeCompleted(client)
@@ -445,12 +451,8 @@ end, function(HttpServer)
     end)
     return function(options)
       local tcp = SecureTcpServer:new()
-      if type(options) == 'table' then
-        if secure.Context:isInstance(options) then
-          tcp:setSecureContext(options)
-        else
-          tcp:setSecureContext(secure.Context:new(options))
-        end
+      if options then
+        tcp:setSecureContext(class.asInstance(secure.Context, options))
       end
       local httpsServer = HttpServer:new(tcp)
       tcp._hss = httpsServer

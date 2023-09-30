@@ -4,39 +4,30 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
+local StreamHandler = require('jls.io.StreamHandler')
 local TcpSocket = require('jls.net.TcpSocket')
 local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')
+local Http2 = require('jls.net.http.Http2')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local strings = require('jls.util.strings')
+local secure
 
---[[
-The presence of a message body in a response depends on both the
-request method to which it is responding and the response status code.
-Responses to the HEAD request method never include a message body
-because the associated response header fields (e.g., Transfer-Encoding,
-Content-Length, etc.), if present, indicate only what their values
-would have been if the request method had been GET.
+local function formatHostPort(host, port)
+  if port then
+    return string.format('%s:%d', host, port)
+  end
+  return host
+end
 
-3.  If a Transfer-Encoding header field is present and the chunked
-  transfer coding is the final encoding, the message body length
-  is determined by reading and decoding the chunked data until the
-  transfer coding indicates the data is complete.
-  If a message is received with both a Transfer-Encoding and a
-  Content-Length header field, the Transfer-Encoding overrides the
-  Content-Length.
-5.  If a valid Content-Length header field is present without
-  Transfer-Encoding, its decimal value defines the expected message
-  body length in octets.
-6.  If this is a request message and none of the above are true, then
-  the message body length is zero (no message body is present).
-7.  Otherwise, this is a response message without a declared message
-  body length, so the message body length is determined by the
-  number of octets received prior to the server closing the
-  connection.
-]]--
+local function isSchemeSecured(scheme)
+  return scheme == 'https' or scheme == 'wss'
+end
 
+local SECURE_CONTEXT
+
+-- deprecated helpers
 local function sendRequest(tcpClient, request)
   logger:finer('sendRequest()')
   request:applyBodyLength()
@@ -45,41 +36,32 @@ local function sendRequest(tcpClient, request)
     return request:writeBody(tcpClient)
   end)
 end
-
 local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
-
 local function getHostHeader(host, port)
   if port then
     return host..':'..tostring(port)
   end
   return host
 end
-
 local function isUrlSecure(url)
-  return url:getProtocol() == 'https' or url:getProtocol() == 'wss'
+  return isSchemeSecured(url:getProtocol())
 end
-
 local function sameClient(url1, url2)
   return url1:getHost() == url2:getHost() and url1:getPort() == url2:getPort() and isUrlSecure(url1) == isUrlSecure(url2)
 end
-
-local SECURE_CONTEXT
 
 --[[--
 The HttpClient class enables to send an HTTP request.
 @usage
 local event = require('jls.lang.event')
 local HttpClient = require('jls.net.http.HttpClient')
-local httpClient = HttpClient:new({
-  url = 'https://www.openssl.org/',
-  method = 'GET',
-  headers = {}
-})
-httpClient:connect():next(function()
-  return httpClient:sendReceive()
-end):next(function(response)
+
+local httpClient = HttpClient:new('https://www.openssl.org/')
+httpClient:fetch('/'):next(function(response)
   print('status code is', response:getStatusCode())
-  print(response:getBody())
+  return response:readBody()
+end):next(function(body)
+  print(body)
   httpClient:close()
 end)
 event:loop()
@@ -93,15 +75,224 @@ return class.create(function(httpClient)
   -- @tparam string options.url The request URL.
   -- @tparam[opt] string options.host The request hostname.
   -- @tparam[opt] number options.port The request port number.
-  -- @tparam[opt] string options.target The request target path.
+  -- @tparam[opt] boolean options.isSecure true to use a secure client.
+  -- @tparam[opt] table options.secureContext the secure context options.
+  -- @return a new HTTP client
+  function httpClient:initialize(options)
+    if type(options) == 'string' then
+      options = { url = options }
+    elseif options == nil then
+      options = {}
+    elseif type(options) ~= 'table' then
+      error('invalid argument')
+    end
+    if options.url then
+      local url = class.asInstance(Url, options.url)
+      self.isSecure = isSchemeSecured(url:getProtocol())
+      self.host = url:getHost()
+      self.port = url:getPort()
+    else
+      if options.isSecure ~= nil then
+        self.isSecure = options.isSecure
+      else
+        self.isSecure = isSchemeSecured(options.scheme or options.protocol)
+      end
+      self.host = options.host
+      self.port = options.port
+    end
+    if self.isSecure and not secure then
+      secure = require('jls.net.secure')
+    end
+    if type(options.secureContext) == 'table' then
+      self:setSecureContext(options.secureContext)
+    end
+    self:initializeV1(options) -- deprecated
+  end
+
+  function httpClient:getSecureContext()
+    return self.secureContext
+  end
+
+  function httpClient:setSecureContext(secureContext)
+    if secure and secureContext then
+      self.secureContext = class.asInstance(secure.Context, secureContext)
+    else
+      self.secureContext = nil
+    end
+  end
+
+  function httpClient:getTcpClient()
+    return self.tcpClient
+  end
+
+  function httpClient:closeClient(callback)
+    local tcpClient = self.tcpClient
+    if tcpClient then
+      self.tcpClient = nil
+      return tcpClient:close(callback)
+    end
+    if callback then
+      callback()
+    elseif callback == nil then
+      return Promise.resolve()
+    end
+  end
+
+  --- Closes this HTTP client.
+  -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
+  function httpClient:close(callback)
+    local http2 = self.http2
+    if http2 then
+      self.http2 = nil
+      http2:close()
+    end
+    self:closeRequest() -- deprecated
+    return self:closeClient(callback)
+  end
+
+  function httpClient:isClosed()
+    return self.tcpClient == nil
+  end
+
+  function httpClient:onHttp2EndHeaders(stream)
+    logger:finer('httpClient:onHttp2EndHeaders()')
+    local response = stream.message
+    local promise, cb = Promise.createWithCallback()
+    response.readBody = function(message, sh)
+      logger:finer('httpClient response.readBody()')
+      if sh and StreamHandler:isInstance(sh) then
+        message:setBodyStreamHandler(sh)
+      else
+        message:bufferBody()
+      end
+      return promise
+    end
+    local callback = stream.callback
+    stream.callback = cb
+    callback(nil, response)
+  end
+
+  function httpClient:onHttp2EndStream(stream)
+    logger:finer('httpClient:onHttp2EndStream()')
+    local callback = stream.callback
+    stream.callback = nil
+    callback(nil, stream.message:getBody())
+  end
+
+  function httpClient:onHttp2Ping(http2)
+  end
+
+  function httpClient:onHttp2Error(stream, reason)
+    logger:warn('httpClient:onHttp2Error(%s, %s)', stream and stream.id or '-', reason)
+  end
+
+  function httpClient:connectV2()
+    logger:finer('httpClient:connectV2()')
+    if self.tcpClient then
+      return Promise.resolve(self)
+    end
+    self.http2 = nil
+    self.remnant = nil
+    self:close(false)
+    if self.isSecure then
+      self.tcpClient = secure.TcpSocket:new()
+      self.tcpClient:sslInit(false, self.secureContext or SECURE_CONTEXT)
+    else
+      self.tcpClient = TcpSocket:new()
+    end
+    -- TODO handle proxy
+    return self.tcpClient:connect(self.host, self.port or 80):next(function()
+      return self
+    end):next(function()
+      if self.isSecure and self.tcpClient.sslGetAlpnSelected then
+        if self.tcpClient:sslGetAlpnSelected() == 'h2' then
+          logger:fine('using HTTP/2')
+          self.http2 = Http2:new(self.tcpClient, false, self)
+          self.http2:readStart()
+        end
+      end
+    end)
+  end
+
+  local readBody = HttpMessage.prototype.readBody
+
+  --- Sends an HTTP request and receives the response.
+  -- @tparam string resource The request target path.
+  -- @tparam table options A table describing the request options.
   -- @tparam[opt] string options.method The HTTP method, default is GET.
   -- @tparam[opt] table options.headers The HTTP request headers.
   -- @tparam[opt] string options.body The HTTP request body, default is empty body.
-  -- @tparam[opt] boolean options.followRedirect true to follow redirections.
-  -- @tparam[opt] number options.maxRedirectCount The maximum of redirections, default is 3.
-  -- @return a new HTTP client
-  function httpClient:initialize(options)
-    logger:finer('httpClient:initialize(...)')
+  -- @return a promise that resolve to the HTTP response
+  function httpClient:fetch(resource, options)
+    local request
+    if HttpMessage:isInstance(resource) then
+      request = resource
+    elseif type(resource) == 'string' then
+      request = HttpMessage:new()
+      request:setTarget(resource)
+      request:setMethod('GET')
+      if type(options) == 'table' then
+        if options.method then
+          request:setMethod(options.method)
+        end
+        if options.headers then
+          request:setHeadersTable(options.headers)
+        end
+        if options.body then
+          request:setBody(options.body)
+        end
+      end
+    else
+      error('invalid argument')
+    end
+    request:applyBodyLength()
+    local response = HttpMessage:new()
+    return self:connectV2():next(function()
+      if self.http2 then
+        logger:info('fetch is using HTTP/2')
+        local stream = self.http2:newStream(response)
+        local promise, cb = Promise.createWithCallback()
+        stream.callback = cb
+        stream:sendHeaders(request):next(function()
+          logger:finer('fetch write headers done')
+          stream:sendBody(request)
+        end)
+        return promise
+      end
+      request:setHeader(HttpMessage.CONST.HEADER_HOST, formatHostPort(self.host, self.port))
+      return request:writeHeaders(self.tcpClient):next(function()
+        logger:finer('fetch write headers done')
+        return request:writeBody(self.tcpClient)
+      end):next(function()
+        logger:finer('fetch write body done')
+        local hsh = HeaderStreamHandler:new(response)
+        return hsh:read(self.tcpClient, self.remnant)
+      end):next(function(buffer)
+        logger:finer('fetch read headers done')
+        -- TODO handle redirect on the same client
+        response.readBody = function(message, sh)
+          if sh and StreamHandler:isInstance(sh) then
+            message:setBodyStreamHandler(sh)
+          else
+            message:bufferBody()
+          end
+          logger:finer('fetch reading body')
+          return readBody(message, self.tcpClient, buffer):next(function(remnant)
+            logger:finer('fetch read body done')
+            self.remnant = remnant
+            return message:getBody()
+          end)
+        end
+        return response
+      end)
+    end)
+  end
+
+
+  -- deprecated
+
+  function httpClient:initializeV1(options)
+    logger:finer('httpClient:initializeV1(...)')
     options = options or {}
     local request = HttpMessage:new()
     self.request = request
@@ -150,18 +341,6 @@ return class.create(function(httpClient)
     -- add accept headers
   end
 
-  function httpClient:getTcpClient()
-    return self.tcpClient
-  end
-
-  function httpClient:getSecureContext()
-    return self.secureContext
-  end
-
-  function httpClient:setSecureContext(secureContext)
-    self.secureContext = secureContext
-  end
-
   function httpClient:setUrl(url)
     if logger:isLoggable(logger.FINER) then
       logger:finer('httpClient:setUrl(%s)', url)
@@ -176,7 +355,15 @@ return class.create(function(httpClient)
     return self
   end
 
-  function httpClient:reconnect()
+  function httpClient:connect()
+    logger:finer('httpClient:connect()')
+    if self.tcpClient then
+      return Promise.resolve(self)
+    end
+    return self:reconnectV1()
+  end
+
+  function httpClient:reconnectV1()
     logger:finer('httpClient:reconnect()')
     self:closeClient(false)
     local request = self.request
@@ -231,34 +418,12 @@ return class.create(function(httpClient)
   end
 
   function httpClient:closeRequest()
-    self.request:close()
+    if self.request then
+      self.request:close()
+    end
     if self.response then
       self.response:close()
     end
-  end
-
-  function httpClient:closeClient(callback)
-    local tcpClient = self.tcpClient
-    if tcpClient then
-      self.tcpClient = nil
-      return tcpClient:close(callback)
-    end
-    if callback then
-      callback()
-    elseif callback == nil then
-      return Promise.resolve()
-    end
-  end
-
-  function httpClient:isClosed()
-    return self.tcpClient == nil
-  end
-
-  --- Closes this HTTP client.
-  -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
-  function httpClient:close()
-    self:closeRequest()
-    return self:closeClient()
   end
 
   function httpClient:getRequest()
@@ -270,16 +435,6 @@ return class.create(function(httpClient)
   end
 
   function httpClient:processResponseHeaders()
-  end
-
-  --- Connects this HTTP client if not already connected.
-  -- @treturn jls.lang.Promise a promise that resolves once this client is connected.
-  function httpClient:connect()
-    logger:finer('httpClient:connect()')
-    if self.tcpClient then
-      return Promise.resolve(self)
-    end
-    return self:reconnect()
   end
 
   function httpClient:sendRequest()
@@ -351,6 +506,8 @@ return class.create(function(httpClient)
 
   --- Sends the request then receives the response.
   -- This client is connected if necessary.
+  --
+  -- **Note:** This method is deprecated, please consider using the fetch one.
   -- @treturn jls.lang.Promise a promise that resolves to the @{HttpMessage} received.
   function httpClient:sendReceive()
     logger:finer('httpClient:sendReceive()')
@@ -373,6 +530,11 @@ end, function(HttpClient)
 
   function HttpClient.setSecureContext(secureContext)
     DEFAULT_SECURE_CONTEXT = secureContext
+    if secureContext then
+      DEFAULT_SECURE_CONTEXT = class.asInstance(require('jls.net.secure').Context, secureContext)
+    else
+      DEFAULT_SECURE_CONTEXT = nil
+    end
   end
 
 end)
