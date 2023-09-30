@@ -54,7 +54,7 @@ local SecureContext = class.create(function(secureContext)
         return true
       end)
     end
-    if OPENSSL_VERSION_NUMBER >= 0x10002000 then
+    if self.sslContext.set_alpn_select_cb then
       if type(options.alpnSelectCb) == 'function' then
         self.sslContext:set_alpn_select_cb(options.alpnSelectCb)
       elseif type(options.alpnSelectProtos) == 'table' then
@@ -92,30 +92,28 @@ local SecureContext = class.create(function(secureContext)
     return self.sslContext:ssl(inMem, outMem, isServer)
   end
 
-  if OPENSSL_VERSION_NUMBER >= 0x10002000 then
-    function secureContext:setAlpnSelectCb(cb)
-      return self.sslContext:set_alpn_select_cb(cb)
-    end
+  function secureContext:setAlpnSelectCb(cb)
+    return self.sslContext:set_alpn_select_cb(cb)
+  end
 
-    function secureContext:setAlpnSelectProtos(protoList)
-      self:setAlpnSelectCb(function(list)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('ALPN select: %s', table.concat(list, ','))
-        end
-        for _, proto in ipairs(protoList) do
-          for _, name in ipairs(list) do
-            if name == proto then
-              logger:fine('ALPN selected: %s', name)
-              return name
-            end
+  function secureContext:setAlpnSelectProtos(protoList)
+    self:setAlpnSelectCb(function(list)
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('ALPN select: %s', table.concat(list, ','))
+      end
+      for _, proto in ipairs(protoList) do
+        for _, name in ipairs(list) do
+          if name == proto then
+            logger:fine('ALPN selected: %s', name)
+            return name
           end
         end
-      end)
-    end
+      end
+    end)
+  end
 
-    function secureContext:setAlpnProtocols(list)
-      return self.sslContext:set_alpn_protos(list)
-    end
+  function secureContext:setAlpnProtocols(list)
+    return self.sslContext:set_alpn_protos(list)
   end
 
 end, function(SecureContext)
@@ -164,10 +162,10 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:sslGetAlpnSelected()
+    if not self.ssl.get_alpn_selected then
+      return nil
+    end
     return self.ssl:get_alpn_selected()
-  end
-  if OPENSSL_VERSION_NUMBER < 0x10002000 then
-    secureTcpSocket.sslGetAlpnSelected = class.emptyFunction
   end
 
   function secureTcpSocket:sslShutdown()
