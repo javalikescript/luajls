@@ -116,10 +116,19 @@ return require('jls.lang.class').create(function(url, _, Url)
   }
 
   local function parseHostPort(hostport)
+    local host, port
     if string.find(hostport, '^%[') then -- IPv6 addresses are enclosed in brackets
-      return string.match(hostport, '^%[([^%]]+)%]:?(%d*)$')
+      host, port = string.match(hostport, '^%[([^%]]+)%]:?(%d*)$')
+    else
+      host, port = string.match(hostport, '^([^:]+):?(%d*)$')
     end
-    return string.match(hostport, '^([^:]+):?(%d*)$')
+    if host then
+      if #port > 0 then
+        return host, tonumber(port)
+      else
+        return host
+      end
+    end
   end
 
   -- //<username>:<password>@<host>:<port>/<url-path>
@@ -151,11 +160,7 @@ return require('jls.lang.class').create(function(url, _, Url)
       return nil, 'Invalid common Url, bad host and port part ("'..scheme..specificPart..'")'
     end
     tUrl.host = host
-    if #port > 0 then
-      port = tonumber(port)
-      if not port then
-        return nil, 'Invalid common Url, bad port ("'..scheme..specificPart..'")'
-      end
+    if port then
       tUrl.port = port
     end
     return tUrl
@@ -183,6 +188,8 @@ return require('jls.lang.class').create(function(url, _, Url)
     tUrl.path = path
     return tUrl
   end
+
+  Url.parseHostPort = parseHostPort
 
   --- Returns the Url corresponding to the specified string.
   -- The table contains the keys: scheme, host, port, path, query, userinfo, username, password.

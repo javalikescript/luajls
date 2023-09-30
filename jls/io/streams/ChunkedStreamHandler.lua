@@ -31,7 +31,11 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     self.stop = stop
     self.length = 0
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('chunkedStreamHandler:initialize(?, '..tostring(pattern)..', '..tostring(plain)..', '..tostring(limit)..')')
+      if type(pattern) == 'string' then
+        logger:finest('chunkedStreamHandler:initialize(?, %q, %s, %s, %s)', pattern, plain, limit, stop)
+      else
+        logger:finest('chunkedStreamHandler:initialize(?, fn, ?, %s, %s)', limit, stop)
+      end
     end
   end
 

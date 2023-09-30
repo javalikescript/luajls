@@ -126,6 +126,11 @@ local CONFIG_SCHEMA = {
         }
       }
     },
+    h2 = {
+      title = 'Use HTTP/2',
+      type = 'boolean',
+      default = false
+    },
     secure = {
       type = 'object',
       additionalProperties = false,
@@ -523,7 +528,8 @@ if config.secure.enabled then
 
   local httpSecureServer = HttpServer.createSecure({
     certificate = certFile:getPath(),
-    key = pkeyFile:getPath()
+    key = pkeyFile:getPath(),
+    alpnSelectProtos = config.h2 and {'h2', 'http/1.1'} or nil,
   })
   httpSecureServer:bind(config['bind-address'], config.secure.port):next(function()
     logger:info('HTTPS bound to "%s" on port %d', config['bind-address'], config.secure.port)
@@ -581,7 +587,7 @@ do
       logger:info('Unreference signal')
       luvLib.unref(signal)
     end)
-    luvLib.signal_start(signal, 'sigint', function()
+    luvLib.signal_start_oneshot(signal, 'sigint', function()
       stopCallback()
     end)
   end

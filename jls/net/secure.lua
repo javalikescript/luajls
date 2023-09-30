@@ -136,7 +136,7 @@ end, function(SecureContext)
   end
 
   function SecureContext.setDefault(context)
-    DEFAULT_SECURE_CONTEXT = context
+    DEFAULT_SECURE_CONTEXT = context ~= nil and class.asInstance(SecureContext, context) or nil
   end
 
 end)
@@ -445,6 +445,9 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       end
       data = table.concat(data) -- TODO multiple writes
     end
+    if not self.ssl then
+      return Promise.reject('shutdown')
+    end
     local ret, err = self.ssl:write(data)
     -- See https://www.openssl.org/docs/man1.0.2/man3/SSL_write.html
     if ret > 0 then
@@ -465,7 +468,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:setSecureContext(context)
-    self.secureContext = context
+    self.secureContext = context ~= nil and class.asInstance(SecureContext, context) or nil
   end
 
   function secureTcpSocket:onHandshakeStarting(client)

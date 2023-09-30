@@ -45,6 +45,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
         self.line = self.method..' '..self.target..' '..self:getVersion()
       elseif isResponse(self) then
         self.line = self:getVersion()..' '..tostring(self.statusCode)..' '..(self.reasonPhrase or '')
+      else
+        error('invalid message')
       end
     end
     return self.line
@@ -309,11 +311,11 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     local sh = self:getBodyStreamHandler()
     -- Avoid writing huge body
     if #data > BODY_BLOCK_SIZE then
-      for _, block in ipairs(strings.cut(BODY_BLOCK_SIZE, data)) do
-        sh:onData(block)
+      for value, ends in strings.parts(data, BODY_BLOCK_SIZE) do
+        sh:onData(value, ends)
       end
     elseif #data > 0 then
-      sh:onData(data)
+      sh:onData(data, true)
     end
     sh:onData()
   end
