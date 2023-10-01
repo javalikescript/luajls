@@ -83,12 +83,20 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self.context:replacePath(self:getRequest():getTargetPath())
   end
 
-  function httpExchange:getQueryArguments()
+  local function decodeParam(value)
+    return Url.decodePercent((string.gsub(value, '%+', ' ')))
+  end
+
+  --- Returns the request query parameters as a table.
+  -- @treturn table the query parameters.
+  function httpExchange:getSearchParams()
     local args = {}
     for part in strings.parts(self:getRequest():getTargetQuery(), '&', true) do
-      local k, v = string.match(part, '^([^=]+)=(.+)$')
-      if k then
-        args[Url.decodePercent(k)] = Url.decodePercent(v)
+      local p = string.find(part, '=', 1, true)
+      if p then
+        local name = string.sub(part, 1, p - 1)
+        local value = string.sub(part, p + 1)
+        args[decodeParam(name)] = decodeParam(value)
       end
     end
     return args

@@ -5,11 +5,11 @@ local TcpClient = require('jls.net.TcpClient')
 local TcpServer = require('jls.net.TcpServer')
 local strings = require('jls.util.strings')
 local List = require('jls.util.List')
-local StreamHandler = require('jls.io.StreamHandler')
 local HttpHandler = require('jls.net.http.HttpHandler')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
 local HttpServer = require('jls.net.http.HttpServer')
+local HttpExchange = require('jls.net.http.HttpExchange')
 
 local logger = require('jls.lang.logger')
 
@@ -717,6 +717,17 @@ function Test_HttpMessage_parseHeaderValue()
   lu.assertEquals(HttpMessage.parseHeaderValue('text/html'), 'text/html')
   lu.assertEquals(HttpMessage.parseHeaderValue('text/html;level=2;q=0.4'), 'text/html')
   lu.assertEquals({HttpMessage.parseHeaderValue('text/html;level=2;q=0.4')}, {'text/html', {'level=2', 'q=0.4'}})
+end
+
+local function getSearchParams(resource)
+  local exchange = HttpExchange:new()
+  exchange:getRequest():setLine('GET '..resource..' HTTP/1.1')
+  return exchange:getSearchParams()
+end
+
+function Test_HttpMessage_getSearchParams()
+  lu.assertEquals(getSearchParams('/search?a=b&c=a+name'), { a = 'b', c = 'a name' })
+  lu.assertEquals(getSearchParams('/search?q=a%2Bname'), { q = 'a+name' })
 end
 
 os.exit(lu.LuaUnit.run())
