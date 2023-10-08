@@ -47,6 +47,41 @@ local function exec(command, expectedExitCode, redirect)
   end
 end
 
+local function findCodeBlock(s, at)
+  local _, i = string.find(s, '```%s*lua\r?\n', at)
+  if i then
+    local j = string.find(s, '```\r?\n', i)
+    if j then
+      return string.sub(s, i + 1, j - 1), i + 1, j
+    end
+  end
+end
+
+local function loadCodeBlocks(mdFilename)
+  local mdFile = File:new(mdFilename)
+  if not mdFile:exists() then
+    lu.fail('File not found '..tostring(mdFilename))
+  end
+  local mdContent = mdFile:readAll()
+  local offset = 1
+  while true do
+    local code
+    code, offset = findCodeBlock(mdContent, offset)
+    if not code then
+      break
+    end
+    local fn, err = load(code, mdFilename, 't')
+    if not fn then
+      lu.fail('Error while loading '..tostring(mdFilename)..' due to '..tostring(err))
+    end
+  end
+end
+
+function Test_markdown()
+  loadCodeBlocks('README.md')
+  loadCodeBlocks('doc_topics/manual.md')
+end
+
 function Test_help()
   for _, name in ipairs({'browser.lua', 'cipher.lua', 'discover.lua', 'httpClient.lua', 'httpProxy.lua', 'mqtt.lua', 'package.lua', 'webServer.lua', 'wsClient.lua', 'zip.lua'}) do
     exec({LUA_PATH, 'examples/'..name, '--help'}, 0)
