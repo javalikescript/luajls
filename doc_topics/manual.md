@@ -424,7 +424,7 @@ The codec also provides a encoding/decoding stream handlers.
 The available codec are Base64, Hexadecimal(hex), cipher, deflate and GZip.
 
 ```lua
-local codec = Codec.getInstance('Base64')
+local codec = require('jls.util.Codec').getInstance('Base64')
 print(codec:encode('Hello !')) -- prints 'SGVsbG8gIQ=='
 ```
 
@@ -436,7 +436,7 @@ You provide the input string by successive calls to update then get the output s
 The available hash algorithms are MD5, SHA-1, CRC32.
 
 ```lua
-local md = MessageDigest.getInstance('MD5')
+local md = require('jls.util.MessageDigest').getInstance('MD5')
 md:update('The quick brown fox jumps over the lazy dog'):digest()
 ```
 
@@ -521,7 +521,7 @@ local HttpClient = require('jls.net.http.HttpClient')
 local client = HttpClient:new('http://www.lua.org/')
 client:fetch('/'):next(function(response)
   print('status code is', response:getStatusCode())
-  return response:readBody()
+  return response:text()
 end):next(function(body)
   print('body size is', #body)
   client:close()
@@ -576,7 +576,7 @@ httpServer:createContext('/(.*)', HttpHandler.rest({
       httpServer:close()
       return 'Bye !'
     end
-  end
+  }
 }))
 require('jls.lang.event'):loop()
 ```
@@ -739,6 +739,7 @@ Internally using URI with authentication keys, pipe://pub.priv@local/p12345 or t
 This interface is used for worker that abstract the thread.
 
 ```lua
+local Channel = require('jls.util.Channel')
 local channelServer = Channel:new()
 channelServer:acceptAndClose():next(function(acceptedChannel)
   acceptedChannel:receiveStart(function(message)
@@ -753,7 +754,7 @@ channelServer:bind():next(function()
 end):next(function()
   channel:writeMessage('Hello')
 end)
-event:loop()
+require('jls.lang.event'):loop()
 ```
 
 

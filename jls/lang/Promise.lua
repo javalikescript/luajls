@@ -412,8 +412,9 @@ local Promise = require('jls.lang.Promise')
 local HttpClient = require('jls.net.http.HttpClient')
 
 Promise.async(function(await)
-  local client = await(HttpClient:new({ url = 'http://www.lua.org' }):connect())
-  local response = await(client:sendReceive())
+  local client = HttpClient:new('http://www.lua.org')
+  local response = await(client:fetch('/'))
+  client:close()
   print(response:getStatusCode())
 end)
 

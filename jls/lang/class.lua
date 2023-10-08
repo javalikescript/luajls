@@ -210,7 +210,7 @@ local MetatableKeys = {
   __eq = 'equals',
   __len = 'length',
   __pairs = 'pairs',
-  __tostring = 'toString' 
+  __tostring = 'toString'
 }
 
 local ClassIndex = {
