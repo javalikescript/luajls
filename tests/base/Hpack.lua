@@ -30,11 +30,22 @@ function Test_encodeInteger()
   assertEncodeInteger('\x15', 5, 4, 1)
 end
 
+local function assertEncodeDecodeString(s)
+  lu.assertEquals(Hpack.decodeString(Hpack.encodeString(s)), s)
+end
+
+function Test_encodeString()
+  assertEncodeDecodeString(':status')
+  lu.assertEquals(Hpack.encodeString('<<'), '\x02<<')
+  lu.assertEquals(Hpack.encodeString('&*,'), '\x03&*,')
+  lu.assertEquals(string.byte(Hpack.encodeString('0/1')), 0x82)
+end
+
 function Test_encodeDecodeInteger()
   for _, i in ipairs({0, 1, 10, 100, 200, 300, 0xcafecafe}) do
     for _, prefixLen in ipairs({1, 2, 3, 4}) do
       for _, prefix in ipairs({0, 1}) do
-        lu.assertEquals(Hpack.decodeInteger(Hpack.encodeInteger(i, prefixLen, 0), prefixLen, 1), i)
+        lu.assertEquals(Hpack.decodeInteger(Hpack.encodeInteger(i, prefixLen, prefix), prefixLen, 1), i)
       end
     end
   end
@@ -47,8 +58,8 @@ local function assertPackUnpack(name, value)
 end
 
 function Test_pack_unpack()
-  lu.assertEquals(Hpack.packHeader('n', 'v'), '\x01nv')
-  lu.assertEquals({Hpack.unpackHeader('\x01nv')}, {'n', 'v'})
+  --lu.assertEquals(Hpack.packHeader('n', 'v'), '\x01nv')
+  --lu.assertEquals({Hpack.unpackHeader('\x01nv')}, {'n', 'v'})
   assertPackUnpack('a', 'b')
   assertPackUnpack('a', '')
   assertPackUnpack('', 'b')

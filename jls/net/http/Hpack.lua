@@ -57,22 +57,23 @@ local function encodeInteger(i, prefixLen, prefix)
 end
 
 local function packHeader(name, value)
-  return table.concat({ encodeInteger(#name, 0), name, value })
+  --return table.concat({ encodeInteger(#name, 0), name, value })
+  return {name, value}
 end
 
-local function unpackHeader(s)
+local function unpackHeader(p)
+  --[[
   local len, offset = decodeInteger(s, 0, 1)
   if len then
     local index = offset + len
     return string.sub(s, offset, index - 1), string.sub(s, index)
   end
+  ]]
+  return p[1], p[2]
 end
 
-local function unpackHeaderName(s)
-  local len, offset = decodeInteger(s, 0, 1)
-  if len then
-    return string.sub(s, offset, offset + len - 1)
-  end
+local function packEqual(p, pp)
+  return p[1] == pp[1] and p[2] == pp[2]
 end
 
 -- ^ *\| *\d+ *\| *([^ ]+) *\| *([^ ]*) *\| *$
@@ -557,8 +558,11 @@ local function decodeString(data, offset)
 end
 
 local function encodeString(s, h)
-  if h then
-    s = encodeHuffman(s)
+  if h ~= false then
+    local es = encodeHuffman(s)
+    if h or #s > #es then
+      s, h = es, true
+    end
   end
   return encodeInteger(#s, 1, h and 1 or 0)..s
 end
@@ -630,12 +634,12 @@ return class.create(function(hpack)
   function hpack:getIndex(name, value)
     local p = packHeader(name, value)
     for index, pp in ipairs(STATIC_INDEX_TABLE) do
-      if p == pp then
+      if packEqual(p, pp) then
         return index
       end
     end
     for index, pp in ipairs(self.indexes) do
-      if p == pp then
+      if packEqual(p, pp) then
         return index + #STATIC_INDEX_TABLE
       end
     end
@@ -644,12 +648,12 @@ return class.create(function(hpack)
 
   function hpack:getNameIndex(name)
     for index, p in ipairs(STATIC_INDEX_TABLE) do
-      if name == unpackHeaderName(p) then
+      if name == unpackHeader(p) then
         return index
       end
     end
     for index, p in ipairs(self.indexes) do
-      if name == unpackHeaderName(p) then
+      if name == unpackHeader(p) then
         return index + #STATIC_INDEX_TABLE
       end
     end
@@ -737,7 +741,6 @@ return class.create(function(hpack)
   end
 
   function hpack:encodeHeader(parts, name, value)
-    local h = true
     local index = self:getIndex(name, value)
     if index > 0 then
       table.insert(parts, encodeInteger(index, 1, 1))
@@ -751,9 +754,9 @@ return class.create(function(hpack)
         table.insert(parts, encodeInteger(index, 4, neverIndexed and 1 or 0))
       end
       if index == 0 then
-        table.insert(parts, encodeString(name, h))
+        table.insert(parts, encodeString(name))
       end
-      table.insert(parts, encodeString(value, h))
+      table.insert(parts, encodeString(value))
     end
     logger:finer('encoded header "%s" = "%s", index: %d', name, value, index)
   end
@@ -763,24 +766,25 @@ return class.create(function(hpack)
   -- @treturn string the encoded headers.
   function hpack:encodeHeaders(message)
     local parts = {}
-    if message:getMethod() then
+    if message:isRequest() then
       self:encodeHeader(parts, HEADER_METHOD, message:getMethod())
       self:encodeHeader(parts, HEADER_SCHEME, message.scheme or 'https')
       self:encodeHeader(parts, HEADER_PATH, message:getTarget())
       local host = message:getHeader('host')
       if host then
         self:encodeHeader(parts, HEADER_AUTHORITY, host)
-        message:setHeader('host') -- TODO
       end
-    else
+    elseif message:isResponse() then
       self:encodeHeader(parts, HEADER_STATUS, tostring(message:getStatusCode()))
     end
     for name, value in Map.spairs(message.headers) do
-      if type(value) == 'string' then
-        self:encodeHeader(parts, name, value)
-      elseif type(value) == 'table' then
-        for _, val in ipairs(value) do
+      if name ~= 'host' then
+        if type(value) == 'string' then
           self:encodeHeader(parts, name, value)
+        elseif type(value) == 'table' then
+          for _, val in ipairs(value) do
+            self:encodeHeader(parts, name, value)
+          end
         end
       end
     end
