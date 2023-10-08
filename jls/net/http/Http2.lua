@@ -123,8 +123,11 @@ local Stream = class.create(function(stream)
     self.http2 = http2
     self.id = id
     self.message = message or HttpMessage:new()
+    self.message:setVersion('HTTP/2')
     self.state = STATE.IDLE
     self.windowSize = MAX_WINDOW_SIZE
+    self.blockSize = self.http2.settings[SETTINGS.MAX_FRAME_SIZE] or 8192
+    self.start_time = os.time()
   end
 
   function stream:onEndHeaders()
@@ -142,7 +145,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onData(data, endStream)
-    local sh = self.message.bodyStreamHandler
+    local sh = self.message:getBodyStreamHandler()
     sh:onData(data)
     if endStream then
       sh:onData(nil)
@@ -171,7 +174,7 @@ local Stream = class.create(function(stream)
         self:sendData(nil, true)
       end
     end))
-    message:writeBodyCallback()
+    message:writeBodyCallback(self.blockSize)
   end
 
   function stream:close()
@@ -187,8 +190,7 @@ end)
 local Http2Handler = class.create(function(http2Handler)
   http2Handler.onHttp2EndHeaders = class.emptyFunction
   http2Handler.onHttp2EndStream = class.emptyFunction
-  http2Handler.onHttp2Ping = class.emptyFunction
-  http2Handler.onHttp2Error = class.emptyFunction
+  http2Handler.onHttp2Event = class.emptyFunction
 end)
 
 local DEFAULT = Http2Handler:new()
@@ -240,8 +242,7 @@ return class.create(function(http2)
         if stream.state == STATE.OPEN then
           stream.state = STATE.HALF_CLOSED_REMOTE
         elseif stream.state == STATE.HALF_CLOSED_LOCAL then
-          self.streams[streamId] = nil
-          stream:close()
+          self:closeStream(stream)
         end
       end
     end
@@ -269,6 +270,14 @@ return class.create(function(http2)
     return stream
   end
 
+  function http2:closeStream(stream)
+    self.streams[stream.id] = nil
+    stream:close()
+    if next(self.streams) == nil then
+      self.handler:onHttp2Event('empty', self)
+    end
+  end
+
   function http2:sendFrame(frameType, flags, streamId, data, endStream)
     data = data or ''
     local frameLen = #data
@@ -279,8 +288,7 @@ return class.create(function(http2)
         if stream.state == STATE.OPEN then
           stream.state = STATE.HALF_CLOSED_LOCAL
         elseif stream.state == STATE.HALF_CLOSED_REMOTE then
-          self.streams[streamId] = nil
-          stream:close()
+          self:closeStream(stream)
         end
       end
       if frameType == FRAME.DATA then
@@ -398,7 +406,7 @@ return class.create(function(http2)
             logger:fine('ping ack received')
             return
           end
-          self.handler:onHttp2Ping(self)
+          self.handler:onHttp2Event('ping', self)
           self:sendFrame(FRAME.PING, ACK_FLAG, 0, string.sub(data, offset))
         elseif frameType == FRAME.GOAWAY then
           local lastStreamId, errorCode
@@ -444,12 +452,12 @@ return class.create(function(http2)
 
   function http2:handleStreamError(stream, reason)
     logger:warn('stream %s error %s', stream and stream.id, reason)
-    self.handler:onHttp2Error(stream, reason)
+    self.handler:onHttp2Event('stream-error', self, stream, reason)
   end
 
   function http2:onError(reason)
     logger:warn('h2 error %s', reason)
-    self.handler:onHttp2Error(nil, reason)
+    self.handler:onHttp2Event('error', self, nil, reason)
   end
 
   function http2:close()

@@ -4,10 +4,10 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
-local StreamHandler = require('jls.io.StreamHandler')
 local TcpSocket = require('jls.net.TcpSocket')
 local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')
+local Http1 = require('jls.net.http.Http1')
 local Http2 = require('jls.net.http.Http2')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
@@ -31,9 +31,9 @@ local SECURE_CONTEXT
 local function sendRequest(tcpClient, request)
   logger:finer('sendRequest()')
   request:applyBodyLength()
-  return request:writeHeaders(tcpClient):next(function()
+  return Http1.writeHeaders(tcpClient, request):next(function()
     logger:finer('sendRequest() writeHeaders() done')
-    return request:writeBody(tcpClient)
+    return Http1.writeBody(tcpClient, request)
   end)
 end
 local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
@@ -59,7 +59,7 @@ local HttpClient = require('jls.net.http.HttpClient')
 local httpClient = HttpClient:new('https://www.openssl.org/')
 httpClient:fetch('/'):next(function(response)
   print('status code is', response:getStatusCode())
-  return response:readBody()
+  return response:text()
 end):next(function(body)
   print(body)
   httpClient:close()
@@ -79,7 +79,7 @@ return class.create(function(httpClient)
   -- @tparam[opt] table options.secureContext the secure context options.
   -- @return a new HTTP client
   function httpClient:initialize(options)
-    if type(options) == 'string' then
+    if type(options) == 'string' or Url:isInstance(options) then
       options = { url = options }
     elseif options == nil then
       options = {}
@@ -91,6 +91,7 @@ return class.create(function(httpClient)
       self.isSecure = isSchemeSecured(url:getProtocol())
       self.host = url:getHost()
       self.port = url:getPort()
+      self.file = url:getFile()
     else
       if options.isSecure ~= nil then
         self.isSecure = options.isSecure
@@ -103,8 +104,12 @@ return class.create(function(httpClient)
     if self.isSecure and not secure then
       secure = require('jls.net.secure')
     end
-    if type(options.secureContext) == 'table' then
-      self:setSecureContext(options.secureContext)
+    if self.isSecure then
+      if type(options.secureContext) == 'table' then
+        self:setSecureContext(options.secureContext)
+      elseif options.h2 then
+        self:setSecureContext({ alpnProtos = {'h2', 'http/1.1', 'http/1.0'} })
+      end
     end
     self:initializeV1(options) -- deprecated
   end
@@ -158,13 +163,7 @@ return class.create(function(httpClient)
     logger:finer('httpClient:onHttp2EndHeaders()')
     local response = stream.message
     local promise, cb = Promise.createWithCallback()
-    response.readBody = function(message, sh)
-      logger:finer('httpClient response.readBody()')
-      if sh and StreamHandler:isInstance(sh) then
-        message:setBodyStreamHandler(sh)
-      else
-        message:bufferBody()
-      end
+    response.consume = function()
       return promise
     end
     local callback = stream.callback
@@ -176,14 +175,14 @@ return class.create(function(httpClient)
     logger:finer('httpClient:onHttp2EndStream()')
     local callback = stream.callback
     stream.callback = nil
-    callback(nil, stream.message:getBody())
+    callback()
   end
 
-  function httpClient:onHttp2Ping(http2)
-  end
-
-  function httpClient:onHttp2Error(stream, reason)
-    logger:warn('httpClient:onHttp2Error(%s, %s)', stream and stream.id or '-', reason)
+  function httpClient:onHttp2Event(name, http2, stream, ...)
+    logger:finer('httpClient:onHttp2Event(%s)', name)
+    if name == 'error' or name == 'stream-error' then
+      logger:warn('httpClient:onHttp2Error(%s, %s)', stream and stream.id or '-', (...))
+    end
   end
 
   function httpClient:connectV2()
@@ -214,22 +213,20 @@ return class.create(function(httpClient)
     end)
   end
 
-  local readBody = HttpMessage.prototype.readBody
-
   --- Sends an HTTP request and receives the response.
   -- @tparam string resource The request target path.
   -- @tparam table options A table describing the request options.
   -- @tparam[opt] string options.method The HTTP method, default is GET.
   -- @tparam[opt] table options.headers The HTTP request headers.
   -- @tparam[opt] string options.body The HTTP request body, default is empty body.
-  -- @return a promise that resolve to the HTTP response
+  -- @return a promise that resolves to the HTTP response
   function httpClient:fetch(resource, options)
     local request
     if HttpMessage:isInstance(resource) then
       request = resource
-    elseif type(resource) == 'string' then
+    elseif type(resource) == 'string' or self.file and resource == nil then
       request = HttpMessage:new()
-      request:setTarget(resource)
+      request:setTarget(resource or self.file)
       request:setMethod('GET')
       if type(options) == 'table' then
         if options.method then
@@ -249,7 +246,7 @@ return class.create(function(httpClient)
     local response = HttpMessage:new()
     return self:connectV2():next(function()
       if self.http2 then
-        logger:info('fetch is using HTTP/2')
+        logger:fine('fetch is using HTTP/2')
         local stream = self.http2:newStream(response)
         local promise, cb = Promise.createWithCallback()
         stream.callback = cb
@@ -260,9 +257,9 @@ return class.create(function(httpClient)
         return promise
       end
       request:setHeader(HttpMessage.CONST.HEADER_HOST, formatHostPort(self.host, self.port))
-      return request:writeHeaders(self.tcpClient):next(function()
+      return Http1.writeHeaders(self.tcpClient, request):next(function()
         logger:finer('fetch write headers done')
-        return request:writeBody(self.tcpClient)
+        return Http1.writeBody(self.tcpClient, request)
       end):next(function()
         logger:finer('fetch write body done')
         local hsh = HeaderStreamHandler:new(response)
@@ -270,18 +267,16 @@ return class.create(function(httpClient)
       end):next(function(buffer)
         logger:finer('fetch read headers done')
         -- TODO handle redirect on the same client
-        response.readBody = function(message, sh)
-          if sh and StreamHandler:isInstance(sh) then
-            message:setBodyStreamHandler(sh)
-          else
-            message:bufferBody()
+        local promise
+        response.consume = function(message)
+          if not promise then
+            logger:finer('fetch reading body')
+            promise = Http1.readBody(self.tcpClient, message, buffer):next(function(remnant)
+              logger:finer('fetch read body done')
+              self.remnant = remnant
+            end)
           end
-          logger:finer('fetch reading body')
-          return readBody(message, self.tcpClient, buffer):next(function(remnant)
-            logger:finer('fetch read body done')
-            self.remnant = remnant
-            return message:getBody()
-          end)
+          return promise
         end
         return response
       end)
@@ -488,7 +483,7 @@ return class.create(function(httpClient)
     else
       connectionClose = self.response:getVersion() ~= HttpMessage.CONST.VERSION_1_1
     end
-    return self.response:readBody(self.tcpClient, buffer):finally(function()
+    return Http1.readBody(self.tcpClient, self.response, buffer):finally(function()
       self:closeRequest()
       if connectionClose then
         self:closeClient(false)

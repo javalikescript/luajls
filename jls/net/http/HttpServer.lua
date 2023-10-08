@@ -11,6 +11,7 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpHandler = require('jls.net.http.HttpHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local HttpFilter = require('jls.net.http.HttpFilter')
+local Http1 = require('jls.net.http.Http1')
 local Http2 = require('jls.net.http.Http2')
 local List = require('jls.util.List')
 
@@ -201,7 +202,7 @@ local HttpServer = class.create(function(httpServer)
       end
     end
     if logger:isLoggable(logger.FINER) then
-      logger:finer('httpServer:getMatchingContext("'..path..'") => "'..context:getPath()..'"')
+      logger:finer('httpServer:getMatchingContext("%s") => "%s"', path, context:getPath())
     end
     return context
   end
@@ -235,32 +236,58 @@ local HttpServer = class.create(function(httpServer)
 
   function httpServer:onHttp2EndHeaders(stream)
     logger:finer('httpServer:onHttp2EndHeaders(%s)', stream.id)
+    if stream.http2.start_time then
+      stream.http2.start_time = nil
+    end
     local request = stream.message
     local exchange = HttpExchange:new()
     exchange.request = request
     stream.exchange = exchange
+    local promise, cb = Promise.createWithCallback()
+    request.consume = function()
+      return promise
+    end
+    stream.callback = cb
     if self:preFilter(exchange) then
       local path = request:getTargetPath()
       local context = self:getMatchingContext(path, request)
-      local requestHeadersPromise = exchange:handleRequest(context)
+      stream.handling = exchange:handleRequest(context)
     end
   end
+
   function httpServer:onHttp2EndStream(stream)
     logger:finer('httpServer:onHttp2EndStream(%s)', stream.id)
     local exchange = stream.exchange
-    exchange:notifyRequestBody()
+    local cb = stream.callback
+    stream.callback = nil
+    cb()
+    exchange:notifyRequestBody() -- TODO Remove
     self:prepareResponseHeaders(exchange)
     local response = exchange:getResponse()
-    stream:sendHeaders(response):next(function()
+    local handling = stream.handling
+    stream.handling = nil
+    Promise.resolve(handling):next(function()
+      return stream:sendHeaders(response)
+    end):next(function()
       stream:sendBody(response)
     end)
   end
-  function httpServer:onHttp2Ping(http2)
-    http2.start_time = os.time()
+
+  function httpServer:onHttp2Event(name, http2, stream, ...)
+    logger:finer('httpServer:onHttp2Event(%s)', name)
+    if name == 'empty' then
+      http2.start_time = os.time()
+    elseif name == 'ping' then
+      if http2.start_time then
+        http2.start_time = os.time()
+      end
+    elseif name == 'error' then
+      logger:warn('h2 in error due to %s', (...))
+    elseif name == 'stream-error' then
+      logger:warn('h2 stream %s in error due to %s', stream.id, (...))
+    end
   end
-  function httpServer:onHttp2Error(stream, reason)
-    logger:warn('httpServer:onHttp2Error(%s, %s)', stream and stream.id or '-', reason)
-  end
+
   function httpServer:handleHttp2Exchange(client)
     local http2 = Http2:new(client, true, self)
     -- TODO register client in pendings
@@ -282,68 +309,73 @@ local HttpServer = class.create(function(httpServer)
     end
     local exchange = HttpExchange:new(client)
     local keepAlive = false
-    local remainingBuffer = nil
-    local requestHeadersPromise = nil
+    local handling = nil
+    local callback = nil
+    local remnant = nil
     local hsh = HeaderStreamHandler:new(exchange:getRequest())
     -- TODO limit headers
     exchange.start_time = os.time()
     self.pendings[client] = exchange
-    hsh:read(client, buffer):next(function(remainingHeaderBuffer)
+    hsh:read(client, buffer):next(function(remnantBuffer)
       logger:finer('httpServer:handleExchange() header read')
       self.pendings[client] = nil
       local request = exchange:getRequest()
+      local promise
+      promise, callback = Promise.createWithCallback()
+      request.consume = function()
+        return promise
+      end
       if self:preFilter(exchange) then
         local path = request:getTargetPath()
         local context = self:getMatchingContext(path, request)
-        requestHeadersPromise = exchange:handleRequest(context)
+        handling = exchange:handleRequest(context)
       end
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:handleExchange() request headers '..requestToString(exchange)..' processed')
+        logger:finer('httpServer:handleExchange() request headers %s processed', requestToString(exchange))
         logger:finer(request:getRawHeaders())
       end
-      return request:readBody(client, remainingHeaderBuffer)
-    end):next(function(remainingBodyBuffer)
+      return Http1.readBody(client, request, remnantBuffer)
+    end):next(function(remnantBuffer)
       logger:finer('httpServer:handleExchange() body done')
-      exchange:notifyRequestBody()
-      remainingBuffer = remainingBodyBuffer
-      if requestHeadersPromise then
-        return requestHeadersPromise
-      end
+      callback()
+      exchange:notifyRequestBody() -- TODO Remove
+      remnant = remnantBuffer
+      return handling
     end):next(function()
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:handleExchange() request '..requestToString(exchange)..' processed')
+        logger:finer('httpServer:handleExchange() request %s processed', requestToString(exchange))
       end
       keepAlive = exchange:applyKeepAlive()
       self:prepareResponseHeaders(exchange)
-      return exchange:getResponse():writeHeaders(client)
+      return Http1.writeHeaders(client, exchange:getResponse())
     end):next(function()
       if logger:isLoggable(logger.FINER) then
-        logger:finer('httpServer:handleExchange() response headers '..requestToString(exchange)..' done')
+        logger:finer('httpServer:handleExchange() response headers %s done', requestToString(exchange))
       end
       -- post filter
       --exchange:prepareResponseBody()
-      return exchange:getResponse():writeBody(client)
+      return Http1.writeBody(client, exchange:getResponse())
     end):next(function()
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:handleExchange() response body '..requestToString(exchange)..' done '..tostring(exchange:getResponse():getStatusCode()))
+        logger:fine('httpServer:handleExchange() response body %s done %s', requestToString(exchange), exchange:getResponse():getStatusCode())
       end
       if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange:removeClient()
         if c then
           logger:finer('httpServer:handleExchange() keeping client alive')
           exchange:close()
-          return self:handleExchange(c, remainingBuffer)
+          return self:handleExchange(c, remnant)
         end
       end
       exchange:close()
     end, function(err)
       if not hsh:isEmpty() then
         if logger:isLoggable(logger.FINE) then
-          logger:fine('httpServer:handleExchange() read header error "'..tostring(err)..'" on '..requestToString(exchange))
+          logger:fine('httpServer:handleExchange() read header error "%s" on %s', err, requestToString(exchange))
         end
         if hsh:getErrorStatus() and not client:isClosed() then
           HttpExchange.response(exchange, hsh:getErrorStatus())
-          exchange:getResponse():writeHeaders(client)
+          Http1.writeHeaders(client, exchange:getResponse())
         end
       end
       exchange:close()
@@ -389,7 +421,7 @@ local HttpServer = class.create(function(httpServer)
       end
     end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('httpServer:closePendings('..tostring(delaySec)..') '..tostring(count)..' pending request(s) closed')
+      logger:fine('httpServer:closePendings(%s) %s pending request(s) closed', delaySec, count)
     end
     return count
   end
@@ -409,7 +441,7 @@ local HttpServer = class.create(function(httpServer)
         count = count + 1
       end
       if logger:isLoggable(logger.FINE) then
-        logger:fine('httpServer:close() '..tostring(count)..' pending request(s) closed')
+        logger:fine('httpServer:close() %s pending request(s) closed', count)
       end
       local contexts = self.contexts
       self.contexts = {}

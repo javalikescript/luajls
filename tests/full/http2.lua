@@ -63,9 +63,6 @@ function No_Test_TcpClient_TcpServer()
       onHttp2EndHeaders = function(_, stream)
         logger:info('end headers: %s', stream.message:getRawHeaders())
       end,
-      onHttp2Data = function(_, stream, data)
-        logger:info('data: %s', hex:encode(data))
-      end,
       onHttp2EndStream = function(_, stream)
         logger:info('end stream')
         local response = HttpMessage:new()
@@ -78,10 +75,12 @@ function No_Test_TcpClient_TcpServer()
           server:close()
         end)
       end,
-      onHttp2Error = function(_, stream, reason)
-        logger:info('error', reason)
-        client:close()
-        server:close()
+      onHttp2Event = function(_, name, http2, stream, reason)
+        if name == 'error' or name == 'stream-error' then
+          logger:warn('error', reason)
+          client:close()
+          server:close()
+        end
       end,
     })
     http2:readStart()
@@ -146,16 +145,16 @@ local function createHttpServer(handler, isSecure)
   if not handler then
     handler = notFoundHandler
   end
-  local tcp
+  local server
   if isSecure then
-    tcp = secure.TcpServer:new()
-    tcp:setSecureContext({
+    server = HttpServer.createSecure({
       key = PKEY_PEM,
       certificate = CACERT_PEM,
       alpnSelectProtos = {'h2'}
     })
+  else
+    server = HttpServer:new()
   end
-  local server = HttpServer:new(tcp)
   server:createContext('/.*', function(exchange)
     logger:info('createHttpServer() handler')
     server.t_request = exchange:getRequest()
@@ -166,23 +165,26 @@ local function createHttpServer(handler, isSecure)
   end)
 end
 
-local function assertFetchHttpClientServer(isServer)
+local function assertFetchHttpClientServer(isSecure)
   local body = '<p>Hello.</p>'
-  local receivedStatus, receivedBody
+  local responseStatus, responseBody, responseVersion
   local server, client
   createHttpServer(function(exchange)
     HttpExchange.ok(exchange, body)
-  end, isServer):next(function(s)
+  end, isSecure):next(function(s)
     logger:info('server bound')
     server = s
-    client = createHttpClient(isServer)
+    client = createHttpClient(isSecure)
+    return client:connectV2()
+  end):next(function()
     return client:fetch('/')
   end):next(function(response)
     logger:info('response fetched')
-    receivedStatus = response:getStatusCode()
-    return response:readBody()
-  end):next(function(body)
-    receivedBody = body
+    responseStatus = response:getStatusCode()
+    responseVersion = response:getVersion()
+    return response:text()
+  end):next(function(content)
+    responseBody = content
     client:close()
     server:close()
   end):catch(function(reason)
@@ -196,15 +198,18 @@ local function assertFetchHttpClientServer(isServer)
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(receivedStatus, 200)
-  lu.assertEquals(receivedBody, body)
+  lu.assertEquals(responseStatus, 200)
+  lu.assertEquals(responseBody, body)
+  if isSecure then
+    lu.assertEquals(responseVersion, 'HTTP/2')
+  end
 end
 
 function Test_HttpClientServer()
   assertFetchHttpClientServer()
 end
 
-function Test_Http2ClientServer()
+function Test_HttpClientServerSecure()
   assertFetchHttpClientServer(true)
 end
 

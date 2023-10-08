@@ -7,6 +7,7 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
+local Http1 = require('jls.net.http.Http1')
 local tables = require('jls.util.tables')
 local xml = require("jls.util.xml")
 local StringBuffer = require('jls.lang.StringBuffer')
@@ -45,17 +46,13 @@ local function getNodeText(node)
 end
 
 local function getDescription(location)
-  local client = HttpClient:new({
-    url = location,
-    method = 'GET',
-    --headers = {}
-  })
-  return client:connect():next(function()
-    logger:finer('client connected')
-    return client:sendReceive()
-  end):next(function(response)
-    logger:finest('received description: "%s"', response:getBody())
-    local description = xml.decode(response:getBody())
+  local client = HttpClient:new(location)
+  return client:fetch():next(function(response)
+    logger:finer('client fetched')
+    return response:text()
+  end):next(function(body)
+    logger:finest('received description: "%s"', body)
+    local description = xml.decode(body)
     --logger:fine('received description: "%s"', tables.stringify(description, 2))
     return description
   end):finally(function()
@@ -220,7 +217,7 @@ if config.protocol == 'SSDP' then
       if data then
         logger:fine('received data: "%s"', data)
         local response = HttpMessage:new()
-        HttpMessage.fromString(data, response)
+        Http1.fromString(data, response)
         local location = response:getHeader('LOCATION')
         local server = response:getHeader('SERVER')
         if location and server and not locations[location] then
@@ -247,7 +244,7 @@ if config.protocol == 'SSDP' then
         print('receive no data')
       end
     end)
-    local data = HttpMessage.toString(request)
+    local data = Http1.toString(request)
     local timer
     local start = system.currentTime()
     timer = event:setInterval(function()
@@ -337,7 +334,7 @@ if config.protocol == 'SSDP' then
       elseif data then
         logger:fine('received data: "%s", addr: %s', data, tables.stringify(addr))
         local request = HttpMessage:new()
-        HttpMessage.fromString(data, request)
+        Http1.fromString(data, request)
         logger:fine('method: "%s"', request:getMethod())
         if addr and request:getMethod() == 'M-SEARCH' then
           local response = HttpMessage:new()
@@ -348,7 +345,7 @@ if config.protocol == 'SSDP' then
           response:setHeader('USN', 'uuid:8df292b6-8eae-11ed-a1eb-0242ac120002')
           local sender = UdpSocket:new()
           logger:info('send response for %s to %s:%s', request:getMethod(), addr.ip, addr.port)
-          sender:send(HttpMessage.toString(response), addr.ip, addr.port):finally(function()
+          sender:send(Http1.toString(response), addr.ip, addr.port):finally(function()
             sender:close()
           end)
         else
