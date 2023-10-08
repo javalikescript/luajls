@@ -119,7 +119,8 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
       local md = self.fs.getFileMetadata(exchange, file)
       if md then
         if request:getBodyLength() > 0 then
-          return exchange:onRequestBody(true):next(function()
+          request:bufferBody()
+          return request:consume():next(function()
             local propfind
             local body = request:getBody()
             local t = xml.decode(body)

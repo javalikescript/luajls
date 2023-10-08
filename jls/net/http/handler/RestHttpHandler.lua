@@ -243,7 +243,8 @@ httpServer:createContext('/(.*)', RestHttpHandler:new({
       local request = exchange:getRequest()
       local length = request:getContentLength()
       if length and length > 0 then
-        return exchange:onRequestBody(true):next(function()
+        request:bufferBody()
+        return request:consume():next(function()
           local contentType = request:getContentType()
           local method = request:getMethod()
           if method == HttpMessage.CONST.METHOD_POST or method == HttpMessage.CONST.METHOD_PUT then

@@ -42,7 +42,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
       HttpExchange.methodNotAllowed(exchange)
     elseif method == HTTP_CONST.METHOD_PUT or method == HTTP_CONST.METHOD_POST or method == HTTP_CONST.METHOD_PATCH then
       local request = exchange:getRequest()
-      return exchange:onRequestBody(true):next(function()
+      request:bufferBody()
+      return request:consume():next(function()
         if logger:isLoggable(logger.FINEST) then
           logger:finest('httpHandler.table(), request body: "'..request:getBody()..'"')
         end

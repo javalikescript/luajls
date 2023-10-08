@@ -50,7 +50,9 @@ end, function(HttpHandler)
       error('Invalid on body function handler, type is '..type(fn))
     end
     return HttpHandler:new(function(self, exchange)
-      return exchange:onRequestBody(true):next(function()
+      local request = exchange:getRequest()
+      request:bufferBody()
+      return request:consume():next(function()
         local r = fn(exchange)
         if Promise:isInstance(r) then
           return r

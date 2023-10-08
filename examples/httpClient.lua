@@ -110,12 +110,14 @@ local options = tables.createArgumentTable(system.getArguments(), {
 
 logger:setLevel(options.loglevel)
 
+local u = Url:new(options.url)
+local client = HttpClient:new(options)
+
 local responseStreamHandler = StreamHandler.std
 local outFile
 if options.out.file and (options.out.headers or options.out.body) then
   outFile = File:new(options.out.file)
   if outFile:isDirectory() and options.url then
-    local u = Url:new(options.url)
     local p = Path:new(u:getPath())
     outFile = File:new(outFile, p:getName())
   end
@@ -138,19 +140,12 @@ if options.out.unzipTo then
   end
 end
 
-local client = HttpClient:new(options)
-
 Promise.async(function(await)
 
-  logger:finer('connecting client')
-  await(client:connect())
-  logger:finer('client connected')
+  logger:finer('fetching')
+  local response = await(client:fetch(u:getFile(), options))
+  logger:finer('response fetched')
 
-  await(client:sendRequest())
-
-  local remainingBuffer = await(client:receiveResponseHeaders())
-
-  local response = client:getResponse()
   if options.out.headers then
     local lines = {}
     table.insert(lines, response:getLine())
@@ -182,12 +177,10 @@ Promise.async(function(await)
       end
     end
   end
-  -- and response:getStatusCode() == 200
-  if options.out.body then
-    response:setBodyStreamHandler(responseStreamHandler)
-  end
 
-  await(client:receiveResponseBody(remainingBuffer))
+  local sh = options.out.body and responseStreamHandler or StreamHandler.null
+  response:setBodyStreamHandler(sh)
+  await(response:consume())
 
   logger:finer('closing client')
   await(client:close())

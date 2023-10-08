@@ -102,10 +102,9 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return args
   end
 
-  --- Returns a promise that resolves once the request body is available.
-  -- @tparam[opt] boolean buffer true to indicate that the request body must be bufferred.
-  -- @treturn jls.lang.Promise a promise that resolves once the request body is available.
+  -- TODO Remove as deprecated in favor of request:consume()
   function httpExchange:onRequestBody(buffer)
+    logger:warn('exchange:onRequestBody() is deprecated in favor of request:consume()')
     if buffer then
       self.request:bufferBody()
     end
@@ -124,6 +123,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self.closePromise
   end
 
+  -- TODO Remove as deprecated in favor of request:consume()
   function httpExchange:notifyRequestBody(reason)
     if self.requestBodyCallback then
       self.requestBodyCallback(reason, self)
