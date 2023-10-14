@@ -784,7 +784,7 @@ return class.create(function(hpack)
           self:encodeHeader(parts, name, value)
         elseif type(value) == 'table' then
           for _, val in ipairs(value) do
-            self:encodeHeader(parts, name, value)
+            self:encodeHeader(parts, name, val)
           end
         end
       end
