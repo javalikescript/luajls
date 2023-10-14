@@ -89,10 +89,11 @@ local function prepareHandlers(handlers)
         local method = request:getMethod()
         for _, info in ipairs(infos) do
           if check(info.method, method) and check(info.accept, accept) and check(info['content-type'], contentType) then
-            local values = {...}
+            local values = table.pack(...)
             if info.args then
               for _, name in ipairs(info.args) do
-                table.insert(values, exchange:getAttribute(name) or false)
+                values.n = values.n + 1
+                values[values.n] = exchange:getAttribute(name)
               end
             end
             local result = info.handler(exchange, table.unpack(values))
