@@ -27,7 +27,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:isRequest()
-    return type(self.method) == 'string' and self.method ~= ''
+    return type(self.method) == 'string' and self.method ~= '' and type(self.target) == 'string' and self.target ~= ''
   end
 
   function httpMessage:isResponse()
@@ -285,7 +285,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Sets a function that will be called when the body stream handler is available to receive data.
   -- The default callback will emit the string body value.
   -- It is the caller's responsability to ensure that the content length or message headers are correctly set.
-  -- @tparam function callback the function to call when the body stream handler is available.
+  -- @tparam[opt] function callback the function to call when the body stream handler is available.
+  -- @return a promise that resolves once the body stream handler is available.
   function httpMessage:onWriteBodyStreamHandler(callback)
     local cb, pr = Promise.ensureCallback(callback)
     self.writeBodyCallback = cb
