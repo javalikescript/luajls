@@ -21,7 +21,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   function httpHeaders:initialize(headers)
     self.headers = {}
     if headers then
-      self:setHeadersTable(headers)
+      self:addHeadersTable(headers)
     end
   end
 
@@ -176,8 +176,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     return self.headers
   end
 
-  function httpHeaders:setHeadersTable(headers)
-    self:clearHeaders()
+  function httpHeaders:addHeadersTable(headers)
     if HttpHeaders:isInstance(headers) then
       for name, value in pairs(headers:getHeadersTable()) do
         self.headers[name] = value
@@ -187,6 +186,11 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
         self:setHeader(name, value)
       end
     end
+  end
+
+  function httpHeaders:setHeadersTable(headers)
+    self:clearHeaders()
+    self:addHeadersTable(headers)
   end
 
   function httpHeaders:appendHeaders(buffer)

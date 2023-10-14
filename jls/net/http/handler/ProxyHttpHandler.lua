@@ -86,7 +86,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
   end
 
   function proxyHttpHandler:acceptHost(exchange, host)
-    logger:info('Proxy host "'..tostring(host)..'"')
+    logger:info('Proxy host "%s"', host)
     if host == nil then
       HttpExchange.forbidden(exchange)
       return false
@@ -130,9 +130,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
   local function connectStream(fromClient, toClient, callback)
     fromClient:readStart(function(err, data)
       if err then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('proxyHttpHandler tunnel error "'..tostring(err)..'"')
-        end
+        logger:fine('proxyHttpHandler tunnel error "%s"', err)
       elseif data then
         toClient:write(data)
         return
@@ -160,26 +158,21 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     if not self:acceptHost(exchange, host) then
       return
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('proxyHttpHandler connecting to "'..hostport..'"')
-    end
+    logger:finer('proxyHttpHandler connecting to "%s"', hostport)
     local client
     return Promise:new(function(resolve, reject)
       local targetClient = TcpSocket:new()
       targetClient:connect(host, port):next(function()
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('proxyHttpHandler connected to "'..hostport..'"')
-        end
+        logger:fine('proxyHttpHandler connected to "%s"', hostport)
         exchange.applyKeepAlive = returnFalse
         function exchange.close()
-          client = exchange:removeClient()
+          client = exchange.client
+          exchange.client = nil
           self.pendings[client] = targetClient
           HttpExchange.prototype.close(exchange)
           local onStreamClosed = function()
             if self.pendings[client] then
-              if logger:isLoggable(logger.FINE) then
-                logger:fine('proxyHttpHandler connect to "'..hostport..'" closed')
-              end
+              logger:fine('proxyHttpHandler connect to "%s" closed', hostport)
               self.pendings[client] = nil
               client:close()
               targetClient:close()
@@ -191,9 +184,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
         HttpExchange.ok(exchange)
         resolve()
       end, function(err)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('proxyHttpHandler connect error "'..tostring(err)..'"')
-        end
+        logger:fine('proxyHttpHandler connect error "%s"', err)
         if client then
           client:close()
         end
@@ -220,12 +211,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     if not self:acceptHost(exchange, targetUrl:getHost()) then
       return
     end
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('proxyHttpHandler forward to "'..targetUrl:toString()..'"')
-    end
+    logger:fine('proxyHttpHandler forward to "%s"', targetUrl)
     -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
     local headers = HttpHeaders:new()
-    headers:setHeadersTable(request:getHeadersTable())
+    headers:addHeadersTable(request:getHeadersTable())
     local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
     if hostport then
       local forwarded = 'host='..hostport..';proto='..targetUrl:getProtocol()
@@ -257,13 +246,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       return client:receiveResponseHeaders()
     end):next(function(remainingBuffer)
       local clientResponse = client:getResponse()
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('proxyHttpHandler client status code is '..tostring(clientResponse:getStatusCode())..
-          ', remaining buffer #'..tostring(remainingBuffer and #remainingBuffer))
-      end
+      logger:fine('proxyHttpHandler client status code is %d, remaining buffer #%d', clientResponse:getStatusCode(), remainingBuffer and #remainingBuffer or 0)
       response:setStatusCode(clientResponse:getStatusCode())
       local respHdrs = HttpHeaders:new()
-      respHdrs:setHeadersTable(clientResponse:getHeadersTable())
+      respHdrs:addHeadersTable(clientResponse:getHeadersTable())
       -- TODO rewrite headers, location, cookie path
       response:setHeadersTable(respHdrs:getHeadersTable())
       clientResponse:setBodyStreamHandler(DelayedStreamHandler:new())
@@ -278,9 +264,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       logger:finer('proxyHttpHandler closing client')
       client:close()
     end, function(err)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('proxyHttpHandler client error: '..tostring(err))
-      end
+      logger:fine('proxyHttpHandler client error: %s', err)
       response:setStatusCode(HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
       response:setBody('<p>Sorry something went wrong on our side.</p>')
       client:close()
@@ -298,9 +282,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       targetClient:close()
       count = count + 1
     end
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('proxyHttpHandler:close() '..tostring(count)..' pending connect(s) closed')
-    end
+    logger:fine('proxyHttpHandler:close() %d pending connect(s) closed', count)
   end
 
 end)

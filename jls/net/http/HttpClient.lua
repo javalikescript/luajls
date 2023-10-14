@@ -27,6 +27,7 @@ end
 
 local SECURE_CONTEXT
 
+
 -- deprecated helpers
 local function sendRequest(tcpClient, request)
   logger:finer('sendRequest()')
@@ -49,6 +50,7 @@ end
 local function sameClient(url1, url2)
   return url1:getHost() == url2:getHost() and url1:getPort() == url2:getPort() and isUrlSecure(url1) == isUrlSecure(url2)
 end
+-- end deprecated helpers
 
 --[[--
 The HttpClient class enables to send an HTTP request.
@@ -159,32 +161,6 @@ return class.create(function(httpClient)
     return self.tcpClient == nil
   end
 
-  function httpClient:onHttp2EndHeaders(stream)
-    logger:finer('httpClient:onHttp2EndHeaders()')
-    local response = stream.message
-    local promise, cb = Promise.createWithCallback()
-    response.consume = function()
-      return promise
-    end
-    local callback = stream.callback
-    stream.callback = cb
-    callback(nil, response)
-  end
-
-  function httpClient:onHttp2EndStream(stream)
-    logger:finer('httpClient:onHttp2EndStream()')
-    local callback = stream.callback
-    stream.callback = nil
-    callback()
-  end
-
-  function httpClient:onHttp2Event(name, http2, stream, ...)
-    logger:finer('httpClient:onHttp2Event(%s)', name)
-    if name == 'error' or name == 'stream-error' then
-      logger:warn('httpClient:onHttp2Error(%s, %s)', stream and stream.id or '-', (...))
-    end
-  end
-
   function httpClient:connectV2()
     logger:finer('httpClient:connectV2()')
     if self.tcpClient then
@@ -206,12 +182,97 @@ return class.create(function(httpClient)
       if self.isSecure and self.tcpClient.sslGetAlpnSelected then
         if self.tcpClient:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
-          self.http2 = Http2:new(self.tcpClient, false, self)
-          self.http2:readStart()
+          local http2 = Http2:new(self.tcpClient, false)
+          self.http2 = http2
+          http2:readStart({
+            [Http2.SETTINGS.ENABLE_PUSH] = 0,
+            [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
+          })
         end
       end
     end)
   end
+
+  local function handleRedirect(client, options, request, response)
+    if (response:getStatusCode() // 100) == 3 then
+      local redirect = options.redirect or 'follow'
+      if redirect == 'error' then
+        return Promise.reject('redirected')
+      end
+      local redirectCount = request.redirectCount or 0
+      redirectCount = redirectCount + 1
+      local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
+      if location and redirect == 'follow' and redirectCount < 20 then
+        request.redirectCount = redirectCount
+        logger:fine('redirected to "%s" (%d)', location, redirectCount)
+        if response:getStatusCode() == 303 then
+          request:setMethod('GET')
+        end
+        local url = Url.fromString(location)
+        if url then
+          if not(url:getHost() == client.host and url:getPort() == client.port and isUrlSecure(url) == client.isSecure) then
+            local c = httpClient:new(url)
+            request:setTarget(url:getFile())
+            return response:consume():next(function()
+              return c:fetch(request, options)
+            end)
+          end
+          location = url:getFile()
+        elseif string.sub(location, 1, 1) ~= '/' then
+          location = request:getTargetPath()..'/'..location
+        end
+        if location ~= request:getTarget() then
+          request:setTarget(location)
+          return response:consume():next(function()
+            return client:fetch(request, options)
+          end)
+        end
+      end
+    end
+    return Promise.resolve(response)
+  end
+
+  local Stream = class.create(Http2.Stream, function(stream, super)
+
+    function stream:onEndHeaders()
+      super.onEndHeaders(self)
+      local response = self.message
+      local promise, cb = Promise.createWithCallback()
+      response.consume = function()
+        return promise
+      end
+      local callback = self.callback
+      self.callback = cb
+      handleRedirect(self.client, self.options, self.request, response):next(Promise.callbackToNext(callback))
+    end
+
+    function stream:onEndStream()
+      logger:finer('stream:onEndStream() %s', self.id)
+      local callback = self.callback
+      self.callback = nil
+      if callback then
+        callback()
+      end
+    end
+
+  end, function(Stream)
+
+    function Stream.sendRequest(http2, client, options, request, response)
+      local stream = Stream:new(http2, http2:nextStreamId(), response)
+      http2:registerStream(stream)
+      local promise, cb = Promise.createWithCallback()
+      stream.callback = cb -- callback for the response promise
+      stream.client = client
+      stream.options = options
+      stream.request = request
+      stream:sendHeaders(request):next(function()
+        logger:finer('fetch write headers done')
+        stream:sendBody(request)
+      end)
+      return promise
+    end
+
+  end)
 
   --- Sends an HTTP request and receives the response.
   -- @tparam string resource The request target path.
@@ -219,66 +280,96 @@ return class.create(function(httpClient)
   -- @tparam[opt] string options.method The HTTP method, default is GET.
   -- @tparam[opt] table options.headers The HTTP request headers.
   -- @tparam[opt] string options.body The HTTP request body, default is empty body.
+  -- @tparam[opt] string options.redirect How to handle a redirect: follow, error or manual.
   -- @return a promise that resolves to the HTTP response
   function httpClient:fetch(resource, options)
+    if type(options) ~= 'table' then
+      options = {}
+    end
     local request
-    if HttpMessage:isInstance(resource) then
+    if HttpMessage:isInstance(resource) and resource:isRequest() then
       request = resource
     elseif type(resource) == 'string' or self.file and resource == nil then
       request = HttpMessage:new()
       request:setTarget(resource or self.file)
       request:setMethod('GET')
-      if type(options) == 'table' then
-        if options.method then
-          request:setMethod(options.method)
-        end
-        if options.headers then
-          request:setHeadersTable(options.headers)
-        end
-        if options.body then
-          request:setBody(options.body)
-        end
-      end
     else
       error('invalid argument')
     end
+    if options.method then
+      request:setMethod(options.method)
+    end
+    if options.headers then
+      request:addHeadersTable(options.headers)
+    end
+    if options.body then
+      request:setBody(options.body)
+    end
     request:applyBodyLength()
+    local url = Url.fromString(request:getTarget())
+    local hostPort
+    if url then
+      hostPort = formatHostPort(url:getHost(), url:getPort())
+    else
+      hostPort = formatHostPort(self.host, self.port)
+    end
+    request:setHeader(HttpMessage.CONST.HEADER_HOST, hostPort)
     local response = HttpMessage:new()
     return self:connectV2():next(function()
       if self.http2 then
         logger:fine('fetch is using HTTP/2')
-        local stream = self.http2:newStream(response)
-        local promise, cb = Promise.createWithCallback()
-        stream.callback = cb
-        stream:sendHeaders(request):next(function()
-          logger:finer('fetch write headers done')
-          stream:sendBody(request)
-        end)
-        return promise
+        return Stream.sendRequest(self.http2, self, options, request, response)
       end
-      request:setHeader(HttpMessage.CONST.HEADER_HOST, formatHostPort(self.host, self.port))
+      logger:fine('fetch is using HTTP/1')
+      -- keep alive the connection by default
+      if not request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) then
+        local connection
+        if request:getVersion() == HttpMessage.CONST.VERSION_1_0 then
+          connection = HttpMessage.CONST.CONNECTION_CLOSE
+        else
+          connection = HttpMessage.CONST.CONNECTION_KEEP_ALIVE
+        end
+        request:setHeader(HttpMessage.CONST.HEADER_CONNECTION, connection)
+      end
       return Http1.writeHeaders(self.tcpClient, request):next(function()
         logger:finer('fetch write headers done')
         return Http1.writeBody(self.tcpClient, request)
       end):next(function()
         logger:finer('fetch write body done')
-        local hsh = HeaderStreamHandler:new(response)
-        return hsh:read(self.tcpClient, self.remnant)
+        return Http1.readHeader(self.tcpClient, response, self.remnant)
       end):next(function(buffer)
         logger:finer('fetch read headers done')
-        -- TODO handle redirect on the same client
+        local connection = response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+        local connectionClose
+        if connection then
+          connectionClose = strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE)
+        else
+          connectionClose = response:getVersion() == HttpMessage.CONST.VERSION_1_0
+        end
         local promise
         response.consume = function(message)
           if not promise then
             logger:finer('fetch reading body')
-            promise = Http1.readBody(self.tcpClient, message, buffer):next(function(remnant)
-              logger:finer('fetch read body done')
-              self.remnant = remnant
-            end)
+            local statusCode = message:getStatusCode()
+            if statusCode == 204 or statusCode == 304 or (statusCode // 100 == 1) or request:getMethod() == 'HEAD' then
+              message:getBodyStreamHandler():onData(nil)
+              self.remnant = buffer
+              promise = Promise.resolve()
+            else
+              promise = Http1.readBody(self.tcpClient, message, buffer):next(function(remnant)
+                logger:finer('fetch read body done')
+                self.remnant = remnant
+              end)
+            end
+            if connectionClose then
+              promise:finally(function()
+                self:closeClient(false)
+              end)
+            end
           end
           return promise
         end
-        return response
+        return handleRedirect(self, options, request, response)
       end)
     end)
   end
@@ -292,7 +383,7 @@ return class.create(function(httpClient)
     local request = HttpMessage:new()
     self.request = request
     if type(options.headers) == 'table' then
-      request:setHeadersTable(options.headers)
+      request:addHeadersTable(options.headers)
     end
     request:setMethod(options.method or 'GET')
     if options.url then
@@ -319,19 +410,12 @@ return class.create(function(httpClient)
     if options.body then
       request:setBody(options.body)
     end
-    if type(options.proxyHost) == 'string' then
-      self.proxyHost = options.proxyHost
-      if type(options.proxyPort) == 'number' then
-        self.proxyPort = options.proxyPort
-      else
-        self.proxyPort = 8080
-      end
-    end
-    self.maxRedirectCount = 0
     if type(options.maxRedirectCount) == 'number' then
       self.maxRedirectCount = options.maxRedirectCount
     elseif options.followRedirect == true then
       self.maxRedirectCount = 3
+    else
+      self.maxRedirectCount = 0
     end
     -- add accept headers
   end
@@ -371,40 +455,6 @@ return class.create(function(httpClient)
       self.tcpClient:sslInit(false, self.secureContext or SECURE_CONTEXT)
     else
       self.tcpClient = TcpSocket:new()
-    end
-    if self.proxyHost then
-      if isSecure then
-        local connectTcp = TcpSocket:new()
-        local connectRequest = HttpMessage:new()
-        local connectResponse = HttpMessage:new()
-        connectRequest:setMethod('CONNECT')
-        local proxyTarget = getHostHeader(self.proxyHost, self.proxyPort)
-        connectRequest:setTarget(proxyTarget)
-        connectRequest:setHeader(HttpMessage.CONST.HEADER_HOST, proxyTarget)
-        return sendRequest(connectTcp, connectRequest):next(function()
-          local hsh = HeaderStreamHandler:new(connectResponse)
-          return hsh:read(connectTcp)
-        end):next(function(remainingBuffer)
-          self.tcpClient.tcp = connectTcp.tcp
-          connectTcp.tcp = nil
-          return connectTcp:onConnected(host, remainingBuffer)
-        end):next(function()
-          return self
-        end)
-      else
-        -- see RFC 7230 5.3.2. absolute-form
-        local u = Url.format({
-          scheme = 'http',
-          host = host,
-          port = port,
-          path = request:getTarget()
-        })
-        request:setUrl(u)
-        request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
-        return self.tcpClient:connect(self.proxyHost, self.proxyPort):next(function()
-          return self
-        end)
-      end
     end
     request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
     return self.tcpClient:connect(host, port or 80):next(function()

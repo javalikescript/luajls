@@ -15,16 +15,12 @@ local function createChunkFinder()
   local needChunkSize = true
   local chunkSize
   return function(self, buffer, length)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('chunkFinder(#%s, %s) chunk size: %s, needChunkSize: %s', buffer and #buffer, length, chunkSize, needChunkSize)
-    end
+    logger:finer('chunkFinder(#%d, %s) chunk size: %s, needChunkSize: %s', #buffer, length, chunkSize, needChunkSize)
     if needChunkSize then
       local ib, ie = string.find(buffer, '\r\n', 1, true)
       if ib and ib > 1 and ib < 32 then
         local chunkLine = string.sub(buffer, 1, ib - 1)
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('chunkFinder() chunk line: "'..chunkLine..'"')
-        end
+        logger:finest('chunkFinder() chunk line: "%s"', chunkLine)
         local ic = string.find(chunkLine, ';', 1, true)
         if ic then
           chunkLine = string.sub(buffer, 1, ic - 1)
@@ -38,14 +34,12 @@ local function createChunkFinder()
         end
         return -1, ie + 1
       elseif #buffer > 2 then
-        logger:fine('buffer is "%s"', buffer)
+        logger:finest('buffer is "%s"', buffer)
         self:onError('Chunk size not found, buffer length is '..tostring(#buffer))
       end
     else
       if chunkSize == 0 then
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('chunkFinder() chunk ended')
-        end
+        logger:finer('chunkFinder() chunk ended')
         -- TODO consume trailer-part
         return -1, -1
       elseif length >= chunkSize + 2 then
@@ -65,9 +59,7 @@ end
 function Http1.writeHeaders(tcp, message, callback)
   local buffer = StringBuffer:new(message:getLine(), '\r\n')
   message:appendHeaders(buffer):append('\r\n')
-  if logger:isLoggable(logger.FINER) then
-    logger:finer('Http1.writeHeaders() "'..buffer:toString()..'"')
-  end
+  logger:finer('Http1.writeHeaders() "%s"', buffer)
   -- TODO write StringBuffer
   return tcp:write(buffer:toString(), callback)
 end
@@ -87,9 +79,7 @@ function Http1.readBody(tcp, message, buffer, callback)
     end
   end
   local length = message:getContentLength()
-  if logger:isLoggable(logger.FINER) then
-    logger:finer('Http1.readBody() content length is '..tostring(length))
-  end
+  logger:finer('Http1.readBody() content length is %s', length)
   if length and length <= 0 then
     bsh:onData(nil)
     cb(nil, buffer) -- empty body
@@ -97,13 +87,11 @@ function Http1.readBody(tcp, message, buffer, callback)
   end
   if length and buffer then
     local bufferLength = #buffer
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('Http1.readBody() remaining buffer #'..tostring(bufferLength))
-    end
+    logger:finer('Http1.readBody() remaining buffer length is %s', bufferLength)
     if bufferLength >= length then
       local remainingBuffer = nil
       if bufferLength > length then
-        logger:warn('Http1.readBody() remaining buffer too big '..tostring(bufferLength)..' > '..tostring(length))
+        logger:warn('Http1.readBody() remaining buffer too big %s > %s', bufferLength, length)
         remainingBuffer = string.sub(buffer, length + 1)
         buffer = string.sub(buffer, 1, length)
       end
@@ -121,9 +109,7 @@ function Http1.readBody(tcp, message, buffer, callback)
       return promise
     end
     length = -1
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('Http1.readBody() connection: '..tostring(connection))
-    end
+    logger:finer('Http1.readBody() connection: %s', connection)
     if not strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
       cb('Content length value, chunked transfer encoding or connection close expected')
       return promise
@@ -132,15 +118,15 @@ function Http1.readBody(tcp, message, buffer, callback)
   local readState = 0
   -- after that we know that we have something to read from the client
   local sh = StreamHandler:new(function(err, data)
-    if not err then
+    if err then
+      logger:fine('Http1.readBody() stream error is "%s"', err)
+    else
       local r = bsh:onData(data)
       -- we may need to wait for promise resolution prior calling the callback
       -- or we may want to stop/start in case of promise
       if data then
         return r
       end
-    elseif logger:isLoggable(logger.FINE) then
-      logger:fine('Http1.readBody() stream error is "'..tostring(err)..'"')
     end
     -- data ended or error
     if readState == 1 then
@@ -167,32 +153,19 @@ end
 Http1.BODY_BLOCK_SIZE = 2 << 14
 
 function Http1.writeBody(tcp, message)
-  if logger:isLoggable(logger.FINER) then
-    logger:finer('Http1.writeBody()')
-  end
+  logger:finer('Http1.writeBody()')
   local pr, cb = Promise.createWithCallback()
   local len = 0
   message:setBodyStreamHandler(StreamHandler:new(function(err, data)
     if err then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('Http1.writeBody() stream error "'..tostring(err)..'"')
-      end
+      logger:fine('Http1.writeBody() stream error "%s"', err)
       cb(err)
     elseif data then
       len = len + #data
-      if logger:isLoggable(logger.FINEST) then
-        local message = 'Http1.writeBody() write #'..tostring(len)..'+'..tostring(#data)
-        if logger:isLoggable(logger.DEBUG) then
-          logger:debug(message..' "'..tostring(data)..'"')
-        else
-          logger:finest(message)
-        end
-      end
+      logger:finest('Http1.writeBody() write #%d "%s"', len, data)
       return tcp:write(data)
     else
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('Http1.writeBody() done #'..tostring(len))
-      end
+      logger:finer('Http1.writeBody() done #%s', len)
       cb()
     end
   end))

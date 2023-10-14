@@ -17,9 +17,8 @@ local HTTP_CONST = HttpMessage.CONST
 -- @type HttpExchange
 return require('jls.lang.class').create('jls.net.http.Attributes', function(httpExchange, super)
 
-  function httpExchange:initialize(client)
+  function httpExchange:initialize()
     super.initialize(self)
-    self.client = client
     self.request = HttpMessage:new()
     self.response = HttpMessage:new()
     self.response:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
@@ -187,7 +186,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       if Promise:isInstance(result) then
         return result:catch(function(reason)
           if logger:isLoggable(logger.WARN) then
-            logger:warn('HttpExchange error while handling promise "%s", due to %s', self:getRequest():getTarget(), reason:toString(true))
+            logger:warn('HttpExchange error while handling promise "%s", due to %s', self:getRequest():getTarget(), reason)
           end
           self:resetResponseToError(reason)
         end)
@@ -195,15 +194,20 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       return Promise.resolve()
     end
     if logger:isLoggable(logger.WARN) then
-      logger:warn('HttpExchange error while handling "%s", due to %s', self:getRequest():getTarget(), result:toString(true))
+      logger:warn('HttpExchange error while handling "%s", due to %s', self:getRequest():getTarget(), result)
     end
     self:resetResponseToError(result)
     return Promise.resolve()
   end
 
+  function httpExchange:getClient()
+    return self.client or self.stream and self.stream.http2 and self.stream.http2.client
+  end
+
   function httpExchange:clientAsString()
-    if self.client then
-      local ip, port = self.client:getRemoteName()
+    local client = self:getClient()
+    if client then
+      local ip, port = client:getRemoteName()
       if ip then
         return ip..':'..tostring(port)
       end
@@ -211,18 +215,13 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return ''
   end
 
-  function httpExchange:removeClient()
-    local client = self.client
-    self.client = nil
-    return client
-  end
-
   function httpExchange:close()
     logger:finest('httpExchange:close()')
     self.request:close()
     self.response:close()
-    local client = self:removeClient()
+    local client = self.client
     if client then
+      self.client = nil
       --client:readStop()
       client:close()
     end

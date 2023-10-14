@@ -37,6 +37,81 @@ local notFoundHandler = HttpHandler:new(function(self, exchange)
   response:setBody('<p>The resource "'..exchange:getRequest():getTarget()..'" is not available.</p>')
 end)
 
+local Stream = class.create(Http2.Stream, function(stream, super)
+
+  function stream:onEndHeaders()
+    super.onEndHeaders(self)
+    local http2 = self.http2
+    logger:finer('stream:onEndHeaders() %s', self.id)
+    if http2.start_time then
+      http2.start_time = nil
+    end
+    local request = self.message
+    local exchange = self.exchange
+    local promise, cb = Promise.createWithCallback()
+    request.consume = function()
+      return promise
+    end
+    self.callback = cb
+    local server = http2.server
+    if server:preFilter(exchange) then
+      local path = request:getTargetPath()
+      local context = server:getMatchingContext(path, request)
+      self.handling = exchange:handleRequest(context)
+    end
+  end
+
+  function stream:onEndStream()
+    logger:finer('stream:onEndStream() %s', self.id)
+    local exchange = self.exchange
+    local cb = self.callback
+    self.callback = nil
+    cb()
+    exchange:notifyRequestBody() -- TODO Remove
+    self.http2.server:prepareResponseHeaders(exchange)
+    local response = exchange:getResponse()
+    local handling = self.handling
+    self.handling = nil
+    Promise.resolve(handling):next(function()
+      return self:sendHeaders(response)
+    end):next(function()
+      self:sendBody(response)
+    end)
+  end
+
+end)
+
+local ServerHttp2 = class.create(Http2, function(http2, super)
+
+  function http2:initialize(server, ...)
+    super.initialize(self, ...)
+    http2.server = server
+    http2.start_time = os.time()
+  end
+
+  function http2:newStream(id)
+    local exchange = HttpExchange:new()
+    local stream = Stream:new(self, id, exchange.request)
+    stream.exchange = exchange
+    exchange.stream = stream
+    return stream
+  end
+
+  function http2:closedStream(stream)
+    super.closedStream(self, stream)
+    if next(self.streams) == nil then
+      self.start_time = os.time()
+    end
+  end
+
+  function http2:onPing()
+    if self.start_time then
+      self.start_time = os.time()
+    end
+  end
+
+end)
+
 local HttpContext
 
 --[[-- An HTTP server.
@@ -234,65 +309,12 @@ local HttpServer = class.create(function(httpServer)
     self:handleExchange(client)
   end
 
-  function httpServer:onHttp2EndHeaders(stream)
-    logger:finer('httpServer:onHttp2EndHeaders(%s)', stream.id)
-    if stream.http2.start_time then
-      stream.http2.start_time = nil
-    end
-    local request = stream.message
-    local exchange = HttpExchange:new()
-    exchange.request = request
-    stream.exchange = exchange
-    local promise, cb = Promise.createWithCallback()
-    request.consume = function()
-      return promise
-    end
-    stream.callback = cb
-    if self:preFilter(exchange) then
-      local path = request:getTargetPath()
-      local context = self:getMatchingContext(path, request)
-      stream.handling = exchange:handleRequest(context)
-    end
-  end
-
-  function httpServer:onHttp2EndStream(stream)
-    logger:finer('httpServer:onHttp2EndStream(%s)', stream.id)
-    local exchange = stream.exchange
-    local cb = stream.callback
-    stream.callback = nil
-    cb()
-    exchange:notifyRequestBody() -- TODO Remove
-    self:prepareResponseHeaders(exchange)
-    local response = exchange:getResponse()
-    local handling = stream.handling
-    stream.handling = nil
-    Promise.resolve(handling):next(function()
-      return stream:sendHeaders(response)
-    end):next(function()
-      stream:sendBody(response)
-    end)
-  end
-
-  function httpServer:onHttp2Event(name, http2, stream, ...)
-    logger:finer('httpServer:onHttp2Event(%s)', name)
-    if name == 'empty' then
-      http2.start_time = os.time()
-    elseif name == 'ping' then
-      if http2.start_time then
-        http2.start_time = os.time()
-      end
-    elseif name == 'error' then
-      logger:warn('h2 in error due to %s', (...))
-    elseif name == 'stream-error' then
-      logger:warn('h2 stream %s in error due to %s', stream.id, (...))
-    end
-  end
-
   function httpServer:handleHttp2Exchange(client)
-    local http2 = Http2:new(client, true, self)
-    -- TODO register client in pendings
-    http2:readStart()
-    http2.start_time = os.time()
+    local http2 = ServerHttp2:new(self, client, true)
+    http2:readStart({
+      [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
+      --[Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL] = 1,
+    })
     self.pendings[client] = http2
   end
 
@@ -307,7 +329,8 @@ local HttpServer = class.create(function(httpServer)
     if self.keepAlive then
       client:setKeepAlive(true, self.keepAlive)
     end
-    local exchange = HttpExchange:new(client)
+    local exchange = HttpExchange:new()
+    exchange.client = client
     local keepAlive = false
     local handling = nil
     local callback = nil
@@ -360,7 +383,8 @@ local HttpServer = class.create(function(httpServer)
         logger:fine('httpServer:handleExchange() response body %s done %s', requestToString(exchange), exchange:getResponse():getStatusCode())
       end
       if keepAlive and not self.tcpServer:isClosed() then
-        local c = exchange:removeClient()
+        local c = exchange.client
+        exchange.client = nil
         if c then
           logger:finer('httpServer:handleExchange() keeping client alive')
           exchange:close()

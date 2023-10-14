@@ -1,10 +1,12 @@
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
+local Promise = require('jls.lang.Promise')
 local StreamHandler = require('jls.io.StreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local Hpack = require('jls.net.http.Hpack')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local Map = require('jls.util.Map')
+local strings = require('jls.util.strings')
 
 --local hex = require('jls.util.Codec').getInstance('hex')
 --logger = logger:getClass():new(); logger:setLevel('finer')
@@ -115,8 +117,6 @@ local function packSettings(settings)
 end
 
 
-local MAX_WINDOW_SIZE = (2 << 30) - 1
-
 local Stream = class.create(function(stream)
 
   function stream:initialize(http2, id, message)
@@ -125,18 +125,20 @@ local Stream = class.create(function(stream)
     self.message = message or HttpMessage:new()
     self.message:setVersion('HTTP/2')
     self.state = STATE.IDLE
-    self.windowSize = MAX_WINDOW_SIZE
-    self.blockSize = self.http2.settings[SETTINGS.MAX_FRAME_SIZE] or 8192
+    self.windowSize = http2:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
+    self.blockSize = http2:getRemoteSetting(SETTINGS.MAX_FRAME_SIZE)
     self.start_time = os.time()
   end
 
   function stream:onEndHeaders()
+    logger:finer('stream:onEndHeaders()')
     if self.state == STATE.IDLE then
       self.state = STATE.OPEN
     end
   end
 
   function stream:sendHeaders(message, endStream)
+    logger:finer('stream:sendHeaders(?, %s)', endStream)
     local data = self.http2.hpack:encodeHeaders(message)
     if self.state == STATE.IDLE then
       self.state = STATE.OPEN
@@ -145,6 +147,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onData(data, endStream)
+    logger:finer('stream:onData(?, %s)', endStream)
     local sh = self.message:getBodyStreamHandler()
     sh:onData(data)
     if endStream then
@@ -152,20 +155,44 @@ local Stream = class.create(function(stream)
     end
   end
 
+  function stream:onEndStream()
+    logger:finer('stream:onEndStream()')
+  end
+
   function stream:sendData(data, endStream)
-    if data then
-      local size = #data
-      self.windowSize = self.windowSize - size
+    local size = data and #data or 0
+    logger:finer('stream:sendData(%d, %s)', size, endStream)
+    if size > self.windowSize then
+      logger:warn('stream window size too small (%d, frame is %d)', self.windowSize, size)
+      return Promise.reject('window size too small')
     end
-    return self.http2:sendFrame(FRAME.DATA, 0, self.id, data, endStream)
+    self.windowSize = self.windowSize - size
+    if size <= self.blockSize then
+      return self.http2:sendFrame(FRAME.DATA, 0, self.id, data, endStream)
+    end
+    logger:fine('sending blocks')
+    local p = Promise.resolve()
+    for value, ends in strings.parts(data, self.blockSize) do
+      local v, e = value, ends and endStream
+      p = p:next(function()
+        logger:fine('sending block')
+        return self.http2:sendFrame(FRAME.DATA, 0, self.id, v, e)
+      end)
+    end
+    return p
   end
 
   function stream:sendBody(message)
+    logger:finer('stream:sendBody()')
     local endStream = false
     message:setBodyStreamHandler(StreamHandler:new(function(err, data, endData)
       if err then
         error(err)
       elseif data then
+        if endStream then
+          logger:warn('stream ended')
+          return
+        end
         if endData == true then
           endStream = true
         end
@@ -178,6 +205,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:close()
+    logger:finer('stream:close()')
     self.state = STATE.CLOSED
     self:onClose()
   end
@@ -185,35 +213,34 @@ local Stream = class.create(function(stream)
   function stream:onClose()
   end
 
-end)
+  function stream:onError(reason)
+    logger:warn('h2 stream %s in error due to %s', stream.id, reason)
+  end
 
-local Http2Handler = class.create(function(http2Handler)
-  http2Handler.onHttp2EndHeaders = class.emptyFunction
-  http2Handler.onHttp2EndStream = class.emptyFunction
-  http2Handler.onHttp2Event = class.emptyFunction
 end)
-
-local DEFAULT = Http2Handler:new()
 
 return class.create(function(http2)
 
-  function http2:initialize(client, isServer, handler)
+  function http2:initialize(client, isServer)
     self.client = client
     self.isServer = isServer
-    self.handler = handler or DEFAULT
     self.hpack = Hpack:new()
     self.streams = {}
     self.streamNextId = isServer and 2 or 1
-    self.windowSize = MAX_WINDOW_SIZE
+    -- some remote settings have a default value
     self.settings = {
-      --[SETTINGS.MAX_CONCURRENT_STREAMS] = 100, -- default unlimited
-      [SETTINGS.ENABLE_PUSH] = 0, -- disable server push, default 1 enabled
-      [SETTINGS.MAX_FRAME_SIZE] = 65536,
-      --[SETTINGS.HEADER_TABLE_SIZE] = 4096,
-      --[SETTINGS.MAX_HEADER_LIST_SIZE] = 0, -- default unlimited
-      [SETTINGS.INITIAL_WINDOW_SIZE] = MAX_WINDOW_SIZE,
-      --[SETTINGS.ENABLE_CONNECT_PROTOCOL] = 1,
+      [SETTINGS.ENABLE_PUSH] = 1,
+      [SETTINGS.HEADER_TABLE_SIZE] = 4096,
+      --[SETTINGS.MAX_CONCURRENT_STREAMS] = unlimited,
+      [SETTINGS.MAX_FRAME_SIZE] = 16384,
+      --[SETTINGS.MAX_HEADER_LIST_SIZE] = unlimited,
+      [SETTINGS.INITIAL_WINDOW_SIZE] = 65535,
     }
+    self.windowSize = self:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
+  end
+
+  function http2:getRemoteSetting(id)
+    return self.settings[id]
   end
 
   function http2:handlePriority(streamId, data, offset, endOffset)
@@ -229,7 +256,6 @@ return class.create(function(http2)
     self.hpack:decodeHeaders(stream.message, data, offset, endOffset)
     if flags & END_HEADERS_FLAG ~= 0 then
       stream:onEndHeaders()
-      self.handler:onHttp2EndHeaders(stream)
     end
   end
 
@@ -238,61 +264,57 @@ return class.create(function(http2)
       logger:fine('end stream %d', streamId)
       stream = stream or self.streams[streamId]
       if stream then
-        self.handler:onHttp2EndStream(stream)
+        stream:onEndStream()
         if stream.state == STATE.OPEN then
           stream.state = STATE.HALF_CLOSED_REMOTE
         elseif stream.state == STATE.HALF_CLOSED_LOCAL then
-          self:closeStream(stream)
+          self:closedStream(stream)
         end
       end
     end
   end
 
-  function http2:newStream(idOrMessage)
-    local id, message
-    if type(idOrMessage) == 'number' then
-      id = idOrMessage
-      if self.isServer and (id % 2 == 0) or (not self.isServer) and (id % 2 == 1) or self.streams[id] then
-        error('invalid stream id')
-      end
-    elseif HttpMessage:isInstance(idOrMessage) then
-      message = idOrMessage
-    else
-      error('invalid argument')
-    end
-    if not id then
-      id = self.streamNextId
-      self.streamNextId = self.streamNextId + 2
-    end
-    local stream = Stream:new(self, id, message)
-    self.streams[id] = stream
-    logger:fine('new stream %d', id)
+  function http2:nextStreamId()
+    local id = self.streamNextId
+    self.streamNextId = self.streamNextId + 2
+    return id
+  end
+
+  function http2:newStream(id)
+    return Stream:new(self, id)
+  end
+
+  function http2:registerStream(stream)
+    self.streams[stream.id] = stream
+    logger:fine('new stream %d', stream.id)
     return stream
   end
 
-  function http2:closeStream(stream)
+  function http2:closedStream(stream)
     self.streams[stream.id] = nil
+    logger:fine('end stream %d', stream.id)
     stream:close()
-    if next(self.streams) == nil then
-      self.handler:onHttp2Event('empty', self)
-    end
   end
 
   function http2:sendFrame(frameType, flags, streamId, data, endStream)
     data = data or ''
     local frameLen = #data
     if frameType <= 1 then -- HEADERS or DATA
+      if frameType == FRAME.DATA then
+        if frameLen > self.windowSize then
+          logger:warn('h2 window size too small (%d, frame is %d)', self.windowSize, frameLen)
+          return Promise.reject('window size too small')
+        end
+        self.windowSize = self.windowSize - frameLen
+      end
       if endStream then
         flags = flags | END_STREAM_FLAG
         local stream = self.streams[streamId]
         if stream.state == STATE.OPEN then
           stream.state = STATE.HALF_CLOSED_LOCAL
         elseif stream.state == STATE.HALF_CLOSED_REMOTE then
-          self:closeStream(stream)
+          self:closedStream(stream)
         end
-      end
-      if frameType == FRAME.DATA then
-        self.windowSize = self.windowSize - frameLen
       end
     end
     local frame = string.pack('>I3BBI4', frameLen, frameType, flags, streamId)..data
@@ -301,9 +323,9 @@ return class.create(function(http2)
       --logger:finer('frame #%d: %s', #data, hex:encode(data))
     end
     local p = self.client:write(frame)
-    if logger:isLoggable(logger.FINE) then
+    if logger:isLoggable(logger.FINER) then
       p:next(function()
-        logger:fine('frame sent %s(%d), 0x%02x, id: %d', FRAME_BY_TYPE[frameType], frameType, flags, streamId)
+        logger:finer('frame sent %s(%d), 0x%02x, id: %d', FRAME_BY_TYPE[frameType], frameType, flags, streamId)
       end, function(reason)
         logger:warn('frame sending failed %s(%d), 0x%02x, id: %d, #%d "%s"', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, reason)
       end)
@@ -311,7 +333,11 @@ return class.create(function(http2)
     return p
   end
 
-  function http2:readStart()
+  function http2:sendSettings(settings)
+    return self:sendFrame(FRAME.SETTINGS, 0, 0, packSettings(settings or {}))
+  end
+
+  function http2:readStart(settings)
     local client = self.client
     local cs = ChunkedStreamHandler:new(StreamHandler:new(function(err, data)
       if data then
@@ -319,8 +345,8 @@ return class.create(function(http2)
         streamId = streamId & 0x7fffffff
         local stream
         local frameLen = #data - 9
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('received frame %s(%d), 0x%02x, id: %d, #%d', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen)
+        if logger:isLoggable(logger.FINE) then
+          logger:fine('received frame %s(%d), 0x%02x, id: %d, #%d', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen)
         end
         local offset = 10
         local endOffset
@@ -344,7 +370,12 @@ return class.create(function(http2)
           end
           stream = self.streams[streamId]
           if not stream then
+            if self.isServer == (streamId % 2 == 0) then
+              self:onError('invalid stream id')
+              return
+            end
             stream = self:newStream(streamId)
+            self:registerStream(stream)
           end
           self:handleHeaderBlock(stream, flags, data, offset, endOffset)
           self:handleEndStream(flags, streamId, stream)
@@ -363,15 +394,10 @@ return class.create(function(http2)
           local id, value
           while offset <= #data do
             id, value, offset = string.unpack('>I2I4', data, offset)
-            local currentValue = self.settings[id]
             if logger:isLoggable(logger.FINE) then
-              logger:fine('setting %s(%d): %d was %s', SETTINGS_BY_ID[id], id, value, currentValue)
+              logger:fine('setting %s(%d): %d was %s', SETTINGS_BY_ID[id], id, value, self.settings[id])
             end
-            if currentValue then
-              self.settings[id] = math.min(currentValue, value)
-            else
-              self.settings[id] = value
-            end
+            self.settings[id] = value
             if id == SETTINGS.HEADER_TABLE_SIZE then
               self.hpack:resizeIndexes(value)
             end
@@ -398,7 +424,9 @@ return class.create(function(http2)
           end
           local errorCode = string.unpack('>I4', data, offset)
           stream = self.streams[streamId]
-          self:handleStreamError(stream, errorCode)
+          if stream then
+            stream:onError(errorCode)
+          end
         elseif frameType == FRAME.PUSH_PROMISE then
           logger:warn('push promise received')
         elseif frameType == FRAME.PING then
@@ -406,7 +434,7 @@ return class.create(function(http2)
             logger:fine('ping ack received')
             return
           end
-          self.handler:onHttp2Event('ping', self)
+          self:onPing()
           self:sendFrame(FRAME.PING, ACK_FLAG, 0, string.sub(data, offset))
         elseif frameType == FRAME.GOAWAY then
           local lastStreamId, errorCode
@@ -434,15 +462,13 @@ return class.create(function(http2)
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading')
     client:readStart(cs)
-    if not self.isServer then
-      logger:fine('writing preface')
-      client:write(CONNECTION_PREFACE):next(function()
-        logger:fine('preface sent')
-      end, function(reason)
-        logger:warn('preface sending failed "%s"', reason)
-      end)
+    if self.isServer then
+      return self:sendSettings(settings)
     end
-    return self:sendFrame(FRAME.SETTINGS, 0, 0, packSettings(self.settings))
+    logger:fine('writing preface and settings')
+    local data = packSettings(settings or {})
+    local frame = string.pack('>I3BBI4', #data, FRAME.SETTINGS, 0, 0)..data
+    return client:write(CONNECTION_PREFACE..frame)
   end
 
   function http2:goAway(errorCode)
@@ -450,14 +476,11 @@ return class.create(function(http2)
     return self:sendFrame(FRAME.GOAWAY, 0, 0, string.pack('>I4I4', lastStreamId, errorCode or 0))
   end
 
-  function http2:handleStreamError(stream, reason)
-    logger:warn('stream %s error %s', stream and stream.id, reason)
-    self.handler:onHttp2Event('stream-error', self, stream, reason)
+  function http2:onPing()
   end
 
   function http2:onError(reason)
     logger:warn('h2 error %s', reason)
-    self.handler:onHttp2Event('error', self, nil, reason)
   end
 
   function http2:close()
@@ -468,5 +491,6 @@ return class.create(function(http2)
 end, function(Http2)
 
   Http2.Stream = Stream
+  Http2.SETTINGS = SETTINGS
 
 end)
