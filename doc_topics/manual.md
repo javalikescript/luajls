@@ -509,7 +509,7 @@ require('jls.lang.event'):loop()
 
 ## Hypertext Transfer Protocol (HTTP)
 
-The library provides HTTP 1.1 client and server.
+The library provides HTTP 1.1 and 2 client and server.
 
 ### HTTP Client
 

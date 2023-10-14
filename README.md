@@ -60,25 +60,18 @@ luajls supports the async/await pattern.
 local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
 local HttpClient = require('jls.net.http.HttpClient')
-local Url = require('jls.net.Url')
 
 local function nodePattern(name)
   local namePattern = string.gsub(name, '%a', function(a) return '['..string.lower(a)..string.upper(a)..']' end)
   return '<%s*'..namePattern..'%s*>%s*([^<]*)%s*<%s*/%s*'..namePattern..'%s*>'
 end
 
-local function asyncGetTitle(await, url)
-  local u = Url:new(url)
-  local client = HttpClient:new(u)
-  local response = await(client:fetch(u:getFile()))
+Promise.async(function(await)
+  local client = HttpClient:new('http://www.lua.org')
+  local response = await(client:fetch('/'))
   local body = await(response:text())
   client:close()
-  return string.match(body, nodePattern('title'))
-end
-
-Promise.async(function(await)
-  print(asyncGetTitle(await, 'http://www.lua.org'))
-  print(asyncGetTitle(await, 'http://www.lua.org/about.html'))
+  print(string.match(body, nodePattern('title')))
 end)
 
 event:loop()
