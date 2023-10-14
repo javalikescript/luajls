@@ -452,12 +452,13 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     end
     local ret, err = self.ssl:write(data)
     -- See https://www.openssl.org/docs/man1.0.2/man3/SSL_write.html
-    if ret > 0 then
+    if ret and ret > 0 then
       -- The write operation was successful, the return value is the number of bytes actually written to the TLS/SSL connection.
-      logger:finer('ssl:write() => %s', ret)
+      logger:finer('ssl:write() => %d', ret)
     else
       -- The write operation was not successful, because either the connection was closed, an error occurred or action must be taken by the calling process.
-      logger:warn('ssl:write() => %s, "%s"', ret, err)
+      logger:fine('ssl:write() => %s, "%s"', ret, err)
+      return Promise.reject(err or 'unknown SSL write error')
     end
     return self:sslFlush(callback)
   end

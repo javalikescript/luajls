@@ -33,7 +33,7 @@ local dave = User:new('Dave', 2012)
 -- see https://en.wikipedia.org/wiki/Class_(computer_programming)
 -- and https://en.wikipedia.org/wiki/Naming_convention_(programming)
 
-local function emptyFunction() end
+local function emptyFunction(...) end
 
 local function notImplementedFunction()
   error('This function is not implemented')
