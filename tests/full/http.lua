@@ -85,14 +85,8 @@ local function createTcpClient(requestData)
   end)
 end
 
-local function createHttpClient(headers)
-  headers = headers or {}
-  local client = HttpClient:new({
-    url = 'http://127.0.0.1:'..tostring(TEST_PORT)..'/',
-    method = 'GET',
-    headers = headers
-  })
-  return client
+local function createHttpClient()
+  return HttpClient:new('http://127.0.0.1:'..tostring(TEST_PORT)..'/')
 end
 
 local function notFoundHandler(exchange)
@@ -139,24 +133,24 @@ local function createHttpServer(handler, keep)
   end)
 end
 
-local function sendReceiveClose(client)
-  logger:finer('sendReceiveClose()')
-  return client:connect():next(function()
-    return client:sendReceive()
-  end):next(function(response)
-    logger:finer('sendReceiveClose(), response is '..tostring(response))
-    client.t_response = response
-    client:close()
-  end, function(err)
-    logger:fine('sendReceiveClose error "'..tostring(err)..'"')
-    client.t_err = err
-    client:close()
-  end)
+local function setConnectionClose(message)
+  message:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
 end
 
-local function connectSendReceive(client)
-  return client:connect():next(function()
-    return client:sendReceive()
+local function sendReceiveClose(client, resource, options)
+  logger:finer('sendReceiveClose()')
+  return client:fetch(resource or '/', options or resource == nil and {
+    headers = { connection = 'close' }
+  }):next(function(response)
+    return response:text():next(function()
+      logger:finer('sendReceiveClose(), response is '..tostring(response))
+      client.t_response = response
+    end)
+  end):catch(function(err)
+    logger:fine('sendReceiveClose error "'..tostring(err)..'"')
+    client.t_err = err
+  end):finally(function()
+    client:close()
   end)
 end
 
@@ -406,15 +400,13 @@ function Test_HttpClientServer_body()
     local request = exchange:getRequest()
     local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
+    setConnectionClose(response)
     response:setBody('<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
   end):next(function(s)
     server = s
     client = createHttpClient()
-    local request = client:getRequest()
-    request:setMethod('POST')
-    request:setBody('Tim')
-    sendReceiveClose(client)
+    sendReceiveClose(client, '/', { method = 'POST', body = 'Tim' })
   end)
   if not loop(function()
     client:close()
@@ -446,21 +438,29 @@ local function onWriteMessage(message, data)
   end)
 end
 
+local function createRequest(method, target)
+  local request = HttpMessage:new()
+  request:setMethod(method or 'GET')
+  request:setTarget(target or '/')
+  setConnectionClose(request)
+  return request
+end
+
 function Test_HttpClientServer_body_stream()
   local server, client
   createHttpServer(function(exchange)
     local request = exchange:getRequest()
     local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
+    setConnectionClose(response)
     onWriteMessage(response, '<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
   end):next(function(s)
     server = s
     client = createHttpClient()
-    local request = client:getRequest()
-    request:setMethod('POST')
+    local request = createRequest('POST')
     onWriteMessage(request, 'Tim')
-    sendReceiveClose(client)
+    sendReceiveClose(client, request)
   end)
   if not loop(function()
     client:close()
@@ -480,15 +480,15 @@ function Test_HttpsClientServer_body_stream_multiple()
     local request = exchange:getRequest()
     local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
+    setConnectionClose(response)
     onWriteMessage(response, {'<p>Hello ', request:getBody(), '!</p>'})
     logger:fine('http server handler => Ok')
   end):next(function(s)
     server = s
     client = createHttpClient()
-    local request = client:getRequest()
-    request:setMethod('POST')
+    local request = createRequest('POST')
     onWriteMessage(request, {'John, ', 'Smith'})
-    sendReceiveClose(client)
+    sendReceiveClose(client, request)
   end)
   if not loop(function()
     client:close()
@@ -502,18 +502,17 @@ function Test_HttpsClientServer_body_stream_multiple()
   lu.assertEquals(server.t_request:getMethod(), 'POST')
 end
 
-local function createHttpServerRedirect(body, newPath, oldPath, veryOldPath)
+local function createHttpServerRedirect(body, ...)
+  local paths = {...}
   return createHttpServer(function(exchange)
     local target = exchange:getRequest():getTarget()
     local response = exchange:getResponse()
-    if target == newPath then
+    local index = List.indexOf(paths, target)
+    if index == 1 then
       response:setStatusCode(200, 'Ok')
       response:setBody(body)
-    elseif target == oldPath then
-      response:setHeader('Location', 'http://127.0.0.1:'..tostring(TEST_PORT)..newPath)
-      response:setStatusCode(302, 'Found')
-    elseif veryOldPath and target == veryOldPath then
-      response:setHeader('Location', 'http://127.0.0.1:'..tostring(TEST_PORT)..oldPath)
+    elseif index > 1 then
+      response:setHeader('Location', 'http://127.0.0.1:'..tostring(TEST_PORT)..paths[index - 1])
       response:setStatusCode(302, 'Found')
     else
       response:setStatusCode(404, 'Not Found')
@@ -528,7 +527,7 @@ function Test_HttpClientServer_redirect_none()
   createHttpServerRedirect(body, '/newLocation', '/'):next(function(s)
     server = s
     client = createHttpClient()
-    sendReceiveClose(client):next(function()
+    sendReceiveClose(client, '/', { redirect = 'manual' }):next(function()
       server:close()
     end)
   end)
@@ -551,7 +550,6 @@ function Test_HttpClientServer_redirect()
   createHttpServerRedirect(body, '/newLocation', '/'):next(function(s)
     server = s
     client = createHttpClient()
-    client.maxRedirectCount = 1
     sendReceiveClose(client):next(function()
       server:close()
     end)
@@ -598,10 +596,14 @@ end
 function Test_HttpClientServer_redirect_too_much()
   local body = '<p>Hello.</p>'
   local server, client
-  createHttpServerRedirect(body, '/newerLocation', '/newLocation', '/'):next(function(s)
+  local paths = {}
+  for i = 1, 20 do
+    table.insert(paths, '/location-'..i)
+  end
+  table.insert(paths, '/')
+  createHttpServerRedirect(body, table.unpack(paths)):next(function(s)
     server = s
     client = createHttpClient()
-    client.maxRedirectCount = 1
     sendReceiveClose(client):next(function()
       server:close()
     end)
@@ -615,7 +617,7 @@ function Test_HttpClientServer_redirect_too_much()
   lu.assertIsNil(client.t_err)
   lu.assertEquals(client.t_response:getStatusCode(), 302)
   lu.assertIsNil(server.t_err)
-  lu.assertEquals(server.t_requestCount, 2)
+  lu.assertEquals(server.t_requestCount, 20)
 end
 
 function Test_HttpServer_keep_alive()
@@ -663,15 +665,13 @@ function Test_HttpClientServer_keep_alive()
     count = count + 1
   end):next(function(s)
     server = s
-    client = createHttpClient({Connection = 'keep-alive'})
-    client:sendReceive():next(function()
+    client = HttpClient:new('http://127.0.0.1:'..tostring(TEST_PORT)..'/')
+    client:fetch('/'):next(function()
       logger:fine('send receive completed for first request')
-      return client:sendReceive():next(function()
-        logger:fine('send receive completed for second request')
-      end)
+      return client:fetch('/')
     end):next(function()
-      logger:fine('send receive completed for all requests')
-    end, function(err)
+      logger:fine('send receive completed for second request')
+    end):catch(function(err)
       logger:warn('send receive error: "'..tostring(err)..'"')
     end):finally(function()
       logger:fine('closing client and server')

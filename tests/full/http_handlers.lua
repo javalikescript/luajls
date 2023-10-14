@@ -6,6 +6,7 @@ local Promise = require('jls.lang.Promise')
 local system = require('jls.lang.system')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
+local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
 local Date = require('jls.util.Date')
@@ -36,15 +37,14 @@ local function getTmpDir(forCreation)
   return tmpDir
 end
 
-local function connectSendReceiveClose(httpClient, responses)
-  return httpClient:connect():next(function()
-    return httpClient:sendReceive()
-  end):next(function(response)
-    httpClient:close()
-    if responses then
-      table.insert(responses, response)
-    end
-    return response
+local function fetch(client, resource, options, responses)
+  return client:fetch(resource, options):next(function(response)
+    return response:text():next(function()
+      if responses then
+        table.insert(responses, response)
+      end
+      return response
+    end)
   end)
 end
 
@@ -53,20 +53,26 @@ local function shift(responses)
 end
 
 local function assertReponse(response, statusCode, body)
-  if body then
-    lu.assertEquals(response:getBody(), body)
-  end
   if statusCode then
     lu.assertEquals(response:getStatusCode(), statusCode)
   end
+  if body then
+    lu.assertEquals(response:getBody(), body)
+  end
 end
 
-function Test_rest()
-  local responses = {}
-  local users = {}
-  local url
-  local httpServer = HttpServer:new()
-  httpServer:createContext('/(.*)', RestHttpHandler:new({
+local function close(...)
+  local args = table.pack(...)
+  for i = 1, args.n do
+    local v = args[i]
+    if v then
+      v:close()
+    end
+  end
+end
+
+local function createRestHandler(users)
+  return RestHttpHandler:new({
     users = {
       [''] = function(exchange)
         return users
@@ -87,7 +93,10 @@ function Test_rest()
         end,
         -- will be available at /rest/users/{userId}/greetings
         ['greetings(user)?method=GET'] = function(exchange, user)
-          return 'Hello '..user.firstname
+          if user then
+            return 'Hello '..user.firstname
+          end
+          return 'User not found'
         end,
       },
     },
@@ -98,43 +107,51 @@ function Test_rest()
         end, 100)
       end)
     end,
-  }))
+  })
+end
+
+function Test_rest()
+  local responses = {}
+  local users = {}
+  local url
+  local httpServer = HttpServer:new()
+  httpServer:createContext('/(.*)', createRestHandler(users))
+  local httpClient
   httpServer:bind('::', 0):next(function()
     local port = select(2, httpServer:getAddress())
     url = 'http://127.0.0.1:'..tostring(port)
+    httpClient = HttpClient:new(url)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({
-      url = url..'/users/foo',
+    return fetch(httpClient, '/users/foo', {
       method = 'PUT',
       headers = {
         ['Content-Type'] = 'application/json',
       },
       body = '{"firstname": "John"}',
-    }), responses)
+    }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({
-      url = url..'/users/bar',
+    return fetch(httpClient, '/users/bar', {
       method = 'PUT',
       headers = {
         ['Content-Type'] = 'text/xml',
       },
       body = '<user firstname="Sally" />',
-    }), responses)
+    }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = url..'/users/bar/greetings' }), responses)
+    return fetch(httpClient, '/users/bar/greetings', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = url..'/users/foo' }), responses)
+    return fetch(httpClient, '/users/foo', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = url..'/users' }), responses)
+    return fetch(httpClient, '/users', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = url..'/delay' }), responses)
-  end):next(function()
-    httpServer:close()
+    return fetch(httpClient, '/delay', {}, responses)
   end):catch(function(reason)
     print('Unexpected error', reason)
+  end):finally(function()
+    close(httpClient, httpServer)
   end)
   if not loop(function()
-    httpServer:close()
+    close(httpClient, httpServer)
   end) then
     lu.fail('Timeout reached')
   end
@@ -150,64 +167,60 @@ end
 function Test_file()
   local tmpDir = getTmpDir()
   local responses = {}
-  local url, fileUrl, newFileUrl
+  local url
   local content = '123456789 123456789 123456789 Hello World !'
+  local httpClient
   local httpServer = HttpServer:new()
   httpServer:createContext('/(.*)', FileHttpHandler:new(tmpDir, 'rwl'))
   httpServer:bind('::', 0):next(function()
     local port = select(2, httpServer:getAddress())
     url = 'http://127.0.0.1:'..tostring(port)
-    fileUrl = url..'/file.txt'
-    newFileUrl = url..'/file-new.txt'
+    httpClient = HttpClient:new(url)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl }), responses)
+    return fetch(httpClient, '/file.txt', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl, method = 'PUT', body = content }), responses)
+    return fetch(httpClient, '/file.txt', { method = 'PUT', body = content, }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl }), responses)
+    return fetch(httpClient, '/file.txt', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({
-      url = fileUrl,
+    return fetch(httpClient, '/file.txt', {
       headers = {
         ['If-Modified-Since'] = Date:new(system.currentTimeMillis() + 60000):toRFC822String(true),
-      },
-      method = 'GET'
-    }), responses)
+      }
+    }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({
-      url = fileUrl,
+    return fetch(httpClient, '/file.txt', {
       headers = {
         ['If-Modified-Since'] = Date:new(system.currentTimeMillis() - 60000):toRFC822String(true),
-      },
-      method = 'GET'
-    }), responses)
+      }
+    }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl, headers = { Range = 'bytes=0-' }, method = 'GET' }), responses)
+    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=0-' } }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl, headers = { Range = 'bytes=0-9' }, method = 'GET' }), responses)
+    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=0-9' } }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl, headers = { Range = 'bytes=4-5' }, method = 'GET' }), responses)
+    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=4-5' } }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl, headers = { Range = 'bytes=20-' }, method = 'GET' }), responses)
+    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=20-' } }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl, headers = { destination = newFileUrl }, method = 'MOVE' }), responses)
+    return fetch(httpClient, '/file.txt', { headers = { destination = url..'/file-new.txt' }, method = 'MOVE' }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = fileUrl }), responses)
+    return fetch(httpClient, '/file.txt', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = newFileUrl }), responses)
+    return fetch(httpClient, '/file-new.txt', {}, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = newFileUrl, method = 'HEAD' }), responses)
+    return fetch(httpClient, '/file-new.txt', { method = 'HEAD' }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = newFileUrl, method = 'DELETE' }), responses)
+    return fetch(httpClient, '/file-new.txt', { method = 'DELETE' }, responses)
   end):next(function()
-    return connectSendReceiveClose(HttpClient:new({ url = newFileUrl }), responses)
-  end):next(function()
-    httpServer:close()
+    return fetch(httpClient, '/file-new.txt', {}, responses)
   end):catch(function(reason)
     print('Unexpected error', reason)
+  end):finally(function()
+    close(httpClient, httpServer)
   end)
   if not loop(function()
-    httpServer:close()
+    close(httpClient, httpServer)
   end) then
     lu.fail('Timeout reached')
   end
@@ -228,6 +241,50 @@ function Test_file()
   assertReponse(shift(responses), 200) -- DELETE
   assertReponse(shift(responses), 404)
   tmpDir:deleteRecursive()
+end
+
+function Test_proxy()
+  local responses = {}
+  local users = {}
+  local httpClient, url, host, port, proxyUrl, proxyHost, proxyPort
+  local httpServer = HttpServer:new()
+  local httpProxy = HttpServer:new()
+  httpServer:bind('::', 0):next(function()
+    host = '127.0.0.1'
+    port = select(2, httpServer:getAddress())
+    url = string.format('http://%s:%d/', host, port)
+    httpServer:createContext('/rest/(.*)', createRestHandler(users))
+    return httpProxy:bind('::', 0)
+  end):next(function()
+    proxyHost = '127.0.0.1'
+    proxyPort = select(2, httpProxy:getAddress())
+    proxyUrl = string.format('http://%s:%d/', proxyHost, proxyPort)
+    httpProxy:createContext('/rprox/(.*)', ProxyHttpHandler:new():configureReverse(url..'rest/'))
+    httpProxy:createContext('(.*)', ProxyHttpHandler:new():configureForward(true))
+  end):next(function()
+    httpClient = HttpClient:new(proxyUrl)
+    return fetch(httpClient, '/rprox/users/foo', {
+      method = 'PUT',
+      headers = {
+        ['Content-Type'] = 'application/json',
+      },
+      body = '{"firstname": "John"}',
+    }, responses)
+  end):next(function()
+    return fetch(httpClient, '/rprox/users/foo/greetings', {}, responses)
+  end):next(function()
+    return fetch(httpClient, url..'rest/users/foo/greetings', {}, responses)
+  end):finally(function()
+    close(httpClient, httpProxy, httpServer)
+  end)
+  if not loop(function()
+    close(httpClient, httpProxy, httpServer)
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertEquals(shift(responses):getStatusCode(), 200)
+  lu.assertEquals(shift(responses):getBody(), 'Hello John')
+  lu.assertEquals(shift(responses):getBody(), 'Hello John')
 end
 
 os.exit(lu.LuaUnit.run())

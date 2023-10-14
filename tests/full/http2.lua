@@ -165,7 +165,7 @@ local function createHttpServer(handler, isSecure)
   end)
 end
 
-local function assertFetchHttpClientServer(isSecure)
+local function assertFetchHttpClientServer(isSecure, resource, options)
   local body = '<p>Hello.</p>'
   local responseStatus, responseBody, responseVersion
   local server, client
@@ -177,18 +177,19 @@ local function assertFetchHttpClientServer(isSecure)
     client = createHttpClient(isSecure)
     return client:connectV2()
   end):next(function()
-    return client:fetch('/')
+    return client:fetch(resource or '/', options)
   end):next(function(response)
     logger:info('response fetched')
     responseStatus = response:getStatusCode()
     responseVersion = response:getVersion()
     return response:text()
   end):next(function(content)
+    logger:info('response body received')
     responseBody = content
     client:close()
     server:close()
   end):catch(function(reason)
-    logger:warn('ouch', reason)
+    logger:warn('error in test, due to %s', reason:toString())
     client:close()
     server:close()
   end)
@@ -209,7 +210,11 @@ function Test_HttpClientServer()
   assertFetchHttpClientServer()
 end
 
-function Test_HttpClientServerSecure()
+function Test_HttpClientServer_close()
+  assertFetchHttpClientServer(false, '/', { headers = { connection = 'close'} })
+end
+
+function Test_HttpClientServer_secure()
   assertFetchHttpClientServer(true)
 end
 

@@ -1,8 +1,9 @@
 local lu = require('luaunit')
 
+local StreamHandler = require('jls.io.StreamHandler')
 local secure = require('jls.net.secure')
 local HttpExchange = require('jls.net.http.HttpExchange')
-local StreamHandler = require('jls.io.StreamHandler')
+local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
 local HttpServer = require('jls.net.http.HttpServer')
 
@@ -13,6 +14,7 @@ local TcpClientSocket = loader.getRequired('jls.net.TcpClient-socket')
 local luaSocketLib = loader.tryRequire('socket')
 
 local File = require('jls.io.File')
+local tables = require('jls.util.tables')
 local logger = require('jls.lang.logger')
 
 local opensslLib = require('openssl')
@@ -72,23 +74,20 @@ local function createHttpsServer(handler, keep)
   end)
 end
 
-local function sendReceiveClose(client)
-  return client:connect():next(function()
-    return client:sendReceive()
-  end):next(function(response)
-    logger:fine('http client response received')
-    client.t_response = response
-    client:close()
-  end, function(err)
-    logger:fine('http client error: %s', err)
+local function sendReceiveClose(client, resource, options)
+  logger:finer('sendReceiveClose()')
+  return client:fetch(resource or '/', tables.merge({
+    headers = { connection = 'close' }
+  }, options or {})):next(function(response)
+    return response:text():next(function()
+      logger:finer('sendReceiveClose(), response is '..tostring(response))
+      client.t_response = response
+    end)
+  end):catch(function(err)
+    logger:fine('sendReceiveClose error "'..tostring(err)..'"')
     client.t_err = err
+  end):finally(function()
     client:close()
-  end)
-end
-
-local function connectSendReceive(client)
-  return client:connect():next(function()
-    return client:sendReceive()
   end)
 end
 
@@ -160,11 +159,12 @@ function Test_HttpsClientServer_body_stream()
   end):next(function(s)
     server = s
     client = createHttpsClient()
-    local request = client:getRequest()
+    local request = HttpMessage:new()
     request:setMethod('POST')
+    request:setTarget('/')
     onWriteMessage(request, {'John', ', ', 'Smith'})
     logger:fine('http client request')
-    sendReceiveClose(client)
+    sendReceiveClose(client, request)
   end)
   if not loop(function()
     client:close()
@@ -211,13 +211,18 @@ function Test_HttpsServerClientsKeepAlive()
   end):next(function(s)
     server = s
     client = createHttpsClient({Connection = 'keep-alive'})
-    connectSendReceive(client):next(function()
+    client:fetch('/'):next(function(response)
+      return response:text()
+    end):next(function(body)
       logger:fine('send receive completed for first request')
-      client:sendReceive():next(function()
-        logger:fine('send receive completed for second request')
-        client:close()
-        s:close()
-      end)
+      return client:fetch('/')
+    end):next(function(response)
+      return response:text()
+    end):next(function(body)
+      logger:fine('send receive completed for second request')
+    end):finally(function()
+      client:close()
+      s:close()
     end)
   end)
   if not loop(function()
@@ -332,26 +337,16 @@ else
 end
 
 function No_Test_HttpsClientOnline()
-  local client = HttpClient:new({
-    url = 'https://openssl.org/',
-    method = 'GET',
-    headers = {},
-  })
+  local client = HttpClient:new('https://openssl.org/')
   logger:finer('connecting client')
-  client:connect():next(function()
-    logger:finer('client connected')
-    return client:sendRequest()
-  end):next(function()
-    return client:receiveResponseHeaders()
-  end):next(function(remainingBuffer)
-    local response = client:getResponse()
+  client:fetch('/'):next(function(response)
     local sh = StreamHandler.null
     if logger:isLoggable(logger.FINE) then
       sh = StreamHandler.std
     end
     response:setBodyStreamHandler(sh)
     sh:onData(response:getLine())
-    return client:receiveResponseBody(remainingBuffer)
+    return client:consume()
   end):next(function()
     logger:finer('closing client')
     client:close()
