@@ -567,6 +567,13 @@ local function encodeString(s, h)
   return encodeInteger(#s, 1, h and 1 or 0)..s
 end
 
+local HEADER_METHOD = ':method'
+local HEADER_SCHEME = ':scheme'
+local HEADER_AUTHORITY = ':authority'
+local HEADER_PATH = ':path'
+local HEADER_STATUS = ':status'
+local HEADER_PROTOCOL = ':protocol'
+
 --- The Hpack decodes and encodes HTTP/2 headers.
 -- @type Hpack
 return class.create(function(hpack)
@@ -659,12 +666,6 @@ return class.create(function(hpack)
     end
     return 0
   end
-
-  local HEADER_METHOD = ':method'
-  local HEADER_SCHEME = ':scheme'
-  local HEADER_AUTHORITY = ':authority'
-  local HEADER_PATH = ':path'
-  local HEADER_STATUS = ':status'
 
   local function addHeader(message, name, value)
     if string.byte(name) == 0x3a then -- ':' character
@@ -808,5 +809,14 @@ end, function(Hpack)
 
   Hpack.packHeader = packHeader
   Hpack.unpackHeader = unpackHeader
+
+  Hpack.HEADERS = {
+    METHOD = HEADER_METHOD,
+    SCHEME = HEADER_SCHEME,
+    AUTHORITY = HEADER_AUTHORITY,
+    PATH = HEADER_PATH,
+    STATUS = HEADER_STATUS,
+    PROTOCOL = HEADER_PROTOCOL,
+  }
 
 end)
