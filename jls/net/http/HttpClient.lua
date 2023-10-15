@@ -175,7 +175,6 @@ return class.create(function(httpClient)
     else
       self.tcpClient = TcpSocket:new()
     end
-    -- TODO handle proxy
     return self.tcpClient:connect(self.host, self.port or 80):next(function()
       return self
     end):next(function()
@@ -186,7 +185,10 @@ return class.create(function(httpClient)
           self.http2 = http2
           http2:readStart({
             [Http2.SETTINGS.ENABLE_PUSH] = 0,
+            [Http2.SETTINGS.HEADER_TABLE_SIZE] = 65536,
+            [Http2.SETTINGS.INITIAL_WINDOW_SIZE] = 6291456,
             [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
+            [Http2.SETTINGS.MAX_HEADER_LIST_SIZE] = 262144,
           })
         end
       end

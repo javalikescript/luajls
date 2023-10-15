@@ -126,6 +126,7 @@ local Stream = class.create(function(stream)
     self.message:setVersion('HTTP/2')
     self.state = STATE.IDLE
     self.windowSize = http2:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
+    self.remoteSize = 65535 -- TODO get from http2 settings
     self.blockSize = http2:getRemoteSetting(SETTINGS.MAX_FRAME_SIZE)
     self.start_time = os.time()
   end
@@ -148,6 +149,9 @@ local Stream = class.create(function(stream)
 
   function stream:onData(data, endStream)
     logger:finer('stream:onData(?, %s)', endStream)
+    if data then
+      self.remoteSize = self.remoteSize - #data
+    end
     local sh = self.message:getBodyStreamHandler()
     sh:onData(data)
     if endStream then
@@ -180,6 +184,13 @@ local Stream = class.create(function(stream)
       end)
     end
     return p
+  end
+
+  function stream:sendWindowUpdate(increment)
+    logger:fine('send stream window update %d', increment)
+    return self.http2(FRAME.WINDOW_UPDATE, 0, self.id, string.pack('>I4', increment)):next(function()
+      self.remoteSize = self.remoteSize + increment
+    end)
   end
 
   function stream:sendBody(message)
@@ -228,15 +239,19 @@ return class.create(function(http2)
     self.streams = {}
     self.streamNextId = isServer and 2 or 1
     -- some remote settings have a default value
+    local initialWindowSize = 65535
     self.settings = {
       [SETTINGS.ENABLE_PUSH] = 1,
       [SETTINGS.HEADER_TABLE_SIZE] = 4096,
       --[SETTINGS.MAX_CONCURRENT_STREAMS] = unlimited,
       [SETTINGS.MAX_FRAME_SIZE] = 16384,
       --[SETTINGS.MAX_HEADER_LIST_SIZE] = unlimited,
-      [SETTINGS.INITIAL_WINDOW_SIZE] = 65535,
+      [SETTINGS.INITIAL_WINDOW_SIZE] = initialWindowSize,
     }
-    self.windowSize = self:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
+    self.windowSize = initialWindowSize
+    self.remoteTarget = 15728640
+    self.remoteMin = self.remoteTarget * 3 // 4
+    self.remoteSize = initialWindowSize
   end
 
   function http2:getRemoteSetting(id)
@@ -337,6 +352,13 @@ return class.create(function(http2)
     return self:sendFrame(FRAME.SETTINGS, 0, 0, packSettings(settings or {}))
   end
 
+  function http2:sendWindowUpdate(increment)
+    logger:fine('send window update %d', increment)
+    return self:sendFrame(FRAME.WINDOW_UPDATE, 0, 0, string.pack('>I4', increment)):next(function()
+      self.remoteSize = self.remoteSize + increment
+    end)
+  end
+
   function http2:readStart(settings)
     local client = self.client
     local cs = ChunkedStreamHandler:new(StreamHandler:new(function(err, data)
@@ -357,6 +379,12 @@ return class.create(function(http2)
             self:onError(string.format('unknown stream id %d', streamId))
             return
           end
+          if offset < endOffset then
+            self.remoteSize = self.remoteSize - (endOffset - offset + 1)
+            if self.remoteSize < self.remoteMin then
+              self:sendWindowUpdate(self.remoteTarget - self.remoteSize)
+            end
+          end
           stream:onData(string.sub(data, offset, endOffset), flags & END_STREAM_FLAG ~= 0)
           self:handleEndStream(flags, streamId, stream)
         elseif frameType == FRAME.HEADERS then
@@ -376,6 +404,7 @@ return class.create(function(http2)
             end
             stream = self:newStream(streamId)
             self:registerStream(stream)
+            logger:fine('new stream %d', streamId)
           end
           self:handleHeaderBlock(stream, flags, data, offset, endOffset)
           self:handleEndStream(flags, streamId, stream)
@@ -406,9 +435,11 @@ return class.create(function(http2)
         elseif frameType == FRAME.WINDOW_UPDATE then
           local value = string.unpack('>I4', data, offset)
           value = value & 0x7fffffff
-          logger:finer('window size increment: %d for stream %d', value, streamId)
           if streamId == 0 then
             self.windowSize = self.windowSize + value
+            if logger:isLoggable(logger.FINE) then
+              logger:fine('window size increment: %d, new size is %d', value, self.windowSize)
+            end
           else
             stream = self.streams[streamId]
             if not stream then
@@ -416,6 +447,9 @@ return class.create(function(http2)
               return
             end
             stream.windowSize = stream.windowSize + value
+            if logger:isLoggable(logger.FINE) then
+              logger:fine('window size increment: %d for stream %d, new size is %d', value, streamId, stream.windowSize)
+            end
           end
         elseif frameType == FRAME.RST_STREAM then
           if streamId == 0 or frameLen ~= 4 then
