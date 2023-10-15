@@ -125,9 +125,10 @@ local Stream = class.create(function(stream)
     self.message = message or HttpMessage:new()
     self.message:setVersion('HTTP/2')
     self.state = STATE.IDLE
-    self.windowSize = http2:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
-    self.remoteSize = 65535 -- TODO get from http2 settings
     self.blockSize = http2:getRemoteSetting(SETTINGS.MAX_FRAME_SIZE)
+    self.sendWindowSize = http2:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
+    self.recvWindowSize = self.http2.initialWindowSize
+    self.recvMinSize = self.http2.initialWindowSize * 3 // 4
     self.start_time = os.time()
   end
 
@@ -138,19 +139,58 @@ local Stream = class.create(function(stream)
     end
   end
 
+  function stream:onEndStream()
+    logger:finer('stream:onEndStream()')
+    if self.state == STATE.OPEN then
+      self.state = STATE.HALF_CLOSED_REMOTE
+    elseif self.state == STATE.HALF_CLOSED_LOCAL then
+      self.http2:closedStream(self)
+    end
+  end
+
+  function stream:onWindowUpdate(increment)
+    self.sendWindowSize = self.sendWindowSize + increment
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('window size increment: %d for stream %d, new size is %d', increment, self.id, self.sendWindowSize)
+    end
+  end
+
+  function stream:onError(reason)
+    logger:warn('h2 stream %s in error due to %s', stream.id, reason)
+  end
+
+  function stream:onClose()
+  end
+
+  function stream:doEndStream()
+    logger:finer('stream:doEndStream()')
+    if self.state == STATE.OPEN then
+      self.state = STATE.HALF_CLOSED_LOCAL
+    elseif self.state == STATE.HALF_CLOSED_REMOTE then
+      self.http2:closedStream(self)
+    end
+  end
+
   function stream:sendHeaders(message, endStream)
     logger:finer('stream:sendHeaders(?, %s)', endStream)
-    local data = self.http2.hpack:encodeHeaders(message)
     if self.state == STATE.IDLE then
       self.state = STATE.OPEN
     end
-    return self.http2:sendFrame(FRAME.HEADERS, END_HEADERS_FLAG, self.id, data, endStream)
+    if endStream then
+      self:doEndStream()
+    end
+    return self.http2:sendHeaders(self.id, message, true, endStream)
   end
 
   function stream:onData(data, endStream)
     logger:finer('stream:onData(?, %s)', endStream)
     if data then
-      self.remoteSize = self.remoteSize - #data
+      local size = #data
+      self.recvWindowSize = self.recvWindowSize - size
+      -- TODO send window update
+      if size < self.recvMinSize and not endStream then
+        self:sendWindowUpdate(self.http2.initialWindowSize - self.recvWindowSize)
+      end
     end
     local sh = self.message:getBodyStreamHandler()
     sh:onData(data)
@@ -159,28 +199,25 @@ local Stream = class.create(function(stream)
     end
   end
 
-  function stream:onEndStream()
-    logger:finer('stream:onEndStream()')
-  end
-
   function stream:sendData(data, endStream)
     local size = data and #data or 0
-    logger:finer('stream:sendData(%d, %s)', size, endStream)
-    if size > self.windowSize then
-      logger:warn('stream window size too small (%d, frame is %d)', self.windowSize, size)
-      return Promise.reject('window size too small')
-    end
-    self.windowSize = self.windowSize - size
+    logger:finer('stream:sendData(#%d, %s)', size, endStream)
     if size <= self.blockSize then
-      return self.http2:sendFrame(FRAME.DATA, 0, self.id, data, endStream)
+      if size > self.sendWindowSize then
+        logger:warn('stream window size too small (%d, frame is %d)', self.sendWindowSize, size)
+        return Promise.reject('window size too small')
+      end
+      self.sendWindowSize = self.sendWindowSize - size
+      if endStream then
+        self:doEndStream()
+      end
+      return self.http2:sendData(self.id, data, endStream)
     end
-    logger:fine('sending blocks')
     local p = Promise.resolve()
     for value, ends in strings.parts(data, self.blockSize) do
       local v, e = value, ends and endStream
       p = p:next(function()
-        logger:fine('sending block')
-        return self.http2:sendFrame(FRAME.DATA, 0, self.id, v, e)
+        return self:sendData(v, e)
       end)
     end
     return p
@@ -188,8 +225,8 @@ local Stream = class.create(function(stream)
 
   function stream:sendWindowUpdate(increment)
     logger:fine('send stream window update %d', increment)
-    return self.http2(FRAME.WINDOW_UPDATE, 0, self.id, string.pack('>I4', increment)):next(function()
-      self.remoteSize = self.remoteSize + increment
+    return self.http2:sendFrame(FRAME.WINDOW_UPDATE, 0, self.id, string.pack('>I4', increment)):next(function()
+      self.recvWindowSize = self.recvWindowSize + increment
     end)
   end
 
@@ -221,13 +258,6 @@ local Stream = class.create(function(stream)
     self:onClose()
   end
 
-  function stream:onClose()
-  end
-
-  function stream:onError(reason)
-    logger:warn('h2 stream %s in error due to %s', stream.id, reason)
-  end
-
 end)
 
 return class.create(function(http2)
@@ -238,8 +268,9 @@ return class.create(function(http2)
     self.hpack = Hpack:new()
     self.streams = {}
     self.streamNextId = isServer and 2 or 1
-    -- some remote settings have a default value
     local initialWindowSize = 65535
+    -- some settings have a default value
+    -- settings are set by the remote peer
     self.settings = {
       [SETTINGS.ENABLE_PUSH] = 1,
       [SETTINGS.HEADER_TABLE_SIZE] = 4096,
@@ -248,10 +279,11 @@ return class.create(function(http2)
       --[SETTINGS.MAX_HEADER_LIST_SIZE] = unlimited,
       [SETTINGS.INITIAL_WINDOW_SIZE] = initialWindowSize,
     }
-    self.windowSize = initialWindowSize
-    self.remoteTarget = 15728640
-    self.remoteMin = self.remoteTarget * 3 // 4
-    self.remoteSize = initialWindowSize
+    self.sendWindowSize = initialWindowSize -- send window size
+    self.recvTargetSize = 15728640
+    self.recvMinSize = self.recvTargetSize * 3 // 4
+    self.recvWindowSize = initialWindowSize -- receipt window size
+    self.initialWindowSize = initialWindowSize
   end
 
   function http2:getRemoteSetting(id)
@@ -280,11 +312,6 @@ return class.create(function(http2)
       stream = stream or self.streams[streamId]
       if stream then
         stream:onEndStream()
-        if stream.state == STATE.OPEN then
-          stream.state = STATE.HALF_CLOSED_REMOTE
-        elseif stream.state == STATE.HALF_CLOSED_LOCAL then
-          self:closedStream(stream)
-        end
       end
     end
   end
@@ -311,27 +338,9 @@ return class.create(function(http2)
     stream:close()
   end
 
-  function http2:sendFrame(frameType, flags, streamId, data, endStream)
+  function http2:sendFrame(frameType, flags, streamId, data)
     data = data or ''
     local frameLen = #data
-    if frameType <= 1 then -- HEADERS or DATA
-      if frameType == FRAME.DATA then
-        if frameLen > self.windowSize then
-          logger:warn('h2 window size too small (%d, frame is %d)', self.windowSize, frameLen)
-          return Promise.reject('window size too small')
-        end
-        self.windowSize = self.windowSize - frameLen
-      end
-      if endStream then
-        flags = flags | END_STREAM_FLAG
-        local stream = self.streams[streamId]
-        if stream.state == STATE.OPEN then
-          stream.state = STATE.HALF_CLOSED_LOCAL
-        elseif stream.state == STATE.HALF_CLOSED_REMOTE then
-          self:closedStream(stream)
-        end
-      end
-    end
     local frame = string.pack('>I3BBI4', frameLen, frameType, flags, streamId)..data
     if logger:isLoggable(logger.FINE) then
       logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen)
@@ -348,14 +357,49 @@ return class.create(function(http2)
     return p
   end
 
-  function http2:sendSettings(settings)
-    return self:sendFrame(FRAME.SETTINGS, 0, 0, packSettings(settings or {}))
+  function http2:sendHeaders(streamId, message, endHeaders, endStream)
+    logger:finer('http2:sendHeaders(%d, ?, %s, %s)', streamId, endHeaders, endStream)
+    local flags = endHeaders and END_HEADERS_FLAG or 0
+    if endStream then
+      flags = flags | END_STREAM_FLAG
+    end
+    local data = self.hpack:encodeHeaders(message)
+    return self:sendFrame(FRAME.HEADERS, flags, streamId, data)
+  end
+
+  function http2:sendData(streamId, data, endStream)
+    logger:finer('http2:sendData(%d, ?, %s)', streamId, endStream)
+    data = data or ''
+    local frameLen = #data
+    if frameLen > self.sendWindowSize then
+      logger:warn('h2 window size too small (%d, frame is %d)', self.sendWindowSize, frameLen)
+      return Promise.reject('window size too small')
+    end
+    self.sendWindowSize = self.sendWindowSize - frameLen
+    local flags = endStream and END_STREAM_FLAG or 0
+    return self:sendFrame(FRAME.DATA, flags, streamId, data)
+  end
+
+  function http2:sendSettings(settings, preface)
+    logger:fine('send settings, preface: %s', preface)
+    if settings then
+      local initialWindowSize = settings[SETTINGS.INITIAL_WINDOW_SIZE]
+      if initialWindowSize then
+        self.initialWindowSize = initialWindowSize
+      end
+    end
+    local data = packSettings(settings or {})
+    data = string.pack('>I3BBI4', #data, FRAME.SETTINGS, 0, 0)..data
+    if preface then
+      data = CONNECTION_PREFACE..data
+    end
+    return self.client:write(data)
   end
 
   function http2:sendWindowUpdate(increment)
     logger:fine('send window update %d', increment)
     return self:sendFrame(FRAME.WINDOW_UPDATE, 0, 0, string.pack('>I4', increment)):next(function()
-      self.remoteSize = self.remoteSize + increment
+      self.recvWindowSize = self.recvWindowSize + increment
     end)
   end
 
@@ -380,9 +424,9 @@ return class.create(function(http2)
             return
           end
           if offset < endOffset then
-            self.remoteSize = self.remoteSize - (endOffset - offset + 1)
-            if self.remoteSize < self.remoteMin then
-              self:sendWindowUpdate(self.remoteTarget - self.remoteSize)
+            self.recvWindowSize = self.recvWindowSize - (endOffset - offset + 1)
+            if self.recvWindowSize < self.recvMinSize then
+              self:sendWindowUpdate(self.recvTargetSize - self.recvWindowSize)
             end
           end
           stream:onData(string.sub(data, offset, endOffset), flags & END_STREAM_FLAG ~= 0)
@@ -436,9 +480,9 @@ return class.create(function(http2)
           local value = string.unpack('>I4', data, offset)
           value = value & 0x7fffffff
           if streamId == 0 then
-            self.windowSize = self.windowSize + value
+            self.sendWindowSize = self.sendWindowSize + value
             if logger:isLoggable(logger.FINE) then
-              logger:fine('window size increment: %d, new size is %d', value, self.windowSize)
+              logger:fine('window size increment: %d, new size is %d', value, self.sendWindowSize)
             end
           else
             stream = self.streams[streamId]
@@ -446,10 +490,7 @@ return class.create(function(http2)
               self:onError(string.format('unknown stream id %d', streamId))
               return
             end
-            stream.windowSize = stream.windowSize + value
-            if logger:isLoggable(logger.FINE) then
-              logger:fine('window size increment: %d for stream %d, new size is %d', value, streamId, stream.windowSize)
-            end
+            stream:onWindowUpdate(value)
           end
         elseif frameType == FRAME.RST_STREAM then
           if streamId == 0 or frameLen ~= 4 then
@@ -496,13 +537,7 @@ return class.create(function(http2)
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading')
     client:readStart(cs)
-    if self.isServer then
-      return self:sendSettings(settings)
-    end
-    logger:fine('writing preface and settings')
-    local data = packSettings(settings or {})
-    local frame = string.pack('>I3BBI4', #data, FRAME.SETTINGS, 0, 0)..data
-    return client:write(CONNECTION_PREFACE..frame)
+    return self:sendSettings(settings, not self.isServer)
   end
 
   function http2:goAway(errorCode)
