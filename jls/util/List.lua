@@ -38,7 +38,7 @@ return require('jls.lang.class').create(function(list, _, List)
       d, s, f = {}, d, s
     end
     for i, v in ipairs(s) do
-      table.insert(d, f(v, i, s))
+      d[i] = f(v, i, s)
     end
     return d
   end
