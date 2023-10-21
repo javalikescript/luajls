@@ -387,7 +387,7 @@ local Scheduler = class.create(function(scheduler)
       from = plusMilliseconds(to, -1)
     end
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('scheduler:runBetween('..from:toISOString(true)..', '..to:toISOString(true)..') #'..tostring(#self.schedules))
+      logger:finest('scheduler:runBetween(%s, %s) #%d', from:toISOString(true), to:toISOString(true), #self.schedules)
     end
     local nearest
     for _, t in ipairs(self.schedules) do

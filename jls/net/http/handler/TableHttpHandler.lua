@@ -71,7 +71,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
       HttpExchange.methodNotAllowed(exchange)
     end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('httpHandler.table(), status: '..tostring(exchange:getResponse():getStatusCode()))
+      logger:fine('httpHandler.table(), status: %s', exchange:getResponse():getStatusCode())
     end
   end
 

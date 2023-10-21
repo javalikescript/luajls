@@ -104,8 +104,8 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
     if self.logs then
       local log = os.date('%Y-%m-%dT%H:%M:%S', os.time())..','..status..','..tostring(target)..','..tostring(remoteName)..',"'..tostring(userAgent)..'"'
       table.insert(self.logs, log)
-    elseif logger:isLoggable(logger.INFO) then
-      logger:info(status..','..tostring(target)..','..tostring(remoteName)..',"'..tostring(userAgent)..'"')
+    else
+      logger:info('%s,%s,%s,"%s"', status, target, remoteName, userAgent)
     end
   end
 
@@ -119,9 +119,7 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
 
   function proxyHandler:acceptHost(exchange, host)
     if matchAny(self.allowList, host) then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('host "'..tostring(host)..'" is allowed')
-      end
+      logger:fine('host "%s" is allowed', host)
       return true
     end
     local isDenied = matchAny(self.denyList, host)
@@ -256,7 +254,7 @@ logger:setLevel(config.loglevel)
 
 local httpServer = HttpServer:new()
 httpServer:bind(config.server.address, config.server.port):next(function()
-  logger:info('Proxy server bound to "'..config.server.address..'" on port '..tostring(config.server.port))
+  logger:info('Proxy server bound to "%s" on port %s', config.server.address, config.server.port)
   local proxyHandler = ProxyHandler:new(config.proxy)
   httpServer:createContext('(.*)', proxyHandler)
   event:setInterval(function()

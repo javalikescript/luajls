@@ -26,9 +26,7 @@ return class.create(function(pipe, _, Pipe)
   -- @function Pipe:new
   function pipe:initialize(ipc)
     self.fd = luvLib.new_pipe(ipc == true)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('Pipe:new() fd: '..tostring(self.fd))
-    end
+    logger:finest('Pipe:new() fd: %s', self.fd)
   end
 
   --- Binds this pipe to the specified name.
@@ -36,15 +34,11 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam[opt] number backlog the connection queue size, default is 32.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe server is bound.
   function pipe:bind(name, backlog)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('pipe:bind('..tostring(name)..', '..tostring(backlog)..')')
-    end
+    logger:finest('pipe:bind(%s, %s)', name, backlog)
     -- status, err
     local _, err = self.fd:bind(name)
     if err then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('pipe:bind('..tostring(name)..', '..tostring(backlog)..') bind in error, '..tostring(err))
-      end
+      logger:fine('pipe:bind(%s, %s) bind in error, %s', name, backlog, err)
       return Promise.reject(err)
     end
     _, err = luvLib.listen(self.fd, backlog or 32, function(err)
@@ -52,9 +46,7 @@ return class.create(function(pipe, _, Pipe)
       self:handleAccept()
     end)
     if err then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('pipe:bind('..tostring(name)..', '..tostring(backlog)..') listen in error, '..tostring(err))
-      end
+      logger:fine('pipe:bind(%s, %s) listen in error, %s', name, backlog, err)
       return Promise.reject(err)
     end
     return Promise.resolve()
@@ -62,9 +54,7 @@ return class.create(function(pipe, _, Pipe)
 
   function pipe:handleAccept()
     local fd = self:pipeAccept()
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('pipe:handleAccept() fd: '..tostring(self.fd)..', accept: '..tostring(fd))
-    end
+    logger:finest('pipe:handleAccept() fd: %s, accept: %s', self.fd, fd)
     if fd then
       local p = class.makeInstance(Pipe)
       p.fd = fd
@@ -95,9 +85,7 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe is connected.
   function pipe:connect(name, callback)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('pipe:connect('..tostring(name)..')')
-    end
+    logger:finest('pipe:connect(%s)', name)
     local cb, d = Promise.ensureCallback(callback)
     self.fd:connect(name, cb)
     return d

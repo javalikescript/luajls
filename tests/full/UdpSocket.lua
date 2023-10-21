@@ -14,16 +14,16 @@ function Test_UdpSocket()
   receiver:joinGroup(host, '0.0.0.0')
   receiver:receiveStart(function(err, data)
     if err then
-      logger:warn('receive error: "'..tostring(err)..'"')
+      logger:warn('receive error: "%s"', err)
     elseif data then
-      logger:fine('received data: "'..tostring(data)..'"')
+      logger:fine('received data: "%s"', data)
       receivedData = data
     end
     receiver:receiveStop()
     receiver:close()
   end)
   sender:send('Hello', host, port):finally(function(value)
-    logger:warn('send value: "'..tostring(value)..'"')
+    logger:warn('send value: "%s"', value)
     logger:fine('closing sender')
     sender:close()
   end)

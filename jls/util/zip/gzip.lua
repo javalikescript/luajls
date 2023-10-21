@@ -208,9 +208,7 @@ function gzip.decompressStream(sh, onHeader)
         end
         local crcFooter, sizeFooter = string.unpack('<I4I4', footer)
         local crc = md:digest()
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('decompressStream() CRC '..tostring(crc)..'/'..tostring(crcFooter)..', size '..tostring(size)..' expected '..tostring(sizeFooter))
-        end
+        logger:finer('decompressStream() CRC %s/%s, size %s expected %s', crc, crcFooter, size, sizeFooter)
         if crcFooter ~= crc then
           err = 'Bad CRC (found '..tostring(crc)..' expected '..tostring(crcFooter)..')'
         elseif sizeFooter ~= size then

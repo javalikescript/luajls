@@ -12,7 +12,7 @@ local loop = require('jls.lang.loopWithTimeout')
 local logger = require('jls.lang.logger')
 
 local LUA_PATH = ProcessBuilder.getExecutablePath()
-logger:fine('Lua path is "'..tostring(LUA_PATH)..'"')
+logger:fine('Lua path is "%s"', LUA_PATH)
 local WRITE = 'io.write'
 if string.find(LUA_PATH, 'luvit$') then
   WRITE = 'print'

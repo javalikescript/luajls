@@ -5,9 +5,7 @@ local StreamHandler = require('jls.io.StreamHandler')
 
 return {
   close = function(stream, callback)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('luv.close('..tostring(stream)..')')
-    end
+    logger:finest('luv.close(%s)', stream)
     local cb, d = Promise.ensureCallback(callback)
     if stream then
       stream:close(cb)
@@ -17,9 +15,7 @@ return {
     return d
   end,
   read_start = function(stream, callback)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('luv.read_start('..tostring(stream)..')')
-    end
+    logger:finest('luv.read_start(%s)', stream)
     local cb = StreamHandler.ensureCallback(callback)
     local status, err
     if stream then
@@ -30,35 +26,27 @@ return {
     if not status then
       cb(err or 'unknown error')
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('luv.read_start() => '..tostring(status)..', '..tostring(err))
-    end
+    logger:finer('luv.read_start() => %s, %s', status, err)
     return status, err
   end,
   read_stop = function(stream)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('luv.read_stop('..tostring(stream)..')')
-    end
+    logger:finest('luv.read_stop(%s)', stream)
     local status, err
     if stream then
       status, err = stream:read_stop()
     else
       err = 'stream not available'
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('luv.read_stop() => '..tostring(status)..', '..tostring(err))
-    end
+    logger:finer('luv.read_stop() => %s, %s', status, err)
     return status, err
   end,
   write = function(stream, data, callback)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('luv.write('..tostring(stream)..', '..tostring(data and #data)..')')
-    end
+    logger:finest('luv.write(%s, %s)', stream, data and #data)
     local cb, d = Promise.ensureCallback(callback)
     local req, err
     if stream then
       --if stream:is_closing() then
-      --  logger:warn('luv.write('..tostring(stream)..') is closing')
+      --  logger:warn('luv.write(%s) is closing', stream)
       --end
       -- write returns a cancelable request
       req, err = stream:write(data, cb)
@@ -69,7 +57,7 @@ return {
       if cb then
         cb(err or 'unknown error')
       else
-        logger:warn('luv.write('..tostring(stream)..') fail '..tostring(err))
+        logger:warn('luv.write(%s) fail %s', stream, err)
       end
     end
     -- TODO invert request and error?

@@ -210,8 +210,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
       return false
     end
     if logger:isLoggable(logger.FINER) then
-      logger:finer('Schedule count is '..tostring(count)..', has timeout: '..
-        tostring(hasTimeout)..', sleep: '..tostring(nextTime - currentTime))
+      logger:finer('Schedule count is %s, has timeout: %s, sleep: %d', count, hasTimeout, nextTime - currentTime)
     end
     if nextTime > currentTime and not hasTimeout and not noWait then
       local st = nextTime - currentTime

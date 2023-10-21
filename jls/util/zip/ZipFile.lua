@@ -193,15 +193,13 @@ return class.create(function(zipFile, _, ZipFile)
     local size = ZipFile.STRUCT.EndOfCentralDirectoryRecord:getSize()
     local offset = fileLength - size
     local header = ZipFile.STRUCT.EndOfCentralDirectoryRecord:fromString(fd:readSync(size, offset))
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('readEntries() file length: '..tostring(fileLength))
-    end
+    logger:finer('readEntries() file length: %s', fileLength)
     if header.signature ~= ZipFile.CONSTANT.END_CENTRAL_DIR_SIGNATURE then
       -- the header may have a comment
       size = 1024
       offset = fileLength - size
       if logger:isLoggable(logger.FINER) then
-        logger:finer('readEntries() bad Central Directory Record signature, searching at '..tostring(offset))
+        logger:finer('readEntries() bad Central Directory Record signature, searching at %s', offset)
       end
       local buffer = fd:readSync(size, offset)
       local index = string.find(buffer, 'PK\x05\x06', 1, true)
@@ -210,28 +208,26 @@ return class.create(function(zipFile, _, ZipFile)
         header = ZipFile.STRUCT.EndOfCentralDirectoryRecord:fromString(string.sub(buffer, index))
       end
       if header.signature ~= ZipFile.CONSTANT.END_CENTRAL_DIR_SIGNATURE then
-        return nil, 'Invalid zip file, bad Central Directory Record signature (0x'..string.format('%08x', header.signature)..')'
+        return nil, string.format('Invalid zip file, bad Central Directory Record signature (0x%08x)', header.signature)
       end
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('readEntries() EOCDR size: '..tostring(size)..' offset: '..tostring(offset))
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('eocdRecord: '..require('jls.util.tables').stringify(header, 2))
-      end
+    logger:finer('readEntries() EOCDR size: %d offset: %d', size, offset)
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('eocdRecord: %s', require('jls.util.tables').stringify(header, 2))
     end
     local entryCount = header.entryCount
     size = ZipFile.STRUCT.FileHeader:getSize()
     offset = header.offset
     if logger:isLoggable(logger.FINER) then
-      logger:finer('readEntries() offset: '..tostring(offset)..' entry count: '..tostring(entryCount)..' FileHeader size: '..tostring(size))
+      logger:finer('readEntries() offset: %s entry count: %s FileHeader size: %s', offset, entryCount, size)
     end
     for i = 1, entryCount do
       local fileHeader = ZipFile.STRUCT.FileHeader:fromString(fd:readSync(size, offset))
       if fileHeader.signature ~= ZipFile.CONSTANT.FILE_HEADER_SIGNATURE then
-        return nil, 'Invalid zip file, Bad File Header signature (0x'..string.format('%08x', fileHeader.signature)..') for entry '..tostring(i)
+        return nil, string.format('Invalid zip file, Bad File Header signature (0x%08x) for entry %d', fileHeader.signature, i)
       end
       if logger:isLoggable(logger.FINEST) then
-        logger:finest('FileHeader: '..require('jls.util.tables').stringify(fileHeader, 2))
+        logger:finest('FileHeader: %s', require('jls.util.tables').stringify(fileHeader, 2))
       end
       offset = offset + size
       local filename = ''
@@ -249,12 +245,10 @@ return class.create(function(zipFile, _, ZipFile)
       table.insert(entries, entry)
       --entries[filename] = entry
       if logger:isLoggable(logger.FINER) then
-        logger:finer('readEntries() entry: '..tostring(i)..' at: '..tostring(offset)..' filename: '..filename..' offset: '..tostring(entry:getOffset())..' comment: #'..tostring(fileHeader.fileCommentLength))
+        logger:finer('readEntries() entry: %s at: %s filename: %s offset: %s comment: #%s', i, offset, filename, entry:getOffset(), fileHeader.fileCommentLength)
       end
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('readEntries() entries: #'..tostring(#entries)..' entry count: '..tostring(entryCount))
-    end
+    logger:finer('readEntries() entries: #%s entry count: %s', #entries, entryCount)
     return entries, entryCount, header
   end
 
@@ -269,7 +263,7 @@ return class.create(function(zipFile, _, ZipFile)
       create = not f:exists()
     end
     if logger:isLoggable(logger.FINER) then
-      logger:finer('ZipFile:new("'..f:getPath()..'", '..tostring(create)..', '..tostring(overwrite)..')')
+      logger:finer('ZipFile:new("%s", %s, %s)', f:getPath(), create, overwrite)
     end
     local fd, entries, err
     if create then
@@ -294,7 +288,7 @@ return class.create(function(zipFile, _, ZipFile)
       end
     end
     if err then
-      logger:warn('ZipFile:new("'..f:getPath()..'", '..tostring(create)..') err: "'..tostring(err)..'"')
+      logger:warn('ZipFile:new("%s", %s) err: "%s"', f:getPath(), create, err)
       error(err)
     end
     self.fd = fd
@@ -303,19 +297,15 @@ return class.create(function(zipFile, _, ZipFile)
 
   --- Closes this ZIP file
   function zipFile:close()
-    if logger:isLoggable(logger.FINER) then
-      logger:finest('zipFile:close()')
-    end
+    logger:finest('zipFile:close()')
     if self.writable then
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('writing '..tostring(#self.entries)..' entries at '..tostring(self.offset))
-      end
+      logger:finer('writing %d entries at %d', #self.entries, self.offset)
       local startOffset = self.offset
       local size = 0
       for _, entry in ipairs(self.entries) do
         local name = entry:getName() or ''
         if logger:isLoggable(logger.FINER) then
-          logger:finest('writing entry "'..name..'" at '..tostring(startOffset + size))
+          logger:finest('writing entry "%s" at %d', name, startOffset + size)
         end
         local extra = entry:getExtra() or ''
         local comment = entry:getComment() or ''
@@ -335,7 +325,7 @@ return class.create(function(zipFile, _, ZipFile)
           end
         end
         if logger:isLoggable(logger.FINEST) then
-          logger:finest('FileHeader: '..require('jls.util.tables').stringify(fileHeader, 2))
+          logger:finest('FileHeader: %s', require('jls.util.tables').stringify(fileHeader, 2))
         end
           local rawFileHeader = ZipFile.STRUCT.FileHeader:toString(fileHeader)
         self.fd:writeSync(rawFileHeader)
@@ -356,17 +346,15 @@ return class.create(function(zipFile, _, ZipFile)
         size = size
       }
       if logger:isLoggable(logger.FINEST) then
-        logger:finest('EndOfCentralDirectoryRecord: '..require('jls.util.tables').stringify(eocdRecord, 2))
+        logger:finest('EndOfCentralDirectoryRecord: %s', require('jls.util.tables').stringify(eocdRecord, 2))
       end
       local rawEOCDR = ZipFile.STRUCT.EndOfCentralDirectoryRecord:toString(eocdRecord)
       self.fd:writeSync(rawEOCDR)
       self.offset = self.offset + size + ZipFile.STRUCT.EndOfCentralDirectoryRecord:getSize()
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('writing EndOfCentralDirectoryRecord of size '..tostring(size)..' total file size '..tostring(self.offset))
-        if logger:isLoggable(logger.FINEST) then
-          for k, v in pairs(ZipFile.STRUCT) do
-            logger:finest(k..' size: '..tostring(v:getSize()))
-          end
+      logger:finer('writing EndOfCentralDirectoryRecord of size %d total file size %s', size, self.offset)
+      if logger:isLoggable(logger.FINEST) then
+        for k, v in pairs(ZipFile.STRUCT) do
+          logger:finest('%s size: %s', k, v:getSize())
         end
       end
     end
@@ -465,7 +453,7 @@ return class.create(function(zipFile, _, ZipFile)
       extraFieldLength = #extra,
     }
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('localFileHeader: '..require('jls.util.tables').stringify(localFileHeader, 2))
+      logger:finest('localFileHeader: %s', require('jls.util.tables').stringify(localFileHeader, 2))
     end
     entry:setOffset(self.offset)
     entry:setLocalFileHeader(localFileHeader)
@@ -481,7 +469,7 @@ return class.create(function(zipFile, _, ZipFile)
     self.offset = self.offset + ZipFile.STRUCT.LocalFileHeader:getSize() + #name + #extra + compressedSize
     table.insert(self.entries, entry)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('added at '..tostring(entry:getOffset())..'-'..tostring(self.offset)..', '..tostring(#self.entries)..' entries')
+      logger:finer('added at %s-%s, %s entries', entry:getOffset(), self.offset, #self.entries)
     end
   end
 
@@ -516,7 +504,7 @@ return class.create(function(zipFile, _, ZipFile)
       return nil, 'Invalid zip file, Bad Local File Header signature'
     end
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('localFileHeader: '..require('jls.util.tables').stringify(localFileHeader, 2))
+      logger:finest('localFileHeader: %s', require('jls.util.tables').stringify(localFileHeader, 2))
     end
     offset = offset + size + localFileHeader.filenameLength + localFileHeader.extraFieldLength
     return localFileHeader, offset
@@ -536,7 +524,7 @@ return class.create(function(zipFile, _, ZipFile)
 
   function zipFile:readRawContentParts(entry, stream, async)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('readRawContentParts("'..entry:getName()..'", ?, '..tostring(async)..')')
+      logger:finest('readRawContentParts("%s", ?, %s)', entry:getName(), async)
     end
     local callback = StreamHandler.ensureCallback(stream)
     local localFileHeader, offset = self:readLocalFileHeader(entry)
@@ -549,7 +537,7 @@ return class.create(function(zipFile, _, ZipFile)
     local ratio = math.max(1, math.min(8, uncompressedSize // compressedSize))
     local bufferSize = 4096 // ratio
     if logger:isLoggable(logger.FINER) then
-      logger:finer('readRawContentParts("'..entry:getName()..'") size: '..tostring(compressedSize)..'->'..tostring(uncompressedSize)..', with buffer '..tostring(bufferSize))
+      logger:finer('readRawContentParts("%s") size: %s->%s, with buffer %s', entry:getName(), compressedSize, uncompressedSize, bufferSize)
     end
     local endOffset = offset + compressedSize
     if async then
@@ -568,7 +556,7 @@ return class.create(function(zipFile, _, ZipFile)
               bufferSize = endOffset - offset
             end
             if logger:isLoggable(logger.FINER) then
-              logger:finer('readRawContentParts("'..entry:getName()..'") read #'..tostring(bufferSize)..' at '..tostring(offset))
+              logger:finer('readRawContentParts("%s") read #%s at %s', entry:getName(), bufferSize, offset)
             end
             self.fd:read(bufferSize, offset, readCallback)
             offset = nextOffset
@@ -585,7 +573,7 @@ return class.create(function(zipFile, _, ZipFile)
           bufferSize = endOffset - offset
         end
         if logger:isLoggable(logger.FINER) then
-          logger:finer('readRawContentParts("'..entry:getName()..'") read #'..tostring(bufferSize)..' at '..tostring(offset))
+          logger:finer('readRawContentParts("%s") read #%s at %s', entry:getName(), bufferSize, offset)
         end
         local data = self.fd:readSync(bufferSize, offset)
         callback(nil, data)
@@ -664,9 +652,7 @@ return class.create(function(zipFile, _, ZipFile)
   -- @tparam File directory the directory to extract files to.
   -- @tparam[opt] function adaptFileName a function that will be call for each entry to adapt the extracted filename.
   function ZipFile.unzipToSync(file, directory, adaptFileName)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('ZipFile.unzipToSync()')
-    end
+    logger:finer('ZipFile.unzipToSync()')
     --local fil = File.asFile(file)
     local dir = File.asFile(directory)
     if not dir:isDirectory() then
@@ -680,9 +666,7 @@ return class.create(function(zipFile, _, ZipFile)
     for _, entry in ipairs(zFile:getEntries()) do
       local name = adaptFileName(entry:getName(), entry)
       if name then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('unzip entry "'..name..'"')
-        end
+        logger:fine('unzip entry "%s"', name)
         local entryFile = File:new(dir, name)
         if entry:isDirectory() then
           if not entryFile:isDirectory() then
@@ -709,7 +693,7 @@ return class.create(function(zipFile, _, ZipFile)
         end
       else
         if logger:isLoggable(logger.FINE) then
-          logger:fine('skipping entry "'..entry:getName()..'"')
+          logger:fine('skipping entry "%s"', entry:getName())
         end
       end
     end

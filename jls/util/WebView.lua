@@ -28,7 +28,7 @@ local function webviewLib_init(wv)
   webviewLib.init(wv)
   local newLocale = os.setlocale()
   if locale ~= newLocale and not os.getenv('JLS_WEBVIEW_KEEP_LOCALE') then
-    logger:fine('webview init changed the locale to "'..tostring(newLocale)..'" restoring "'..tostring(locale)..'"')
+    logger:fine('webview init changed the locale to "%s" restoring "%s"', newLocale, locale)
     os.setlocale(locale)
     logger:fine('to avoid this behavior, preset the native locale using: os.setlocale("")')
   end
@@ -91,9 +91,7 @@ webview:loop()
   -- The JavaScript syntax is window.external.invoke("string value");
   -- @tparam function cb The callback to register.
   function webView:callback(cb)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webView:callback('..tostring(cb)..')')
-    end
+    logger:fine('webView:callback(%s)', cb)
     self:checkAvailable()
     webviewLib.callback(self._webview, cb)
   end
@@ -101,9 +99,7 @@ webview:loop()
   --- Evaluates the specified JavaScript code in the web page.
   -- @tparam string js The JavaScript code to evaluate.
   function webView:eval(js)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webView:eval('..tostring(js)..')')
-    end
+    logger:fine('webView:eval(%s)', js)
     self:checkAvailable()
     webviewLib.eval(self._webview, js, true)
   end
@@ -111,9 +107,7 @@ webview:loop()
   --- Sets the webview fullscreen.
   -- @tparam boolean fullscreen true to switch the webview to fullscreen.
   function webView:fullscreen(fullscreen)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webView:fullscreen()')
-    end
+    logger:fine('webView:fullscreen(%s)', fullscreen)
     self:checkAvailable()
     webviewLib.fullscreen(self._webview, fullscreen)
   end
@@ -121,18 +115,14 @@ webview:loop()
   --- Sets the webview title.
   -- @tparam string title The webview title to set.
   function webView:title(title)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webView:title('..tostring(title)..')')
-    end
+    logger:fine('webView:title(%s)', title)
     self:checkAvailable()
     webviewLib.title(self._webview, title)
   end
 
   --- Terminates the webview.
   function webView:terminate()
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webView:terminate()')
-    end
+    logger:fine('webView:terminate()')
     local wv = self._webview
     if wv then
       self._webview = nil
@@ -170,12 +160,12 @@ end, function(WebView)
     end
     local channel = Channel:new()
     channel:connect(channelName):catch(function(reason)
-      logger:fine('Unable to connect WebView thread due to '..tostring(reason))
+      logger:fine('Unable to connect WebView thread due to %s', reason)
       channel = nil
     end)
     event:loop() -- wait for connection
     if not channel then
-      error('Unable to connect WebView thread on "'..tostring(channelName)..'"')
+      error('Unable to connect WebView thread on "%s"', channelName)
     end
     local webview = class.makeInstance(WebView)
     webview._channel = channel
@@ -244,12 +234,12 @@ end, function(WebView)
     local wv = webviewLib.fromstring(webviewAsString)
     local channel = Channel:new()
     channel:connect(channelName):catch(function(reason)
-      logger:fine('Unable to connect WebView thread due to '..tostring(reason))
+      logger:fine('Unable to connect WebView thread due to %s', reason)
       channel = nil
     end)
     event:loop() -- wait for connection
     if not channel then
-      error('Unable to connect WebView thread on "'..tostring(channelName)..'"')
+      error('Unable to connect WebView thread on "%s"', channelName)
     end
     webviewLib.callback(wv, function(message)
       channel:writeMessage(message, nil, false)

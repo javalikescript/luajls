@@ -28,7 +28,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial, su
       if err == 'close' then
         cb()
       else
-        logger:fine('Error while waiting serial data '..tostring(err))
+        logger:fine('Error while waiting serial data %s', err)
         cb(err or 'Error while waiting serial data')
       end
       self.readTaskId = nil

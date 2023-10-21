@@ -129,18 +129,14 @@ return require('jls.lang.class').create(function(fileDescriptor)
   -- @tparam number offset The optional position at which the write is to be performed,
   -- -1 or nil for the current file descriptor position.
   function fileDescriptor:writeSync(data, offset)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('fileDescriptor:writeSync("'..tostring(data)..'", '..tostring(offset)..')')
-    end
+    logger:finest('fileDescriptor:writeSync("%s", %s)', data, offset)
     if offset and offset >= 0 then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('seek("set", '..tostring(offset)..')')
-      end
+      logger:debug('seek("set", %s)', offset)
       self.fd:seek('set', offset)
     end
     if type(data) == 'string' then
       if logger:isLoggable(logger.DEBUG) then
-        logger:debug('writing #'..tostring(#data))
+        logger:debug('writing #%d', #data)
       end
       local status, err = self.fd:write(data)
       if not status then

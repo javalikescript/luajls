@@ -22,9 +22,7 @@ return class.create(function(pipe, _, Pipe)
     end
     self.readFd = FileDescriptor:new(r)
     self.writeFd = FileDescriptor:new(w)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('Pipe:new() r: '..tostring(r)..', w: '..tostring(w))
-    end
+    logger:finest('Pipe:new() r: %s, w: %s', r, w)
   end
 
   function pipe:bind(name, backlog)

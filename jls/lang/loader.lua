@@ -114,7 +114,7 @@ if jlsRequires and jlsRequires ~= '' then
   local isDebugLoggable = logger:isLoggable(logger.FINEST)
   local function restrictedRequire(name)
     if isDebugLoggable then
-      logger:finest('require("'..tostring(name)..'")')
+      logger:finest('require("%s")', name)
     end
     if jlsObviates[name] then
       error('The module "'..tostring(name)..'" is deactivated via JLS_REQUIRES')

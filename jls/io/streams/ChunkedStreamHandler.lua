@@ -71,12 +71,10 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function chunkedStreamHandler:onData(data)
-    if logger:isLoggable(logger.FINER) then
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('chunkedStreamHandler:onData("'..tostring(data)..'")')
-      else
-        logger:finer('chunkedStreamHandler:onData(#'..tostring(data and #data)..')')
-      end
+    if logger:isLoggable(logger.FINEST) then
+      logger:finest('chunkedStreamHandler:onData("%s")', data)
+    else
+      logger:finer('chunkedStreamHandler:onData(#%s)', data and #data)
     end
     if data then
       local length = string.len(data)

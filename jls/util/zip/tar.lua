@@ -57,11 +57,11 @@ end
 
 local function parseHeader(block)
   if logger:isLoggable(logger.FINEST) then
-    logger:finest('parseHeader(#'..tostring(#block)..': '..require('jls.util.hex').encode(block)..')')
+    logger:finest('parseHeader(#%d: %s)', #block, require('jls.util.hex').encode(block))
   end
   local name, mode, uid, gid, size, mtime, chksum, typeflag, linkname, magic, extra = cuts(block, 100, 8, 8, 8, 12, 12, 8, 1, 100, 6, 512)
   if logger:isLoggable(logger.FINER) then
-    logger:finer('parseHeader(#'..tostring(#block)..') '..require('jls.util.hex').encode(name)..', '..require('jls.util.hex').encode(size)..', '..require('jls.util.hex').encode(mtime))
+    logger:finer('parseHeader(#%d) %s, %s, %s', #block, require('jls.util.hex').encode(name), require('jls.util.hex').encode(size), require('jls.util.hex').encode(mtime))
   end
   if magic == 'ustar\0' then
     local version, uname, gname, devmajor, devminor, prefix = cuts(extra, 2, 32, 32, 8, 8, 155)
@@ -79,9 +79,7 @@ local function createExtractorStream(entryStreamFactory)
   local buffer = ''
   return StreamHandler:new(function(err, data)
     if err then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('error while extracting '..tostring(err))
-      end
+      logger:fine('error while extracting %s', err)
       return
     end
     if data then
@@ -106,7 +104,7 @@ local function createExtractorStream(entryStreamFactory)
       else
         header = parseHeader(block)
         if logger:isLoggable(logger.FINE) then
-          logger:fine('header name: '..tostring(header.name)..', size: '..tostring(header.size)..', mtime: '..tostring(header.mtime))
+          logger:fine('header name: %s, size: %s, mtime: %s', header.name, header.size, header.mtime)
         end
         -- The end of an archive is marked by at least two consecutive zero-filled records.
         if header.empty then

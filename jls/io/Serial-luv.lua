@@ -15,7 +15,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
         if err == 'close' then
           self.streamCallback()
         else
-          logger:fine('Error while waiting serial data '..tostring(err))
+          logger:fine('Error while waiting serial data %s', err)
           self.streamCallback(err)
         end
       else

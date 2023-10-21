@@ -11,14 +11,14 @@ local function assertPostReceive(withData, scheme)
     logr:info('initializing worker')
     local suffix = d and (', '..tostring(d)) or ''
     function w:onMessage(message)
-      logr:info('received in worker "'..tostring(message)..'"')
+      logr:info('received in worker "%s"', message)
       local reply = 'Hi '..tostring(message)..suffix
       w:postMessage(reply)
-      logr:info('posted in worker "'..tostring(reply)..'"')
+      logr:info('posted in worker "%s"', reply)
     end
   end, withData and 'cheers' or nil, scheme)
   function w:onMessage(message)
-    logger:info('received from worker "'..tostring(message)..'"')
+    logger:info('received from worker "%s"', message)
     received = message
     self:close()
   end

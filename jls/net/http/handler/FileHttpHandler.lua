@@ -186,7 +186,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     if logger:isLoggable(logger.FINER) then
       logger:finer('fileHttpHandler permissions is "'..permissions..'"')
       for k, v in pairs(self) do
-        logger:finest('  '..tostring(k)..': "'..tostring(v)..'"')
+        logger:finest('  %s: "%s"', k, v)
       end
     end
   end

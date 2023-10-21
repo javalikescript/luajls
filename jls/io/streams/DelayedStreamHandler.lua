@@ -78,9 +78,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     if self.handler then
       return self.handler:onData(data)
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('delayedStreamHandler:onData(#'..tostring(data and #data)..')')
-    end
+    logger:finest('delayedStreamHandler:onData(#%s)', data and #data)
     if data then
       self.buffer:append(data)
     else
