@@ -92,6 +92,10 @@ local CONFIG_SCHEMA = {
           type = 'string',
           default = '/WS/'
         },
+        uiPath = {
+          title = 'The WebSocket UI path',
+          type = 'string',
+        },
       }
     },
     permissions = {
@@ -504,6 +508,30 @@ if config.websocket.enabled then
       webSocket:readStart()
     end
   }))
+  if config.websocket.uiPath then
+    httpServer:createContext(config.websocket.uiPath, function(exchange)
+      local response = exchange:getResponse()
+      response:setBody([[<!DOCTYPE html>
+<html>
+  <body>
+    <p>Check the console</p>
+    <button onclick="webSocket.send('Hello')" title="Send Hello to others">Send</button>
+  </body>
+  <script>
+  var protocol = location.protocol.replace('http', 'ws');
+  var url = protocol + '//' + location.host + ']]..config.websocket.path..[[';
+  var webSocket = new WebSocket(url);
+  webSocket.onmessage = function(event) {
+    console.log('webSocket message', event.data);
+  };
+  webSocket.onopen = function() {
+    console.log('WebSocket opened at ' + url);
+  };
+  </script>
+</html>
+]])
+    end)
+  end
 end
 
 if config.module then
@@ -597,7 +625,7 @@ do
     local signal = luvLib.new_signal()
     luvLib.ref(signal)
     stopPromise:next(function()
-      logger:info('Unreference signal')
+      logger:fine('Unreference signal')
       luvLib.unref(signal)
     end)
     luvLib.signal_start_oneshot(signal, 'sigint', function()
