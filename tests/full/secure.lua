@@ -25,7 +25,6 @@ function Test_TcpClient_TcpServer()
   --payload = string.rep('1234567890', 10000)
   local server = TcpSocket:new()
   prepareServer(server)
-  assert(server:bind(TEST_HOST, TEST_PORT))
   function server:onAccept(client)
     client:readStart(StreamHandler:new(function(_, data)
       if data then
@@ -38,19 +37,21 @@ function Test_TcpClient_TcpServer()
   end
   local client = TcpSocket:new()
   local u = {}
-  client:connect(TEST_HOST, TEST_PORT):next(function(err)
-    client:readStart(StreamHandler:new(function(_, data)
-      if data then
-        table.insert(u, (string.gsub(data, '%c', '')))
-        if string.find(data, '\n') then
+  server:bind(TEST_HOST, TEST_PORT):next(function()
+    client:connect(TEST_HOST, TEST_PORT):next(function(err)
+      client:readStart(StreamHandler:new(function(_, data)
+        if data then
+          table.insert(u, (string.gsub(data, '%c', '')))
+          if string.find(data, '\n') then
+            client:close()
+          end
+        else
           client:close()
         end
-      else
-        client:close()
-      end
-    end))
-    client:write(payload)
-    client:write('\n')
+      end))
+      client:write(payload)
+      client:write('\n')
+    end)
   end)
   if not loop(function()
     client:close()
@@ -65,7 +66,6 @@ function Test_TcpClient_TcpServer_table()
   local t = {'Received: '}
   local server = TcpSocket:new()
   prepareServer(server)
-  assert(server:bind(TEST_HOST, TEST_PORT))
   function server:onAccept(client)
     client:readStart(StreamHandler:new(function(_, data)
       if data then
@@ -81,18 +81,20 @@ function Test_TcpClient_TcpServer_table()
   end
   local client = TcpSocket:new()
   local u = {}
-  client:connect(TEST_HOST, TEST_PORT):next(function(err)
-    client:readStart(StreamHandler:new(function(_, data)
-      if data then
-        table.insert(u, (string.gsub(data, '%c', '')))
-        if string.find(data, '\n') then
+  server:bind(TEST_HOST, TEST_PORT):next(function()
+    client:connect(TEST_HOST, TEST_PORT):next(function(err)
+      client:readStart(StreamHandler:new(function(_, data)
+        if data then
+          table.insert(u, (string.gsub(data, '%c', '')))
+          if string.find(data, '\n') then
+            client:close()
+          end
+        else
           client:close()
         end
-      else
-        client:close()
-      end
-    end))
-    client:write({'Hello, ', 'My name is ', 'John', '\n'})
+      end))
+      client:write({'Hello, ', 'My name is ', 'John', '\n'})
+    end)
   end)
   if not loop(function()
     client:close()

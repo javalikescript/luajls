@@ -86,4 +86,17 @@ function Test_variableByteInteger()
   end
 end
 
+function Test_capitalize()
+  lu.assertNil(strings.capitalize(nil))
+  lu.assertEquals(strings.capitalize(''), '')
+  lu.assertEquals(strings.capitalize('hi'), 'Hi')
+  lu.assertEquals(strings.capitalize('Hi'), 'Hi')
+  lu.assertEquals(strings.capitalize('HI'), 'HI')
+end
+
+function Test_escape()
+  lu.assertEquals(strings.escape('aA1, '), 'aA1, ')
+  lu.assertEquals(strings.escape('^$()%.[]*+-?'), '%^%$%(%)%%%.%[%]%*%+%-%?')
+end
+
 os.exit(lu.LuaUnit.run())

@@ -631,7 +631,7 @@ return class.create(function(hpack)
     if self.indexSize + size <= self.indexMaxSize then
       self.indexSize = self.indexSize + size
       table.insert(self.indexes, 1, packHeader(name, value))
-      logger:fine('indexHeader("%s")', name)
+      logger:finer('indexHeader("%s")', name)
       return true
     end
     logger:fine('cannot add header "%s" %d/%d', name, self.indexSize, self.indexMaxSize)

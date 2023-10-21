@@ -10,7 +10,6 @@ local TEST_HOST, TEST_PORT = '127.0.0.1', 3002
 
 function Test_TcpClient_TcpServer()
   local server = TcpSocket:new()
-  assert(server:bind(TEST_HOST, TEST_PORT))
   function server:onAccept(client)
     client:readStart(StreamHandler:new(function(_, data)
       if data then
@@ -23,14 +22,16 @@ function Test_TcpClient_TcpServer()
   end
   local client = TcpSocket:new()
   local receivedData
-  client:connect(TEST_HOST, TEST_PORT):next(function(err)
-    client:readStart(StreamHandler:new(function(_, data)
-      if data then
-        receivedData = data
-      end
-      client:close()
-    end))
-    client:write('Hello')
+  server:bind(TEST_HOST, TEST_PORT):next(function()
+    client:connect(TEST_HOST, TEST_PORT):next(function(err)
+      client:readStart(StreamHandler:new(function(_, data)
+        if data then
+          receivedData = data
+        end
+        client:close()
+      end))
+      client:write('Hello')
+    end)
   end)
   if not loop(function()
     client:close()
@@ -44,7 +45,6 @@ end
 function Test_TcpClient_TcpServer_table()
   local t = {'Received: '}
   local server = TcpSocket:new()
-  assert(server:bind(TEST_HOST, TEST_PORT))
   function server:onAccept(client)
     client:readStart(StreamHandler:new(function(_, data)
       if data then
@@ -60,14 +60,16 @@ function Test_TcpClient_TcpServer_table()
   end
   local client = TcpSocket:new()
   local u = {}
-  client:connect(TEST_HOST, TEST_PORT):next(function(err)
-    client:readStart(StreamHandler:new(function(_, data)
-      if data then
-        table.insert(u, data)
-      end
-      client:close()
-    end))
-    client:write({'Hello, ', 'My name is ', 'John\n'})
+  server:bind(TEST_HOST, TEST_PORT):next(function()
+    client:connect(TEST_HOST, TEST_PORT):next(function(err)
+      client:readStart(StreamHandler:new(function(_, data)
+        if data then
+          table.insert(u, data)
+        end
+        client:close()
+      end))
+      client:write({'Hello, ', 'My name is ', 'John\n'})
+    end)
   end)
   if not loop(function()
     client:close()

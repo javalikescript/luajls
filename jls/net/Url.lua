@@ -303,8 +303,9 @@ return require('jls.lang.class').create(function(url, _, Url)
   end
 
   local function encodePercentChar(c)
-      return string.format('%%%02X', string.byte(c))
-    end
+    return string.format('%%%02X', string.byte(c))
+  end
+
   local function encodePercent(value, pattern)
     return (string.gsub(value, pattern, encodePercentChar))
   end
@@ -322,12 +323,13 @@ return require('jls.lang.class').create(function(url, _, Url)
   end
 
   local function decodePercent(v)
-      local n = tonumber(v, 16)
-      if n < 256 then
-        return string.char(n)
-      end
-      return ''
+    local n = tonumber(v, 16)
+    if n < 256 then
+      return string.char(n)
     end
+    return ''
+  end
+
   function Url.decodePercent(value)
     return (string.gsub(value, '%%(%x%x)', decodePercent))
   end
