@@ -10,7 +10,9 @@ local Promise = require('jls.lang.Promise')
 local logger = require('jls.lang.logger')
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpMessage = require('jls.net.http.HttpMessage')
+local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpClient = require('jls.net.http.HttpClient')
+local Http2 = require('jls.net.http.Http2')
 local base64 = require('jls.util.base64')
 local MessageDigest = require('jls.util.MessageDigest')
 
@@ -102,9 +104,7 @@ local function read2BytesHeader(buffer)
   local opcode = b1 & 0x0f
   local mask = (b2 & 0x80) == 0x80
   local len = b2 & 0x7f
-  if logger:isLoggable(logger.FINEST) then
-    logger:finest('WebSocket readHeader(), fin: '..tostring(fin)..', rsv: '..tostring(rsv)..', opcode: '..tostring(opcode)..', mask: '..tostring(mask)..', len: '..tostring(len))
-  end
+  logger:finest('WebSocket readHeader(), fin: %s, rsv: %d, opcode: %d, mask: %s, len: %d', fin, rsv, opcode, mask, len)
   -- Payload length:  7 bits, 7+16 bits, or 7+64 bits
   -- If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length.
   -- If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0) are the payload length.
@@ -168,6 +168,51 @@ local function formatFrame(fin, opcode, mask, payload)
 end
 
 
+local StreamAdapter = class.create(function(streamAdapter)
+
+  local function onData(stream, data)
+    stream.wsCallback(nil, data)
+  end
+  local function onError(stream, reason)
+    stream.wsCallback(reason or 'Unknown error')
+  end
+
+  function streamAdapter:initialize(stream)
+    self.stream = stream
+    self:readStart(class.emptyFunction)
+    stream.onData = onData
+    stream.onError = onError
+    stream.sendBody = class.emptyFunction
+  end
+
+  function streamAdapter:readStart(callback)
+    self.stream.wsCallback = callback
+  end
+
+  function streamAdapter:readStop()
+    self:readStart(class.emptyFunction)
+  end
+
+  function streamAdapter:write(data, callback)
+    local p = self.stream:sendData(data) -- TODO clean
+    if callback then
+      p:next(Promise.callbackToNext(callback))
+    else
+      return p
+    end
+  end
+
+  function streamAdapter:close(callback)
+    local p = self.stream:sendData(nil, true) -- TODO clean
+    if callback then
+      p:next(Promise.callbackToNext(callback))
+    else
+      return p
+    end
+  end
+
+end)
+
 --[[--
 The WebSocket class enables to connect to a server then send and receive messages.
 see https://tools.ietf.org/html/rfc6455
@@ -211,42 +256,59 @@ return class.create(function(webSocket)
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is opened.
   function webSocket:open()
     self:close(false)
-    -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
-    local key = base64.encode(randomChars(16))
     local client = HttpClient:new({
       url = self.url,
-      method = 'GET',
-      headers = {
-        [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
-        [HttpMessage.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
-        [HttpMessage.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
-        [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
-        [CONST.HEADER_SEC_WEBSOCKET_KEY] = key,
-        [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
+      secureContext = {
+        alpnProtos = {'h2'}
       }
     })
-    local connectPromise = client:connect()
-    self.tcp = client:getTcpClient()
-    return connectPromise:next(function()
-      return client:sendReceive()
-    end):next(function(response)
-      if response:getStatusCode() ~= HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
-        self.tcp = nil
-        client:close()
-        return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
+    return client:connectV2():next(function()
+      local http2 = client.http2
+      if http2 and http2:getRemoteSetting(Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL) == 1 then
+        logger:fine('websocket client is using HTTP/2')
+        function http2:registerStream(stream)
+          stream.message.tcpClient = StreamAdapter:new(stream)
+          logger:fine('websocket stream registered')
+          return Http2.prototype.registerStream(self, stream)
+        end
+        return client:fetch(nil, {
+          method = 'CONNECT',
+          headers = {
+            [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
+            [':protocol'] = 'websocket',
+            [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
+            [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
+          }
+        }):next(function(response)
+          self.tcp = response.tcpClient
+        end)
       end
-      local acceptKey = response:getHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT)
-      --local protocol = response:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
-      if acceptKey ~= hashWebSocketKey(key) then
-        self.tcp = nil
-        client:close()
-        return Promise.reject('Bad key')
-      end
-      logger:fine('webSocket:open() Switching protocols')
-    end, function(reason)
-      self.tcp = nil
+      -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
+      local key = base64.encode(randomChars(16))
+      return client:fetch(nil, {
+        headers = {
+          [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
+          [HttpMessage.CONST.HEADER_CONNECTION] = CONST.CONNECTION_UPGRADE,
+          [HttpMessage.CONST.HEADER_UPGRADE] = CONST.UPGRADE_WEBSOCKET,
+          [CONST.HEADER_SEC_WEBSOCKET_VERSION] = CONST.WEBSOCKET_VERSION,
+          [CONST.HEADER_SEC_WEBSOCKET_KEY] = key,
+          [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
+        }
+      }):next(function(response)
+        if response:getStatusCode() ~= HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS then
+          return Promise.reject('Bad status code: '..tostring(response:getStatusCode()))
+        end
+        local acceptKey = response:getHeader(CONST.HEADER_SEC_WEBSOCKET_ACCEPT)
+        --local protocol = response:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
+        if acceptKey ~= hashWebSocketKey(key) then
+          return Promise.reject('Bad key')
+        end
+        logger:fine('webSocket:open() Switching protocols')
+        self.tcp = client.tcpClient
+      end)
+    end):catch(function(reason)
       client:close()
-      logger:fine('webSocket:open() error: "'..tostring(reason)..'"')
+      logger:fine('webSocket:open() error: "%s"', reason)
       return Promise.reject(reason)
     end)
   end
@@ -256,9 +318,7 @@ return class.create(function(webSocket)
   -- @tparam function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   function webSocket:sendTextMessage(message, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('webSocket:sendTextMessage("'..tostring(message)..'")')
-    end
+    logger:finer('webSocket:sendTextMessage("%s")', message)
     return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, tostring(message), callback)
   end
 
@@ -330,9 +390,7 @@ return class.create(function(webSocket)
   -- such as when some data couldn't be received or sent.
   -- @param reason the error reason.
   function webSocket:onError(reason)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocket:onError("'..tostring(reason)..'")')
-    end
+    logger:fine('webSocket:onError("%s")', reason)
   end
 
   function webSocket:raiseError(reason)
@@ -344,9 +402,7 @@ return class.create(function(webSocket)
   --- Called when a text message is received on this WebSocket.
   -- @tparam string message the text message.
   function webSocket:onTextMessage(message)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocket:onTextMessage("'..tostring(message)..'")')
-    end
+    logger:fine('webSocket:onTextMessage("%s")', message)
   end
 
   --- Called when a binary message is received on this WebSocket.
@@ -358,9 +414,7 @@ return class.create(function(webSocket)
   end
 
   function webSocket:onPong(data)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocket:onPong("'..tostring(data)..'")')
-    end
+    logger:fine('webSocket:onPong("%s")', data)
   end
 
   --- Called when this WebSocket has been closed.
@@ -386,9 +440,7 @@ return class.create(function(webSocket)
   end
 
   function webSocket:onReadFrame(fin, opcode, payload, rsv)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('webSocket:onReadFrame(%s, %s, %s, %s)', fin, opcode, #payload, rsv)
-    end
+    logger:finer('webSocket:onReadFrame(%s, %s, %s, %s)', fin, opcode, #payload, rsv)
     local appData = self:handleExtension(fin, opcode, payload, rsv)
     if not appData then
       self:raiseError('unsupported extension, '..tostring(rsv))
@@ -422,9 +474,7 @@ return class.create(function(webSocket)
   end
 
   function webSocket:sendFrame(fin, opcode, mask, payload, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('webSocket:sendFrame(%s, %s, %s)', fin, opcode, mask)
-    end
+    logger:finer('webSocket:sendFrame(%s, %s, %s)', fin, opcode, mask)
     if not self.tcp then
       return Promise.reject('not connected')
     end
@@ -478,15 +528,34 @@ end, function(WebSocket)
       self.protocol = protocol
     end
 
-    function upgradeHandler:handle(exchange)
+    function upgradeHandler:handleConnect(exchange)
+      logger:fine('upgradeHandler:handleConnect()')
       local request = exchange:getRequest()
-      local response = exchange:getResponse()
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('upgradeHandler:handle()')
-        for name, value in pairs(request:getHeadersTable()) do
-          logger:finer(' %s: "%s"', name, value)
+      local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
+      if headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
+        local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
+        if self:accept(headerSecWebSocketProtocol, exchange) then
+          local stream = exchange.stream
+          exchange.stream = nil
+          local response = exchange:getResponse()
+          response:setStatusCode(HttpMessage.CONST.HTTP_OK, 'ok')
+          if self.protocol then
+            response:setHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL, self.protocol)
+          end
+          stream:sendHeaders(response, true):next(function()
+            self:onOpen(WebSocket:new():initializeTcp(StreamAdapter:new(stream)), exchange)
+          end)
+        else
+          HttpExchange.badRequest(exchange)
         end
+      else
+        HttpExchange.badRequest(exchange)
       end
+    end
+
+    function upgradeHandler:handleUpgrade(exchange)
+      logger:fine('upgradeHandler:handleUpgrade()')
+      local request = exchange:getRequest()
       local headerConnection = string.lower(request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) or '')
       local headerUpgrade = string.lower(request:getHeader(HttpMessage.CONST.HEADER_UPGRADE) or '')
       if string.find(headerConnection, string.lower(CONST.CONNECTION_UPGRADE)) and headerUpgrade == string.lower(CONST.UPGRADE_WEBSOCKET) then
@@ -496,9 +565,9 @@ end, function(WebSocket)
           local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
           if not self:accept(headerSecWebSocketProtocol, exchange) then
             -- TODO Check if response has been set
-            response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Upgrade Rejected')
-            response:setBody('<p>Upgrade rejected.</p>')
+            HttpExchange.badRequest(exchange)
           else
+            local response = exchange:getResponse()
             response:setStatusCode(HttpMessage.CONST.HTTP_SWITCHING_PROTOCOLS, 'Switching Protocols')
             response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, CONST.CONNECTION_UPGRADE)
             response:setHeader(HttpMessage.CONST.HEADER_UPGRADE, CONST.UPGRADE_WEBSOCKET)
@@ -509,24 +578,37 @@ end, function(WebSocket)
             function exchange:prepareResponseHeaders()
             end
             -- override HTTP client close
-            local close = exchange.close
-            local handler = self
-            function exchange:close()
+            function exchange.close()
               logger:finer('upgradeHandler:handle() close exchange')
-              local tcpClient = self:removeClient()
-              close(self)
+              local client = exchange.client
+              exchange.client = nil
+              HttpExchange.prototype.close(exchange)
               logger:finer('upgradeHandler:handle() open websocket')
-              handler:onOpen(WebSocket:new():initializeTcp(tcpClient), exchange)
+              self:onOpen(WebSocket:new():initializeTcp(client), exchange)
             end
           end
         else
-          response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
-          response:setBody('<p>Missing or invalid WebSocket headers.</p>')
+          HttpExchange.badRequest(exchange)
         end
       else
-        response:setStatusCode(HttpMessage.CONST.HTTP_BAD_REQUEST, 'Bad Request')
-        response:setBody('<p>Missing or invalid connection headers.</p>')
+        HttpExchange.badRequest(exchange)
       end
+    end
+
+    function upgradeHandler:handle(exchange)
+      local request = exchange:getRequest()
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('upgradeHandler:handle()')
+        for name, value in pairs(request:getHeadersTable()) do
+          logger:finer(' %s: "%s"', name, value)
+        end
+      end
+      if request:getMethod() == 'GET' and exchange.client then
+        return self:handleUpgrade(exchange)
+      elseif request:getMethod() == 'CONNECT' and exchange.stream then
+        return self:handleConnect(exchange)
+      end
+      HttpExchange.badRequest(exchange, 'Invalid method')
     end
 
     function upgradeHandler:setProtocol(protocol)
