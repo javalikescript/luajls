@@ -124,7 +124,8 @@ end, function(HttpHandler)
   function HttpHandler.proxy()
     return require('jls.net.http.handler.ProxyHttpHandler'):new()
   end
-  --[[-- Creates a REST like HTTP handler.
+  --[[-- Creates a router HTTP handler.
+  This handler helps to expose REST APIs.
   
   The `handlers` consists in a deep table of functions representing the resource paths.
   By default the request body is processed and the JSON value is available with the attribute `requestJson`.
@@ -136,11 +137,11 @@ end, function(HttpHandler)
   An empty string is used as table key for the root resource.
   The special table key `{name}` is used to match any key and provide the value in the attribue `name`.
   
-  @tparam table handlers the REST path handlers as a Lua table.
+  @tparam table handlers the path handlers as a Lua table.
   @treturn HttpHandler a HttpHandler.
   @usage
   local users = {}
-  httpServer:createContext('/(.*)', HttpHandler.rest({
+  httpServer:createContext('/(.*)', HttpHandler.router({
     users = {
       [''] = function(exchange)
         return users
@@ -164,10 +165,13 @@ end, function(HttpHandler)
     }
   }))
   ]]
-  function HttpHandler.rest(...)
-    return require('jls.net.http.handler.RestHttpHandler'):new(...)
+  function HttpHandler.router(...)
+    return require('jls.net.http.handler.RouterHttpHandler'):new(...)
   end
-  --- Exposes a table content throught HTTP REST APIs.
+  function HttpHandler.rest(...)
+    return require('jls.net.http.handler.RouterHttpHandler'):new(...)
+  end
+  --- Exposes a table content throught HTTP APIs.
   -- This handler allows to access and maintain a deep Lua table.
   -- The GET response is a JSON with a 'value' key containing the table path value.
   -- @tparam table table the table.

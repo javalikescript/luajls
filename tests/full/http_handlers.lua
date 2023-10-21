@@ -5,7 +5,7 @@ local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
 local system = require('jls.lang.system')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
-local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
+local RouterHttpHandler = require('jls.net.http.handler.RouterHttpHandler')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -71,8 +71,8 @@ local function close(...)
   end
 end
 
-local function createRestHandler(users)
-  return RestHttpHandler:new({
+local function createRouterHandler(users)
+  return RouterHttpHandler:new({
     users = {
       [''] = function(exchange)
         return users
@@ -115,7 +115,7 @@ function Test_rest()
   local users = {}
   local url
   local httpServer = HttpServer:new()
-  httpServer:createContext('/(.*)', createRestHandler(users))
+  httpServer:createContext('/(.*)', createRouterHandler(users))
   local httpClient
   httpServer:bind('::', 0):next(function()
     local port = select(2, httpServer:getAddress())
@@ -253,7 +253,7 @@ function Test_proxy()
     host = '127.0.0.1'
     port = select(2, httpServer:getAddress())
     url = string.format('http://%s:%d/', host, port)
-    httpServer:createContext('/rest/(.*)', createRestHandler(users))
+    httpServer:createContext('/rest/(.*)', createRouterHandler(users))
     return httpProxy:bind('::', 0)
   end):next(function()
     proxyHost = '127.0.0.1'
