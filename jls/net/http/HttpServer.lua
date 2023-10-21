@@ -31,6 +31,19 @@ local function compareByIndex(a, b)
   return a:getIndex() > b:getIndex()
 end
 
+local function computeIndex(pattern)
+  local path = pattern
+  local gsub = string.gsub
+  path = gsub(path, '%[[^%]]+%]', '_') -- replace set by underscore
+  path = gsub(path, '%%f.', '') -- remove frontier
+  path = gsub(path, '%%b..', '') -- remove balanced
+  path = gsub(path, '%%.', '_') -- replace escaped character by underscore
+  path = gsub(path, '.[%*%-%?]', '') -- remove sequences
+  path = gsub(path, '.%+', '_') -- remove +
+  path = gsub(path, '[%(%)]', '') -- remove capture parenthesis
+  return #path -- the index is the length of the path without pattern items and character classes
+end
+
 local notFoundHandler = HttpHandler:new(function(self, exchange)
   local response = exchange:getResponse()
   response:setStatusCode(HttpMessage.CONST.HTTP_NOT_FOUND, 'Not Found')
@@ -42,7 +55,7 @@ local Stream = class.create(Http2.Stream, function(stream, super)
   function stream:onEndHeaders()
     super.onEndHeaders(self)
     local http2 = self.http2
-    logger:finer('stream:onEndHeaders() %s', self.id)
+    logger:finer('stream:onEndHeaders() id: %s', self.id)
     if http2.start_time then
       http2.start_time = nil
     end
@@ -52,7 +65,7 @@ local Stream = class.create(Http2.Stream, function(stream, super)
     request.consume = function()
       return promise
     end
-    self.callback = cb
+    self.endStreamCallback = cb
     local server = http2.server
     if server:preFilter(exchange) then
       local path = request:getTargetPath()
@@ -62,20 +75,25 @@ local Stream = class.create(Http2.Stream, function(stream, super)
   end
 
   function stream:onEndStream()
+    super.onEndStream(self)
     logger:finer('stream:onEndStream() %s', self.id)
     local exchange = self.exchange
-    local cb = self.callback
-    self.callback = nil
-    cb()
+    local endStreamCallback = self.endStreamCallback
+    if endStreamCallback then
+      self.endStreamCallback = nil
+      endStreamCallback()
+    end
     exchange:notifyRequestBody() -- TODO Remove
     self.http2.server:prepareResponseHeaders(exchange)
     local response = exchange:getResponse()
     local handling = self.handling
     self.handling = nil
     Promise.resolve(handling):next(function()
-      return self:sendHeaders(response)
+      return self:sendHeaders(response, true)
     end):next(function()
       self:sendBody(response)
+    end):catch(function(reason)
+      logger:warn('unable to reply due to "%s" on %s', reason, requestToString(exchange))
     end)
   end
 
@@ -167,8 +185,12 @@ local HttpServer = class.create(function(httpServer)
 
   function httpServer:addContext(context)
     table.insert(self.contexts, context)
-    table.sort(self.contexts, compareByIndex)
+    self:sortContexts()
     return context
+  end
+
+  function httpServer:sortContexts()
+    table.sort(self.contexts, compareByIndex)
   end
 
   --- Adds the specified contexts.
@@ -313,7 +335,7 @@ local HttpServer = class.create(function(httpServer)
     local http2 = ServerHttp2:new(self, client, true)
     http2:readStart({
       [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
-      --[Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL] = 1,
+      [Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL] = 1,
     })
     self.pendings[client] = http2
   end
@@ -536,8 +558,7 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
       error('Invalid context path, type is '..type(path))
     end
     self.repl = '%1'
-    --self.index = string.len(path)
-    self.index = string.len(string.gsub(string.gsub(path, '%%.', '_'), '%([^%)]+%)', ''))
+    self.index = computeIndex(path)
     self:setHandler(handler or notFoundHandler)
   end
 
@@ -620,6 +641,7 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
   end
 
   HttpContext.notFoundHandler = notFoundHandler
+  HttpContext.computeIndex = computeIndex
 
 end)
 

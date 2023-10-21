@@ -176,12 +176,15 @@ return class.create(function(httpClient)
       self.tcpClient = TcpSocket:new()
     end
     return self.tcpClient:connect(self.host, self.port or 80):next(function()
-      return self
-    end):next(function()
       if self.isSecure and self.tcpClient.sslGetAlpnSelected then
         if self.tcpClient:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
           local http2 = Http2:new(self.tcpClient, false)
+          local promise, cb = Promise.createWithCallback()
+          function http2:onSettings()
+            self.onSettings = Http2.prototype.onSettings
+            cb()
+          end
           self.http2 = http2
           http2:readStart({
             [Http2.SETTINGS.ENABLE_PUSH] = 0,
@@ -190,8 +193,11 @@ return class.create(function(httpClient)
             [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
             [Http2.SETTINGS.MAX_HEADER_LIST_SIZE] = 262144,
           })
+          return promise
         end
       end
+    end):next(function()
+      return self
     end)
   end
 
@@ -243,17 +249,21 @@ return class.create(function(httpClient)
       response.consume = function()
         return promise
       end
-      local callback = self.callback
-      self.callback = cb
-      handleRedirect(self.client, self.options, self.request, response):next(Promise.callbackToNext(callback))
+      self.endStreamCallback = cb
+      local p = handleRedirect(self.client, self.options, self.request, response)
+      local endHeadersCallback = self.endHeadersCallback
+      if endHeadersCallback then
+        self.endHeadersCallback = nil
+        p:next(Promise.callbackToNext(endHeadersCallback))
+      end
     end
 
     function stream:onEndStream()
-      logger:finer('stream:onEndStream() %s', self.id)
-      local callback = self.callback
-      self.callback = nil
-      if callback then
-        callback()
+      super.onEndStream(self)
+      local endStreamCallback = self.endStreamCallback
+      if endStreamCallback then
+        self.endStreamCallback = nil
+        endStreamCallback()
       end
     end
 
@@ -263,11 +273,11 @@ return class.create(function(httpClient)
       local stream = Stream:new(http2, http2:nextStreamId(), response)
       http2:registerStream(stream)
       local promise, cb = Promise.createWithCallback()
-      stream.callback = cb -- callback for the response promise
+      stream.endHeadersCallback = cb
       stream.client = client
       stream.options = options
       stream.request = request
-      stream:sendHeaders(request):next(function()
+      stream:sendHeaders(request, true):next(function()
         logger:finer('fetch write headers done')
         stream:sendBody(request)
       end)
@@ -307,7 +317,6 @@ return class.create(function(httpClient)
     if options.body then
       request:setBody(options.body)
     end
-    request:applyBodyLength()
     local url = Url.fromString(request:getTarget())
     local hostPort
     if url then
@@ -323,6 +332,8 @@ return class.create(function(httpClient)
         return Stream.sendRequest(self.http2, self, options, request, response)
       end
       logger:fine('fetch is using HTTP/1')
+      -- TODO queue requests
+      request:applyBodyLength()
       -- keep alive the connection by default
       if not request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) then
         local connection
@@ -333,7 +344,14 @@ return class.create(function(httpClient)
         end
         request:setHeader(HttpMessage.CONST.HEADER_CONNECTION, connection)
       end
-      return Http1.writeHeaders(self.tcpClient, request):next(function()
+      local queuePromise = self.queuePromise or Promise.resolve()
+      local cb
+      self.queuePromise, cb = Promise.createWithCallback()
+      return queuePromise:next(function()
+        return self:connectV2() -- we stick to HTTP/1
+      end):next(function()
+        return Http1.writeHeaders(self.tcpClient, request)
+      end):next(function()
         logger:finer('fetch write headers done')
         return Http1.writeBody(self.tcpClient, request)
       end):next(function()
@@ -363,11 +381,12 @@ return class.create(function(httpClient)
                 self.remnant = remnant
               end)
             end
-            if connectionClose then
-              promise:finally(function()
+            promise:finally(function()
+              if connectionClose then
                 self:closeClient(false)
-              end)
-            end
+              end
+              cb()
+            end)
           end
           return promise
         end
