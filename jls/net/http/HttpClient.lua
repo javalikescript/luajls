@@ -73,7 +73,7 @@ return class.create(function(httpClient)
 
   --- Creates a new HTTP client.
   -- @function HttpClient:new
-  -- @tparam table options A table describing the client options.
+  -- @tparam table options A table describing the client options or the URL.
   -- @tparam string options.url The request URL.
   -- @tparam[opt] string options.host The request hostname.
   -- @tparam[opt] number options.port The request port number.
@@ -130,35 +130,6 @@ return class.create(function(httpClient)
 
   function httpClient:getTcpClient()
     return self.tcpClient
-  end
-
-  function httpClient:closeClient(callback)
-    local tcpClient = self.tcpClient
-    if tcpClient then
-      self.tcpClient = nil
-      return tcpClient:close(callback)
-    end
-    if callback then
-      callback()
-    elseif callback == nil then
-      return Promise.resolve()
-    end
-  end
-
-  --- Closes this HTTP client.
-  -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
-  function httpClient:close(callback)
-    local http2 = self.http2
-    if http2 then
-      self.http2 = nil
-      http2:close()
-    end
-    self:closeRequest() -- deprecated
-    return self:closeClient(callback)
-  end
-
-  function httpClient:isClosed()
-    return self.tcpClient == nil
   end
 
   function httpClient:connectV2()
@@ -286,14 +257,15 @@ return class.create(function(httpClient)
 
   end)
 
-  --- Sends an HTTP request and receives the response.
+  --- Sends an HTTP request and receives a response.
+  -- The response body must be consumed using its text(), json() or consume() method.
   -- @tparam string resource The request target path.
-  -- @tparam table options A table describing the request options.
+  -- @tparam[opt] table options A table describing the request options.
   -- @tparam[opt] string options.method The HTTP method, default is GET.
   -- @tparam[opt] table options.headers The HTTP request headers.
   -- @tparam[opt] string options.body The HTTP request body, default is empty body.
   -- @tparam[opt] string options.redirect How to handle a redirect: follow, error or manual.
-  -- @return a promise that resolves to the HTTP response
+  -- @return a promise that resolves to the HTTP @{jls.net.http.HttpMessage|response}
   function httpClient:fetch(resource, options)
     if type(options) ~= 'table' then
       options = {}
@@ -393,6 +365,36 @@ return class.create(function(httpClient)
         return handleRedirect(self, options, request, response)
       end)
     end)
+  end
+
+  function httpClient:closeClient(callback)
+    local tcpClient = self.tcpClient
+    if tcpClient then
+      self.tcpClient = nil
+      return tcpClient:close(callback)
+    end
+    if callback then
+      callback()
+    elseif callback == nil then
+      return Promise.resolve()
+    end
+  end
+
+  function httpClient:isClosed()
+    return self.tcpClient == nil
+  end
+
+  --- Closes this HTTP client.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
+  -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
+  function httpClient:close(callback)
+    local http2 = self.http2
+    if http2 then
+      self.http2 = nil
+      http2:close()
+    end
+    self:closeRequest() -- deprecated
+    return self:closeClient(callback)
   end
 
 
@@ -570,11 +572,6 @@ return class.create(function(httpClient)
     end)
   end
 
-  --- Sends the request then receives the response.
-  -- This client is connected if necessary.
-  --
-  -- **Note:** This method is deprecated, please consider using the fetch one.
-  -- @treturn jls.lang.Promise a promise that resolves to the @{HttpMessage} received.
   function httpClient:sendReceive()
     logger:finer('httpClient:sendReceive()')
     return self:connect():next(function()

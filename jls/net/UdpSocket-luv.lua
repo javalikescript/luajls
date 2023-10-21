@@ -141,7 +141,7 @@ return require('jls.lang.class').create(function(udpSocket)
   -- @tparam string data the datagram packet as a string.
   -- @tparam string addr the IP address.
   -- @tparam number port the port number.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been sent.
   -- @usage
   --local s = UdpSocket:new()
@@ -160,7 +160,7 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   --- Closes this socket.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once this socket is closed.
   function udpSocket:close(callback)
     logger:finer('udpSocket:close()')
@@ -168,7 +168,7 @@ return require('jls.lang.class').create(function(udpSocket)
     if self.nds then
       self.nds:close(cb)
       self.nds = nil
-    else
+    elseif cb then
       cb()
     end
     return d

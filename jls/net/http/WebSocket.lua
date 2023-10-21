@@ -315,7 +315,7 @@ return class.create(function(webSocket)
 
   --- Sends a message on this WebSocket.
   -- @tparam string message the message to send.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   function webSocket:sendTextMessage(message, callback)
     logger:finer('webSocket:sendTextMessage("%s")', message)
@@ -495,7 +495,7 @@ return class.create(function(webSocket)
   end
 
   --- Closes this WebSocket.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is closed.
   function webSocket:close(callback)
     if self.tcp then

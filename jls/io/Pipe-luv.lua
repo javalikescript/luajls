@@ -123,7 +123,7 @@ return class.create(function(pipe, _, Pipe)
 
   --- Writes data on this pipe.
   -- @tparam string data the data to write.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   function pipe:write(data, callback)
     return write(self.fd, data, callback)
@@ -138,7 +138,7 @@ return class.create(function(pipe, _, Pipe)
   end
 
   --- Closes this pipe.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe is closed.
   function pipe:close(callback)
     local stream = self.fd

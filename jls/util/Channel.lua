@@ -106,7 +106,7 @@ return class.create(function(channel, _, Channel)
   end
 
   --- Closes this channel.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the channel is closed.
   function channel:close(callback)
     if logger:isLoggable(logger.FINEST) then
@@ -116,7 +116,9 @@ return class.create(function(channel, _, Channel)
     if self.stream then
       p = self.stream:close(callback)
       self.stream = nil
-    else
+    elseif callback then
+      callback('The channel is not open')
+    elseif callback == nil then
       p = Promise.reject('The channel is not open')
     end
     local closeCallback = self.closeCallback

@@ -100,7 +100,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   --- Closes this TCP socket.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the socket is closed.
   function tcpSocket:close(callback)
     if logger:isLoggable(logger.FINER) then
@@ -130,7 +130,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   --- Connects this client to the specified address and port number.
   -- @tparam string addr the address, the address could be an IP address or a host name.
   -- @tparam number port the port number.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the client is connected.
   -- @usage
   --local s = TcpSocket:new()
@@ -184,7 +184,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
 
   --- Writes data on this client.
   -- @tparam string data the data to write, could be a table of string.
-  -- @tparam function callback an optional callback function to use in place of promise.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   -- @usage
   --local s = TcpSocket:new()
