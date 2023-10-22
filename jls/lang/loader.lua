@@ -14,9 +14,7 @@ local function tryRequire(name)
   if status then
     return mod
   end
-  if logger:isLoggable(logger.FINEST) then
-    logger:finest('tryRequire() fails to load module "'..name..'" due to "'..mod..'"')
-  end
+  logger:finest('tryRequire() fails to load module "%s" due to "%s"', name, mod)
   return nil
 end
 
@@ -56,9 +54,7 @@ local function singleRequirer(name)
   return function()
     if module == NOT_LOADED then
       module = tryRequire(name)
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('singleRequirer() fails to load module "'..name..'"')
-      end
+      logger:finest('singleRequirer() fails to load module "%s"', name)
     end
     return module
   end
@@ -127,22 +123,22 @@ if jlsRequires and jlsRequires ~= '' then
   end
   package.loaded[reentrancyKey] = true
   if isDebugLoggable then
-    logger:finest('loads modules from JLS_REQUIRES: "'..jlsRequires..'"')
+    logger:finest('loads modules from JLS_REQUIRES: "%s"', jlsRequires)
   end
   for name in string.gmatch(jlsRequires, '[^,%s]+') do
     local nname = string.match(name, '!(.+)$')
     if nname then
       jlsObviates[nname] = true
       if isDebugLoggable then
-        logger:finest('obviated module "'..nname..'"')
+        logger:finest('obviated module "%s"', nname)
       end
     else
       if isDebugLoggable then
-        logger:finest('preload required module "'..name..'"')
+        logger:finest('preload required module "%s"', name)
       end
       local mod = tryRequire(name)
       if not mod then
-        logger:warn('Fail to load required module "'..name..'"')
+        logger:warn('Fail to load required module "%s"', name)
       end
     end
   end
@@ -185,9 +181,7 @@ local function requireOne(...)
   for _, name in ipairs(args) do
     local mod = package.loaded[name]
     if mod then
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('requireOne() found loaded module "'..name..'"')
-      end
+      logger:finest('requireOne() found loaded module "%s"', name)
       return mod
     end
   end
@@ -198,9 +192,7 @@ local function requireOne(...)
     if sname and package.loaded[sname] then
       local mod = tryRequire(name)
       if mod then
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('requireOne() loads module "'..name..'" because "'..sname..'" is already loaded')
-        end
+        logger:finest('requireOne() loads module "%s" because "%s" is already loaded', name, sname)
         return mod
       end
     else
@@ -211,9 +203,7 @@ local function requireOne(...)
   for _, name in ipairs(names) do
     local mod = tryRequire(name)
     if mod then
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('requireOne() loads module "'..name..'"')
-      end
+      logger:finest('requireOne() loads module "%s"', name)
       return mod
     end
   end
@@ -265,9 +255,7 @@ end
 -- @tparam string name the name of the module to unload
 -- @function unload
 local function unload(name)
-  if logger:isLoggable(logger.FINEST) then
-    logger:finest('unload("'..name..'")')
-  end
+  logger:finest('unload("%s")', name)
   package.loaded[name] = nil
 end
 

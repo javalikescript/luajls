@@ -32,7 +32,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
   end
 
   function filter:onAuthorizationFailed(exchange, user)
-    logger:warn('basicAuthentication() user "'..user..'" from '..exchange:clientAsString()..' is not authorized')
+    logger:warn('basicAuthentication() user "%s" from %s is not authorized', user, exchange:clientAsString())
   end
 
   function filter:doFilter(exchange)
@@ -44,9 +44,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
       response:setStatusCode(HTTP_CONST.HTTP_UNAUTHORIZED, 'Unauthorized')
       return false
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('basicAuthentication() authorization: "'..authorization..'"')
-    end
+    logger:finest('basicAuthentication() authorization: "%s"', authorization)
     if string.find(authorization, 'Basic ') == 1 then
       authorization = base64.decode(string.sub(authorization, 7))
       if authorization then
@@ -62,7 +60,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
         end
       end
     end
-    logger:warn('Bad authentication request from '..exchange:clientAsString())
+    logger:warn('Bad authentication request from %s', exchange:clientAsString())
     response:setStatusCode(HTTP_CONST.HTTP_BAD_REQUEST, 'Bad request')
     return false
   end

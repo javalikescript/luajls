@@ -328,9 +328,7 @@ end, function(WebView)
 
   function WebView._threadWebSocketFunction(webview, wsUrl)
     local WebSocket = require('jls.net.http.WebSocket')
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('opening WebSocket "'..wsUrl..'"')
-    end
+    logger:fine('opening WebSocket "%s"', wsUrl)
     local webSocket = WebSocket:new(wsUrl)
     webSocket:open():next(function()
       logger:fine('WebSocket opened, callback available')
@@ -373,13 +371,9 @@ end, function(WebView)
             wsCb(nil, webSocket)
           end
         }))
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('WebSocket context "'..wsPath..'" created')
-        end
+        logger:fine('WebSocket context "%s" created', wsPath)
       end
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('opening WebView url "'..url..'"')
-      end
+      logger:fine('opening WebView url "%s"', url)
       return openInThread(url, options)
     end):next(function(webview)
       webview._httpServer = httpServer

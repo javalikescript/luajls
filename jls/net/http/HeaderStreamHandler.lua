@@ -46,9 +46,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
     local l = string.len(line)
     self.size = self.size + l
     if l >= self.maxLineLength then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('headerStreamHandler:onData() too long header is "'..line..'"')
-      end
+      logger:fine('headerStreamHandler:onData() too long header is "%s"', line)
       self:onError('Too long header line '..tostring(l)..' (max is '..tostring(self.maxLineLength)..')', 413)
     elseif self.size >= self.maxSize then
       self:onError('Too much headers '..tostring(self.size)..' (max is '..tostring(self.maxSize)..')', 413)

@@ -195,7 +195,7 @@ function gzip.decompressStream(sh, onHeader)
           footer = string.sub(buffer, bufferSize - 7)
           buffer = string.sub(buffer, 1, bufferSize - 8)
           if logger:isLoggable(logger.FINER) then
-            logger:finer('footer'..require('jls.util.hex').encode(footer))
+            logger:finer('footer %s', require('jls.util.hex').encode(footer))
           end
         end
         inflated = inflater:inflate(buffer)

@@ -84,9 +84,7 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
     local request = exchange:getRequest()
     -- "0", "1", or "infinity" optionally suffixed ",noroot"
     local depth = request:getHeader('depth') or 'infinity'
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('-- webdav depth: '..tostring(depth)..' --------')
-    end
+    logger:fine('-- webdav depth: %s --------', depth)
     local response = exchange:getResponse()
     local baseHref = string.gsub(request:getTargetPath()..'/', '//+', '/')
     --local host = request:getHeader(HTTP_CONST.HEADER_HOST)
@@ -157,21 +155,15 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
     elseif method == 'COPY' or method == 'MOVE' then
       local destination = request:getHeader('destination') or ''
       local overwrite = request:getHeader('overwrite') ~= 'F'
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('destination: "'..tostring(destination)..'", overwrite: '..tostring(overwrite))
-      end
+      logger:fine('destination: "%s", overwrite: %s', destination, overwrite)
       if string.find(destination, '://') then
         destination = Url:new(destination):getPath()
       end
       destination = Url.decodePercent(destination)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('destination: '..tostring(destination))
-      end
+      logger:fine('destination: %s', destination)
       local destPath = exchange:getContext():getArguments(destination)
       if destPath then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('destPath: '..tostring(destPath))
-        end
+        logger:fine('destPath: %s', destPath)
         local destFile = self:findFile(exchange, destPath)
         if self.fs.getFileMetadata(exchange, destFile) and not overwrite then
           HttpExchange.response(exchange, HTTP_CONST.HTTP_PRECONDITION_FAILED, 'Already exists')
@@ -195,7 +187,7 @@ return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', 
       super.handleFile(self, exchange, file, false)
     end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('webdav => '..tostring(exchange:getResponse():getStatusCode()))
+      logger:fine('webdav => %s', exchange:getResponse():getStatusCode())
     end
   end
 

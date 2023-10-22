@@ -184,7 +184,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     self.allowDelete = not not string.match(permissions, '[wd]')
     self.allowDeleteRecursive = not not string.match(permissions, '[RD]')
     if logger:isLoggable(logger.FINER) then
-      logger:finer('fileHttpHandler permissions is "'..permissions..'"')
+      logger:finer('fileHttpHandler permissions is "%s"', permissions)
       for k, v in pairs(self) do
         logger:finest('  %s: "%s"', k, v)
       end

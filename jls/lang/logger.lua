@@ -338,7 +338,7 @@ if jlsLoggerLevel then
   local l = levelFromString(jlsLoggerLevel)
   if l then
     logger:setLevel(l)
-    logger:info('set log level to '..levelToString(l)..' based on the JLS_LOGGER_LEVEL environment variable')
+    logger:info('set log level to %s based on the JLS_LOGGER_LEVEL environment variable', levelToString(l))
   end
 end
 

@@ -28,9 +28,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
     local method = exchange:getRequestMethod()
     local path = exchange:getRequestPath()
     local tp = self.path..string.gsub(path, '/$', '')
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('httpHandler.table(), method: "'..method..'", path: "'..tp..'"')
-    end
+    logger:fine('httpHandler.table(), method: "%s", path: "%s"', method, tp)
     if method == HTTP_CONST.METHOD_GET then
       local value = tables.getPath(self.table, tp)
       HttpExchange.ok(exchange, json.encode({
@@ -45,7 +43,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(tab
       request:bufferBody()
       return request:consume():next(function()
         if logger:isLoggable(logger.FINEST) then
-          logger:finest('httpHandler.table(), request body: "'..request:getBody()..'"')
+          logger:finest('httpHandler.table(), request body: "%s"', request:getBody())
         end
         if request:getBodyLength() > 0 then
           local rt = json.decode(request:getBody())

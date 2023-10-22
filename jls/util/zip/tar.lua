@@ -147,7 +147,7 @@ local function extractStreamTo(directory, decompress)
       end
     end
     if logger:isLoggable(logger.FINE) then
-      logger:fine('Extracting "'..header.name..'" into "'..entryFile:getPath()..'"')
+      logger:fine('Extracting "%s" into "%s"', header.name, entryFile:getPath())
     end
     return FileStreamHandler:new(entryFile, false, function(fw)
       if header.mtime and header.mtime > 0 then

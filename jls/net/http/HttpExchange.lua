@@ -177,7 +177,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
 
   function httpExchange:handleRequest(context)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('httpExchange:handleRequest() "'..self.request:getTarget()..'"')
+      logger:finer('httpExchange:handleRequest() "%s"', self.request:getTarget())
     end
     self.context = context
     local status, result = Exception.pcall(context.handleExchange, context, self)

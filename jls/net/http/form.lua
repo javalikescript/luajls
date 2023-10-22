@@ -50,23 +50,19 @@ end
 
 function form.parseFormData(request, boundary)
   if logger:isLoggable(logger.FINE) then
-    logger:fine('boundary is "'..boundary..'"')
+    logger:fine('boundary is "%s"', boundary)
   end
   local body = request:getBody()
   if logger:isLoggable(logger.FINEST) then
-    logger:finest('body is "'..tostring(body)..'"')
+    logger:finest('body is "%s"', body)
   end
   local messages = {}
   local contents = strings.split(body, '--'..boundary, true)
   if contents[#contents] == '--\r\n' then
     table.remove(contents)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('contents count is '..tostring(#contents))
-    end
+    logger:fine('contents count is %s', #contents)
     for _, content in ipairs(contents) do
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('processing content "'..tostring(content)..'"')
-      end
+      logger:finest('processing content "%s"', content)
       local message = HttpMessage:new()
       local index = string.find(content, '\r\n\r\n', 1, true)
       if index then
@@ -78,9 +74,7 @@ function form.parseFormData(request, boundary)
         end
         message:setBody(rawContent)
         table.insert(messages, message)
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('content body "'..tostring(rawContent)..'"')
-        end
+        logger:finest('content body "%s"', rawContent)
       end
     end
   end
@@ -90,9 +84,7 @@ end
 function form.parseFormUrlEncoded(request)
   -- name=test&password=test
   local body = request:getBody()
-  if logger:isLoggable(logger.FINEST) then
-    logger:finest('body is "'..tostring(body)..'"')
-  end
+  logger:finest('body is "%s"', body)
   local map = {}
   for _, keyValue in ipairs(strings.split(body, '&', true)) do
     local key, value = string.match(keyValue, '([^=]+)=(.+)')
