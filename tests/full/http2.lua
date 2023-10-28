@@ -1,11 +1,12 @@
 local lu = require('luaunit')
 
-local secure = require('jls.net.secure')
 local logger = require('jls.lang.logger')
-local TcpSocket = secure.TcpSocket
+local loader = require('jls.lang.loader')
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local system = require('jls.lang.system')
 local loop = require('jls.lang.loopWithTimeout')
+local secure = require('jls.net.secure')
+local TcpSocket = secure.TcpSocket
 local Http2 = require('jls.net.http.Http2')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -14,7 +15,7 @@ local HttpExchange = require('jls.net.http.HttpExchange')
 local List = require('jls.util.List')
 local Codec = require('jls.util.Codec')
 local hex = Codec.getInstance('hex')
-local genCertificateAndPKey = require('tests.genCertificateAndPKey')
+local genCertificateAndPKey = loader.load('tests.genCertificateAndPKey')
 
 --logger = logger:getClass():new(); logger:setLevel('finer')
 --logger:setLevel('finer')

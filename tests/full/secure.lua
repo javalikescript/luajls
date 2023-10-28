@@ -1,12 +1,13 @@
 local lu = require('luaunit')
 
+local loader = require('jls.lang.loader')
 local secure = require('jls.net.secure')
 local TcpSocket = secure.TcpSocket
 local StreamHandler = require('jls.io.StreamHandler')
 
 local loop = require('jls.lang.loopWithTimeout')
 
-local genCertificateAndPKey = require('tests.genCertificateAndPKey')
+local genCertificateAndPKey = loader.load('tests.genCertificateAndPKey')
 local CACERT_PEM, PKEY_PEM = genCertificateAndPKey()
 
 local TEST_HOST, TEST_PORT = '127.0.0.1', 3002

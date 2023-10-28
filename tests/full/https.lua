@@ -19,7 +19,7 @@ local logger = require('jls.lang.logger')
 
 local opensslLib = require('openssl')
 
-local genCertificateAndPKey = require('tests.genCertificateAndPKey')
+local genCertificateAndPKey = loader.load('tests.genCertificateAndPKey')
 local CACERT_PEM, PKEY_PEM = genCertificateAndPKey()
 
 local TEST_PORT = 3002

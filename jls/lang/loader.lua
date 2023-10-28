@@ -65,8 +65,8 @@ end
 -- @treturn funtion the function returned by the providerFn parameter.
 -- @function lazyFunction
 local function lazyFunction(providerFn, ...)
-  local names = {...}
-  local fn
+  local fn, names
+  names = {...}
   return function(...)
     if not fn then
       fn = providerFn(requireList(names, true))
@@ -88,8 +88,8 @@ local function lazyMethod(m, key, providerFn, ...)
   if type(m) ~= 'table' or type(key) ~= 'string' or type(providerFn) ~= 'function' then
     error('invalid arguments')
   end
-  local names = {...}
-  local fn
+  local fn, names
+  names = {...}
   m[key] = function(...)
     if not fn then
       fn = providerFn(requireList(names))
@@ -147,8 +147,6 @@ if jlsRequires and jlsRequires ~= '' then
   end
   package.loaded[reentrancyKey] = nil
   jlsRequires = nil
-  reentrancyKey = nil
-  isDebugLoggable = nil
 end
 
 --[[--

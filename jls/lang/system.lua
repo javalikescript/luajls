@@ -68,13 +68,16 @@ end
 -- @treturn table The arguments.
 function system.getArguments()
   if not system.arguments then
+    local luvitProcess = _ENV.process
     local shiftArguments = require('jls.lang.shiftArguments')
     if win32Lib then
       system.arguments = shiftArguments({win32Lib.GetCommandLineArguments()})
-    elseif not arg and process and type(process.argv) == 'table' then
-      system.arguments = shiftArguments(process.argv, 1)
+    elseif arg then -- arg is nil in a thread
+      system.arguments = arg
+    elseif luvitProcess and type(luvitProcess.argv) == 'table' then
+      system.arguments = shiftArguments(luvitProcess.argv, 1)
     else
-      system.arguments = arg or {} -- arg is nil in a thread
+      system.arguments = {}
     end
   end
   return system.arguments

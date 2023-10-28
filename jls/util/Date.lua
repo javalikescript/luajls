@@ -4,7 +4,9 @@
 
 local system = require('jls.lang.system')
 local LocalDateTime = require('jls.util.LocalDateTime')
-local logger = require('jls.lang.logger')
+
+---@diagnostic disable: missing-fields
+---@diagnostic disable: inject-field
 
 
 local function computeTimezoneOffset(localField, gmField)
@@ -174,13 +176,8 @@ return require('jls.lang.class').create(function(date)
   -- @treturn number the number of milliseconds since epoch
   function date:getTime()
     if not self.time then
-      -- if logger:isLoggable(logger.FINEST) then
-      --   --local status, err = pcall(function() os.time(self.field) end)
-      --   logger:finest('date:getTime() field')
-      --   logger:finest(self.field)
-      -- end
       -- os.time() may fail for date that cannot be represented
-      --local sec, err = pcall(os.time, self.field)
+      ---@diagnostic disable-next-line: param-type-mismatch
       self.time = os.time(self.field) * 1000 + self.field.ms
     end
     return self.time
