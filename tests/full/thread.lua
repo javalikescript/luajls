@@ -117,9 +117,9 @@ function Test_preload()
     }
   end
   local result = nil
-  Thread:new(function(name)
+  local t = Thread:new(function(name)
     return require(name).value
-  end):start(moduleName):ended():next(function(res)
+  end):setTransferPreload(true):start(moduleName):ended():next(function(res)
     result = res
   end, onThreadError)
   lu.assertNil(result)

@@ -56,6 +56,7 @@ return class.create(function(thread)
 
   function thread:setTransferPreload(value)
     self.preloads = value == true
+    return self
   end
 
   function thread:_arg(...)
