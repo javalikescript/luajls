@@ -39,7 +39,6 @@ return class.create(function(thread)
   -- @function Thread:new
   function thread:initialize(fn)
     self:setFunction(fn)
-    self.preloads = true
   end
 
   -- Sets this Thread function.
