@@ -261,7 +261,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:applyBodyLength()
-    if not self:getContentLength() then
+    -- If there no length and using body string
+    if not self:getContentLength() and self.writeBodyCallback == httpMessage.writeBodyCallback then
       -- We may check the connection header
       self:setContentLength(self:getBodyLength())
     end
@@ -291,6 +292,13 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     local cb, pr = Promise.ensureCallback(callback)
     self.writeBodyCallback = cb
     return pr
+  end
+
+  function httpMessage:isBodyEmpty()
+    if self.writeBodyCallback == httpMessage.writeBodyCallback then
+      return self:getBodyLength() == 0
+    end
+    return false -- don't know
   end
 
   function httpMessage:writeBodyCallback(blockSize)

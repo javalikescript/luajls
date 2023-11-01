@@ -622,17 +622,15 @@ return class.create(function(hpack)
   end
 
   function hpack:indexHeader(name, value)
-    if self.indexMaxSize == 0 then
-      logger:fine('cannot add header %s %d/%d', name, self.indexSize, self.indexMaxSize)
-      return false
-    end
-    local size = #name + #value + 32
-    while self.indexSize + size > self.indexMaxSize and self:evictIndex() do end
-    if self.indexSize + size <= self.indexMaxSize then
-      self.indexSize = self.indexSize + size
-      table.insert(self.indexes, 1, packHeader(name, value))
-      logger:finer('indexHeader("%s")', name)
-      return true
+    if self.indexMaxSize > 0 then
+      local size = #name + #value + 32
+      while self.indexSize + size > self.indexMaxSize and self:evictIndex() do end
+      if self.indexSize + size <= self.indexMaxSize then
+        self.indexSize = self.indexSize + size
+        table.insert(self.indexes, 1, packHeader(name, value))
+        logger:finer('indexHeader("%s")', name)
+        return true
+      end
     end
     logger:fine('cannot add header "%s" %d/%d', name, self.indexSize, self.indexMaxSize)
     return false

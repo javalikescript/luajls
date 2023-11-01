@@ -162,7 +162,12 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onError(reason)
-    logger:warn('h2 stream %s in error due to %s', stream.id, reason)
+    logger:warn('h2 stream %s in error due to %s', self.id, reason)
+    local sendCallback = self.sendCallback
+    if sendCallback then
+      self.sendCallback = nil
+      sendCallback(reason)
+    end
   end
 
   function stream:onClose()
@@ -182,10 +187,11 @@ local Stream = class.create(function(stream)
     if endHeaders and self.state == STATE.IDLE then
       self.state = STATE.OPEN
     end
+    local p = self.http2:sendHeaders(self.id, message, endHeaders, endStream)
     if endStream then
       self:doEndStream()
     end
-    return self.http2:sendHeaders(self.id, message, endHeaders, endStream)
+    return p
   end
 
   function stream:onHeaders(endHeaders, endStream)
@@ -207,7 +213,7 @@ local Stream = class.create(function(stream)
     local size = #data
     self.recvWindowSize = self.recvWindowSize - size
     -- TODO send window update
-    if size < self.recvMinSize and not endStream then
+    if self.recvWindowSize < self.recvMinSize and not endStream then
       self:sendWindowUpdate(self.http2.initialWindowSize - self.recvWindowSize)
     end
     if size > 0 then
@@ -249,10 +255,11 @@ local Stream = class.create(function(stream)
         return self:waitWindowUpdate(data, endStream)
       end
       self.sendWindowSize = self.sendWindowSize - size
+      local p = self.http2:sendData(self.id, data, endStream)
       if endStream then
         self:doEndStream()
       end
-      return self.http2:sendData(self.id, data, endStream)
+      return p
     end
     local p = Promise.resolve()
     for value, ends in strings.parts(data, self.blockSize) do
@@ -448,17 +455,17 @@ return class.create(function(http2)
         if frameType == FRAME.DATA then
           offset, endOffset = readPadding(flags, data, offset)
           stream = self.streams[streamId]
-          if not stream then
-            self:onError(string.format('unknown stream id %d', streamId))
-            return
-          end
-          if offset < endOffset then
-            self.recvWindowSize = self.recvWindowSize - (endOffset - offset + 1)
-            if self.recvWindowSize < self.recvMinSize then
-              self:sendWindowUpdate(self.recvTargetSize - self.recvWindowSize)
+          if stream then
+            if offset < endOffset then
+              self.recvWindowSize = self.recvWindowSize - (endOffset - offset + 1)
+              if self.recvWindowSize < self.recvMinSize then
+                self:sendWindowUpdate(self.recvTargetSize - self.recvWindowSize)
+              end
             end
+            stream:onRawData(string.sub(data, offset, endOffset), flags & END_STREAM_FLAG ~= 0)
+          else
+            self:onError(string.format('unknown stream id %d', streamId))
           end
-          stream:onRawData(string.sub(data, offset, endOffset), flags & END_STREAM_FLAG ~= 0)
         elseif frameType == FRAME.HEADERS then
           if streamId == 0 then
             self:onError('invalid frame')
@@ -509,16 +516,14 @@ return class.create(function(http2)
           value = value & 0x7fffffff
           if streamId == 0 then
             self.sendWindowSize = self.sendWindowSize + value
-            if logger:isLoggable(logger.FINE) then
-              logger:fine('window size increment: %d, new size is %d', value, self.sendWindowSize)
-            end
+            logger:fine('window size increment: %d, new size is %d', value, self.sendWindowSize)
           else
             stream = self.streams[streamId]
-            if not stream then
+            if stream then
+              stream:onWindowUpdate(value)
+            else
               self:onError(string.format('unknown stream id %d', streamId))
-              return
             end
-            stream:onWindowUpdate(value)
           end
         elseif frameType == FRAME.RST_STREAM then
           if streamId == 0 or frameLen ~= 4 then
@@ -529,6 +534,8 @@ return class.create(function(http2)
           stream = self.streams[streamId]
           if stream then
             stream:onError(errorCode)
+          else
+            self:onError(string.format('unknown stream id %d', streamId))
           end
         elseif frameType == FRAME.PUSH_PROMISE then
           logger:warn('push promise received')
@@ -552,11 +559,11 @@ return class.create(function(http2)
           end
         elseif frameType == FRAME.CONTINUATION then
           stream = self.streams[streamId]
-          if not stream then
+          if stream then
+            self:handleHeaderBlock(stream, flags, data, offset)
+          else
             self:onError(string.format('unknown stream id %d', streamId))
-            return
           end
-          self:handleHeaderBlock(stream, flags, data, offset)
         end
       elseif err then
         client:readStop()

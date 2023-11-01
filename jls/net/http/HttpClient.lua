@@ -238,6 +238,15 @@ return class.create(function(httpClient)
       end
     end
 
+    function stream:onError(reason)
+      super.onError(self, reason)
+      local endHeadersCallback = self.endHeadersCallback
+      if endHeadersCallback then
+        self.endHeadersCallback = nil
+        endHeadersCallback(reason)
+      end
+    end
+
   end, function(Stream)
 
     function Stream.sendRequest(http2, client, options, request, response)
@@ -248,10 +257,14 @@ return class.create(function(httpClient)
       stream.client = client
       stream.options = options
       stream.request = request
-      stream:sendHeaders(request, true):next(function()
-        logger:finer('fetch write headers done')
-        stream:sendBody(request)
-      end)
+      if request:isBodyEmpty() then
+        stream:sendHeaders(request, true, true)
+      else
+        stream:sendHeaders(request, true):next(function()
+          logger:finer('fetch write headers done')
+          stream:sendBody(request)
+        end)
+      end
       return promise
     end
 
@@ -506,7 +519,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:sendRequest()
-    logger:finer('httpClient:sendRequest()')
+    logger:warn('HttpClient sendRequest() is deprecated, please use fetch()')
     self.response = HttpMessage:new()
     self.response:bufferBody()
     -- close the connection by default
