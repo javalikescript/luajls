@@ -2,6 +2,7 @@ local lu = require('luaunit')
 
 local logger = require('jls.lang.logger')
 local loader = require('jls.lang.loader')
+local Promise = require('jls.lang.Promise')
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local system = require('jls.lang.system')
 local loop = require('jls.lang.loopWithTimeout')
@@ -142,10 +143,34 @@ local function notFoundHandler(exchange)
   response:setBody('The resource "'..exchange:getRequest():getTarget()..'" is not available.')
 end
 
-local function createHttpServer(handler, isSecure)
-  if not handler then
-    handler = notFoundHandler
+local function helloHandler(exchange)
+  local path = exchange:getRequest():getTargetPath()
+  HttpExchange.ok(exchange, string.format('<p>Hello %s.</p>', path))
+end
+
+local function sum(list)
+  local s = 0
+  for _, d in ipairs(list) do
+    s = s + #d
   end
+  return s
+end
+
+local function createStreamHandler(list)
+  return function(exchange)
+    local response = exchange:getResponse()
+    response:setContentLength(sum(list))
+    response:onWriteBodyStreamHandler(function()
+      local sh = response:getBodyStreamHandler()
+      for _, d in ipairs(list) do
+        sh:onData(d)
+      end
+      sh:onData()
+    end)
+  end
+end
+
+local function createHttpServer(handler, isSecure)
   local server
   if isSecure then
     server = HttpServer.createSecure({
@@ -156,41 +181,24 @@ local function createHttpServer(handler, isSecure)
   else
     server = HttpServer:new()
   end
-  server:createContext('/.*', function(exchange)
-    logger:info('createHttpServer() handler')
-    server.t_request = exchange:getRequest()
-    return handler(exchange)
-  end)
+  server:createContext('/.*', handler or notFoundHandler)
   return server:bind('::', TEST_PORT):next(function()
     return server
   end)
 end
 
-local function assertFetchHttpClientServer(isSecure, resource, options)
-  local body = '<p>Hello.</p>'
-  local responseStatus, responseBody, responseVersion
+local function runHttpClientServer(onConnect, isSecure, handler)
   local server, client
-  createHttpServer(function(exchange)
-    HttpExchange.ok(exchange, body)
-  end, isSecure):next(function(s)
+  createHttpServer(handler or helloHandler, isSecure):next(function(s)
     logger:info('server bound')
     server = s
     client = createHttpClient(isSecure)
     return client:connectV2()
   end):next(function()
-    return client:fetch(resource or '/', options)
-  end):next(function(response)
-    logger:info('response fetched')
-    responseStatus = response:getStatusCode()
-    responseVersion = response:getVersion()
-    return response:text()
-  end):next(function(content)
-    logger:info('response body received')
-    responseBody = content
-    client:close()
-    server:close()
+    return onConnect(client)
   end):catch(function(reason)
     logger:warn('error in test, due to %s', reason:toString())
+  end):finally(function()
     client:close()
     server:close()
   end)
@@ -200,8 +208,23 @@ local function assertFetchHttpClientServer(isSecure, resource, options)
   end) then
     lu.fail('Timeout reached')
   end
+end
+
+local function assertFetchHttpClientServer(isSecure, options)
+  local responseStatus, responseBody, responseVersion
+  runHttpClientServer(function(client)
+    return client:fetch('/', options):next(function(response)
+      logger:info('response fetched')
+      responseStatus = response:getStatusCode()
+      responseVersion = response:getVersion()
+      return response:text()
+    end):next(function(content)
+      logger:info('response body received')
+      responseBody = content
+    end)
+  end, isSecure)
   lu.assertEquals(responseStatus, 200)
-  lu.assertEquals(responseBody, body)
+  lu.assertEquals(responseBody, '<p>Hello /.</p>')
   if isSecure then
     lu.assertEquals(responseVersion, 'HTTP/2')
   end
@@ -212,11 +235,81 @@ function Test_HttpClientServer()
 end
 
 function Test_HttpClientServer_close()
-  assertFetchHttpClientServer(false, '/', { headers = { connection = 'close'} })
+  assertFetchHttpClientServer(false, { headers = { connection = 'close'} })
 end
 
 function Test_HttpClientServer_secure()
   assertFetchHttpClientServer(true)
+end
+
+local function assertFetchsHttpClientServer(isSecure, options)
+  local responses, responseVersion
+  local function doFetch(client, resource, options)
+    return client:fetch(resource, options):next(function(response)
+      if response:getStatusCode() ~= 200 then
+        return Promise.reject('bad status code')
+      end
+      responseVersion = response:getVersion()
+      return response:text()
+    end)
+  end
+  runHttpClientServer(function(client)
+    return Promise.all({
+      doFetch(client, '/1', options),
+      doFetch(client, '/2', options),
+      doFetch(client, '/3', options),
+    }):next(function(results)
+      responses = results
+    end)
+  end, isSecure)
+  lu.assertEquals(responses, {
+    '<p>Hello /1.</p>',
+    '<p>Hello /2.</p>',
+    '<p>Hello /3.</p>',
+  })
+  lu.assertEquals(responseVersion, isSecure and 'HTTP/2' or 'HTTP/1.1')
+end
+
+function Test_HttpClientServer_concurent()
+  assertFetchsHttpClientServer()
+end
+
+function Test_HttpClientServer_concurent_secure()
+  assertFetchsHttpClientServer(true)
+end
+
+local function assertFetchHttpClientServerStream(list, isSecure, options)
+  local responseStatus, responseBody, responseVersion
+  runHttpClientServer(function(client)
+    return client:fetch('/', options):next(function(response)
+      logger:info('response fetched')
+      responseStatus = response:getStatusCode()
+      responseVersion = response:getVersion()
+      return response:text()
+    end):next(function(content)
+      logger:info('response body received')
+      responseBody = content
+    end)
+  end, isSecure, createStreamHandler(list))
+  lu.assertEquals(responseStatus, 200)
+  lu.assertEquals(responseBody, table.concat(list))
+  if isSecure then
+    lu.assertEquals(responseVersion, 'HTTP/2')
+  end
+end
+
+local bodyParts = {
+  '<p>',
+  'Hello',
+  '</p>',
+}
+
+function Test_HttpClientServer_stream()
+  assertFetchHttpClientServerStream(bodyParts)
+end
+
+function Test_HttpClientServer_stream_secure()
+  assertFetchHttpClientServerStream(bodyParts, true)
 end
 
 os.exit(lu.LuaUnit.run())

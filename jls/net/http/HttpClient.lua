@@ -134,7 +134,9 @@ return class.create(function(httpClient)
 
   function httpClient:connectV2()
     logger:finer('httpClient:connectV2()')
-    if self.tcpClient then
+    if self.connecting then
+      return self.connecting
+    elseif self.tcpClient then
       return Promise.resolve(self)
     end
     self.http2 = nil
@@ -146,7 +148,7 @@ return class.create(function(httpClient)
     else
       self.tcpClient = TcpSocket:new()
     end
-    return self.tcpClient:connect(self.host, self.port or 80):next(function()
+    self.connecting = self.tcpClient:connect(self.host, self.port or 80):next(function()
       if self.isSecure and self.tcpClient.sslGetAlpnSelected then
         if self.tcpClient:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
@@ -169,7 +171,10 @@ return class.create(function(httpClient)
       end
     end):next(function()
       return self
+    end):finally(function()
+      self.connecting = nil
     end)
+    return self.connecting
   end
 
   local function handleRedirect(client, options, request, response)

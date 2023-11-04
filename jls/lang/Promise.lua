@@ -191,14 +191,12 @@ end
 
 --- Appends a handler callback to the promise for both fulfillment and rejection,
 -- and returns an equivalent of the original promise.
--- In case of error or returning a rejected promise in the finally callback will reject the returned promise.
+-- In case of error or returning a rejected promise in the finally callback,
+-- the returned promise will be rejected.
 --
 -- @tparam function onFinally A Function called when the Promise is either fulfilled or rejected.
 -- @treturn Promise A new promise.
 function promise:finally(onFinally)
-  -- finally call will usually chain through an equivalent to the original promise
-  -- onFinally shall not receive any argument
-  -- throw (or returning a rejected promise) in the finally callback will reject the returned promise
   return self:next(function(value)
     local result = onFinally()
     if isPromise(result) then
