@@ -68,7 +68,8 @@ end
 -- @treturn table The arguments.
 function system.getArguments()
   if not system.arguments then
-    local luvitProcess = _ENV.process
+    ---@diagnostic disable-next-line: undefined-global
+    local luvitProcess = process
     local shiftArguments = require('jls.lang.shiftArguments')
     if win32Lib then
       system.arguments = shiftArguments({win32Lib.GetCommandLineArguments()})

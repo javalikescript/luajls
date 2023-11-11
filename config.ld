@@ -50,5 +50,6 @@ topics = "doc_topics"
 package = "jls"
 format = "markdown"
 custom_tags = {
+    {'diagnostic', title=''},
     {'experimental', title='Experimental Section'},
 }

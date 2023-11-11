@@ -17,6 +17,7 @@ function Test_parse_generate_51()
   lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 | 2"), ast.toLua51)), "local a=compat.bor(1,2);")
   lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = ~2"), ast.toLua51)), "local a=compat.bnot(2);")
   lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = 1 & (2 ~ 3)"), ast.toLua51)), "local a=compat.band(1,compat.bxor(2,3));")
+  lu.assertEquals(ast.generate(ast.traverse(ast.parse("local a = _ENV.b"), ast.toLua51)), "local a=b;")
 end
 
 function Test_traverse()

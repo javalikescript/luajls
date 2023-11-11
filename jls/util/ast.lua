@@ -99,17 +99,12 @@ function ast.hasLiteral(tree, name)
   return found
 end
 
-local function compatLookup(name, identifier, useRequire)
-  local object
-  if useRequire then
-    object = {
-      type = 'call',
-      callee = {type = 'identifier', name = 'require'},
-      arguments = {{type = 'literal', value = 'jls.util.compat'}},
-    }
-  else
-    object = {type = 'identifier', name = identifier or 'compat'}
+local function compatLookup(name, identifier)
+  local id = identifier or 'compat'
+  if id == '' then
+    return {type = 'identifier', name = name}
   end
+  local object = {type = 'identifier', name = id}
   return {
     type = 'lookup',
     object = object,
@@ -124,7 +119,7 @@ local function applyCompatMap(compatMap, node, level)
     if compat and compat.level <= level then
       return {
         type = 'call',
-        callee = compatLookup(compat.name),
+        callee = compatLookup(compat.name, compat.identifier),
         arguments = {node.left, node.right}
       }
     end
@@ -133,7 +128,7 @@ local function applyCompatMap(compatMap, node, level)
     if compat and compat.level <= level then
       return {
         type = 'call',
-        callee = compatLookup(compat.name),
+        callee = compatLookup(compat.name, compat.identifier),
         arguments = {node.expression}
       }
     end
@@ -142,7 +137,11 @@ local function applyCompatMap(compatMap, node, level)
     if m then
       local compat = m[node.member.value]
       if compat and compat.level <= level then
-        return compatLookup(compat.name)
+        return compatLookup(compat.name, compat.identifier)
+      end
+      compat = m['*']
+      if compat and compat.level <= level then
+        return compatLookup(node.member.value, compat.identifier)
       end
     end
   elseif nodeType == 'call' and node.callee.type == 'identifier' then
@@ -150,7 +149,7 @@ local function applyCompatMap(compatMap, node, level)
     if compat and compat.level <= level then
       return {
         type = 'call',
-        callee = compatLookup(compat.name),
+        callee = compatLookup(compat.name, compat.identifier),
         arguments = node.arguments
       }
     end
@@ -219,6 +218,9 @@ local compatMap51 = {
       charpattern = {level = 2, name = 'notAvailable'},
       codepoint = {level = 2, name = 'ucodepoint'},
       codes = {level = 2, name = 'ucodes'},
+    },
+    _ENV = {
+      ['*'] = {level = 1, identifier = ''},
     },
   },
 }
