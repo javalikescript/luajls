@@ -333,6 +333,10 @@ end
 
 local headerFormat = '>I2I2I2I2I2I2'
 
+--- Decodes a multicast DNS message.
+-- @tparam string data the message as a string.
+-- @tparam[opt] number offset the offset of the message in the data string, default to 1.
+-- @treturn table the decoded message as a table, see the encode function.
 function dns.decodeMessage(data, offset)
   local id, flags, nbQuestions, nbAnswers, nbAuthorities, nbAdditionals
   id, flags, nbQuestions, nbAnswers, nbAuthorities, nbAdditionals, offset = string.unpack(headerFormat, data, offset or 1)
@@ -363,6 +367,19 @@ function dns.decodeMessage(data, offset)
   }
 end
 
+--- Encodes a multicast DNS message.
+--
+-- A question contains the fields: name, type, class, unicastResponse.
+--
+-- A resource record (RR) contains the fields: name, type, class, cacheFlush, ttl, data, value.
+-- @tparam table message the message as a table.
+-- @tparam[opt] table message.flags the flags as a table or an integer.
+-- @tparam[opt] number message.id the message id.
+-- @tparam[opt] table message.questions the questions.
+-- @tparam[opt] table message.answers the RR answers.
+-- @tparam[opt] table message.authorities the RR authorities.
+-- @tparam[opt] table message.additionals the RR additionals.
+-- @treturn string the encoded message as a string.
 function dns.encodeMessage(message)
   local parts = {}
   local flags = message.flags
