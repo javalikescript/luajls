@@ -397,6 +397,7 @@ The function will be called with a corresponding `await` function as first argum
 
 The `await` function waits for the Promise on which its is called then returns its fulfillment value
 or raises an error with the rejection reason if the promise is rejected.
+You could use the traditional `pcall` to handle an eventual await error.
 
 The `await` function can only be called on the `async` function body not in a callback.
 
@@ -420,7 +421,7 @@ require('jls.lang.event'):loop()
 ]]
 function Promise.async(fn, ...)
   local cr = coroutine.create(protectedCall)
-  local function await(p)
+  local function await(p, mode)
     local q = Promise.resolve(p)
     local status, result
     local state = q._state
@@ -436,6 +437,9 @@ function Promise.async(fn, ...)
     elseif state == ERROR then
       q._result.uncaught = false
       status, result = false, q._result.message
+    end
+    if mode == 'protected' then
+      return status, result
     end
     if status then
       return result
