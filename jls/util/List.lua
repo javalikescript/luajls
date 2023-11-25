@@ -56,6 +56,9 @@ return require('jls.lang.class').create(function(list, _, List)
     return previous, self, #self + 1
   end
 
+  --- Returns the index where the value is found or 0 if not present.
+  -- @param value The element to look for.
+  -- @treturn number the index or 0 if not present.
   function list:indexOf(value)
     for i, v in ipairs(self) do
       if v == value then
