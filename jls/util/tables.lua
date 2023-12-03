@@ -172,6 +172,18 @@ function tables.shallowCopy(t)
   return c
 end
 
+function tables.deepMap(t, fn)
+  local c = {}
+  for k, v in pairs(t) do
+    if type(v) == 'table' then
+      c[k] = tables.deepMap(v, fn)
+    else
+      c[k] = fn(v, t, k)
+    end
+  end
+  return c
+end
+
 function tables.deepCopy(t)
   local c = {}
   for k, v in pairs(t) do
