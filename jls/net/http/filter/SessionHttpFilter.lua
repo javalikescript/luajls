@@ -11,12 +11,14 @@ local HttpSession = require('jls.net.http.HttpSession')
 return class.create('jls.net.http.HttpFilter', function(filter)
 
   --- Creates a basic session @{HttpFilter}.
-  -- This filter add a session id cookie to the response and maintain the exchange session.
+  -- This filter adds a session id cookie to the response and maintain the exchange session.
   -- @tparam[opt] number maxAge the session max age in seconds, default to 12 hours.
+  -- @tparam[opt] number idleTimeout the session idle timeout in seconds, default to maxAge.
   -- @function SessionHttpFilter:new
-  function filter:initialize(maxAge)
+  function filter:initialize(maxAge, idleTimeout)
     self.name = 'jls-session-id'
     self.maxAge = maxAge or 43200 -- 12 hours in seconds
+    self.idleTimeout = idleTimeout or self.maxAge
     self.sessions = {}
     self.options = {
       'max-age='..tostring(self.maxAge),
@@ -45,8 +47,9 @@ return class.create('jls.net.http.HttpFilter', function(filter)
   function filter:cleanup(time)
     time = time or system.currentTimeMillis()
     local creationTime = time - self.maxAge * 1000
+    local lastAccessTime = time - self.idleTimeout * 1000
     for sessionId, session in pairs(self.sessions) do
-      if session:getCreationTime() < creationTime then
+      if session:getCreationTime() < creationTime or session:getLastAccessTime() < lastAccessTime then
         self.sessions[sessionId] = nil
         self:onDestroyed(session)
       end
