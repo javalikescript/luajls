@@ -12,8 +12,8 @@ return class.create('jls.net.http.HttpFilter', function(filter)
 
   --- Creates a basic session @{HttpFilter}.
   -- This filter adds a session id cookie to the response and maintain the exchange session.
-  -- @tparam[opt] number maxAge the session max age in seconds, default to 12 hours.
-  -- @tparam[opt] number idleTimeout the session idle timeout in seconds, default to maxAge.
+  -- @tparam[opt] number maxAge the session max age in seconds, default to 12 hours, 0 to disable.
+  -- @tparam[opt] number idleTimeout the session idle timeout in seconds, default to maxAge, 0 to disable.
   -- @function SessionHttpFilter:new
   function filter:initialize(maxAge, idleTimeout)
     self.name = 'jls-session-id'
@@ -42,14 +42,21 @@ return class.create('jls.net.http.HttpFilter', function(filter)
   function filter:onDestroyed(session)
   end
 
+  local function computeMinTime(time, timeout)
+    if timeout <= 0 then
+      return -1
+    end
+    return time - timeout * 1000
+  end
+
   --- Removes the invalid sessions.
   -- @tparam[opt] number time the reference time to compute the age of the session.
   function filter:cleanup(time)
     time = time or system.currentTimeMillis()
-    local creationTime = time - self.maxAge * 1000
-    local lastAccessTime = time - self.idleTimeout * 1000
+    local minCreationTime = computeMinTime(time, self.maxAge)
+    local minLastAccessTime = computeMinTime(time, self.idleTimeout)
     for sessionId, session in pairs(self.sessions) do
-      if session:getCreationTime() < creationTime or session:getLastAccessTime() < lastAccessTime then
+      if minCreationTime > session:getCreationTime() or minLastAccessTime > session:getLastAccessTime() then
         self.sessions[sessionId] = nil
         self:onDestroyed(session)
       end

@@ -109,6 +109,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     self.headers[normalizeName(name)] = value
   end
 
+  local HEADER_COOKIE = 'cookie'
   local HEADER_SET_COOKIE = 'set-cookie'
 
   function httpHeaders:setCookie(name, value, options)
@@ -116,7 +117,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     local nameEq = name..'='
     if type(list) == 'table' then
       List.removeIf(list, function(v)
-        return string.sub(v, 1, #nameEq) == nameEq
+        return strings.startsWith(v, nameEq)
       end)
     else
       list = {}
@@ -130,7 +131,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
 
   function httpHeaders:getCookies()
     local map = {}
-    local values = self.headers['cookie']
+    local values = self.headers[HEADER_COOKIE]
     if type(values) == 'string' then
       for name, value in string.gmatch(values, '([^=;%s]+)%s*=%s*([^=;%s]+)') do
         map[name] = value
@@ -155,6 +156,8 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
       -- the "Set-Cookie" response header field often appears multiple times in a response message and does not use the list syntax
       if key == HEADER_SET_COOKIE then
         self.headers[key] = {val, tostring(value)}
+      elseif key == HEADER_COOKIE then
+        self.headers[key] = val..'; '..tostring(value)
       else
         self.headers[key] = val..', '..tostring(value)
       end

@@ -19,7 +19,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     super.initialize(self)
     self.id = id or ''
     self.creationTime = creationTime or 0
-    self.lastAccessTime = 0
+    self.lastAccessTime = self.creationTime
   end
 
   --- Returns this session id.

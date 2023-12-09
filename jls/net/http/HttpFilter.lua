@@ -80,8 +80,9 @@ end, function(HttpFilter)
   end
 
   --- Returns a session filter.
-  -- This filter add a session id cookie to the response and maintain the exchange session.
+  -- This filter adds a session id cookie to the response and maintain the exchange session.
   -- @tparam[opt] number maxAge the session max age in seconds, default to 12 hours.
+  -- @tparam[opt] number idleTimeout the session idle timeout in seconds, default to maxAge.
   -- @treturn HttpFilter a HttpFilter.
   function HttpFilter.session(...)
     return require('jls.net.http.filter.SessionHttpFilter'):new(...)

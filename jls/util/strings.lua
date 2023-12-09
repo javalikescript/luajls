@@ -98,6 +98,14 @@ function strings.trim(s) end
 function strings.format(s) end
 ]]
 
+function strings.startsWith(value, prefix)
+  return prefix == '' or string.sub(value, 1, #prefix) == prefix
+end
+
+function strings.endsWith(value, suffix)
+  return suffix == '' or string.sub(value, -#suffix) == suffix
+end
+
 --- Returns true if the specified strings are equals case insensitive or both nil.
 -- @tparam string a the first string.
 -- @tparam string b the second string.

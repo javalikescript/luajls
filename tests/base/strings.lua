@@ -99,4 +99,18 @@ function Test_escape()
   lu.assertEquals(strings.escape('^$()%.[]*+-?'), '%^%$%(%)%%%.%[%]%*%+%-%?')
 end
 
+function Test_startsWith()
+  lu.assertIsTrue(strings.startsWith('abc', 'a'))
+  lu.assertIsTrue(strings.startsWith('abc', 'ab'))
+  lu.assertIsTrue(strings.startsWith('abc', ''))
+  lu.assertIsFalse(strings.startsWith('abc', 'b'))
+end
+
+function Test_endsWith()
+  lu.assertIsTrue(strings.endsWith('abc', 'c'))
+  lu.assertIsTrue(strings.endsWith('abc', 'bc'))
+  lu.assertIsTrue(strings.endsWith('abc', ''))
+  lu.assertIsFalse(strings.endsWith('abc', 'a'))
+end
+
 os.exit(lu.LuaUnit.run())
