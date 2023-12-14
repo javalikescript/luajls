@@ -62,6 +62,11 @@ function Test_spairs()
 end
 
 function Test_pairs()
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
   local m = {a = 1, c = 3, b = 2}
   local keyValues = Map:new(m)
   local n = {}

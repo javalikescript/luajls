@@ -14,20 +14,20 @@ local function assertEncodeInteger(expected, i, prefixLen, prefix)
 end
 
 function Test_decodeInteger()
-  lu.assertEquals(Hpack.decodeInteger('\x00', 3), 0)
-  lu.assertEquals(Hpack.decodeInteger('\x05', 3), 5)
-  lu.assertEquals(Hpack.decodeInteger('\x1f\x45', 3), 100)
-  lu.assertEquals(Hpack.decodeInteger('\x1f\x8d\x02', 3), 300)
+  lu.assertEquals(Hpack.decodeInteger('\0', 3), 0)
+  lu.assertEquals(Hpack.decodeInteger('\5', 3), 5)
+  lu.assertEquals(Hpack.decodeInteger('\31\69', 3), 100)
+  lu.assertEquals(Hpack.decodeInteger('\31\141\2', 3), 300)
 end
 
 function Test_encodeInteger()
-  assertEncodeInteger('\x00', 0)
-  assertEncodeInteger('\x05', 5)
-  assertEncodeInteger('\x1f\x45', 100)
-  assertEncodeInteger('\x1f\x8d\x02', 300)
-  assertEncodeInteger('\x85', 5, 1, 1)
-  assertEncodeInteger('\x25', 5, 3, 1)
-  assertEncodeInteger('\x15', 5, 4, 1)
+  assertEncodeInteger('\0', 0)
+  assertEncodeInteger('\5', 5)
+  assertEncodeInteger('\31\69', 100)
+  assertEncodeInteger('\31\141\2', 300)
+  assertEncodeInteger('\133', 5, 1, 1)
+  assertEncodeInteger('\37', 5, 3, 1)
+  assertEncodeInteger('\21', 5, 4, 1)
 end
 
 local function assertEncodeDecodeString(s)
@@ -36,8 +36,8 @@ end
 
 function Test_encodeString()
   assertEncodeDecodeString(':status')
-  lu.assertEquals(Hpack.encodeString('<<'), '\x02<<')
-  lu.assertEquals(Hpack.encodeString('&*,'), '\x03&*,')
+  lu.assertEquals(Hpack.encodeString('<<'), '\2<<')
+  lu.assertEquals(Hpack.encodeString('&*,'), '\3&*,')
   lu.assertEquals(string.byte(Hpack.encodeString('0/1')), 0x82)
 end
 
@@ -58,8 +58,8 @@ local function assertPackUnpack(name, value)
 end
 
 function Test_pack_unpack()
-  --lu.assertEquals(Hpack.packHeader('n', 'v'), '\x01nv')
-  --lu.assertEquals({Hpack.unpackHeader('\x01nv')}, {'n', 'v'})
+  --lu.assertEquals(Hpack.packHeader('n', 'v'), '\1nv')
+  --lu.assertEquals({Hpack.unpackHeader('\1nv')}, {'n', 'v'})
   assertPackUnpack('a', 'b')
   assertPackUnpack('a', '')
   assertPackUnpack('', 'b')
@@ -68,23 +68,30 @@ function Test_pack_unpack()
 end
 
 function Test_readBits()
-  lu.assertEquals(Hpack.readBits('\xf1\xe3', 7, 0), 0x78)
-  lu.assertEquals(Hpack.readBits('\xf1\xe3', 7, 7), 0x78)
-  lu.assertEquals(Hpack.readBits('\xf1\xe3\xc2\xe5', 7, 14), 0x78)
-  lu.assertEquals(Hpack.readBits('\xf1\xe3\xc2\xe5', 6, 21), 0x17)
-  lu.assertEquals(Hpack.readBits('\xf9\x63\xe7', 8, 14), 0xf9)
+  lu.assertEquals(Hpack.readBits('\241\227', 7, 0), 0x78)
+  lu.assertEquals(Hpack.readBits('\241\227', 7, 7), 0x78)
+  lu.assertEquals(Hpack.readBits('\241\227\194\229', 7, 14), 0x78)
+  lu.assertEquals(Hpack.readBits('\241\227\194\229', 6, 21), 0x17)
+  lu.assertEquals(Hpack.readBits('\249\99\231', 8, 14), 0xf9)
 end
 
 function Test_decodeHuffman()
   lu.assertEquals(Hpack.decodeHuffman(hex:decode('f1e3c2e5f23a6ba0ab90f4ff')), 'www.example.com')
   lu.assertEquals(Hpack.decodeHuffman(hex:decode('a8eb10649cbf')), 'no-cache')
   lu.assertEquals(Hpack.decodeHuffman(hex:decode('f963e7')), '*/*')
+  lu.assertEquals(Hpack.decodeHuffman(hex:decode('ffcffd7ffffff9')), '$#\n')
 end
 
 function Test_encodeHuffman()
   lu.assertEquals(hex:encode(Hpack.encodeHuffman('www.example.com')), 'f1e3c2e5f23a6ba0ab90f4ff')
   lu.assertEquals(hex:encode(Hpack.encodeHuffman('no-cache')), 'a8eb10649cbf')
   lu.assertEquals(hex:encode(Hpack.encodeHuffman('*/*')), 'f963e7')
+  -- 1ff9(13) ffa(12) 3ffffffc(30) = 55
+  -- 11111111|11001 111|11111101|0 1111111|11111111|11111111|1111100 1
+  lu.assertEquals(hex:encode(Hpack.encodeHuffman('$#\n')), 'ffcffd7ffffff9')
+  -- 3ffffffc (30) 3ffffffd (30) = 60
+  -- 11111111|11111111|11111111|111101 11|11111111|11111111|11111111|1100
+  lu.assertEquals(hex:encode(Hpack.encodeHuffman('\13\10')), 'fffffff7ffffffcf')
 end
 
 function Test_huffman()

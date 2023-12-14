@@ -52,7 +52,7 @@ local MAXINT = floor(2 ^ 52)
 
 local function bitoper(oper, a, b)
   -- oper: OR, XOR, AND = 1, 3, 4
-  local r, m = 0, 2 ^ 31
+  local r, m = 0, MAXINT
   repeat
     local s = a + b + m
     a, b = a % m, b % m
@@ -587,7 +587,11 @@ function compat.load(chunk, chunkname, mode, env)
       return c
     end
   end
-  return load(chunk, chunkname)
+  local f, e = load(chunk, chunkname)
+  if f and env and _G.setfenv then
+    setfenv(f, env)
+  end
+  return f, e
 end
 
 -- random is not initialized

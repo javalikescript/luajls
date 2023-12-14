@@ -26,10 +26,11 @@ end
 function tables.parseLoad(value)
   local f, err = load('return '..value, 'parseLoad', 't', {})
   if f then
-    f, err = pcall(f)
-    if f then
-      return err
+    local status, result = pcall(f)
+    if status then
+      return result
     end
+    return nil, result
   end
   return nil, err
 end

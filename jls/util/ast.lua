@@ -211,6 +211,7 @@ local compatMap51 = {
     },
     string = {
       format = {name = 'format', level = 3},
+      -- match does not support patterns with the nul character
       pack = {name = 'spack', level = 2},
       packsize = {name = 'spacksize', level = 2},
       unpack = {name = 'sunpack', level = 2},

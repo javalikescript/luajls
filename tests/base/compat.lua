@@ -25,6 +25,8 @@ function Test_bor()
   lu.assertEquals(compat.bor(1, 1), 1)
   lu.assertEquals(compat.bor(2, 1), 3)
   lu.assertEquals(compat.bor(3, 1), 3)
+  lu.assertEquals(compat.bor(0x40000000, 1), 0x40000001)
+  lu.assertEquals(compat.bor(0x200000000, 1), 0x200000001)
 end
 
 function Test_bxor()
@@ -40,6 +42,8 @@ end
 
 function Test_lshift()
   lu.assertEquals(compat.lshift(1, 1), 2)
+  lu.assertEquals(compat.lshift(1, 30), 0x40000000)
+  lu.assertEquals(compat.lshift(8, 30), 0x200000000)
 end
 
 function Test_rshift()
@@ -51,6 +55,11 @@ function Test_pack()
 end
 
 function Test_itos()
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
   for _, i in ipairs({0, 1, 123456}) do
     lu.assertEquals(compat.itos(i, 4, false), string.pack('<I4', i))
     lu.assertEquals(compat.itos(i, 4, true), string.pack('>I4', i))
@@ -79,13 +88,13 @@ function Test_itos_stoi()
 end
 
 function Test_spack()
-  --print('\n'..hex.encode('\x01\0\x01\0\0\0\x01a\0')..'\n'..hex.encode(compat.spack('>BI2I4c2', 1, 1, 1, 'a')))
-  lu.assertEquals(compat.spack('>BI2I4c2', 1, 1, 1, 'ab'), '\x01\0\x01\0\0\0\x01ab')
+  --print('\n'..hex.encode('\1\0\1\0\0\0\1a\0')..'\n'..hex.encode(compat.spack('>BI2I4c2', 1, 1, 1, 'a')))
+  lu.assertEquals(compat.spack('>BI2I4c2', 1, 1, 1, 'ab'), '\1\0\1\0\0\0\1ab')
 end
 
 function Test_sunpack()
-  --print('sunpack', compat.sunpack('>BI2I4c2', '\x01\0\x01\0\0\0\x01a\0'))
-  lu.assertEquals(compat.pack(compat.sunpack('>BI2I4c2', '\x01\0\x01\0\0\0\x01ab')), {n = 5, 1, 1, 1, 'ab', 10})
+  --print('sunpack', compat.sunpack('>BI2I4c2', '\1\0\1\0\0\0\1a\0'))
+  lu.assertEquals(compat.pack(compat.sunpack('>BI2I4c2', '\1\0\1\0\0\0\1ab')), {n = 5, 1, 1, 1, 'ab', 10})
 end
 
 function Test_uchar()
