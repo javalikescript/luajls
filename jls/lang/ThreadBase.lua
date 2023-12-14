@@ -34,11 +34,11 @@ local CHUNK_MAIN = string.dump(function(path, cpath, preloads, ...)
     local len, loadstr = string.len, loadstring or load -- for 5.1 direct compatibility
     local p, l = 1, len(preloads) - 5
     while p < l do
-      local name, slen = string.match(preloads, '^([^%c]+)\0([1-9]%d*)\0', p)
+      local name, slen = string.match(preloads, '^([^%c]+)\23([1-9]%d*)\23', p)
       if name then
         p = p + len(name) + 1 + len(slen) + 1
         local pp = p + tonumber(slen)
-        if string.byte(preloads, pp) ~= 0 then
+        if string.byte(preloads, pp) ~= 23 then
           break
         end
         local chunk = string.sub(preloads, p, pp)
@@ -106,7 +106,7 @@ return class.create(function(thread)
       end
       if #t > 0 then
         table.insert(t, '')
-        preloads = table.concat(t, '\0')
+        preloads = table.concat(t, '\23')
         logger:fine('preload size is %d', #preloads) -- 530k for jls
       end
     end
