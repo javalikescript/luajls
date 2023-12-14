@@ -68,7 +68,7 @@ function ast.traverse(tree, callback, context)
       container[key] = newNode
       updated = true
       if action == nil then
-        ast.traverse(newNode, callback)
+        ast.traverse(newNode, callback, context)
         if dumbParser.traverseTree(newNode, fn) then
           return 'stop'
         end
@@ -112,11 +112,15 @@ local function compatLookup(name, identifier)
   }
 end
 
+local function checkCompat(compat, level)
+  return compat and (not compat.level or compat.level <= level)
+end
+
 local function applyCompatMap(compatMap, node, level)
   local nodeType = node.type
   if nodeType == 'binary' then
     local compat = compatMap.binary[node.operator]
-    if compat and compat.level <= level then
+    if checkCompat(compat, level) then
       return {
         type = 'call',
         callee = compatLookup(compat.name, compat.identifier),
@@ -125,7 +129,7 @@ local function applyCompatMap(compatMap, node, level)
     end
   elseif nodeType == 'unary' then
     local compat = compatMap.unary[node.operator]
-    if compat and compat.level <= level then
+    if checkCompat(compat, level) then
       return {
         type = 'call',
         callee = compatLookup(compat.name, compat.identifier),
@@ -136,17 +140,20 @@ local function applyCompatMap(compatMap, node, level)
     local m = compatMap.lookup[node.object.name]
     if m then
       local compat = m[node.member.value]
-      if compat and compat.level <= level then
-        return compatLookup(compat.name, compat.identifier)
-      end
-      compat = m['*']
-      if compat and compat.level <= level then
-        return compatLookup(node.member.value, compat.identifier)
+      if compat then
+        if checkCompat(compat, level) then
+          return compatLookup(compat.name, compat.identifier)
+        end
+      else
+        compat = m['*']
+        if checkCompat(compat, level) then
+          return compatLookup(node.member.value, compat.identifier)
+        end
       end
     end
   elseif nodeType == 'call' and node.callee.type == 'identifier' then
     local compat = compatMap.call[node.callee.name]
-    if compat and compat.level <= level then
+    if checkCompat(compat, level) then
       return {
         type = 'call',
         callee = compatLookup(compat.name, compat.identifier),
@@ -158,69 +165,69 @@ end
 
 local compatMap51 = {
   binary = {
-    ['//'] = {level = 1, name = 'fdiv'},
-    ['&'] = {level = 1, name = 'band'},
-    ['|'] = {level = 1, name = 'bor'},
-    ['~'] = {level = 1, name = 'bxor'},
-    ['>>'] = {level = 1, name = 'rshift'},
-    ['<<'] = {level = 1, name = 'lshift'},
+    ['//'] = {name = 'fdiv'},
+    ['&'] = {name = 'band'},
+    ['|'] = {name = 'bor'},
+    ['~'] = {name = 'bxor'},
+    ['>>'] = {name = 'rshift'},
+    ['<<'] = {name = 'lshift'},
   },
   unary = {
-    ['#'] = {level = 3, name = 'len'},
-    ['~'] = {level = 1, name = 'bnot'},
+    ['#'] = {name = 'len', level = 3},
+    ['~'] = {name = 'bnot'},
   },
   call = {
-    load = {level = 3, name = 'load'},
-    rawlen = {level = 2, name = 'rawlen'},
-    warn = {level = 2, name = 'notAvailable'},
-    xpcall = {level = 3, name = 'xpcall'},
+    load = {name = 'load', level = 3},
+    rawlen = {name = 'rawlen', level = 2},
+    warn = {name = 'notAvailable', level = 2},
+    xpcall = {name = 'xpcall', level = 3},
   },
   lookup = {
     coroutine = {
-      close = {level = 2, name = 'ignored'},
-      isyieldable = {level = 2, name = 'notAvailable'},
+      close = {name = 'ignored', level = 2},
+      isyieldable = {name = 'notAvailable', level = 2},
     },
     debug = {
-      getuservalue = {level = 2, name = 'notAvailable'},
-      setuservalue = {level = 2, name = 'notAvailable'},
-      traceback = {level = 3, name = 'traceback'},
-      upvalueid = {level = 2, name = 'notAvailable'},
-      upvaluejoin = {level = 2, name = 'notAvailable'},
+      getuservalue = {name = 'notAvailable', level = 2},
+      setuservalue = {name = 'notAvailable', level = 2},
+      traceback = {name = 'traceback', level = 3},
+      upvalueid = {name = 'notAvailable', level = 2},
+      upvaluejoin = {name = 'notAvailable', level = 2},
     },
     math = {
-      mininteger = {level = 2, name = 'mininteger'},
-      maxinteger = {level = 2, name = 'maxinteger'},
-      random = {level = 3, name = 'random'},
-      tointeger = {level = 2, name = 'tointeger'},
-      type = {level = 2, name = 'mathtype'},
-      ult = {level = 2, name = 'ult'},
+      mininteger = {name = 'mininteger', level = 2},
+      maxinteger = {name = 'maxinteger', level = 2},
+      random = {name = 'random', level = 3},
+      tointeger = {name = 'tointeger', level = 2},
+      type = {name = 'mathtype', level = 2},
+      ult = {name = 'ult', level = 2},
     },
     os = {
-      execute = {level = 3, name = 'execute'},
+      execute = {name = 'execute', level = 3},
     },
     package = {
-      searchers = {level = 2, name = 'notAvailable'},
-      searchpath = {level = 2, name = 'searchpath'},
+      searchers = {name = 'notAvailable', level = 2},
+      searchpath = {name = 'searchpath', level = 2},
     },
     string = {
-      format = {level = 3, name = 'format'},
-      pack = {level = 2, name = 'spack'},
-      packsize = {level = 2, name = 'spacksize'},
-      unpack = {level = 2, name = 'sunpack'},
+      format = {name = 'format', level = 3},
+      pack = {name = 'spack', level = 2},
+      packsize = {name = 'spacksize', level = 2},
+      unpack = {name = 'sunpack', level = 2},
     },
     table = {
-      move = {level = 2, name = 'tmove'},
-      pack = {level = 2, name = 'pack'},
-      unpack = {level = 2, name = 'unpack'},
+      move = {name = 'tmove', level = 2},
+      pack = {name = 'pack', level = 2},
+      unpack = {name = 'unpack', level = 2},
     },
     utf8 = {
-      char = {level = 2, name = 'uchar'},
-      charpattern = {level = 2, name = 'notAvailable'},
-      codepoint = {level = 2, name = 'ucodepoint'},
-      codes = {level = 2, name = 'ucodes'},
+      char = {name = 'uchar', level = 2},
+      charpattern = {name = 'notAvailable', level = 2},
+      codepoint = {name = 'ucodepoint', level = 2},
+      codes = {name = 'ucodes', level = 2},
     },
     _ENV = {
-      ['*'] = {level = 1, identifier = ''},
+      ['*'] = {identifier = ''},
     },
   },
 }
