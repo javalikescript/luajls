@@ -22,9 +22,40 @@ do
   end
 end
 
-local CHUNK_MAIN = string.dump(function(...)
+local CHUNK_MAIN = string.dump(function(path, cpath, preloads, ...)
+  if path then
+    package.path = path
+  end
+  if cpath then
+    package.cpath = cpath
+  end
+  if preloads then
+    ---@diagnostic disable-next-line: deprecated
+    local len, loadstr = string.len, loadstring or load -- for 5.1 direct compatibility
+    local p, l = 1, len(preloads) - 5
+    while p < l do
+      local name, slen = string.match(preloads, '^([^%c]+)\0([1-9]%d*)\0', p)
+      if name then
+        p = p + len(name) + 1 + len(slen) + 1
+        local pp = p + tonumber(slen)
+        if string.byte(preloads, pp) ~= 0 then
+          break
+        end
+        local chunk = string.sub(preloads, p, pp)
+        p = pp + 1
+        local fn = loadstr(chunk, name)
+        if fn then
+          package.preload[name] = fn
+        else
+          break
+        end
+      else
+        break
+      end
+    end
+  end
   local th = require('jls.lang.Thread')
-  return th._main(th._unarg(...))
+  return th._main(...)
 end)
 
 --- A Thread class.
@@ -68,11 +99,16 @@ return class.create(function(thread)
       for name, fn in pairs(package.preload) do
         local status, dump = pcall(string.dump, fn)
         if status and dump then
-          table.insert(t, string.pack('>s2s3', name, dump))
+          table.insert(t, name)
+          table.insert(t, #dump)
+          table.insert(t, dump)
         end
       end
-      preloads = table.concat(t)
-      logger:fine('preload size is %d', #preloads) -- 530k for jls
+      if #t > 0 then
+        table.insert(t, '')
+        preloads = table.concat(t, '\0')
+        logger:fine('preload size is %d', #preloads) -- 530k for jls
+      end
     end
     -- check if the function has upvalues
     if logger:isLoggable(logger.FINE) then
@@ -113,24 +149,6 @@ return class.create(function(thread)
   end
 
 end, function(Thread)
-
-  function Thread._unarg(path, cpath, preloads, ...)
-    if path then
-      package.path = path
-    end
-    if cpath then
-      package.cpath = cpath
-    end
-    if preloads then
-      local p, l = 1, #preloads - 5
-      while p < l do
-        local name, chunk
-        name, chunk, p = string.unpack('>s2s3', preloads, p)
-        package.preload[name] = load(chunk, name, 'b')
-      end
-    end
-    return ...
-  end
 
   function Thread._main(chunk, ...)
     local fn = load(chunk, nil, 'b')

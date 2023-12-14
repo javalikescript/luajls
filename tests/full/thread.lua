@@ -111,24 +111,31 @@ end
 
 function Test_preload()
   local moduleName = 'test__'
+  local module2Name = 'test2__'
   package.preload[moduleName] = function()
     return {
       value = 'test'
     }
   end
+  package.preload[module2Name] = function()
+    return {
+      value = 'test 2'
+    }
+  end
   local result = nil
-  local t = Thread:new(function(name)
-    return require(name).value
-  end):setTransferPreload(true):start(moduleName):ended():next(function(res)
+  local t = Thread:new(function(name, name2)
+    return require(name).value..'+'..require(name2).value
+  end):setTransferPreload(true):start(moduleName, module2Name):ended():next(function(res)
     result = res
   end, onThreadError)
+  package.preload[moduleName] = nil
+  package.preload[module2Name] = nil
   lu.assertNil(result)
   if not loop() then
     lu.fail('Timeout reached')
   end
-  package.preload[moduleName] = nil
   --print(result)
-  lu.assertEquals(result, 'test')
+  lu.assertEquals(result, 'test+test 2')
 end
 
 os.exit(lu.LuaUnit.run())
