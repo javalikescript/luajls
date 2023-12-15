@@ -57,6 +57,8 @@ local function findCodeBlock(s, at)
   end
 end
 
+local loadstr = loadstring or load
+
 local function loadCodeBlocks(mdFilename)
   local mdFile = File:new(mdFilename)
   if not mdFile:exists() then
@@ -70,7 +72,7 @@ local function loadCodeBlocks(mdFilename)
     if not code then
       break
     end
-    local fn, err = load(code, mdFilename, 't')
+    local fn, err = loadstr(code, mdFilename, 't')
     if not fn then
       lu.fail('Error while loading '..tostring(mdFilename)..' due to '..tostring(err))
     end
@@ -96,9 +98,15 @@ function Test_cipher()
 end
 
 function Test_httpClient_webServer()
-  local phServer = exec({LUA_PATH, 'examples/webServer.lua', '--port', tostring(TEST_PORT)})
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
+  local redirect = false
+  local phServer = exec({LUA_PATH, 'examples/webServer.lua', '--port', tostring(TEST_PORT)}, nil, redirect)
   system.sleep(500) -- let server starts
-  local phClient = exec({LUA_PATH, 'examples/httpClient.lua', '--url', string.format('http://localhost:%d/%s', TEST_PORT, TEST_FILENAME), '--out.file', TMP_FILENAME, '--out.overwrite'})
+  local phClient = exec({LUA_PATH, 'examples/httpClient.lua', '--url', string.format('http://localhost:%d/%s', TEST_PORT, TEST_FILENAME), '--out.file', TMP_FILENAME, '--out.overwrite'}, nil, redirect)
   phClient:ended():finally(function()
     --print('closing server')
     phServer:destroy()

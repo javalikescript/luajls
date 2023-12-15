@@ -16,13 +16,23 @@ local function future(value, millis)
   end)
 end
 
+local function printReason(reason)
+  print('reason:', reason)
+end
+
+if _VERSION == 'Lua 5.1' then
+  -- attempt to yield across metamethod/C-call boundary
+  print('/!\\ skipping tests due to Lua version')
+  os.exit(lu.LuaUnit.run())
+end
+
 function Test_async_await()
   local v
   Promise.async(function(await, w)
     return await(future(w + 1))
   end, 1):next(function(r)
     v = r
-  end)
+  end):catch(printReason)
   lu.assertNil(v)
   event:loop()
   lu.assertEquals(v, 2)
@@ -38,7 +48,7 @@ function Test_async_await_n()
     return w
   end, 3):next(function(r)
     v = r
-  end)
+  end):catch(printReason)
   lu.assertNil(v)
   event:loop()
   lu.assertEquals(v, 3)
@@ -96,7 +106,7 @@ function Test_async_n_await()
     return await(asyncInc(n)) * await(asyncInc(n))
   end, 1):next(function(r)
     v = r
-  end)
+  end):catch(printReason)
   lu.assertNil(v)
   event:loop()
   lu.assertEquals(v, 4)

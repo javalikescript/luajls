@@ -81,6 +81,11 @@ function Test_TcpClient_TcpServer_table()
 end
 
 function Test_Async()
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
   local server = TcpSocket:new()
   local client = TcpSocket:new()
   Promise.async(function(await)

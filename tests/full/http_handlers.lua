@@ -61,8 +61,12 @@ local function assertReponse(response, statusCode, body)
   end
 end
 
+local table_pack = table.pack or function(...)
+  return {n = select('#', ...), ...}
+end
+
 local function close(...)
-  local args = table.pack(...)
+  local args = table_pack(...)
   for i = 1, args.n do
     local v = args[i]
     if v then

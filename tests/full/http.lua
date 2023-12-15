@@ -593,6 +593,8 @@ function Test_HttpClientServer_redirect_2()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
+local unpack = table.unpack or _G.unpack
+
 function Test_HttpClientServer_redirect_too_much()
   local body = '<p>Hello.</p>'
   local server, client
@@ -601,7 +603,7 @@ function Test_HttpClientServer_redirect_too_much()
     table.insert(paths, '/location-'..i)
   end
   table.insert(paths, '/')
-  createHttpServerRedirect(body, table.unpack(paths)):next(function(s)
+  createHttpServerRedirect(body, unpack(paths)):next(function(s)
     server = s
     client = createHttpClient()
     sendReceiveClose(client):next(function()

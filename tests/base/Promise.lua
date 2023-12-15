@@ -456,13 +456,18 @@ function Test_finally()
   lu.assertEquals(result, 3)
   result = nil
   Promise.resolve(2):finally(function()
-    error(3)
+    error({3}) -- Lua 5.1 turns number message to string
   end):catch(captureResult)
   lu.assertNotNil(result)
-  lu.assertEquals(result:getMessage(), 3)
+  lu.assertEquals(result:getMessage(), {3})
 end
 
 function Test_uncaucht()
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
   local unaucht
   Promise.onUncaughtError(function(e)
     unaucht = e

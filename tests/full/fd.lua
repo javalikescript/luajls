@@ -70,6 +70,39 @@ function Test_read()
   TMP_FILE:write(part1..part2)
   local fd = FileDescriptor.openSync(TMP_FILENAME, 'r')
   lu.assertNotNil(fd)
+  fd:read(#part1, function(err, d)
+    table.insert(errors, err)
+    data1 = d
+  end)
+  fd:read(1024, function(err, d)
+    table.insert(errors, err)
+    data2 = d
+  end)
+  fd:read(1024, function(err, d)
+    table.insert(errors, err)
+    data3 = d
+  end)
+  --require('jls.lang.event'):loop()
+  loop()
+  fd:closeSync()
+  TMP_FILE:delete()
+  lu.assertEquals(errors, {})
+  lu.assertEquals(data1, part1)
+  lu.assertEquals(data2, part2)
+  lu.assertNil(data3)
+end
+
+function Test_read_async()
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
+  local part1, part2 = 'Hello', ' world!'
+  local data1, data2, data3
+  TMP_FILE:write(part1..part2)
+  local fd = FileDescriptor.openSync(TMP_FILENAME, 'r')
+  lu.assertNotNil(fd)
   Promise.async(function(await)
     data1 = await(fd:read(#part1))
     data2 = await(fd:read(1024))
@@ -81,7 +114,6 @@ function Test_read()
   loop()
   fd:closeSync()
   TMP_FILE:delete()
-  lu.assertEquals(errors, {})
   lu.assertEquals(data1, part1)
   lu.assertEquals(data2, part2)
   lu.assertNil(data3)
