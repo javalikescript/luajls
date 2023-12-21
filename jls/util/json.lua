@@ -16,29 +16,28 @@ local json = {
 -- TODO json libs should takes empty array and empty object as argument to be able to keep format.
 
 --- The opaque value representing null.
--- @field null
+-- @field json.null the opaque value representing null.
 
 --- Returns the JSON encoded string representing the specified value.
--- @tparam table value The value to encode.
--- @return the encoded string.
--- @function encode
+-- @param value The value to encode.
+-- @treturn string the encoded string.
+-- @function json.encode
 -- @usage
 --local json = require('jls.util.json')
 --json.encode({aString = 'Hello world !'}) -- Returns '{"aString":"Hello world !"}'
 
 --- Returns the value representing the specified string.
--- @tparam string jsonString The JSON string to decode.
+-- @tparam string value The JSON string to decode.
 -- @return the decoded value.
--- @function decode
+-- @function json.decode
 -- @usage
 --local json = require('jls.util.json')
 --json.decode('{"aString":"Hello world !"}') -- Returns {aString = 'Hello world !'}
 
 --- Returns the value representing the specified string.
 -- Raises an error if the value cannot be parsed.
--- @tparam string jsonString The JSON string to parse.
+-- @tparam string value The JSON string to parse.
 -- @return the parsed value.
--- @function parse
 function json.parse(value)
   local parsedValue = json.decode(value)
   if parsedValue == json.null then
@@ -71,11 +70,10 @@ end
 --- Returns the JSON encoded string representing the specified value.
 -- When specifying space, the encoded string will includes new lines.
 -- Invalid value will raise an error if lenient mode is not enabled.
--- @tparam table value The value to to convert to a JSON encoded string.
+-- @param value The value to to convert to a JSON encoded string.
 -- @tparam[opt] number space The number of space characters to use as white space.
 -- @tparam[opt] boolean lenient true to convert invalid JSON keys or values using tostring.
--- @return the encoded string.
--- @function stringify
+-- @treturn string the encoded string.
 function json.stringify(value, space, lenient)
   if value == nil then
     return 'null'
@@ -169,6 +167,11 @@ function json.stringify(value, space, lenient)
   return sb:toString()
 end
 
+--- Loads the JSON resource for the specified name.
+-- See Lua require and package.searchpath.
+-- @tparam string name the JSON name.
+-- @tparam[opt] string path the search path, defaults to package.path.
+-- @return the JSON value.
 function json.require(name, path)
   local File = require('jls.io.File')
   local jsonpath = path or string.gsub(package.path, '%.lua', '.json')

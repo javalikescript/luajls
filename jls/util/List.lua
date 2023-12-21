@@ -375,7 +375,7 @@ return require('jls.lang.class').create(function(list, _, List)
 
   --- Returns the number of elements in the list or -1 if the specified table is not a list.
   -- A list has continuous integer keys starting at 1.
-  -- @tparam table t The table to check.
+  -- @tparam table t The table to get the size from.
   -- @tparam[opt] boolean withHoles true to indicate that the list may have holes.
   -- @tparam[opt] boolean useN true to accept the field "n" as the number of elements.
   -- @treturn number the number of elements in the list or -1.

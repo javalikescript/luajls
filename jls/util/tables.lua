@@ -331,7 +331,7 @@ end
 --- Returns a table patched according to the specified differences.
 -- @tparam table oldTable a base table.
 -- @tparam table diff the differences to apply to the base table.
--- @treturn table the differences or nil if there is no such difference.
+-- @treturn table a new patched table.
 function tables.patch(oldTable, diff)
   local newTable = {}
   local deleted = {}
