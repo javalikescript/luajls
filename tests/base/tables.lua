@@ -1,8 +1,14 @@
 local lu = require('luaunit')
 
-local tables = require("jls.util.tables")
+local tables = require('jls.util.tables')
 local List = require('jls.util.List')
-local Map = require("jls.util.Map")
+local Map = require('jls.util.Map')
+
+local table_pack = table.pack or function(...)
+  return {n = select('#', ...), ...}
+end
+---@diagnostic disable-next-line: deprecated
+local table_unpack = table.unpack or _G.unpack
 
 function Test_compare_flat()
   lu.assertEquals(tables.compare({}, {a = true}), {a = true})
@@ -20,8 +26,23 @@ function Test_compare_flat_no_diff()
   lu.assertIsNil(tables.compare({}, {}))
 end
 
-local function assertPatchCompare(ot, nt)
-  lu.assertEquals(tables.patch(ot, tables.compare(ot, nt)), nt)
+function Test_compare_list()
+  lu.assertEquals(tables.compare({}, {true}), {true})
+  lu.assertEquals(tables.compare({true}, {}), {_deleted = {1}})
+  lu.assertEquals(tables.compare({1, 2, 3}, {1, 4, 3}), {[2] = 4})
+  lu.assertEquals(tables.compare({true}, {false}), {[1] = false})
+
+  lu.assertEquals(tables.compare({}, {true}, true), {_list = true, ['1'] = true})
+  lu.assertEquals(tables.compare({true}, {}, true), {_deleted = {1}})
+  lu.assertEquals(tables.compare({1, 2, 3}, {1, 4, 3}, true), {_list = true, ['2'] = 4})
+  lu.assertEquals(tables.compare({true}, {false}, true), {_list = true, ['1'] = false})
+  lu.assertEquals(tables.compare({1, 2, 3}, {1, 4}, true), {_list = true, _deleted = {3}, ['2'] = 4})
+  lu.assertEquals(tables.compare({1, 2, 3}, {1, nil, 3}, true), {_deleted={2}})
+  lu.assertEquals(tables.compare({1, 2, 3}, {1, nil, 4}, true), {_list = true, _deleted={2}, ['3'] = 4})
+
+  lu.assertEquals(tables.compare({1, 2, 3}, {n = 3, 1, 4, 3}, true), {_list = true, n = 3, ['2'] = 4})
+  lu.assertEquals(tables.compare({1, 2, 3}, {n = 4, 1, 2, 3}, true), {n = 4})
+  lu.assertEquals(tables.compare({n = 3, 1, 2, 3}, {n = 3, 1, nil, 3}, true), {_deleted={2}})
 end
 
 function Test_patch_flat()
@@ -31,10 +52,30 @@ function Test_patch_flat()
   lu.assertEquals(tables.patch({a = true}, {_deleted = {'a'}}), {})
 end
 
+function Test_patch_list()
+  lu.assertEquals(tables.patch({}, {a = true}), {a = true})
+end
+
+local function assertPatchCompare(ot, nt)
+  local diff = tables.compare(ot, nt)
+  if diff == nil then
+    lu.assertEquals(ot, nt)
+  else
+    lu.assertEquals(tables.patch(ot, diff), nt)
+    lu.assertEquals(tables.patch(ot, tables.compare(ot, nt, true)), nt)
+  end
+end
+
 function Test_patch_compare()
+  assertPatchCompare({}, {})
   assertPatchCompare({}, {a = true})
   assertPatchCompare({a = true}, {})
   assertPatchCompare({a = false}, {a = true})
+  assertPatchCompare({true}, {})
+  assertPatchCompare({}, {true})
+  assertPatchCompare({true}, {false})
+  assertPatchCompare({1, 2, 3}, {1, 4})
+  assertPatchCompare({1, 2, 3, n = 3}, {1, 4, n = 2})
 end
 
 function Test_merge_flat()
@@ -102,12 +143,6 @@ function Test_setPath_list()
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/[2]', 'New y', {a = {'x', 'New y', 'z'}})
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/2', 'New y', {a = {'x', 'New y', 'z'}})
 end
-
-local table_pack = table.pack or function(...)
-  return {n = select('#', ...), ...}
-end
----@diagnostic disable-next-line: deprecated
-local table_unpack = table.unpack or _G.unpack
 
 local function assertMergePath(t, p, v, nt)
   local rt = table_pack(tables.mergePath(t, p, v))

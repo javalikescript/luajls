@@ -3,7 +3,6 @@ local lu = require('luaunit')
 local json = require('jls.util.json')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
-local loader = require('jls.lang.loader')
 local cjson = package.loaded['cjson']
 
 function Test_decode()
@@ -34,7 +33,7 @@ function Test_stringify()
 end
 
 function Test_list_with_hole()
-  lu.assertEquals(json.stringify({1, nil, 3}), '[1,null,3]')
+  lu.assertFalse(pcall(json.stringify, {1, nil, 3}))
   lu.assertEquals(json.stringify({1, json.null, 3}), '[1,null,3]')
   lu.assertEquals(json.decode('[1,null,3]'), {1, json.null, 3})
 end
@@ -47,10 +46,8 @@ function Test_stringify_empty_table()
 end
 
 function Test_stringify_mixed_table()
-  lu.assertEquals(json.stringify({[1] = 1, ['2'] = 2}), '{"1":1,"2":2}')
-  lu.assertFalse(pcall(function()
-    json.stringify({[1] = 1, ['1'] = 2})
-  end))
+  lu.assertFalse(pcall(json.stringify, {[1] = 1, ['2'] = 2}))
+  lu.assertFalse(pcall(json.stringify, {[1] = 1, ['1'] = 2}))
 end
 
 function Test_unicode()
@@ -59,12 +56,18 @@ function Test_unicode()
 end
 
 if cjson then
+
   function Test_cjson_mixed_table()
     -- cjson does not protect against mixed content
     lu.assertStrMatches(cjson.encode({[1] = 1, ['1'] = 2}), '{"1":[12],"1":[12]}')
-    -- cjson overwrites with last entry
+    -- cjson overwrites with the last entry
     lu.assertEquals(cjson.decode('{"1":1,"1":2}'), {['1'] = 2})
   end
+
+  function Test_encode_decode_sparse_array()
+    lu.assertFalse(pcall(json.encode, {1, nil, 3}))
+  end
+
 end
 
 local function normalize(s)
@@ -102,14 +105,18 @@ function Test_decode_encode()
   lu.assertEquals(json.encode(ds), s)
 end
 
+local function assertEncodeDecode(t)
+  lu.assertEquals(json.decode(json.encode(t)), t)
+end
+
 function Test_encode_decode()
-  local t = {
+  assertEncodeDecode({
     aString = 'Hello world !',
     anInteger = 123,
     aNumber = 1.23,
     aBoolean = true
-  }
-  lu.assertEquals(json.decode(json.encode(t)), t)
+  })
+  assertEncodeDecode({'Hello world !', 123, 1.23, true})
 end
 
 function Test_stringify_parse()

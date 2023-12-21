@@ -44,17 +44,20 @@ function json.parse(value)
   if parsedValue == json.null then
     return nil
   end
+  -- We may look for null values
   return parsedValue
 end
 
 local escapeMap = { ['\b'] = '\\b', ['\f'] = '\\f', ['\n'] = '\\n', ['\r'] = '\\r', ['\t'] = '\\t', ['"'] = '\\"', ['\\'] = '\\\\', ['/'] = '\\/', }
-local escapePattern = '[%c"\\]'
-local escapePatternWithSlash = '[%c"/\\]'
+
+--local isUtf8Valid = utf8.len
+
+local function escapeChar(c)
+  return escapeMap[c] or string.format('\\u%04X', string.byte(c))
+end
 
 local function encodeString(s)
-  return string.gsub(s, escapePattern, function(c)
-    return escapeMap[c] or string.format('\\u%04X', string.byte(c))
-  end)
+  return (string.gsub(s, '[%c"\\]', escapeChar))
 end
 
 if not string.match(tostring(1234.5), '^1234[%.,]5$') then
@@ -62,20 +65,18 @@ if not string.match(tostring(1234.5), '^1234[%.,]5$') then
 end
 
 local function encodeNumber(n)
-  local s = tostring(n)
-  if math.type(n) == 'integer' then
-    return s
-  end
-  return (string.gsub(s, ',', '.', 1))
+  return (string.gsub(tostring(n), ',', '.', 1))
 end
 
 --- Returns the JSON encoded string representing the specified value.
 -- When specifying space, the encoded string will includes new lines.
+-- Invalid value will raise an error if lenient mode is not enabled.
 -- @tparam table value The value to to convert to a JSON encoded string.
--- @tparam number space The number of space characters to use as white space.
+-- @tparam[opt] number space The number of space characters to use as white space.
+-- @tparam[opt] boolean lenient true to convert invalid JSON keys or values using tostring.
 -- @return the encoded string.
 -- @function stringify
-function json.stringify(value, space)
+function json.stringify(value, space, lenient)
   if value == nil then
     return 'null'
   end
@@ -97,44 +98,45 @@ function json.stringify(value, space)
   local stack = {}
   local function stringify(val, prefix)
     local valueType = type(val)
-    if val == json.null then -- json.null could be a table or a userdata
+    if valueType == 'string' then
+      sb:append('"', encodeString(val), '"')
+    elseif valueType == 'boolean' or math.type(val) == 'integer' then
+      sb:append(val)
+    elseif valueType == 'number' then
+      sb:append(encodeNumber(val))
+    elseif val == json.null then -- json.null could be a table
       sb:append('null')
     elseif valueType == 'table' then
-      local isList, size
+      local size = -1
       if Map:isInstance(val) then
-        isList, size = false, val:size()
         val = val.map
-      else
-        isList, size = List.isList(val, true, false)
+      elseif List:isInstance(val) then
+        size = val:size()
+      elseif next(val) ~= nil then -- empty tables are objects not arrays
+        size = List.size(val, false, true)
       end
       if stack[val] then
+        if lenient then
+          sb:append('"_0_CYCLE"')
+          return
+        end
         error('cycle detected')
+      else
+        stack[val] = true
       end
-      stack[val] = true
       local subPrefix = prefix..indent
       if size == 0 then
-        -- we cannot decide whether empty tables should be array or object
-        -- cjson defaults empty tables to object
-        if isList then
-          sb:append('[]')
-        else
-          sb:append('{}')
-        end
-      elseif isList then
-        sb:append('[', newline)
-        for i = 1, size do
-          if i > 1 then
-            sb:append(',', newline)
-          end
-          sb:append(subPrefix)
-          local v = val[i]
-          if v == nil then
-            sb:append('null')
-          else
-            stringify(v, subPrefix)
-          end
+        sb:append('[]')
+      elseif size > 0 then
+        sb:append('[', newline, subPrefix)
+        stringify(val[1], subPrefix)
+        for i = 2, size do
+          sb:append(',', newline, subPrefix)
+          stringify(val[i], subPrefix)
         end
         sb:append(newline, prefix, ']')
+      elseif Map.isEmpty(val) then
+        sb:append('{}')
       else
         sb:append('{', newline)
         local firstValue = true
@@ -144,48 +146,34 @@ function json.stringify(value, space)
           else
             sb:append(',', newline)
           end
-          local tk = type(k)
-          local ec
-          if tk == 'string' then
-            ec = encodeString(k)
-          elseif tk == 'number' then
-            local nk = math.tointeger(k)
-            if nk then
-              ec = tostring(nk)
+          if type(k) ~= 'string' then
+            if lenient then
+              k = tostring(k)
             else
-              error('Invalid number key, '..tostring(k))
+              error('Invalid JSON key type '..type(k))
             end
-            if val[ec] then
-              error('Duplicate integer key '..ec)
-            end
-          else
-            error('Invalid key type '..tk)
           end
-          sb:append(subPrefix, '"', ec, '"', colon)
+          sb:append(subPrefix, '"', encodeString(k), '"', colon)
           stringify(v, subPrefix)
         end
         sb:append(newline, prefix, '}')
       end
       stack[val] = nil
-    elseif valueType == 'string' then
-      sb:append('"', encodeString(val), '"')
-    elseif valueType == 'number' then
-      sb:append(encodeNumber(val))
-    elseif valueType == 'boolean' then
-      sb:append(val and 'true' or 'false')
+    elseif lenient then
+      sb:append('"', encodeString(tostring(val)), '"')
     else
-      error('Invalid value type '..valueType..' ('..tostring(val)..')')
+      error('Invalid JSON value type '..valueType..' ('..tostring(val)..')')
     end
   end
   stringify(value, '')
   return sb:toString()
 end
 
-function json.require(name)
+function json.require(name, path)
   local File = require('jls.io.File')
-  local jsonpath = string.gsub(package.path, '%.lua', '.json')
-  local path = assert(package.searchpath(name, jsonpath))
-  local file = File:new(path)
+  local jsonpath = path or string.gsub(package.path, '%.lua', '.json')
+  local filepath = assert(package.searchpath(name, jsonpath))
+  local file = File:new(filepath)
   return json.decode(file:readAll())
 end
 

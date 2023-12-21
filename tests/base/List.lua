@@ -187,6 +187,10 @@ function Test_addAll()
   lu.assertEquals(List.addAll({'a'}, {'b'}), {'a', 'b'})
 end
 
+local table_pack = table.pack or function(...)
+  return {n = select('#', ...), ...}
+end
+
 function Test_isList()
   lu.assertFalse(List.isList(nil))
   lu.assertFalse(List.isList(1))
@@ -201,12 +205,11 @@ function Test_isList()
   lu.assertTrue(List.isList({'a', 'b'}))
   lu.assertTrue(List.isList({'a', 'b', 'c'}))
   lu.assertTrue(List.isList({'a', nil, 'b'}, true))
-  if table.pack then
-    lu.assertTrue(List.isList(table.pack()))
-    lu.assertTrue(List.isList(table.pack('a')))
-    lu.assertTrue(List.isList(table.pack('a', 'b')))
-    lu.assertTrue(List.isList(table.pack('a', nil, 'b')), true)
-  end
+  lu.assertFalse(List.isList(table_pack()))
+  lu.assertTrue(List.isList(table_pack('a')))
+  lu.assertTrue(List.isList(table_pack('a', 'b')))
+  lu.assertFalse(List.isList(table_pack('a', nil, 'b')))
+  lu.assertTrue(List.isList(table_pack('a', nil, 'b'), true))
 end
 
 function Test_reduce()

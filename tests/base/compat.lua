@@ -52,6 +52,7 @@ end
 
 function Test_pack()
   lu.assertEquals(compat.pack(1, 2), {n = 2, 1, 2})
+  lu.assertEquals(compat.pack(1, nil, 3), {n = 3, 1, [3] = 3})
 end
 
 function Test_itos()

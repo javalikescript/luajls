@@ -113,39 +113,42 @@ function tables.stringify(value, space, lenient)
         --print('buffer:', sb:toString())
         error('cycle detected')
       end
-      stack[val] = true
-      local subPrefix = prefix..indent
-      sb:append('{', newline)
-      if List.isList(val) then
-        -- it looks like a list
-        for _, v in ipairs(val) do
-          sb:append(subPrefix)
-          stringify(v, subPrefix)
-          sb:append(',', newline)
-        end
+      local size = List.size(val)
+      if size == 0 then
+        sb:append('{}')
       else
-        local m = val
-        if Map:isInstance(val) then
-          m = val.map
-        end
-        -- it looks like a map
-        -- The order in which the indices are enumerated is not specified
-        for k, v in Map.spairs(m) do
-          sb:append(subPrefix)
-          if tables.isName(k) then
-            sb:append(k)
-          else
-            sb:append('[')
-            stringify(k, subPrefix)
-            sb:append(']')
+        stack[val] = true
+        local subPrefix = prefix..indent
+        sb:append('{', newline)
+        if size > 0 then
+          for _, v in ipairs(val) do
+            sb:append(subPrefix)
+            stringify(v, subPrefix)
+            sb:append(',', newline)
           end
-          sb:append(equal)
-          stringify(v, subPrefix)
-          sb:append(',', newline)
+        else
+          local m = val
+          if Map:isInstance(val) then
+            m = val.map
+          end
+          -- The order in which the indices are enumerated is not specified
+          for k, v in Map.spairs(m) do
+            sb:append(subPrefix)
+            if tables.isName(k) then
+              sb:append(k)
+            else
+              sb:append('[')
+              stringify(k, subPrefix)
+              sb:append(']')
+            end
+            sb:append(equal)
+            stringify(v, subPrefix)
+            sb:append(',', newline)
+          end
         end
+        sb:append(prefix, '}')
+        stack[val] = nil
       end
-      sb:append(prefix, '}')
-      stack[val] = nil
     elseif valueType == 'string' then
       sb:append(string.format('%q', val))
     elseif valueType == 'number' or valueType == 'boolean' then
@@ -254,16 +257,25 @@ end
 
 --- Returns a table containing the differences between the two specified tables.
 -- The additions or modifications are availables, the same values are discarded
--- and the deleted values are listed in a specific table entry named "_deleted".
+-- and the deleted keys are listed in a specific table entry named "_deleted".
+-- The list mode aims to be compatible with JSON by using string keys.
 -- @tparam table oldTable a base table.
 -- @tparam table newTable a modified table.
+-- @tparam[opt] boolean list true to use strings for list keys and a specific table entry named "_list".
 -- @treturn table the differences or nil if there is no such difference.
-function tables.compare(oldTable, newTable)
+function tables.compare(oldTable, newTable, list)
   -- oldTable and newTable must be of type table
   local diff
-  -- TODO we may want to detect renamed keys
-  -- TODO we may want to detect moved list entries
-  -- TODO we may want to compare long strings
+  local isList
+  local areList = false
+  if list then
+    local oldSize = List.size(oldTable, true, true)
+    if oldSize >= 0 then
+      local newSize = List.size(newTable, true, true)
+      areList = newSize >= 0 and oldSize + newSize > 0
+    end
+  end
+  -- TODO we may want to detect renamed keys/moved list entries
   for key, newValue in pairs(newTable) do
     local oldValue = oldTable[key]
     local oldType = type(oldValue)
@@ -273,9 +285,10 @@ function tables.compare(oldTable, newTable)
       diffValue = newValue
     else
       if newType == 'table' then
-        diffValue = tables.compare(oldValue, newValue)
+        diffValue = tables.compare(oldValue, newValue, list)
       else
         if oldValue ~= newValue then
+          -- TODO we may want to compare long strings
           diffValue = newValue
         end
       end
@@ -284,11 +297,16 @@ function tables.compare(oldTable, newTable)
       if not diff then
         diff = {}
       end
-      diff[key] = diffValue
+      if areList and key ~= 'n' then
+        diff[tostring(key)] = diffValue
+        isList = true
+      else
+        diff[key] = diffValue
+      end
     end
   end
   local deleted
-  for key, oldValue in pairs(oldTable) do
+  for key in pairs(oldTable) do
     if newTable[key] == nil then
       if deleted then
         table.insert(deleted, key)
@@ -298,10 +316,14 @@ function tables.compare(oldTable, newTable)
     end
   end
   if deleted then
-    if not diff then
-      diff = {}
+    if diff then
+      diff._deleted = deleted
+    else
+      diff = {_deleted = deleted}
     end
-    diff._deleted = deleted
+  end
+  if isList then
+    diff._list = true
   end
   return diff
 end
@@ -318,11 +340,16 @@ function tables.patch(oldTable, diff)
       deleted[key] = true
     end
   end
+  local isList = diff._list
   for key, oldValue in pairs(oldTable) do
     if not deleted[key] then
-      local newValue
+      local newValue, diffValue
       local oldType = type(oldValue)
-      local diffValue = diff[key]
+      if isList then
+        diffValue = diff[tostring(key)]
+      else
+        diffValue = diff[key]
+      end
       if diffValue ~= nil then
         local diffType = type(diffValue)
         if oldType == diffType and oldType == 'table' then
@@ -337,8 +364,16 @@ function tables.patch(oldTable, diff)
     end
   end
   for key, diffValue in pairs(diff) do
-    if oldTable[key] == nil and key ~= '_deleted' then
-      newTable[key] = diffValue -- we may want to deep copy the value in case of table
+    if key ~= '_deleted' and key ~= '_list' then
+      local k
+      if isList and key ~= 'n' then
+        k = math.tointeger(key)
+      else
+        k = key
+      end
+      if k and oldTable[k] == nil then
+        newTable[k] = diffValue -- we may want to deep copy the value in case of table
+      end
     end
   end
   return newTable
@@ -1017,7 +1052,7 @@ function tables.createArgumentTable(arguments, options)
       if currentValue == true or currentValue == nil then
         value = argumentValue
       elseif type(currentValue) == 'table' then
-        if List.isList(currentValue) then
+        if List.size(currentValue) > 1 then
           table.insert(currentValue, argumentValue)
         else
           value = argumentValue

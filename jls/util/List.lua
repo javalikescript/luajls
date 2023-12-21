@@ -373,6 +373,48 @@ return require('jls.lang.class').create(function(list, _, List)
     return type(v) == 'number' and v % 1 == 0
   end
 
+  --- Returns the number of elements in the list or -1 if the specified table is not a list.
+  -- A list has continuous integer keys starting at 1.
+  -- @tparam table t The table to check.
+  -- @tparam[opt] boolean withHoles true to indicate that the list may have holes.
+  -- @tparam[opt] boolean useN true to accept the field "n" as the number of elements.
+  -- @treturn number the number of elements in the list or -1.
+  function List.size(t, withHoles, useN)
+    if type(t) ~= 'table' then
+      return -1
+    end
+    if List:isInstance(t) then
+      return t:size()
+    end
+    local size = 0
+    local max = 0
+    local n
+    for k, v in pairs(t) do
+      if isInteger(k) then
+        if k > max then
+          max = k
+        elseif k < 1 then
+          return -1
+        end
+        size = size + 1
+      elseif useN and k == 'n' and isInteger(v) then
+        n = v
+      else
+        return -1
+      end
+    end
+    if n then
+      if n < max then
+        return -1
+      end
+      max = n
+    end
+    if max == size or withHoles then
+      return max
+    end
+    return -1
+  end
+
   --- Returns true when the specified table is a list.
   -- A list has continuous integer keys starting at 1.
   -- A list may have a field "n" giving the size of the list as an integer.
@@ -380,46 +422,13 @@ return require('jls.lang.class').create(function(list, _, List)
   -- @tparam[opt] boolean withHoles true to indicate that the list may have holes.
   -- @tparam[opt] boolean acceptEmpty true to indicate that the list could be empty.
   -- @treturn boolean true when the specified table is a list.
-  -- @treturn number the number of fields in the table or the number of elements in the list.
+  -- @treturn number the number of elements in the list or -1.
   function List.isList(t, withHoles, acceptEmpty)
-    if type(t) ~= 'table' then
-      return false, 0
+    local size = List.size(t, withHoles, true)
+    if size > 0 or size == 0 and acceptEmpty then
+      return true, size
     end
-    if List:isInstance(t) then
-      return true, t:size()
-    end
-    local count = 0
-    local size = 0
-    local min, max, n
-    for k, v in pairs(t) do
-      if isInteger(k) then
-        if not min or k < min then
-          min = k
-        end
-        if not max or k > max then
-          max = k
-        end
-        size = size + 1
-      else
-        if k == 'n' and isInteger(v) then
-          n = v
-        end
-        count = count + 1
-      end
-    end
-    if n and count == 1 and (size == 0 or (min >= 1 and max <= n)) then
-      return true, n
-    end
-    if count > 0 then
-      return false, count + size
-    end
-    if size == 0 then
-      return not not acceptEmpty, 0
-    end
-    if withHoles and min >= 1 then
-      return true, max
-    end
-    return min == 1 and max == size, size
+    return false, size
   end
 
 end)
