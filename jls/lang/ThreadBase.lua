@@ -30,8 +30,9 @@ local CHUNK_MAIN = string.dump(function(path, cpath, preloads, ...)
     package.cpath = cpath
   end
   if preloads then
+    -- for 5.1 direct compatibility
     ---@diagnostic disable-next-line: deprecated
-    local len, loadstr = string.len, loadstring or load -- for 5.1 direct compatibility
+    local len, loadstr = string.len, loadstring or load
     local p, l = 1, len(preloads) - 5
     while p < l do
       local name, slen = string.match(preloads, '^([^%c]+)\23([1-9]%d*)\23', p)

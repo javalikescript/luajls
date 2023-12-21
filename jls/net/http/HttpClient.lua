@@ -257,6 +257,7 @@ return class.create(function(httpClient)
     function Stream.sendRequest(http2, client, options, request, response)
       local stream = Stream:new(http2, http2:nextStreamId(), response)
       http2:registerStream(stream)
+      -- TODO shall we override response:close()?
       local promise, cb = Promise.createWithCallback()
       stream.endHeadersCallback = cb
       stream.client = client
@@ -356,6 +357,7 @@ return class.create(function(httpClient)
         else
           connectionClose = response:getVersion() == HttpMessage.CONST.VERSION_1_0
         end
+        -- TODO shall we override response:close()?
         local promise
         response.consume = function(message)
           if not promise then

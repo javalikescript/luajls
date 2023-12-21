@@ -240,7 +240,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     local pr, cb = Promise.createWithCallback()
     client:connect():next(function()
       logger:finer('proxyHttpHandler client connected')
-      return client:sendRequest()
+      return client:sendRequest() -- TODO switch to fetch
     end):next(function()
       logger:finer('proxyHttpHandler client send completed')
       return client:receiveResponseHeaders()

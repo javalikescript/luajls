@@ -629,7 +629,7 @@ end
 
 -- file read does not support 'a' but '*a' but 5.4 remains compatible ignoring '*'
 
-local status, m
+--local status, m
 ---- see https://github.com/AlberTajuelo/bitop-lua
 --status, m = pcall(require, 'bitop.funcs')
 --if status then
