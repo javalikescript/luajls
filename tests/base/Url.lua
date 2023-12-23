@@ -322,6 +322,18 @@ function Test_fromString()
   lu.assertEquals(Url.fromString('http://hostname/'):toString(), 'http://hostname/')
 end
 
+function Test_mapToQuery()
+  lu.assertEquals(Url.mapToQuery({}), '')
+  lu.assertEquals(Url.mapToQuery({a='b'}), 'a=b')
+  lu.assertEquals(Url.mapToQuery({a='b', c='d'}), 'a=b&c=d')
+end
+
+function Test_queryToMap()
+  lu.assertEquals(Url.queryToMap(''), {})
+  lu.assertEquals(Url.queryToMap('a=b'), {a='b'})
+  lu.assertEquals(Url.queryToMap('a=b&c=d'), {a='b', c='d'})
+end
+
 function _Test_encode_decode_perf()
   local randomChars = require('tests.randomChars')
   local time = require('tests.time')

@@ -5,6 +5,7 @@
 --local logger = require("jls.lang.logger")
 local StringBuffer = require('jls.lang.StringBuffer')
 local Map = require('jls.util.Map')
+local strings = require('jls.util.strings')
 
 --- The Url class represents an Uniform Resource Locator.
 -- see https://tools.ietf.org/html/rfc1738
@@ -251,25 +252,30 @@ return require('jls.lang.class').create(function(url, _, Url)
     return buffer
   end
 
+  local function appendQueryValues(buffer, keyValues, prefix)
+    local needAmp = false
+    for key, value in Map.spairs(keyValues) do
+      if needAmp then
+        buffer:append('&')
+      else
+        if prefix then
+          buffer:append(prefix)
+        end
+        needAmp = true
+      end
+      buffer:append(Url.encodeURIComponent(key), '=', Url.encodeURIComponent(value))
+    end
+    return buffer
+  end
+
   local function formatQuery(buffer, query, keyValues)
     local needAmp = false
     if query then
-      buffer:append('?')
-      buffer:append(query)
+      buffer:append('?', query)
       needAmp = true
     end
     if type(keyValues) == 'table' then
-      for key, value in Map.spairs(keyValues) do
-        if needAmp then
-          buffer:append('&')
-        else
-          buffer:append('?')
-          needAmp = true
-        end
-        buffer:append(Url.encodeURIComponent(key))
-        buffer:append('=')
-        buffer:append(Url.encodeURIComponent(value))
-      end
+      appendQueryValues(buffer, keyValues, needAmp and '&' or '?')
     end
     return buffer
   end
@@ -284,12 +290,25 @@ return require('jls.lang.class').create(function(url, _, Url)
     return buffer
   end
 
-  --- Returns the query representing the key value pairs including the question mark.
+  --- Returns the query representing the key value pairs.
   -- @tparam table keyValues the key value pairs.
-  -- @tparam[opt] string query the base query to add key values.
-  -- @return the query representing the key value pairs.
-  function Url.mapToQuery(keyValues, query)
-    return formatQuery(StringBuffer:new(), query, keyValues):toString()
+  -- @treturn string the query representing the key value pairs.
+  function Url.mapToQuery(keyValues)
+    return appendQueryValues(StringBuffer:new(), keyValues):toString()
+  end
+
+  --- Returns the map containing the key value pairs from the specified query.
+  -- @tparam string query the query.
+  -- @treturn table the query map.
+  function Url.queryToMap(query)
+    local map = {}
+    for _, keyValue in ipairs(strings.split(query, '&', true)) do
+      local key, value = string.match(keyValue, '([^=]+)=(.+)')
+      if key then
+        map[Url.decodePercent(key)] = Url.decodePercent(value)
+      end
+    end
+    return map
   end
 
   --- Returns the string value representing the specified Url.

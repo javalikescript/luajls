@@ -3,6 +3,7 @@ local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpMessage = require('jls.net.http.HttpMessage')
+local Url = require('jls.net.Url')
 
 local form = {}
 
@@ -81,20 +82,6 @@ function form.parseFormData(request, boundary)
   return messages
 end
 
-function form.parseFormUrlEncoded(request)
-  -- name=test&password=test
-  local body = request:getBody()
-  logger:finest('body is "%s"', body)
-  local map = {}
-  for _, keyValue in ipairs(strings.split(body, '&', true)) do
-    local key, value = string.match(keyValue, '([^=]+)=(.+)')
-    if key then
-      map[key] = value
-    end
-  end
-  return map
-end
-
 function form.parseFormRequest(request)
   local contentTypeRawValue = request:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
   if not contentTypeRawValue then
@@ -102,11 +89,24 @@ function form.parseFormRequest(request)
   end
   local contentType, params = HttpMessage.parseHeaderValueAsTable(contentTypeRawValue)
   if string.lower(contentType) == 'application/x-www-form-urlencoded' then
-    return form.parseFormUrlEncoded(request)
+    local body = request:getBody()
+    logger:finest('body is "%s"', body)
+    return Url.queryToMap(body)
   elseif string.lower(contentType) == 'multipart/form-data' then
     return form.parseFormData(request, params['boundary'])
   end
   return nil, 'Unsupported content type ('..tostring(contentType)..')'
+end
+
+function form.formatFormUrlEncoded(m)
+  local buffer = StringBuffer:new()
+  for key, value in pairs(m) do
+    if buffer:length() > 0 then
+      buffer:append('&')
+    end
+    buffer:append(Url.encodeURIComponent(key), '=', Url.encodeURIComponent(value))
+  end
+  return buffer:tostring()
 end
 
 return form

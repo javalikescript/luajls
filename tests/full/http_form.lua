@@ -26,7 +26,7 @@ function Test_create_parse_form_url_encoded()
   local request = HttpMessage:new()
   request:setHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE, 'application/x-www-form-urlencoded')
   request:setBody('name=test&password=test')
-  lu.assertEquals(form.parseFormUrlEncoded(request), {name = 'test', password = 'test'})
+  lu.assertEquals(form.parseFormRequest(request), {name = 'test', password = 'test'})
 end
 
 function Test_HttpHeaders()
