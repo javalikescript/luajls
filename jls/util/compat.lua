@@ -588,7 +588,9 @@ function compat.load(chunk, chunkname, mode, env)
     end
   end
   local f, e = load(chunk, chunkname)
+  ---@diagnostic disable-next-line: deprecated
   if f and env and _G.setfenv then
+    ---@diagnostic disable-next-line: deprecated
     setfenv(f, env)
   end
   return f, e

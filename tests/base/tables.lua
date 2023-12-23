@@ -144,6 +144,11 @@ function Test_setPath_list()
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/2', 'New y', {a = {'x', 'New y', 'z'}})
 end
 
+function Test_setByPath()
+  tables.setByPath({a = {x = 1, y = 2}}, {a = {x = 3}})
+  lu.assertEquals(tables.setByPath({a = {x = 1, y = 2}}, {a = {x = 3}}), {a = {x = 3, y = 2}})
+end
+
 local function assertMergePath(t, p, v, nt)
   local rt = table_pack(tables.mergePath(t, p, v))
   lu.assertEquals(t, nt)

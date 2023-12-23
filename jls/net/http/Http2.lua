@@ -458,8 +458,8 @@ return class.create(function(http2)
         if logger:isLoggable(logger.FINE) then
           logger:fine('received frame %s(%d), 0x%02x, id: %d, #%d', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen)
         end
-        local offset = 10
-        local endOffset
+        local offset, endOffset
+        offset = 10
         if frameType == FRAME.DATA then
           offset, endOffset = readPadding(flags, data, offset)
           stream = self.streams[streamId]

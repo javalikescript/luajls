@@ -593,6 +593,7 @@ function Test_HttpClientServer_redirect_2()
   lu.assertEquals(server.t_request:getMethod(), 'GET')
 end
 
+---@diagnostic disable-next-line: deprecated
 local unpack = table.unpack or _G.unpack
 
 function Test_HttpClientServer_redirect_too_much()

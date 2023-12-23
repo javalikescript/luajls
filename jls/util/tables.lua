@@ -557,9 +557,10 @@ function tables.mapValuesByPath(t, path, separator)
 end
 
 function tables.setByPath(baseTable, mergeTable)
-  local valuesByPath = mapValuesByPath(mergeTable, {}, '')
+  local valuesByPath = {}
+  mapValuesByPath(mergeTable, valuesByPath, '', '|')
   for path, value in pairs(valuesByPath) do
-    tables.setPath(baseTable, path, value)
+    tables.setPath(baseTable, path, value, '|')
   end
   return baseTable
 end
