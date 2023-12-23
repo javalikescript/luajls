@@ -96,6 +96,7 @@ Network modules including TCP and UDP socket, HTTP, MQTT, WebSocket
 utility modules for List and Map, date and time, JSON and XML formats, AST, deflate, ZIP and tar files, scheduling, worker and web view
 
 A `jls` module is provided to automatically load jls modules.
+This facility is intended for small scripts and not recommended for libraries or productive applications.
 
 ```lua
 local jls = require('jls')
@@ -155,7 +156,8 @@ A class can implement:
 
 * an _equals_ method that will be called to test equality using `==`,
 * a _length_ method that will be called for the length operator `#`,
-* a _toString_ method that will be called by `tostring`.
+* a _pairs_ method that will be called by `pairs()`,
+* a _toString_ method that will be called by `tostring()`.
 
 ```lua
 local class = require('jls.lang.class')
@@ -201,9 +203,9 @@ For example, a promise needs to call the fulfillment and rejection handlers in p
 At this time, we do not know if the caller is interested by the stack or just the error message.
 With the exception, the caller could later decide to use only the error message or to print the stack trace.
 
-The `Exception.getMessage` function unwraps, if necessary, the error message.
+The `Exception.getMessage()` function unwraps, if necessary, the error message.
 
-The `Exception.pcall` function is similar to the Lua function, except that it returns an exception instance.
+The `Exception.pcall()` function is similar to the Lua function, except that it returns an exception instance.
 
 An exception may have a cause, allowing to preserve this information when you do not want to rethrow the exception.
 
