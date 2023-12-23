@@ -136,7 +136,7 @@ return class.create(function(httpClient)
     logger:finer('httpClient:connectV2()')
     if self.connecting then
       return self.connecting
-    elseif self.tcpClient then
+    elseif self.tcpClient and not self.tcpClient:isClosed() then
       return Promise.resolve(self)
     end
     self.http2 = nil
@@ -166,6 +166,7 @@ return class.create(function(httpClient)
             [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
             [Http2.SETTINGS.MAX_HEADER_LIST_SIZE] = 262144,
           })
+          -- TODO Close on error
           return promise
         end
       end

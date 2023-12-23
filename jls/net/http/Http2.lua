@@ -390,7 +390,10 @@ return class.create(function(http2)
         logger:warn('frame sending failed %s(%d), 0x%02x, id: %d, #%d "%s"', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, reason)
       end)
     end
-    return p
+    return p:catch(function(reason)
+      self:handleError(string.format('write error %s', reason))
+      Promise.reject(reason)
+    end)
   end
 
   function http2:sendHeaders(streamId, message, endHeaders, endStream)
@@ -429,7 +432,10 @@ return class.create(function(http2)
     if preface then
       data = CONNECTION_PREFACE..data
     end
-    return self.client:write(data)
+    return self.client:write(data):catch(function(reason)
+      self:handleError(string.format('write settings error %s', reason))
+      Promise.reject(reason)
+    end)
   end
 
   function http2:sendWindowUpdate(increment)
@@ -464,11 +470,11 @@ return class.create(function(http2)
             end
             stream:onRawData(string.sub(data, offset, endOffset), flags & END_STREAM_FLAG ~= 0)
           else
-            self:onError(string.format('unknown stream id %d', streamId))
+            self:handleError(string.format('unknown stream id %d', streamId))
           end
         elseif frameType == FRAME.HEADERS then
           if streamId == 0 then
-            self:onError('invalid frame')
+            self:handleError('invalid frame')
             return
           end
           offset, endOffset = readPadding(flags, data, offset)
@@ -478,7 +484,7 @@ return class.create(function(http2)
           stream = self.streams[streamId]
           if not stream then
             if self.isServer == (streamId % 2 == 0) then
-              self:onError('invalid stream id')
+              self:handleError('invalid stream id')
               return
             end
             stream = self:newStream(streamId)
@@ -490,7 +496,7 @@ return class.create(function(http2)
           offset = self:handlePriority(streamId, data, offset, endOffset)
         elseif frameType == FRAME.SETTINGS then
           if streamId ~= 0 or frameLen % 6 ~= 0 then
-            self:onError('invalid frame')
+            self:handleError('invalid frame')
             return
           end
           if flags & ACK_FLAG ~= 0 then
@@ -522,20 +528,20 @@ return class.create(function(http2)
             if stream then
               stream:onWindowUpdate(value)
             else
-              self:onError(string.format('unknown stream id %d', streamId))
+              self:handleError(string.format('unknown stream id %d', streamId))
             end
           end
         elseif frameType == FRAME.RST_STREAM then
           if streamId == 0 or frameLen ~= 4 then
-            self:onError('invalid frame')
+            self:handleError('invalid frame')
             return
           end
           local errorCode = string.unpack('>I4', data, offset)
           stream = self.streams[streamId]
           if stream then
-            stream:onError(errorCode)
+            stream:handleError(errorCode)
           else
-            self:onError(string.format('unknown stream id %d', streamId))
+            self:handleError(string.format('unknown stream id %d', streamId))
           end
         elseif frameType == FRAME.PUSH_PROMISE then
           logger:warn('push promise received')
@@ -551,10 +557,11 @@ return class.create(function(http2)
           lastStreamId, errorCode, offset = string.unpack('>I4I4', data, offset)
           lastStreamId = lastStreamId & 0x7fffffff
           if errorCode ~= 0 then
-            self:onError(string.format('go away, error %d: %s', errorCode, ERRORS_BY_ID[errorCode]))
             if offset >= #data then
               local debugData = string.sub(data, offset)
-              self:onError(string.format('go away, debug "%s"', debugData))
+              self:handleError(string.format('go away, error %d: %s, debug "%s"', errorCode, ERRORS_BY_ID[errorCode], debugData))
+            else
+              self:handleError(string.format('go away, error %d: %s', errorCode, ERRORS_BY_ID[errorCode]))
             end
           end
         elseif frameType == FRAME.CONTINUATION then
@@ -562,12 +569,11 @@ return class.create(function(http2)
           if stream then
             self:handleHeaderBlock(stream, flags, data, offset)
           else
-            self:onError(string.format('unknown stream id %d', streamId))
+            self:handleError(string.format('unknown stream id %d', streamId))
           end
         end
       elseif err then
-        client:readStop()
-        self:onError(err)
+        self:handleError(err)
       end
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading')
@@ -578,6 +584,12 @@ return class.create(function(http2)
   function http2:goAway(errorCode)
     local lastStreamId = self.streamNextId -- TODO get correct value
     return self:sendFrame(FRAME.GOAWAY, 0, 0, string.pack('>I4I4', lastStreamId, errorCode or 0))
+  end
+
+  function http2:handleError(reason)
+    self.client:readStop()
+    self.client:close()
+    self:onError(reason)
   end
 
   function http2:onSettings()
@@ -592,7 +604,9 @@ return class.create(function(http2)
 
   function http2:close()
     logger:fine('http2:close()')
-    return self:goAway()
+    return self:goAway():next(function()
+      self.client:readStop()
+    end)
   end
 
 end, function(Http2)
