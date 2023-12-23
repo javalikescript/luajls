@@ -49,14 +49,9 @@ function form.createFormRequest(request, messages)
   request:setContentLength(#body)
 end
 
-function form.parseFormData(request, boundary)
-  if logger:isLoggable(logger.FINE) then
-    logger:fine('boundary is "%s"', boundary)
-  end
-  local body = request:getBody()
-  if logger:isLoggable(logger.FINEST) then
-    logger:finest('body is "%s"', body)
-  end
+function form.parseFormData(body, boundary)
+  logger:fine('form data boundary is "%s"', boundary)
+  logger:finest('body is "%s"', body)
   local messages = {}
   local contents = strings.split(body, '--'..boundary, true)
   if contents[#contents] == '--\r\n' then
@@ -93,20 +88,17 @@ function form.parseFormRequest(request)
     logger:finest('body is "%s"', body)
     return Url.queryToMap(body)
   elseif string.lower(contentType) == 'multipart/form-data' then
-    return form.parseFormData(request, params['boundary'])
+    return form.parseFormData(request:getBody(), params['boundary'])
   end
   return nil, 'Unsupported content type ('..tostring(contentType)..')'
 end
 
-function form.formatFormUrlEncoded(m)
-  local buffer = StringBuffer:new()
-  for key, value in pairs(m) do
-    if buffer:length() > 0 then
-      buffer:append('&')
-    end
-    buffer:append(Url.encodeURIComponent(key), '=', Url.encodeURIComponent(value))
-  end
-  return buffer:tostring()
+-- Deprecated, to remove
+function form.parseFormUrlEncoded(request)
+  return Url.queryToMap(request:getBody())
 end
+
+-- Deprecated, to remove
+form.formatFormUrlEncoded = Url.mapToQuery
 
 return form
