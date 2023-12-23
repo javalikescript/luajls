@@ -448,7 +448,9 @@ return class.create(function(http2)
   function http2:readStart(settings)
     local client = self.client
     local cs = ChunkedStreamHandler:new(StreamHandler:new(function(err, data)
-      if data then
+      if err then
+        self:handleError(err)
+      elseif data then
         local frameType, flags, streamId = string.unpack('>BBI4', data, 4)
         streamId = streamId & 0x7fffffff
         local stream
@@ -572,8 +574,8 @@ return class.create(function(http2)
             self:handleError(string.format('unknown stream id %d', streamId))
           end
         end
-      elseif err then
-        self:handleError(err)
+      else
+        self:handleError('end of h2 reading')
       end
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading')
