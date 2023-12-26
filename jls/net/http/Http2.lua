@@ -449,7 +449,12 @@ return class.create(function(http2)
     local client = self.client
     local cs = ChunkedStreamHandler:new(StreamHandler:new(function(err, data)
       if err then
-        self:handleError(err)
+        if err == 'SSL connection closed' then
+          logger:info('h2 read error "%s", closing', err)
+          self:doClose()
+        else
+          self:handleError(err)
+        end
       elseif data then
         local frameType, flags, streamId = string.unpack('>BBI4', data, 4)
         streamId = streamId & 0x7fffffff
@@ -476,7 +481,7 @@ return class.create(function(http2)
           end
         elseif frameType == FRAME.HEADERS then
           if streamId == 0 then
-            self:handleError('invalid frame')
+            self:handleError('invalid headers frame')
             return
           end
           offset, endOffset = readPadding(flags, data, offset)
@@ -486,7 +491,7 @@ return class.create(function(http2)
           stream = self.streams[streamId]
           if not stream then
             if self.isServer == (streamId % 2 == 0) then
-              self:handleError('invalid stream id')
+              self:handleError('invalid headers stream id')
               return
             end
             stream = self:newStream(streamId)
@@ -498,7 +503,7 @@ return class.create(function(http2)
           offset = self:handlePriority(streamId, data, offset, endOffset)
         elseif frameType == FRAME.SETTINGS then
           if streamId ~= 0 or frameLen % 6 ~= 0 then
-            self:handleError('invalid frame')
+            self:handleError('invalid settings frame')
             return
           end
           if flags & ACK_FLAG ~= 0 then
@@ -535,7 +540,7 @@ return class.create(function(http2)
           end
         elseif frameType == FRAME.RST_STREAM then
           if streamId == 0 or frameLen ~= 4 then
-            self:handleError('invalid frame')
+            self:handleError('invalid reset frame')
             return
           end
           local errorCode = string.unpack('>I4', data, offset)
@@ -575,7 +580,8 @@ return class.create(function(http2)
           end
         end
       else
-        self:handleError('end of h2 reading')
+        logger:info('end of h2 reading')
+        self:doClose()
       end
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading')
@@ -588,9 +594,13 @@ return class.create(function(http2)
     return self:sendFrame(FRAME.GOAWAY, 0, 0, string.pack('>I4I4', lastStreamId, errorCode or 0))
   end
 
-  function http2:handleError(reason)
+  function http2:doClose()
     self.client:readStop()
     self.client:close()
+  end
+
+  function http2:handleError(reason)
+    self:doClose()
     self:onError(reason)
   end
 
@@ -607,7 +617,7 @@ return class.create(function(http2)
   function http2:close()
     logger:fine('http2:close()')
     return self:goAway():next(function()
-      self.client:readStop()
+      self:doClose()
     end)
   end
 
