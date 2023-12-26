@@ -136,7 +136,7 @@ return class.create(function(httpClient)
     logger:finer('httpClient:connectV2()')
     if self.connecting then
       return self.connecting
-    elseif self.tcpClient and not self.tcpClient:isClosed() then
+    elseif not self:isClosed() then
       return Promise.resolve(self)
     end
     self.http2 = nil
@@ -324,7 +324,6 @@ return class.create(function(httpClient)
         return Stream.sendRequest(self.http2, self, options, request, response)
       end
       logger:fine('fetch is using HTTP/1')
-      -- TODO queue requests
       request:applyBodyLength()
       -- keep alive the connection by default
       if not request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) then
@@ -337,8 +336,8 @@ return class.create(function(httpClient)
         request:setHeader(HttpMessage.CONST.HEADER_CONNECTION, connection)
       end
       local queuePromise = self.queuePromise or Promise.resolve()
-      local cb
-      self.queuePromise, cb = Promise.createWithCallback()
+      local queueNext
+      self.queuePromise, queueNext = Promise.createWithCallback()
       return queuePromise:next(function()
         return self:connectV2() -- we stick to HTTP/1
       end):next(function()
@@ -358,6 +357,7 @@ return class.create(function(httpClient)
         else
           connectionClose = response:getVersion() == HttpMessage.CONST.VERSION_1_0
         end
+        -- TODO Always read body after resolving consume promise
         -- TODO shall we override response:close()?
         local promise
         response.consume = function(message)
@@ -378,7 +378,7 @@ return class.create(function(httpClient)
               if connectionClose then
                 self:closeClient(false)
               end
-              cb()
+              queueNext()
             end)
           end
           return promise
@@ -402,7 +402,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:isClosed()
-    return self.tcpClient == nil
+    return self.tcpClient == nil or self.tcpClient:isClosed()
   end
 
   --- Closes this HTTP client.
