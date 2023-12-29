@@ -103,8 +103,8 @@ local ServerHttp2 = class.create(Http2, function(http2, super)
 
   function http2:initialize(server, ...)
     super.initialize(self, ...)
-    http2.server = server
-    http2.start_time = os.time()
+    self.server = server
+    self.start_time = os.time()
   end
 
   function http2:newStream(id)
@@ -112,6 +112,7 @@ local ServerHttp2 = class.create(Http2, function(http2, super)
     local stream = Stream:new(self, id, exchange.request)
     stream.exchange = exchange
     exchange.stream = stream
+    logger:fine('ServerHttp2:newStream(%d)', id)
     return stream
   end
 
@@ -123,7 +124,7 @@ local ServerHttp2 = class.create(Http2, function(http2, super)
   end
 
   function http2:onPing()
-    if self.start_time then
+    if next(self.streams) == nil then
       self.start_time = os.time()
     end
   end
@@ -332,12 +333,18 @@ local HttpServer = class.create(function(httpServer)
   end
 
   function httpServer:handleHttp2Exchange(client)
+    logger:finer('httpServer:handleHttp2Exchange()')
     local http2 = ServerHttp2:new(self, client, true)
     http2:readStart({
       [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
       [Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL] = 1,
-    })
-    self.pendings[client] = http2
+    }):next(function()
+      logger:finer('httpServer:handleHttp2Exchange() h2 read started')
+      self.pendings[client] = http2
+    end, function(reason)
+      logger:warn('fail to start reading on h2 due to "%s"', reason)
+      client:close()
+    end)
   end
 
   --[[

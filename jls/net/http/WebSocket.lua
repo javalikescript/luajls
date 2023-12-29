@@ -179,7 +179,7 @@ local StreamAdapter = class.create(function(streamAdapter)
 
   function streamAdapter:initialize(stream)
     self.stream = stream
-    self:readStart(class.emptyFunction)
+    self:readStop()
     stream.onData = onData
     stream.onError = onError
     stream.sendBody = class.emptyFunction
@@ -190,7 +190,7 @@ local StreamAdapter = class.create(function(streamAdapter)
   end
 
   function streamAdapter:readStop()
-    self:readStart(class.emptyFunction)
+    self.stream.wsCallback = class.emptyFunction
   end
 
   function streamAdapter:write(data, callback)
@@ -263,6 +263,11 @@ return class.create(function(webSocket)
       }
     })
     return client:connectV2():next(function()
+      local http2 = client.http2
+      if http2 then
+        return http2:initialSettings()
+      end
+    end):next(function()
       local http2 = client.http2
       if http2 and http2:getRemoteSetting(Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL) == 1 then
         logger:fine('websocket client is using HTTP/2')
@@ -546,9 +551,11 @@ end, function(WebSocket)
             self:onOpen(WebSocket:new():initializeTcp(StreamAdapter:new(stream)), exchange)
           end)
         else
+          logger:fine('websocket not accepted')
           HttpExchange.badRequest(exchange)
         end
       else
+        logger:fine('bad websocket version')
         HttpExchange.badRequest(exchange)
       end
     end
@@ -565,6 +572,7 @@ end, function(WebSocket)
           local headerSecWebSocketProtocol = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL)
           if not self:accept(headerSecWebSocketProtocol, exchange) then
             -- TODO Check if response has been set
+            logger:fine('websocket not accepted')
             HttpExchange.badRequest(exchange)
           else
             local response = exchange:getResponse()
@@ -588,6 +596,7 @@ end, function(WebSocket)
             end
           end
         else
+          logger:fine('bad websocket version')
           HttpExchange.badRequest(exchange)
         end
       else
@@ -598,7 +607,7 @@ end, function(WebSocket)
     function upgradeHandler:handle(exchange)
       local request = exchange:getRequest()
       if logger:isLoggable(logger.FINER) then
-        logger:finer('upgradeHandler:handle()')
+        logger:finer('upgradeHandler:handle() %s', request:getMethod())
         for name, value in pairs(request:getHeadersTable()) do
           logger:finer(' %s: "%s"', name, value)
         end
@@ -608,6 +617,7 @@ end, function(WebSocket)
       elseif request:getMethod() == 'CONNECT' and exchange.stream then
         return self:handleConnect(exchange)
       end
+      logger:fine('invalid upgrade method or exchange state')
       HttpExchange.badRequest(exchange, 'Invalid method')
     end
 

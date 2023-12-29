@@ -139,8 +139,6 @@ return class.create(function(httpClient)
     elseif not self:isClosed() then
       return Promise.resolve(self)
     end
-    self.http2 = nil
-    self.remnant = nil
     self:close(false)
     if self.isSecure then
       self.tcpClient = secure.TcpSocket:new()
@@ -153,21 +151,15 @@ return class.create(function(httpClient)
         if self.tcpClient:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
           local http2 = Http2:new(self.tcpClient, false)
-          local promise, cb = Promise.createWithCallback()
-          function http2:onSettings()
-            self.onSettings = Http2.prototype.onSettings
-            cb()
-          end
+          -- To avoid unnecessary latency, clients are permitted to send additional frames to the server immediately after sending the client connection preface
           self.http2 = http2
-          http2:readStart({
+          return http2:readStart({
             [Http2.SETTINGS.ENABLE_PUSH] = 0,
             [Http2.SETTINGS.HEADER_TABLE_SIZE] = 65536,
             [Http2.SETTINGS.INITIAL_WINDOW_SIZE] = 6291456,
             [Http2.SETTINGS.MAX_CONCURRENT_STREAMS] = 100,
             [Http2.SETTINGS.MAX_HEADER_LIST_SIZE] = 262144,
           })
-          -- TODO Close on error
-          return promise
         end
       end
     end):next(function()
@@ -265,7 +257,7 @@ return class.create(function(httpClient)
       stream.options = options
       stream.request = request
       if request:isBodyEmpty() then
-        stream:sendHeaders(request, true, true)
+        stream:sendHeaders(request, true, request:getMethod() ~= 'CONNECT')
       else
         stream:sendHeaders(request, true):next(function()
           logger:finer('fetch write headers done')
@@ -409,6 +401,7 @@ return class.create(function(httpClient)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
   function httpClient:close(callback)
+    self.remnant = nil
     local http2 = self.http2
     if http2 then
       self.http2 = nil

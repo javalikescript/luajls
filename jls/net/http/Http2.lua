@@ -315,7 +315,7 @@ return class.create(function(http2)
     self.isServer = isServer
     self.hpack = Hpack:new()
     self.streams = {}
-    self.streamNextId = isServer and 2 or 1
+    self.streamNextId = isServer and 2 or 3
     local initialWindowSize = 65535
     -- some settings have a default value
     -- settings are set by the remote peer
@@ -332,6 +332,10 @@ return class.create(function(http2)
     self.recvMinSize = self.recvTargetSize * 3 // 4
     self.recvWindowSize = initialWindowSize -- receipt window size
     self.initialWindowSize = initialWindowSize
+    self.pingMap = {}
+    self.pingIndex = 0
+    self.settingAcks = {}
+    self.initialSettingsPromise, self.initialSettingsCb = Promise.createWithCallback()
   end
 
   function http2:getRemoteSetting(id)
@@ -363,15 +367,25 @@ return class.create(function(http2)
   end
 
   function http2:registerStream(stream)
+    -- The first use of a new stream identifier implicitly closes all streams in the "idle" state
+    -- that might have been initiated by that peer with a lower-valued stream identifier.
     self.streams[stream.id] = stream
-    logger:fine('new stream %d', stream.id)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('register stream %d, %s', stream.id, self:toPrettyString())
+    end
     return stream
   end
 
   function http2:closedStream(stream)
     self.streams[stream.id] = nil
-    logger:fine('end stream %d', stream.id)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('end stream %d, %s', stream.id, self:toPrettyString())
+    end
     stream:close()
+  end
+
+  function http2:toPrettyString()
+    return self.isServer and 'server' or 'client'
   end
 
   function http2:sendFrame(frameType, flags, streamId, data)
@@ -379,7 +393,7 @@ return class.create(function(http2)
     local frameLen = #data
     local frame = string.pack('>I3BBI4', frameLen, frameType, flags, streamId)..data
     if logger:isLoggable(logger.FINE) then
-      logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen)
+      logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self:toPrettyString())
       --logger:finer('frame #%d: %s', #data, hex:encode(data))
     end
     local p = self.client:write(frame)
@@ -391,8 +405,12 @@ return class.create(function(http2)
       end)
     end
     return p:catch(function(reason)
-      self:handleError(string.format('write error %s', reason))
-      Promise.reject(reason)
+      if frameType == FRAME.GOAWAY then
+        logger:fine('write error ignored "%s"', reason)
+      else
+        self:handleError('write error "%s" %s(%d), 0x%02x, id: %d', reason, FRAME_BY_TYPE[frameType], frameType, flags, streamId)
+        Promise.reject(reason)
+      end
     end)
   end
 
@@ -420,28 +438,43 @@ return class.create(function(http2)
   end
 
   function http2:sendSettings(settings, preface)
-    logger:fine('send settings, preface: %s', preface)
-    if settings then
-      local initialWindowSize = settings[SETTINGS.INITIAL_WINDOW_SIZE]
-      if initialWindowSize then
-        self.initialWindowSize = initialWindowSize
-      end
+    logger:fine('http2:sendSettings(), preface: %s', preface)
+    settings = settings or {}
+    local initialWindowSize = settings[SETTINGS.INITIAL_WINDOW_SIZE]
+    if initialWindowSize then
+      self.initialWindowSize = initialWindowSize
     end
-    local data = packSettings(settings or {})
+    local data = packSettings(settings)
     data = string.pack('>I3BBI4', #data, FRAME.SETTINGS, 0, 0)..data
     if preface then
       data = CONNECTION_PREFACE..data
     end
-    return self.client:write(data):catch(function(reason)
+    return self.client:write(data):next(function()
+      table.insert(self.settingAcks, {settings = settings, time = os.time()})
+    end, function(reason)
       self:handleError(string.format('write settings error %s', reason))
       Promise.reject(reason)
     end)
   end
 
   function http2:sendWindowUpdate(increment)
-    logger:fine('send window update %d', increment)
+    logger:fine('http2:sendWindowUpdate(%d)', increment)
     return self:sendFrame(FRAME.WINDOW_UPDATE, 0, 0, string.pack('>I4', increment)):next(function()
       self.recvWindowSize = self.recvWindowSize + increment
+    end)
+  end
+
+  function http2:sendPing()
+    -- TODO timeout
+    -- TODO clean pingMap
+    local max = 2^16
+    self.pingIndex = (self.pingIndex + 1) % max
+    local pingData = string.format('%04x%04x', math.random(0, max - 1), self.pingIndex)
+    logger:fine('http2:sendPing() "%s"', pingData)
+    return self:sendFrame(FRAME.PING, 0, 0, pingData):next(function()
+      local p, cb = Promise.createWithCallback()
+      self.pingMap[pingData] = {cb = cb, time = os.time()}
+      return p
     end)
   end
 
@@ -453,7 +486,7 @@ return class.create(function(http2)
           logger:info('h2 read error "%s", closing', err)
           self:doClose()
         else
-          self:handleError(err)
+          self:handleError('read error "%s"', err)
         end
       elseif data then
         local frameType, flags, streamId = string.unpack('>BBI4', data, 4)
@@ -461,14 +494,18 @@ return class.create(function(http2)
         local stream
         local frameLen = #data - 9
         if logger:isLoggable(logger.FINE) then
-          logger:fine('received frame %s(%d), 0x%02x, id: %d, #%d', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen)
+          logger:fine('received frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self:toPrettyString())
         end
         local offset, endOffset
         offset = 10
         if frameType == FRAME.DATA then
-          offset, endOffset = readPadding(flags, data, offset)
-          stream = self.streams[streamId]
+          stream = self:checkStreamFrame(streamId)
           if stream then
+            if stream.state ~= STATE.OPEN and stream.state ~= STATE.HALF_CLOSED_LOCAL then
+              self:goAway(ERRORS.STREAM_CLOSED, 'bad stream state (%s)', stream.state)
+              return
+            end
+            offset, endOffset = readPadding(flags, data, offset)
             if offset < endOffset then
               self.recvWindowSize = self.recvWindowSize - (endOffset - offset + 1)
               if self.recvWindowSize < self.recvMinSize then
@@ -476,122 +513,183 @@ return class.create(function(http2)
               end
             end
             stream:onRawData(string.sub(data, offset, endOffset), flags & END_STREAM_FLAG ~= 0)
-          else
-            self:handleError(string.format('unknown stream id %d', streamId))
           end
         elseif frameType == FRAME.HEADERS then
-          if streamId == 0 then
-            self:handleError('invalid headers frame')
+          if self:checkFrame(streamId == 0) then
             return
           end
           offset, endOffset = readPadding(flags, data, offset)
           if flags & PRIORITY_FLAG ~= 0 then
             offset = self:handlePriority(streamId, data, offset, endOffset)
           end
-          stream = self.streams[streamId]
-          if not stream then
-            if self.isServer == (streamId % 2 == 0) then
-              self:handleError('invalid headers stream id')
-              return
+          if self.isServer == (streamId % 2 == 0) then
+            stream = self:checkStreamFrame(streamId)
+          else
+            stream = self.streams[streamId]
+            if not stream then
+              stream = self:newStream(streamId)
+              self:registerStream(stream)
             end
-            stream = self:newStream(streamId)
-            self:registerStream(stream)
-            logger:fine('new stream %d', streamId)
           end
-          self:handleHeaderBlock(stream, flags, data, offset, endOffset)
+          if stream then
+            self:handleHeaderBlock(stream, flags, data, offset, endOffset)
+          end
         elseif frameType == FRAME.PRIORITY then
+          if self:checkFrame(streamId == 0, frameLen ~= 5) then
+            return
+          end
           offset = self:handlePriority(streamId, data, offset, endOffset)
         elseif frameType == FRAME.SETTINGS then
-          if streamId ~= 0 or frameLen % 6 ~= 0 then
-            self:handleError('invalid settings frame')
+          if self:checkFrame(streamId ~= 0, frameLen % 6 ~= 0) then
             return
           end
           if flags & ACK_FLAG ~= 0 then
             logger:fine('settings ack received')
+            local ack = table.remove(self.settingAcks, 1)
+            if ack then
+              self:onSettingsAck(ack.settings)
+            end
             return
           end
           logger:fine('settings received')
+          local settings = {}
           local id, value
           while offset <= #data do
             id, value, offset = string.unpack('>I2I4', data, offset)
             if logger:isLoggable(logger.FINE) then
               logger:fine('setting %s(%d): %d was %s', SETTINGS_BY_ID[id], id, value, self.settings[id])
             end
+            settings[id] = value
             self.settings[id] = value
             if id == SETTINGS.HEADER_TABLE_SIZE then
               self.hpack:resizeIndexes(value)
             end
           end
           self:sendFrame(FRAME.SETTINGS, ACK_FLAG, 0)
-          self:onSettings()
+          if self.initialSettingsCb then
+            self.initialSettingsCb()
+            self.initialSettingsCb = nil
+            self.initialSettingsPromise = nil
+          end
+          self:onSettings(settings)
         elseif frameType == FRAME.WINDOW_UPDATE then
+          if self:checkFrame(nil, frameLen ~= 4) then
+            return
+          end
           local value = string.unpack('>I4', data, offset)
           value = value & 0x7fffffff
           if streamId == 0 then
             self.sendWindowSize = self.sendWindowSize + value
             logger:fine('window size increment: %d, new size is %d', value, self.sendWindowSize)
           else
-            stream = self.streams[streamId]
+            stream = self:checkStreamFrame(streamId)
             if stream then
               stream:onWindowUpdate(value)
-            else
-              self:handleError(string.format('unknown stream id %d', streamId))
             end
           end
         elseif frameType == FRAME.RST_STREAM then
-          if streamId == 0 or frameLen ~= 4 then
-            self:handleError('invalid reset frame')
-            return
-          end
-          local errorCode = string.unpack('>I4', data, offset)
-          stream = self.streams[streamId]
+          stream = self:checkStreamFrame(streamId, frameLen ~= 4)
           if stream then
+            local errorCode = string.unpack('>I4', data, offset)
             stream:handleError(errorCode)
-          else
-            self:handleError(string.format('unknown stream id %d', streamId))
           end
         elseif frameType == FRAME.PUSH_PROMISE then
-          logger:warn('push promise received')
-        elseif frameType == FRAME.PING then
-          if flags & ACK_FLAG ~= 0 then
-            logger:fine('ping ack received')
+          if self:checkFrame(streamId == 0) then
             return
           end
-          self:onPing()
-          self:sendFrame(FRAME.PING, ACK_FLAG, 0, string.sub(data, offset))
+          logger:warn('push promise rejected')
+          self:sendFrame(FRAME.RST_STREAM, 0, streamId)
+        elseif frameType == FRAME.PING then
+          if self:checkFrame(streamId ~= 0, frameLen ~= 8) then
+            return
+          end
+          local pingData = string.sub(data, offset)
+          if flags & ACK_FLAG ~= 0 then
+            logger:fine('ping ack received "%s"', pingData)
+            local ack = self.pingMap[pingData]
+            if ack then
+              self.pingMap[pingData] = nil
+              ack.cb()
+            end
+            return
+          end
+          self:sendFrame(FRAME.PING, ACK_FLAG, 0, pingData)
+          self:onPing(pingData)
         elseif frameType == FRAME.GOAWAY then
+          if self:checkFrame(streamId ~= 0, frameLen < 8) then
+            return
+          end
           local lastStreamId, errorCode
           lastStreamId, errorCode, offset = string.unpack('>I4I4', data, offset)
           lastStreamId = lastStreamId & 0x7fffffff
           if errorCode ~= 0 then
-            if offset >= #data then
+            if offset < #data then
               local debugData = string.sub(data, offset)
-              self:handleError(string.format('go away, error %d: %s, debug "%s"', errorCode, ERRORS_BY_ID[errorCode], debugData))
+              self:handleError('go away, error %d: %s, debug "%s"', errorCode, ERRORS_BY_ID[errorCode], debugData)
             else
-              self:handleError(string.format('go away, error %d: %s', errorCode, ERRORS_BY_ID[errorCode]))
+              self:handleError('go away, error %d: %s', errorCode, ERRORS_BY_ID[errorCode])
             end
           end
         elseif frameType == FRAME.CONTINUATION then
-          stream = self.streams[streamId]
+          stream = self:checkStreamFrame(streamId)
           if stream then
             self:handleHeaderBlock(stream, flags, data, offset)
-          else
-            self:handleError(string.format('unknown stream id %d', streamId))
           end
+        else
+          -- Implementations MUST ignore and discard any frame that has a type that is unknown.
+          logger:fine('ignore unknown frame type %d', frameType)
         end
       else
         logger:info('end of h2 reading')
         self:doClose()
       end
     end), self.isServer and findFrameWithPreface or findFrame)
-    logger:fine('start reading')
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('start reading, %s', self:toPrettyString())
+    end
     client:readStart(cs)
     return self:sendSettings(settings, not self.isServer)
   end
 
-  function http2:goAway(errorCode)
+  function http2:checkStreamFrame(id, frameLenCheck)
+    if frameLenCheck ~= nil and frameLenCheck then
+      self:goAway(ERRORS.FRAME_SIZE_ERROR, 'invalid frame size')
+      return
+    end
+    if id == 0 then
+      self:goAway(ERRORS.PROTOCOL_ERROR, 'missing stream id')
+      return
+    end
+    local stream = self.streams[id]
+    if stream then
+      return stream
+    end
+    self:onError(string.format('unknown stream id %d', id))
+  end
+
+  function http2:checkFrame(streamIdCheck, frameLenCheck)
+    if frameLenCheck ~= nil and frameLenCheck then
+      self:goAway(ERRORS.FRAME_SIZE_ERROR, 'invalid frame size')
+      return true
+    end
+    if streamIdCheck ~= nil and streamIdCheck then
+      self:goAway(ERRORS.PROTOCOL_ERROR, 'invalid stream id')
+      return true
+    end
+  end
+
+  function http2:goAway(errorCode, debugData, ...)
+    if logger:isLoggable(logger.FINE) then
+      logger:fine('http2:goAway(%s, %s)', errorCode, debugData and string.format(debugData, ...))
+    end
     local lastStreamId = self.streamNextId -- TODO get correct value
-    return self:sendFrame(FRAME.GOAWAY, 0, 0, string.pack('>I4I4', lastStreamId, errorCode or 0))
+    local data = string.pack('>I4I4', lastStreamId, errorCode or 0)
+    if errorCode and errorCode ~= 0 and debugData then
+      data = data..string.format(debugData, ...)
+    end
+    return self:sendFrame(FRAME.GOAWAY, 0, 0, data):finally(function()
+      self:doClose()
+    end)
   end
 
   function http2:doClose()
@@ -599,15 +697,26 @@ return class.create(function(http2)
     self.client:close()
   end
 
-  function http2:handleError(reason)
+  function http2:handleError(reason, ...)
     self:doClose()
-    self:onError(reason)
+    if type(reason) == 'string' then
+      self:onError(string.format(reason, ...))
+    else
+      self:onError(reason)
+    end
   end
 
-  function http2:onSettings()
+  function http2:initialSettings()
+    return self.initialSettingsPromise
   end
 
-  function http2:onPing()
+  function http2:onSettings(settings)
+  end
+
+  function http2:onSettingsAck(settings)
+  end
+
+  function http2:onPing(pingData)
   end
 
   function http2:onError(reason)
@@ -616,9 +725,7 @@ return class.create(function(http2)
 
   function http2:close()
     logger:fine('http2:close()')
-    return self:goAway():next(function()
-      self:doClose()
-    end)
+    return self:goAway()
   end
 
 end, function(Http2)
