@@ -255,7 +255,11 @@ return class.create(function(webSocket)
   --- Connects this WebSocket to a server.
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is opened.
   function webSocket:open()
+    if self.connecting then
+      Promise.reject('already connecting')
+    end
     self:close(false)
+    self.connecting = true
     local client = HttpClient:new({
       url = self.url,
       secureContext = {
@@ -315,6 +319,8 @@ return class.create(function(webSocket)
       client:close()
       logger:fine('webSocket:open() error: "%s"', reason)
       return Promise.reject(reason)
+    end):finally(function()
+      self.connecting = nil
     end)
   end
 
@@ -508,6 +514,7 @@ return class.create(function(webSocket)
       self.tcp = nil
       return tcp:close(callback)
     end
+    self.connecting = nil
     if callback == nil then
       return Promise.resolve()
     end
@@ -517,7 +524,7 @@ return class.create(function(webSocket)
   end
 
   function webSocket:isClosed()
-    return not self.tcp
+    return not (self.connecting or self.tcp)
   end
 
 end, function(WebSocket)
