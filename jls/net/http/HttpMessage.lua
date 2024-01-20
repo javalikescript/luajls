@@ -198,9 +198,9 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   function httpMessage:getIfModifiedSince()
     local value = self:getHeader('If-Modified-Since')
     if type(value) == 'string' then
-      return Date.fromRFC822String(value)
+      return Date.fromRFC822String(value) + 999
     end
-    return value
+    return nil
   end
 
   function httpMessage:getContentLength()
