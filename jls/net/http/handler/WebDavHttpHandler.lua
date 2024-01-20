@@ -73,7 +73,7 @@ end
 
 --- A WebDavHttpHandler class.
 -- @type WebDavHttpHandler
-return require('jls.lang.class').create('jls.net.http.handler.FileHttpHandler', function(webDavHttpHandler, super)
+return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHandler, super)
 
   function webDavHttpHandler:initialize(rootFile, permissions)
     super.initialize(self, rootFile, permissions, '')

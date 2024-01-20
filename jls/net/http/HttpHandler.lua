@@ -119,6 +119,15 @@ end, function(HttpHandler)
     end
     return require('jls.net.http.handler.FileHttpHandler'):new(file, ...)
   end
+  --- Exposes a file system directory.
+  -- @tparam File dir the base directory or a ZIP file.
+  -- @tparam[opt] string permissions a string containing the granted permissions, 'rwxlcud' default is 'r'.
+  -- @tparam[opt] string filename the name of the file to use in case of GET request on a directory, default is 'index.html'.
+  -- @treturn HttpHandler a HttpHandler.
+  function HttpHandler.htmlFile(dir, ...)
+    local file = require('jls.io.File').asFile(dir)
+    return require('jls.net.http.handler.HtmlFileHttpHandler'):new(file, ...)
+  end
   --- Proxies HTTP requests and responses.
   -- @treturn HttpHandler a HttpHandler.
   function HttpHandler.proxy()

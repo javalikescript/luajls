@@ -6,6 +6,7 @@ local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
+local HtmlFileHttpHandler = require('jls.net.http.handler.HtmlFileHttpHandler')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
@@ -76,6 +77,11 @@ local CONFIG_SCHEMA = {
       title = 'Use the WebDAV protocol',
       type = 'boolean',
       default = false
+    },
+    html = {
+      title = 'Use HTML to list directories',
+      type = 'boolean',
+      default = true
     },
     websocket = {
       type = 'object',
@@ -292,6 +298,8 @@ local htmlHeaders = {}
 if config.webdav then
   local WebDavHttpHandler = require('jls.net.http.handler.WebDavHttpHandler')
   handler = WebDavHttpHandler:new(config.dir, config.permissions)
+elseif config.html then
+  handler = HtmlFileHttpHandler:new(config.dir, config.permissions)
 else
   handler = FileHttpHandler:new(config.dir, config.permissions)
 end
