@@ -148,7 +148,7 @@ function json.stringify(value, space, lenient)
             if lenient then
               k = tostring(k)
             else
-              error('Invalid JSON key type '..type(k))
+              error('Invalid JSON key type '..type(k)..' ('..tostring(k)..')')
             end
           end
           sb:append(subPrefix, '"', encodeString(k), '"', colon)

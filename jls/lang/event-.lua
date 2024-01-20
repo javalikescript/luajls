@@ -7,8 +7,7 @@ local logger = require('jls.lang.logger')
 local CoroutineScheduler = require('jls.util.CoroutineScheduler')
 local Exception = require('jls.lang.Exception')
 
-local TASK_DELAY_MS = os.getenv('JLS_EVENT_TASK_DELAY_MS')
-TASK_DELAY_MS = TASK_DELAY_MS and tonumber(TASK_DELAY_MS) or 500
+local TASK_DELAY_MS = tonumber(os.getenv('JLS_EVENT_TASK_DELAY_MS')) or 500
 
 --- An Event class.
 -- @type Event
