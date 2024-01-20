@@ -22,11 +22,26 @@ a {
   text-decoration: none;
   color: inherit;
 }
-a:hover {
+a.file:hover, a.dir:hover {
   text-decoration: underline;
 }
 a.dir {
   font-weight: bold;
+}
+a.action {
+  padding-left: 0.1rem;
+  padding-right: 0.1rem;
+  border-radius: 0.3rem;
+  border: 1px dotted transparent;
+}
+a.action:hover {
+  border-color: unset;
+}
+div.file > a.action {
+  display: none;
+}
+div.file:hover > a.action {
+  display: initial;
 }
 </style>
 ]]
@@ -47,6 +62,18 @@ local DROP_STYLE = [[<style>
 </style>
 ]]
 
+local COMMON_SCRIPT = [[
+<script>
+function stopEvent(e) {
+  e.preventDefault();
+  e.stopPropagation();
+} 
+function showMessage(text) {
+  document.body.innerHTML = '<p>' + text + '</p>';
+} 
+</script>
+]]
+
 local DELETE_SCRIPT = [[
 <script>
 function delFile(e) {
@@ -56,7 +83,8 @@ function delFile(e) {
     filename = target.getAttribute('href');
     target = target.previousElementSibling;
   } while ((filename === '#') && target);
-  if (window.confirm('Delete file "' + decodeURIComponent(filename) + '"?')) {
+  if (e.shiftKey || window.confirm('Delete file "' + decodeURIComponent(filename) + '"?')) {
+    showMessage('deleting...');
     fetch(filename, {
       credentials: "same-origin",
       method: "DELETE"
@@ -64,6 +92,35 @@ function delFile(e) {
       window.location.reload();
     });
   }
+  stopEvent(e);
+}
+</script>
+]]
+
+local RENAME_SCRIPT = [[
+<script>
+function renameFile(e) {
+  var target = e.target;
+  var filename;
+  do {
+    filename = target.getAttribute('href');
+    target = target.previousElementSibling;
+  } while ((filename === '#') && target);
+  var oldname = decodeURIComponent(filename).replace(/\/$/, '');
+  var newname = window.prompt('Enter the new name for "' + oldname + '"?', oldname)
+  if (newname) {
+    showMessage('renaming...');
+    fetch(filename, {
+      credentials: "same-origin",
+      method: "MOVE",
+      headers: {
+        "destination": window.location.pathname + newname
+      }
+    }).then(function() {
+      window.location.reload();
+    });
+  }
+  stopEvent(e);
 }
 </script>
 ]]
@@ -71,14 +128,11 @@ function delFile(e) {
 local PUT_SCRIPT = [[
 <input type="file" multiple onchange="putFiles(this.files)" />
 <script>
-function stopEvent(e) {
-  e.preventDefault();
-  e.stopPropagation();
-} 
 function putFiles(files) {
   if (files && files.length > 0) {
     files = Array.prototype.slice.call(files);
-    document.body.innerHTML = '<p>in progress...</p>';
+    showMessage('upload in progress...');
+    var count = 0;
     Promise.all(files.map(function(file) {
       return fetch(file.name, {
         credentials: "same-origin",
@@ -87,6 +141,9 @@ function putFiles(files) {
           "jls-last-modified": file.lastModified
         },
         body: file
+      }).then(function() {
+        count++;
+        showMessage('' + count + '/' + files.length + ' files uploaded...');
       });
     })).then(function() {
       window.location.reload();
@@ -227,11 +284,13 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     if file.size then
       buffer:append(sep, file.size, ' bytes')
     end
-    buffer:append('"')
+    buffer:append('" class="')
     if file.isDir then
-      buffer:append(' class="dir"')
+      buffer:append('dir')
+    else
+      buffer:append('file')
     end
-    buffer:append('>', file.name, '</a>\n')
+    buffer:append('">', file.name, '</a>\n')
   end
 
   function fileHttpHandler:appendDirectoryHtmlBody(exchange, buffer, files)
@@ -240,17 +299,27 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       buffer:append('<a href=".." class="dir">..</a><br/>\n')
     end
     for _, file in ipairs(files) do
+      buffer:append('<div class="file">\n')
       self:appendFileHtmlBody(buffer, file)
-      if self.allowDelete and not file.isDir then
-        buffer:append('<a href="#" title="delete" onclick="delFile(event)">&#x2715;</a>\n')
+      if self.allowCreate and self.allowDelete then
+        buffer:append('<a href="#" title="Rename" class="action" onclick="renameFile(event)">&#x270E;</a>\n')
       end
-      buffer:append('<br/>\n')
+      if self.allowDelete then
+        buffer:append('<a href="#" title="Delete" class="action" onclick="delFile(event)">&#x2715;</a>\n')
+      end
+      buffer:append('</div>\n')
     end
-    if self.allowCreate then
-      buffer:append(PUT_SCRIPT)
-    end
-    if self.allowDelete then
-      buffer:append(DELETE_SCRIPT)
+    if self.allowCreate or self.allowDelete then
+      buffer:append(COMMON_SCRIPT)
+      if self.allowCreate then
+        buffer:append(PUT_SCRIPT)
+      end
+      if self.allowDelete then
+        buffer:append(DELETE_SCRIPT)
+      end
+      if self.allowCreate and self.allowDelete then
+        buffer:append(RENAME_SCRIPT)
+      end
     end
     return buffer
   end
@@ -265,7 +334,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       response:setContentType(HttpExchange.CONTENT_TYPES.json)
     else
       local buffer = StringBuffer:new()
-      buffer:append('<!DOCTYPE html><html><head><meta charset="UTF-8">\n')
+      buffer:append('<!DOCTYPE html><html><head><meta charset="UTF-8" />\n')
+      buffer:append('<meta name="viewport" content="width=device-width, initial-scale=1" />\n')
       buffer:append(DIRECTORY_STYLE)
       local bodyAtttributes = ''
       if self.allowCreate then

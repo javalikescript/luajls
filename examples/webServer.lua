@@ -6,7 +6,6 @@ local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
-local strings = require('jls.util.strings')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
@@ -120,7 +119,13 @@ local CONFIG_SCHEMA = {
         extension = {
           title = 'The cipher extension',
           type = 'string',
+          pattern = '^%w+$',
           default = 'enc',
+        },
+        filter = {
+          title = 'Filters files with the cipher extension',
+          type = 'boolean',
+          default = true,
         },
         path = {
           title = "The HTTP path for key modification",
@@ -326,17 +331,24 @@ function setKey(key) {
     });
   }
 }
+function askKey(e) {
+  setKey(window.prompt('Enter the new cipher key?'));
+  e.preventDefault();
+}
 </script>
-<a href="#" onclick="setKey(window.prompt('Enter the new cipher key?'))" title="Set the cipher key">[&#x1F511;]</a>
+<a href="#" onclick="askKey(event)" class="action" title="Set the cipher key">&#x1F511;</a>
 ]])
   local function generateEncName(mdCipher, name)
     -- the same plain name must result to the same encoded name
     return base64:encode(mdCipher:encode('\7'..name))..'.'..extension
   end
+  local function getNameExt(name)
+    return string.match(name, '^([%w%-_%+/]+)%.(%w+)$')
+  end
   local function readEncFileMetadata(mdCipher, encFile)
-    local parts = strings.split(encFile:getName(), '.', true)
-    if #parts == 2 and parts[2] == extension then
-      local cname = base64:decodeSafe(parts[1])
+    local bname, ext = getNameExt(encFile:getName())
+    if bname and ext == extension then
+      local cname = base64:decodeSafe(bname)
       if cname then
         local name = mdCipher:decodeSafe(cname)
         if name and string.byte(name, 1) == 7 then
@@ -410,7 +422,14 @@ function setKey(key) {
         end
         return files
       end
-      return fs.listFileMetadata(exchange, dir)
+      local files = fs.listFileMetadata(exchange, dir)
+      if config.cipher.filter then
+        return List.filter(files, function(md)
+          local _, ext = getNameExt(md.name)
+          return ext ~= extension
+        end)
+      end
+      return files
     end,
     createDirectory = fs.createDirectory,
     copyFile = function(exchange, file, destFile)
@@ -584,6 +603,27 @@ if config.secure.enabled then
   httpSecureServer:setParent(httpServer)
 end
 
+if string.match(config.permissions, '[wc]') then
+  table.insert(htmlHeaders, [[<script>
+function createDir(name) {
+  if (typeof name === 'string' && name) {
+    fetch(name + '/', {
+      credentials: "same-origin",
+      method: "PUT"
+    }).then(function() {
+      window.location.reload();
+    });
+  }
+}
+function askDir(e) {
+  createDir(window.prompt('Enter the folder name?'));
+  e.preventDefault();
+}
+</script>
+<a href="#" onclick="askDir(event)" class="action" title="Create a folder">&#x1F4C2;</a>
+]])
+end
+
 if config.stop.enabled then
   httpServer:createContext(config.stop.path, function(exchange)
     if HttpExchange.methodAllowed(exchange, 'POST') then
@@ -592,7 +632,7 @@ if config.stop.enabled then
     end
   end)
   table.insert(htmlHeaders, [[<script>
-function stopServer() {
+function stopServer(e) {
   if (window.confirm('Stop the server?')) {
     fetch(']]..config.stop.path..[[', {
       credentials: "same-origin",
@@ -601,20 +641,21 @@ function stopServer() {
       document.body.innerHTML = '<p>bye</p>';
     });
   }
+  e.preventDefault();
 }
 </script>
-<a href="#" onclick="stopServer()" title="Stop the server">[&#x2715;]</a>
+<a href="#" onclick="stopServer(event)" class="action" title="Stop the server">&#x2715;</a>
 ]])
 end
 
 if #htmlHeaders > 0 then
   local appendDirectoryHtmlBody = handler.appendDirectoryHtmlBody
   function handler:appendDirectoryHtmlBody(exchange, buffer, files)
-    buffer:append('<div style="right: 2rem; position: absolute;">')
+    buffer:append('<span style="right: 1rem; position: absolute; z-index: +1;">')
     for _, value in ipairs(htmlHeaders) do
       buffer:append(value)
     end
-    buffer:append('</div>')
+    buffer:append('</span>')
     return appendDirectoryHtmlBody(self, exchange, buffer, files)
   end
 end
