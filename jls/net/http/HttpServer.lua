@@ -13,6 +13,7 @@ local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local HttpFilter = require('jls.net.http.HttpFilter')
 local Http1 = require('jls.net.http.Http1')
 local Http2 = require('jls.net.http.Http2')
+local Url = require('jls.net.Url')
 local List = require('jls.util.List')
 
 local HTTP_CONST = HttpMessage.CONST
@@ -592,6 +593,43 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
     return string.sub(self.pattern, 2, -2)
   end
 
+  local function encodePercentChar(c)
+    return string.format('%%%02X', string.byte(c))
+  end
+
+  local function guessMatch(pattern)
+    local p = pattern
+    p = string.gsub(p, '%%[aglwxUCDPS]', 'a')
+    p = string.gsub(p, '%%[dAL]', '0')
+    p = string.gsub(p, '%%[sGWX]', ' ')
+    p = string.gsub(p, '%%u', 'A')
+    p = string.gsub(p, '%%c', '\t')
+    p = string.gsub(p, '%%p', ',')
+    p = string.gsub(p, '%%(%W)', encodePercentChar) -- protect escaped characters
+    p = string.gsub(p, '%[(.).*%]', '%1') -- replace set by the first one
+    p = string.gsub(p, '%((.+)%)', '%1') -- remove captures
+    p = string.gsub(p, '(.)[%+%?]', '%1') -- keep one or more and zero or one patterns
+    p = string.gsub(p, '.[%*%-]', '') -- remove zero or more patterns
+    return Url.decodePercent(p)
+  end
+
+  --- Returns a path that match this context.
+  -- @treturn string the base path
+  function httpContext:getBasePath()
+    if not self.basePath then
+      self.basePath = guessMatch(self:getPath())
+    end
+    return self.basePath
+  end
+
+  --- Sets the base path, default is guessed from the context path.
+  -- @param basePath the base path
+  -- @return this context
+  function httpContext:setBasePath(basePath)
+    self.basePath = basePath
+    return self
+  end
+
   function httpContext:getPathReplacement()
     return self.repl
   end
@@ -614,14 +652,11 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
   end
 
   --- Returns the captured values of the specified path.
-  -- @treturn string the first captured value, nil if there is no captured value.
+  -- @treturn string the first captured value or the whole path, nil if the path does not match.
   function httpContext:getArguments(path)
     return string.match(path, self.pattern)
   end
 
-  --- Returns the target path of the specified path.
-  -- It consists in the first captured value, or the 
-  -- @treturn string the first captured value, nil if there is no captured value.
   function httpContext:replacePath(path)
     return string.gsub(path, self.pattern, self.repl)
   end
