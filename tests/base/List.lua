@@ -220,4 +220,11 @@ function Test_reduce()
   lu.assertEquals(List.reduce({1, 2}, f, 10), 13)
 end
 
+function Test_filter()
+  local function f(a)
+    return a % 2 == 0
+  end
+  lu.assertEquals(List.filter({1, 2, 3, 4}, f), {2, 4})
+end
+
 os.exit(lu.LuaUnit.run())

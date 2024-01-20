@@ -43,6 +43,17 @@ return require('jls.lang.class').create(function(list, _, List)
     return d
   end
 
+  local function filter(l, f, lf, lu)
+    for i, v in ipairs(l) do
+      if f(v, i, l) then
+        table.insert(lf, v)
+      elseif lu then
+        table.insert(lu, v)
+      end
+    end
+    return lf, lu
+  end
+
   --- Creates a new List.
   -- @param[opt] ... The values to add to the list.
   -- @function List:new
@@ -256,16 +267,8 @@ return require('jls.lang.class').create(function(list, _, List)
     return self:remove()
   end
 
-  function list:filter(filterFn, unfilteredList)
-    local filtered = List:new()
-    for i, v in ipairs(self) do
-      if filterFn(v, i, self) then
-        filtered:add(v)
-      elseif unfilteredList then
-        unfilteredList:add(v)
-      end
-    end
-    return filtered, unfilteredList
+  function list:filter(f, l)
+    return filter(self, f, List:new(), l)
   end
 
   function list:contains(value)
@@ -303,16 +306,8 @@ return require('jls.lang.class').create(function(list, _, List)
 
   List.irpairs = irpairs
 
-  function List.filter(l, filterFn, unfilteredList)
-    local filtered = {}
-    for i, v in ipairs(l) do
-      if filterFn(v, i, l) then
-        table.insert(filtered, v)
-      elseif unfilteredList then
-        table.insert(unfilteredList, v)
-      end
-    end
-    return filtered, unfilteredList
+  function List.filter(l, f, lu)
+    return filter(l, f, {}, lu)
   end
 
   List.contains = List.prototype.contains
