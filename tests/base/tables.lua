@@ -446,4 +446,15 @@ function Test_createArgumentTablePath()
   lu.assertNotNil(tables.getArgument(t, 'h'))
 end
 
+function Test_get()
+  lu.assertEquals(tables.get({a = {b = 'Hi'}}, 'a', 'b'), 'Hi')
+  lu.assertNil(tables.get({a = {b = 'Hi'}}, 'a', 'c'))
+end
+
+function Test_set()
+  lu.assertEquals(tables.set({a = {b = 'Hi'}}, 'Hello', 'a', 'b'), {a = {b = 'Hello'}})
+  lu.assertEquals(tables.set({a = {b = 'Hi'}}, 'Hello', 'a', 'c'), {a = {b = 'Hi', c = 'Hello'}})
+  lu.assertEquals(tables.set({}, 'Hello', 'a', 'b'), {a = {b = 'Hello'}})
+end
+
 os.exit(lu.LuaUnit.run())

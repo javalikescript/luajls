@@ -426,6 +426,50 @@ local function getPathKey(path, separator)
   return key, remainingPath
 end
 
+--- Returns the value at the indices in the deep table
+-- @tparam table t a table
+-- @param ... The indices to get the deep table value.
+-- @return the value or nil if any intermediary index does not match a table.
+-- @usage
+--local tables = require('jls.util.tables')
+--tables.get({a = {b = 'Hi'}}, 'a', 'b') -- Returns 'Hi'
+function tables.get(t, ...)
+  local u = t
+  for _, i in ipairs({...}) do
+    if type(u) == 'table' then
+      u = u[i]
+    else
+      return nil
+    end
+  end
+  return u
+end
+
+--- Sets the value at the indices in the deep table
+-- The intermediary indices are created if necessary.
+-- @tparam table t a table
+-- @param value The value to set.
+-- @param ... The indices to set the deep table value.
+-- @treturn table the table or nil if any intermediary index does not match a table.
+-- @return the value or nil if any intermediary index does not match a table.
+function tables.set(t, value, ...)
+  local u = t
+  local l = {...}
+  local j = table.remove(l)
+  for _, i in ipairs(l) do
+    local v = u[i]
+    if v == nil then
+      v = {}
+      u[i] = v
+    elseif type(v) ~= 'table' then
+      return nil
+    end
+    u = v
+  end
+  u[j] = value
+  return t, value
+end
+
 --- Returns the value at the specified path in the specified table.
 -- A path consists in table keys separated by slashes.
 -- A key is interpreted as a boolean, a number then a string.
