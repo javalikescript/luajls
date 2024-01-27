@@ -157,6 +157,8 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       value = Date:new(value):toRFC822String(true)
     elseif Date:isInstance(value) then
       value = value:toRFC822String(true)
+    elseif type(value) ~= 'string' then
+      error('Invalid last modified value')
     end
     self:setHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED, value)
   end

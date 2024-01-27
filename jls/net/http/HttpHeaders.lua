@@ -129,11 +129,18 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     table.insert(list, nameEq..value)
   end
 
+  function httpHeaders:cookies()
+    local values = self.headers[HEADER_COOKIE]
+    if type(values) ~= 'string' then
+      values = ''
+    end
+    return string.gmatch(values, '([^=;%s]+)%s*=%s*([^=;%s]+)')
+  end
+
   function httpHeaders:getCookies()
     local map = {}
-    local values = self.headers[HEADER_COOKIE]
-    if type(values) == 'string' then
-      for name, value in string.gmatch(values, '([^=;%s]+)%s*=%s*([^=;%s]+)') do
+    for name, value in self:cookies() do
+      if not map[name] then
         map[name] = value
       end
     end
@@ -141,7 +148,24 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   end
 
   function httpHeaders:getCookie(name)
-    return self:getCookies()[name]
+    local value
+    for n, v in self:cookies() do
+      if n == name then
+        if value then
+          if type(value) == 'table' then
+            table.insert(value, v)
+          else
+            value = {value, v}
+          end
+        else
+          value = v
+        end
+      end
+    end
+    if type(value) == 'table' then
+      return table.unpack(value)
+    end
+    return value
   end
 
   --- Adds the specified header value.

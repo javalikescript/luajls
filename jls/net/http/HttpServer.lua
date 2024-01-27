@@ -568,6 +568,7 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
     self.repl = '%1'
     self.index = computeIndex(path)
     self:setHandler(handler or notFoundHandler)
+    -- TODO Validate pattern to avoid late error
   end
 
   function httpContext:getHandler()
