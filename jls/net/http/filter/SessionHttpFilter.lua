@@ -22,6 +22,7 @@ return class.create('jls.net.http.HttpFilter', function(filter)
     self.sessions = {}
     self.options = {
       'max-age='..tostring(self.maxAge),
+      'Path=/',
       'HttpOnly',
       'SameSite=Strict'
     }
