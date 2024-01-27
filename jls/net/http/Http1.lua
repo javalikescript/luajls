@@ -110,7 +110,7 @@ function Http1.readBody(tcp, message, buffer, callback)
     end
     length = -1
     logger:finer('Http1.readBody() connection: %s', connection)
-    if not strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) and not chunkFinder then
+    if not (strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) or chunkFinder or message:getVersion() == HttpMessage.CONST.VERSION_1_0) then
       cb('Content length value, chunked transfer encoding or connection close expected')
       return promise
     end
