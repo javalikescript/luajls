@@ -5,11 +5,13 @@ local Promise = require('jls.lang.Promise')
 local File = require('jls.io.File')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
+local HttpHandler = require('jls.net.http.HttpHandler')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
-local HtmlFileHttpHandler = require('jls.net.http.handler.HtmlFileHttpHandler')
+local Url = require('jls.net.Url')
 local tables = require('jls.util.tables')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
+local strings = require('jls.util.strings')
 
 -- see https://openjdk.java.net/jeps/408
 -- https://www.npmjs.com/package/http-server
@@ -41,21 +43,9 @@ local CONFIG_SCHEMA = {
       default = '.'
     },
     stop = {
-      type = 'object',
-      additionalProperties = false,
-      properties = {
-        enabled = {
-          title = 'Enables stop',
-          type = 'boolean',
-          default = false,
-        },
-        path = {
-          title = 'The HTTP path to stop the server',
-          pattern = '^/%w+$',
-          type = 'string',
-          default = '/STOP'
-        },
-      }
+      title = 'Enables stop',
+      type = 'boolean',
+      default = false,
     },
     webview = {
       type = 'object',
@@ -95,11 +85,13 @@ local CONFIG_SCHEMA = {
         path = {
           title = 'The WebSocket path',
           type = 'string',
+          pattern = '^/.+$',
           default = '/WS/'
         },
         uiPath = {
           title = 'The WebSocket UI path',
           type = 'string',
+          pattern = '^/.+$',
         },
       }
     },
@@ -132,12 +124,6 @@ local CONFIG_SCHEMA = {
           title = 'Filters files with the cipher extension',
           type = 'boolean',
           default = true,
-        },
-        path = {
-          title = "The HTTP path for key modification",
-          type = "string",
-          pattern = '^/%w+$',
-          default = '/KEY',
         }
       }
     },
@@ -224,7 +210,6 @@ local config = tables.createArgumentTable(system.getArguments(), {
     wsp = 'websocket.path',
     p = 'port',
     r = 'permissions',
-    stop = 'stop.enabled',
     c = 'cipher.enabled',
     s = 'secure.enabled',
     m = 'module',
@@ -234,6 +219,49 @@ local config = tables.createArgumentTable(system.getArguments(), {
 })
 
 logger:setLevel(config['log-level'])
+
+local SCRIPT = [[
+function setKey(key) {
+  if (typeof key === 'string') {
+    fetch(location.pathname + '?key', {
+      credentials: "same-origin",
+      method: "PUT",
+      body: key
+    }).then(function() {
+      window.location.reload();
+    });
+  }
+}
+function askKey(e) {
+  setKey(window.prompt('Enter the new cipher key?'));
+  stopEvent(e);
+}
+function createDir(name) {
+  if (typeof name === 'string' && name) {
+    fetch(name + '/', {
+      credentials: "same-origin",
+      method: "PUT"
+    }).then(function() {
+      window.location.reload();
+    });
+  }
+}
+function askDir(e) {
+  createDir(window.prompt('Enter the folder name?'));
+  stopEvent(e);
+}
+function stopServer(e) {
+  if (window.confirm('Stop the server?')) {
+    fetch(location.pathname + '?stop', {
+      credentials: "same-origin",
+      method: "POST"
+    }).then(function() {
+      document.body.innerHTML = '<p>bye</p>';
+    });
+  }
+  stopEvent(e);
+}
+]]
 
 local stopPromise, stopCallback = Promise.createWithCallback()
 
@@ -294,14 +322,23 @@ end
 
 local handler
 local htmlHeaders = {}
+local queryHandler = {}
 
 if config.webdav then
   local WebDavHttpHandler = require('jls.net.http.handler.WebDavHttpHandler')
   handler = WebDavHttpHandler:new(config.dir, config.permissions)
 elseif config.html then
+  local HtmlFileHttpHandler = require('jls.net.http.handler.HtmlFileHttpHandler')
   handler = HtmlFileHttpHandler:new(config.dir, config.permissions)
 else
-  handler = FileHttpHandler:new(config.dir, config.permissions)
+  local d = File:new(config.dir)
+  if d:isFile() and d:getExtension() == 'zip' then
+    logger:info('ZIP file detected')
+    local ZipFileHttpHandler = require('jls.net.http.handler.ZipFileHttpHandler')
+    handler = ZipFileHttpHandler:new(d)
+  else
+    handler = FileHttpHandler:new(config.dir, config.permissions)
+  end
 end
 
 if config.cipher and config.cipher.enabled then
@@ -313,39 +350,26 @@ if config.cipher and config.cipher.enabled then
   local headerSize = string.packsize(headerFormat)
   local extension = config.cipher.extension
   httpServer:addFilter(SessionHttpFilter:new())
-  httpServer:createContext(config.cipher.path, function(exchange)
+  queryHandler['key'] = function(exchange)
     if HttpExchange.methodAllowed(exchange, 'PUT') then
       local session = exchange:getSession()
-      local key = exchange:getRequest():getBody()
-      if key == '' then
-        session:setAttribute('cipher')
-        session:setAttribute('mdCipher')
-      else
-        session:setAttribute('cipher', Codec.getInstance('cipher', config.cipher.alg, key))
-        session:setAttribute('mdCipher', Codec.getInstance('cipher', 'aes256', key))
-      end
-      HttpExchange.ok(exchange)
+      local request = exchange:getRequest()
+      request:bufferBody()
+      return request:consume():next(function()
+        local key = exchange:getRequest():getBody()
+        if key == '' then
+          session:setAttribute('cipher')
+          session:setAttribute('mdCipher')
+        else
+          session:setAttribute('cipher', Codec.getInstance('cipher', config.cipher.alg, key))
+          session:setAttribute('mdCipher', Codec.getInstance('cipher', 'aes256', key))
+        end
+        HttpExchange.ok(exchange)
+      end)
     end
-  end)
-  table.insert(htmlHeaders, [[<script>
-function setKey(key) {
-  if (typeof key === 'string') {
-    fetch(']]..config.cipher.path..[[', {
-      credentials: "same-origin",
-      method: "PUT",
-      body: key
-    }).then(function() {
-      window.location.reload();
-    });
-  }
-}
-function askKey(e) {
-  setKey(window.prompt('Enter the new cipher key?'));
-  e.preventDefault();
-}
-</script>
-<a href="#" onclick="askKey(event)" class="action" title="Set the cipher key">&#x1F511;</a>
-]])
+    return false
+  end
+  table.insert(htmlHeaders, '<a href="#" onclick="askKey(event)" class="action" title="Set the cipher key">&#x1F511;</a>')
   local function generateEncName(mdCipher, name)
     -- the same plain name must result to the same encoded name
     return base64:encode(mdCipher:encode('\7'..name))..'.'..extension
@@ -506,14 +530,6 @@ function askKey(e) {
   })
 end
 
-httpServer:createContext('/?(.*)', handler)
-
-local scriptDir = File:new(system.getArguments()[0] or './na.lua'):getAbsoluteFile():getParentFile()
-local faviconFile = File:new(scriptDir, 'favicon.ico')
-httpServer:createContext('/favicon.ico', function(exchange)
-  HttpExchange.ok(exchange, faviconFile:readAll(), FileHttpHandler.guessContentType(faviconFile:getName()))
-end)
-
 if config.websocket.enabled then
   local WebSocket = require('jls.net.http.WebSocket')
   local websockets = {}
@@ -521,7 +537,8 @@ if config.websocket.enabled then
     logger:fine('WebSocket closed (%s)', webSocket)
     List.removeFirst(websockets, webSocket)
   end
-  httpServer:createContext(config.websocket.path, Map.assign(WebSocket.UpgradeHandler:new(), {
+  local wsPath = Url.encodeURI(config.websocket.path)
+  httpServer:createContext(strings.escape(wsPath), Map.assign(WebSocket.UpgradeHandler:new(), {
     onOpen = function(_, webSocket, exchange)
       table.insert(websockets, webSocket)
       webSocket.onClose = onWebSocketClose
@@ -536,7 +553,8 @@ if config.websocket.enabled then
     end
   }))
   if config.websocket.uiPath then
-    httpServer:createContext(config.websocket.uiPath, function(exchange)
+    local wsUiPath = Url.encodeURI(config.websocket.uiPath)
+    httpServer:createContext(strings.escape(wsUiPath), function(exchange)
       local response = exchange:getResponse()
       response:setBody([[<!DOCTYPE html>
 <html>
@@ -546,7 +564,7 @@ if config.websocket.enabled then
   </body>
   <script>
   var protocol = location.protocol.replace('http', 'ws');
-  var url = protocol + '//' + location.host + ']]..config.websocket.path..[[';
+  var url = protocol + '//' + location.host + ']]..wsPath..[[';
   var webSocket = new WebSocket(url);
   webSocket.onmessage = function(event) {
     console.log('webSocket message', event.data);
@@ -612,48 +630,19 @@ if config.secure.enabled then
 end
 
 if string.match(config.permissions, '[wc]') then
-  table.insert(htmlHeaders, [[<script>
-function createDir(name) {
-  if (typeof name === 'string' && name) {
-    fetch(name + '/', {
-      credentials: "same-origin",
-      method: "PUT"
-    }).then(function() {
-      window.location.reload();
-    });
-  }
-}
-function askDir(e) {
-  createDir(window.prompt('Enter the folder name?'));
-  e.preventDefault();
-}
-</script>
-<a href="#" onclick="askDir(event)" class="action" title="Create a folder">&#x1F4C2;</a>
-]])
+  table.insert(htmlHeaders, '<a href="#" onclick="askDir(event)" class="action" title="Create a folder">&#x1F4C2;</a>')
 end
 
-if config.stop.enabled then
-  httpServer:createContext(config.stop.path, function(exchange)
+if config.stop then
+  queryHandler['stop'] = function(exchange)
     if HttpExchange.methodAllowed(exchange, 'POST') then
       event:setTimeout(stopCallback)
+      --exchange:getResponse():setCookie('jls-session-id', '-', {'expires=Thu, 01 Jan 1970 00:00:00 GMT'})
       HttpExchange.ok(exchange)
     end
-  end)
-  table.insert(htmlHeaders, [[<script>
-function stopServer(e) {
-  if (window.confirm('Stop the server?')) {
-    fetch(']]..config.stop.path..[[', {
-      credentials: "same-origin",
-      method: "POST"
-    }).then(function() {
-      document.body.innerHTML = '<p>bye</p>';
-    });
-  }
-  e.preventDefault();
-}
-</script>
-<a href="#" onclick="stopServer(event)" class="action" title="Stop the server">&#x2715;</a>
-]])
+    return false
+  end
+  table.insert(htmlHeaders, '<a href="#" onclick="stopServer(event)" class="action" title="Stop the server">&#x2715;</a>')
 end
 
 if #htmlHeaders > 0 then
@@ -667,6 +656,33 @@ if #htmlHeaders > 0 then
     return appendDirectoryHtmlBody(self, exchange, buffer, files)
   end
 end
+
+if handler.getQuery then
+  local content = handler:getQuery('script.js')
+  if content then
+    handler:setQuery('script.js', content..SCRIPT)
+  end
+end
+
+local rootHandler = handler
+if next(queryHandler) then
+  rootHandler = HttpHandler:new(function(_, exchange)
+    local query = exchange:getRequest():getTargetQuery()
+    local filter = queryHandler[query]
+    if filter then
+      return filter(exchange)
+    end
+    return handler:handle(exchange)
+  end)
+end
+
+httpServer:createContext('/?(.*)', rootHandler)
+
+local scriptDir = File:new(system.getArguments()[0] or './na.lua'):getAbsoluteFile():getParentFile()
+local faviconFile = File:new(scriptDir, 'favicon.ico')
+httpServer:createContext('/favicon.ico', function(exchange)
+  HttpExchange.ok(exchange, faviconFile:readAll(), FileHttpHandler.guessContentType(faviconFile:getName()))
+end)
 
 do
   local hasLuv, luvLib = pcall(require, 'luv')

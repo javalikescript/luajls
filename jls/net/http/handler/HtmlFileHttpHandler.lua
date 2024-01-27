@@ -6,11 +6,14 @@
 local StringBuffer = require('jls.lang.StringBuffer')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
+local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local Url = require('jls.net.Url')
 local Date = require('jls.util.Date')
-local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
+local MessageDigest = require('jls.util.MessageDigest')
+local Codec = require('jls.util.Codec')
+local base64 = Codec.getInstance('base64', 'safe', false)
 
-local DIRECTORY_STYLE = [[<style>
+local STYLE = [[
 body {
   font-family: system-ui, sans-serif;
 }
@@ -39,10 +42,6 @@ div.file > a.action {
 div.file:hover > a.action {
   display: initial;
 }
-</style>
-]]
-
-local DROP_STYLE = [[<style>
 .drop:before {
   z-index: -1;
   content: '\21d1';
@@ -55,23 +54,16 @@ local DROP_STYLE = [[<style>
   top: calc(50% - 3rem);
   opacity: 0.1;
 }
-</style>
 ]]
 
-local COMMON_SCRIPT = [[
-<script>
+local SCRIPT = [[
 function stopEvent(e) {
   e.preventDefault();
   e.stopPropagation();
-} 
+}
 function showMessage(text) {
   document.body.innerHTML = '<p>' + text + '</p>';
-} 
-</script>
-]]
-
-local DELETE_SCRIPT = [[
-<script>
+}
 function delFile(e) {
   var target = e.target;
   var filename;
@@ -90,11 +82,6 @@ function delFile(e) {
   }
   stopEvent(e);
 }
-</script>
-]]
-
-local RENAME_SCRIPT = [[
-<script>
 function renameFile(e) {
   var target = e.target;
   var filename;
@@ -118,12 +105,6 @@ function renameFile(e) {
   }
   stopEvent(e);
 }
-</script>
-]]
-
-local PUT_SCRIPT = [[
-<input type="file" multiple onchange="putFiles(this.files)" />
-<script>
 function putFiles(files) {
   if (files && files.length > 0) {
     files = Array.prototype.slice.call(files);
@@ -146,20 +127,51 @@ function putFiles(files) {
     });
   }
 }
-if (window.File && window.FileReader && window.FileList && window.Blob) {
-  document.addEventListener("dragover", stopEvent);
-  document.addEventListener("drop", function(e) {
-    stopEvent(e);
-    putFiles(e.dataTransfer.files);
-  });
-  document.querySelector("input[type=file]").style.display = "none";
+function enableDrag() {
+  if (window.File && window.FileReader && window.FileList && window.Blob) {
+    document.addEventListener("dragover", stopEvent);
+    document.addEventListener("drop", function(e) {
+      stopEvent(e);
+      putFiles(e.dataTransfer.files);
+    });
+    document.querySelector("input[type=file]").style.display = "none";
+  }
 }
-</script>
 ]]
 
 --- A HtmlFileHttpHandler class.
 -- @type HtmlFileHttpHandler
 return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHandler, super)
+
+  function htmlFileHttpHandler:initialize(...)
+    super.initialize(self, ...)
+    self.queryMap = {
+      ['script.js'] = SCRIPT,
+      ['style.css'] = STYLE,
+    }
+    self.queryPath = {}
+  end
+
+  function htmlFileHttpHandler:getQuery(name)
+    return self.queryMap[name]
+  end
+
+  function htmlFileHttpHandler:setQuery(name, content)
+    self.queryPath[name] = nil
+    self.queryMap[name] = content
+  end
+
+  function htmlFileHttpHandler:getQueryPath(name)
+    local path = self.queryPath[name]
+    if not path then
+      local content = self.queryMap[name]
+      local md = MessageDigest.getInstance('SHA-1')
+      md:update(content)
+      path = string.format('!%s!%s', base64:encode(md:digest()), name)
+      path = Url.encodeURI(path)
+    end
+    return path
+  end
 
   function htmlFileHttpHandler:appendFileHtmlBody(buffer, file)
     buffer:append('<a href="', Url.encodeURIComponent(file.link or file.name))
@@ -200,17 +212,9 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
       end
       buffer:append('</div>\n')
     end
-    if self.allowCreate or self.allowDelete then
-      buffer:append(COMMON_SCRIPT)
-      if self.allowCreate then
-        buffer:append(PUT_SCRIPT)
-      end
-      if self.allowDelete then
-        buffer:append(DELETE_SCRIPT)
-      end
-      if self.allowCreate and self.allowDelete then
-        buffer:append(RENAME_SCRIPT)
-      end
+    if self.allowCreate then
+      buffer:append('<input type="file" multiple onchange="putFiles(this.files)" />\n')
+      buffer:append('<script>enableDrag();</script>\n')
     end
     return buffer
   end
@@ -224,13 +228,14 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
       return super.handleGetDirectory(self, exchange, dir)
     end
     local files = self.fs.listFileMetadata(exchange, dir)
+    local basePath = exchange:getContext():getBasePath()
     local buffer = StringBuffer:new()
     buffer:append('<!DOCTYPE html><html><head><meta charset="UTF-8" />\n')
     buffer:append('<meta name="viewport" content="width=device-width, initial-scale=1" />\n')
-    buffer:append(DIRECTORY_STYLE)
+    buffer:append('<link href="', basePath, self:getQueryPath('style.css'), '" rel="stylesheet" />\n')
+    buffer:append('<script src="', basePath, self:getQueryPath('script.js'), '" type="text/javascript" charset="utf-8"></script>\n')
     local bodyAtttributes = ''
     if self.allowCreate then
-      buffer:append(DROP_STYLE)
       bodyAtttributes = ' class="drop" title="Drop files to upload"'
     end
     buffer:append('</head><body', bodyAtttributes, '>\n')
@@ -241,6 +246,28 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     response:setCacheControl(false)
     response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
     response:setBody(buffer:toString())
+  end
+
+  function htmlFileHttpHandler:handle(exchange)
+    local method = exchange:getRequestMethod()
+    if method == HTTP_CONST.METHOD_GET or method == HTTP_CONST.METHOD_HEAD then
+      local query = string.match(exchange:getRequestPath(), '^![%w%-_]+!(.+)$')
+      if query then
+        local content = self.queryMap[query]
+        if content then
+          local response = exchange:getResponse()
+          response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
+          response:setContentType(self:getContentType(query))
+          response:setCacheControl(43200)
+          response:setContentLength(#content)
+          if method == HTTP_CONST.METHOD_GET then
+            response:setBody(content)
+          end
+          return
+        end
+      end
+    end
+    return super.handle(self, exchange)
   end
 
 end)
