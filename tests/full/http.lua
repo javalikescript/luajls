@@ -220,9 +220,25 @@ local function createLongBody()
     ]]
 end
 
-function Test_HttpClient_no_header()
+function TODO_Test_HttpClient_no_header()
+  local server = createTcpServer(function(server, client, data)
+    client:write(createHttpRawResponse('', 200, '', 'OK', '1.0'))
+    client:close()
+  end)
+  local client = createHttpClient()
+  sendReceiveClose(client)
+  if not loop(function()
+    client:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertNotIsNil(client.t_err)
+end
+
+function Test_HttpClient_no_header_1_1()
   -- no headers (no connection close) means unknown body size so we expect an error
-  local server = createTcpServer(createHttpRawResponse())
+  local server = createTcpServer(createHttpRawResponse('', 200, '', 'OK', '1.1'))
   local client = createHttpClient()
   sendReceiveClose(client)
   if not loop(function()
