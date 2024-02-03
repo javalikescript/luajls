@@ -6,7 +6,7 @@
 -- @module jls.util.xml
 -- @pragma nostrip
 
-local XmlParser = require('XmlParser') -- xml2lua parser
+local XmlParser = require('jls.lang.loader').requireOne('jls.util.XmlParser-lxp', 'jls.util.XmlParser-XmlParser')
 local class = require('jls.lang.class')
 local StringBuffer = require('jls.lang.StringBuffer')
 --local List = require('jls.util.List')
@@ -106,25 +106,29 @@ local Handler = class.create(function(handler)
     table.insert(current, child)
   end
 
-  function handler:starttag(tag)
+  function handler:startElement(name, attrs)
     local node = {
-      name = tag.name
+      name = name
     }
-    if tag.attrs then
+    if attrs then
       local attr = {}
-      for k, v in pairs(tag.attrs) do
-        attr[k] = unescape(v)
+      for k, v in pairs(attrs) do
+        if type(k) == 'string' then
+          attr[k] = unescape(v)
+        end
       end
-      node.attr = attr
+      if next(attrs) then
+        node.attr = attr
+      end
     end
     self:addChild(node)
     table.insert(self._stack, node)
   end
 
-  function handler:endtag(tag)
+  function handler:endElement(name)
     local current = self._stack[#self._stack]
-    if current.name ~= tag.name then
-      error('Expecting end tag '..'"'..current.name..'" but found "'..tag.name..'"')
+    if current.name ~= name then
+      error('Expecting end tag '..'"'..current.name..'" but found "'..name..'"')
     end
     table.remove(self._stack)
   end
@@ -201,14 +205,7 @@ end
 -- -- Returns {name = 'a', {name = 'b', attr = {c = 'c'}, 'A value'}}
 function xml.decode(xmlString)
   local handler = Handler:new()
-  local options = {
-    stripWS = true, -- Indicates if whitespaces should be striped or not
-    expandEntities = false,
-    errorHandler = function(errMsg, pos)
-      error(string.format("%s [char=%d]\n", errMsg or "Parse Error", pos))
-    end
-  }
-  local parser = XmlParser.new(handler, options)
+  local parser = XmlParser:new(handler)
   parser:parse(xmlString)
   return handler.root[1]
 end
