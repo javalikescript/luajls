@@ -1,5 +1,7 @@
 local lxpLib = require('lxp')
 
+local strings = require('jls.util.strings')
+
 local function startElement(p, name, attrs)
 	local handler = p:getcallbacks().handler
   handler:startElement(name, attrs)
@@ -11,8 +13,11 @@ local function endElement(p, name)
 end
 
 local function cdata(p, text)
-	local handler = p:getcallbacks().handler
-  handler:cdata(text)
+  text = strings.strip(text)
+  if text ~= '' then
+    local handler = p:getcallbacks().handler
+    handler:cdata(text)
+  end
 end
 
 return {
@@ -25,6 +30,6 @@ return {
       CharacterData = cdata,
       _nonstrict = true,
       handler = handler
-	  })
+	  }, nil, true)
   end
 }

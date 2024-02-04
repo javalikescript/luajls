@@ -243,4 +243,11 @@ function strings.capitalize(value)
   return string.upper(string.sub(value, 1, 1))..string.sub(value, 2)
 end
 
+function strings.strip(value)
+  if value == nil then
+    return nil
+  end
+  return (string.gsub(string.gsub(value, '^%s+', ''), '%s+$', ''))
+end
+
 return strings

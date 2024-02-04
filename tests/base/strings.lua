@@ -95,6 +95,7 @@ function Test_capitalize()
 end
 
 function Test_escape()
+  lu.assertNil(strings.escape(nil))
   lu.assertEquals(strings.escape('aA1, '), 'aA1, ')
   lu.assertEquals(strings.escape('^$()%.[]*+-?'), '%^%$%(%)%%%.%[%]%*%+%-%?')
 end
@@ -111,6 +112,17 @@ function Test_endsWith()
   lu.assertIsTrue(strings.endsWith('abc', 'bc'))
   lu.assertIsTrue(strings.endsWith('abc', ''))
   lu.assertIsFalse(strings.endsWith('abc', 'a'))
+end
+
+function Test_strip()
+  lu.assertNil(strings.strip(nil))
+  lu.assertEquals(strings.strip(''), '')
+  lu.assertEquals(strings.strip(' '), '')
+  lu.assertEquals(strings.strip('\n'), '')
+  lu.assertEquals(strings.strip('Hi'), 'Hi')
+  lu.assertEquals(strings.strip(' Hi'), 'Hi')
+  lu.assertEquals(strings.strip('Hi '), 'Hi')
+  lu.assertEquals(strings.strip(' Hi '), 'Hi')
 end
 
 os.exit(lu.LuaUnit.run())
