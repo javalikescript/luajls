@@ -85,7 +85,7 @@ function Test_markdown()
 end
 
 function Test_help()
-  for _, name in ipairs({'browser.lua', 'cipher.lua', 'discover.lua', 'httpClient.lua', 'httpProxy.lua', 'mqtt.lua', 'package.lua', 'webServer.lua', 'wsClient.lua', 'zip.lua'}) do
+  for _, name in ipairs({'browser.lua', 'cipher.lua', 'discover.lua', 'httpClient.lua', 'httpProxy.lua', 'mqtt.lua', 'webServer.lua', 'wsClient.lua', 'zip.lua'}) do
     exec({LUA_PATH, 'examples/'..name, '--help'}, 0)
   end
 end

@@ -413,12 +413,14 @@ elseif config.protocol == 'mDNS' then
     if logger:isLoggable(logger.FINE) then
       logger:fine('sending data: (%d) %s', #data, hex:encode(data))
     end
-    sender:send(data, mdnsAddress, mdnsPort):catch(function(reason)
+    sender:send(data, mdnsAddress, mdnsPort):next(function()
+      event:setTimeout(function()
+        sender:close()
+      end, config.timeout * 1000 + 500)
+    end, function(reason)
       print('error while sending', reason)
-    end)
-    event:setTimeout(function()
       sender:close()
-    end, config.timeout * 1000 + 500)
+    end)
   elseif config.mode == 'server' then
     local receiver = UdpSocket:new()
     receiver:bind('0.0.0.0', mdnsPort, {reuseaddr = true})
