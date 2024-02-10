@@ -3,7 +3,7 @@
 -- @module jls.net.http.handler.ProxyHttpHandler
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local HttpClient = require('jls.net.http.HttpClient')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')

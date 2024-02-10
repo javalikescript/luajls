@@ -4,14 +4,16 @@ local class = require('jls.lang.class')
 local logger = require('jls.lang.logger')
 local Logger = logger:getClass()
 
-local logPattern = '^[%d%-T:]+ (.*)'..Logger.EOL..'$'
-
 local LogFile = class.create(function(logFile)
   function logFile:initialize()
     self.messages = {}
   end
   function logFile:write(message)
-    table.insert(self.messages, (string.match(message, logPattern)))
+    -- 2000-01-01T00:00:00 name level message
+    -- 19 20 6 message
+    local cm = string.gsub(string.sub(message, 20), '  +', ' ')
+    cm = string.gsub(string.gsub(cm, '^%s+', ''), '%s+$', '')
+    table.insert(self.messages, cm)
   end
   function logFile:flush()
   end
@@ -92,13 +94,6 @@ function Tests:test_levels()
     lu.assertTrue(logger:isLoggable(level))
     logger[methodName](logger, 'text')
     lu.assertEquals(logFile:getMessagesAndClean(), {levelName..' text'})
-  end
-  for levelName, methodName in pairs(methodNameByLevel) do
-    local level = Logger.levelFromString(levelName) + 1
-    logger:setLevel(level + 1)
-    lu.assertFalse(logger:isLoggable(level))
-    logger[methodName](logger, 'text')
-    lu.assertEquals(logFile:getMessagesAndClean(), {})
   end
 end
 

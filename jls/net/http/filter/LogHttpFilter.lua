@@ -6,7 +6,7 @@ After adding this filter, any request containing the header *jls-logger-level* w
 @pragma nostrip
 ]]
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 
 --- A LogHttpFilter class.
 -- @type LogHttpFilter

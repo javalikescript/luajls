@@ -1,5 +1,5 @@
 local class = require('jls.lang.class')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local StreamHandler = require('jls.io.StreamHandler')
 local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local opensslLib = require('openssl')

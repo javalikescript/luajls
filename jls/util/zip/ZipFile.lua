@@ -8,7 +8,7 @@
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')
 local StreamHandler = require('jls.io.StreamHandler')

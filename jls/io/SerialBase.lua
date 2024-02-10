@@ -8,7 +8,7 @@ Provides serial input/output communication.
 local serialLib = require('serial')
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local Exception = require('jls.lang.Exception')
 
 --- A Serial class.

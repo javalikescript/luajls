@@ -1,7 +1,7 @@
 local opensslLib = require('openssl')
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local StreamHandler = require('jls.io.StreamHandler')

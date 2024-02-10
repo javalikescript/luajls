@@ -3,7 +3,7 @@
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local system = require('jls.lang.system')
 local List = require('jls.util.List')
 local Date = require('jls.util.Date')

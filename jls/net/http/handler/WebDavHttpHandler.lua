@@ -3,7 +3,7 @@
 -- @module jls.net.http.handler.WebDavHttpHandler
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local Date = require('jls.util.Date')
 local xml = require("jls.util.xml")
 local Url = require('jls.net.Url')

@@ -3,7 +3,7 @@
 -- @module jls.lang.loader
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 
 --- Requires the specified Lua module.
 -- @tparam string name the name of the module to load

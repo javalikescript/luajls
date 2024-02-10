@@ -1,5 +1,5 @@
 local luvLib = require('luv')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local StreamHandler = require('jls.io.StreamHandler')
 
 return require('jls.lang.class').create('jls.io.SerialBase', function(serial)

@@ -32,7 +32,7 @@ end)
 event:loop()
 ]]
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local class = require('jls.lang.class')
 local loader = require('jls.lang.loader')
 local Promise = require('jls.lang.Promise')

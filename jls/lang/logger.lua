@@ -6,14 +6,14 @@ This default implementation provides a simple way for module owner to expose deb
 This default implementation could be configured to redirect log messages to another logging facility.
 
 The default log level is warning.
-The default formatting consists in prefixing the message by the date time as ISO 8601 and the log level.
+The default formatting consists in prefixing the message by the date time as ISO 8601, the module name and the log level.
 The default writing consists in printing the log message to the standard error stream, adding a new line and flushing.
 
 The JLS\_LOGGER\_LEVEL environment variable could be used to indicate the log level to use.
 
 
 @usage
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...) -- require will pass the module name
 logger:info('Some usefull information message')
 
 if logger:isLoggable(logger.FINE) then
@@ -40,6 +40,21 @@ local LEVEL = {
   ALL = 0 --- The all level is the lowest level
 }
 
+local function pad(s, l, e)
+  if e then
+    if #s < l then
+      return string.rep(' ', l - #s)..s
+    else
+      return string.sub(s, -l)
+    end
+  end
+  if #s < l then
+    return s..string.rep(' ', l - #s)
+  else
+    return string.sub(s, 1, l)
+  end
+end
+
 local LEVEL_NAMES = {}
 for k, v in pairs(LEVEL) do
   LEVEL_NAMES[v] = k
@@ -54,7 +69,7 @@ local function levelToString(value)
 end
 
 local function parseLevel(level, fallback)
-  if type(level) == 'number' then
+  if type(level) == 'number' and LEVEL_NAMES[level] then
     return level
   elseif type(level) == 'string' then
     local l = levelFromString(level)
@@ -67,15 +82,21 @@ local function parseLevel(level, fallback)
   end
   error('Invalid logger level "'..tostring(level)..'"')
 end
+
+local os_date = os.date
+local os_time = os.time
 local LOG_FILE = io.stderr
+local NAME_LEN = 20
 
 local LOG_EOL = '\n'
 if string.sub(package.config, 1, 1) == '\\' then
   LOG_EOL = '\r\n'
 end
+local LOG_FORMAT = '%s %s %-6s %s'..LOG_EOL
 
 local function defaultLogRecorder(logger, time, level, message)
-  LOG_FILE:write(os.date('%Y-%m-%dT%H:%M:%S', time)..' '..levelToString(level)..' '..message..LOG_EOL)
+  --LOG_FILE:write(os_date('%Y-%m-%dT%H:%M:%S', time)..' '..logger.sname..' '..LEVEL_NAMES[level]..' '..message..LOG_EOL)
+  LOG_FILE:write(string.format(LOG_FORMAT, os_date('%Y-%m-%dT%H:%M:%S', time), logger.sname, LEVEL_NAMES[level], message))
   LOG_FILE:flush()
 end
 local LOG_RECORD = defaultLogRecorder
@@ -131,7 +152,7 @@ local function log(logger, level, message, ...)
     end
     message = table.concat(l, LOG_EOL)
   end
-  LOG_RECORD(logger, os.time(), level, message)
+  LOG_RECORD(logger, os_time(), level, message)
 end
 
 
@@ -155,12 +176,15 @@ local Logger = require('jls.lang.class').create(function(logger)
 
   --- Creates a new logger with the specified level.
   -- @function Logger:new
-  -- @param level The log level.
+  -- @tparam[opt] string name The module name
+  -- @param[opt] level The log level
   -- @return a new logger
   -- @usage
   --local console = require('jls.lang.logger'):getClass():new()
   --console:info('Some usefull information message')
-  function logger:initialize(level)
+  function logger:initialize(name, level)
+    self.name = name or ''
+    self.sname = pad(string.gsub(string.gsub(string.gsub(self.name, '^%s+', ''), '%s+$', ''), '%s+', '_'), NAME_LEN, true)
     self.level = level or WARN
   end
 
@@ -196,7 +220,7 @@ local Logger = require('jls.lang.class').create(function(logger)
 
   -- for compatibility, deprecated
   function logger:logopt(level, message, ...)
-    local time = os.time()
+    local time = os_time()
     if time > (self.time or 0) then
       local l = parseLevel(level)
       if l >= self.level then

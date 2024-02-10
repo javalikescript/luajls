@@ -30,7 +30,7 @@ local luvLib = require('luv')
 local luv_stream = require('jls.lang.luv_stream')
 local close, read_start, read_stop, write = luv_stream.close, luv_stream.read_start, luv_stream.read_stop, luv_stream.write
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local Promise = require('jls.lang.Promise')
 
 local isWindowsOS = string.sub(package.config, 1, 1) == '\\'

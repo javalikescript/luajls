@@ -2,7 +2,7 @@
 -- @module jls.util.zip.gzip
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local StringBuffer = require('jls.lang.StringBuffer')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')

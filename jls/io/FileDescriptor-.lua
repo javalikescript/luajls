@@ -29,7 +29,7 @@ end)
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local event = require('jls.lang.event')
 local Path = require('jls.io.Path')
 

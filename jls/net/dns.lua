@@ -4,7 +4,7 @@
 
 local lib = require('jls.lang.loader').requireOne('jls.net.dns-luv', 'jls.net.dns-socket')
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local Promise = require('jls.lang.Promise')
 local Map = require("jls.util.Map")
 local List = require("jls.util.List")

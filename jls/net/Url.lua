@@ -2,7 +2,7 @@
 -- @module jls.net.Url
 -- @pragma nostrip
 
---local logger = require("jls.lang.logger")
+--local logger = require('jls.lang.loggerFactory')(...)
 local StringBuffer = require('jls.lang.StringBuffer')
 local Map = require('jls.util.Map')
 local strings = require('jls.util.strings')

@@ -2,7 +2,7 @@ local lcLib = require('luachild')
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local loader = require('jls.lang.loader')
 local StreamHandler = require('jls.io.StreamHandler')
 local event = loader.requireOne('jls.lang.event-')

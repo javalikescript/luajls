@@ -1,6 +1,6 @@
 local luaSocketLib = require('socket')
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local loader = require('jls.lang.loader')
 local event = loader.requireOne('jls.lang.event-')
 local List = require('jls.util.List')

@@ -2,7 +2,7 @@
 -- @module jls.util.EventPublisher
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local Exception = require('jls.lang.Exception')
 local List = require('jls.util.List')
 local tables = require('jls.util.tables')

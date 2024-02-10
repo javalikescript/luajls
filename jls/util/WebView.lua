@@ -15,7 +15,7 @@ This class provide helpers to start webview in a dedicated thread so that the ba
 local webviewLib = require('webview')
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
 local Thread = require('jls.lang.Thread')

@@ -4,7 +4,7 @@
 -- @module jls.net.http.handler.TableHttpHandler
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local json = require('jls.util.json')
 local tables = require('jls.util.tables')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST

@@ -3,7 +3,7 @@
 -- @module jls.lang.event
 -- @pragma nostrip
 
-local logger = require('jls.lang.logger')
+local logger = require('jls.lang.loggerFactory')(...)
 local CoroutineScheduler = require('jls.util.CoroutineScheduler')
 local Exception = require('jls.lang.Exception')
 
