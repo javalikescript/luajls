@@ -335,6 +335,7 @@ Logger.EOL = LOG_EOL
 
 Logger.levelFromString = levelFromString
 Logger.levelToString = levelToString
+Logger.parseLevel = parseLevel
 
 function Logger.getLogFile()
   return LOG_FILE

@@ -1,14 +1,14 @@
-local logger = require('jls.lang.logger')
+local rootLogger = require('jls.lang.logger')
 
-local Logger = logger:getClass()
-local level = logger:getLevel()
+local Logger = rootLogger:getClass()
+local rootLevel = rootLogger:getLevel()
 
-local modMap = {}
+local levelMap = {}
 
 local function configure(name, value)
   local mod = string.match(name, '^(.+)%.level$')
   if mod then
-    modMap[mod] = Logger.levelFromString(value)
+    levelMap[mod] = Logger.levelFromString(value)
   end
 end
 
@@ -40,13 +40,26 @@ if filename then
   end
 end
 
-return function(name)
-  local l = level
-  if name then
-    l = modMap[name]
-    if not l then
-      l = level
-    end
+local loggerMap = {} -- TODO Use weak table
+
+function rootLogger:setLevel(level)
+  rootLevel = Logger.parseLevel(level)
+  self.level = rootLevel
+  for _, lgr in pairs(loggerMap) do
+    lgr:setLevel(rootLevel)
   end
-  return Logger:new(name, l)
+end
+
+return function(name)
+  if name then
+    local lgr = loggerMap[name]
+    if lgr then
+      return lgr
+    end
+    local lvl = levelMap[name]
+    lgr = Logger:new(name, lvl or rootLevel)
+    loggerMap[name] = lgr
+    return lgr
+  end
+  return rootLogger
 end
