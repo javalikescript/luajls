@@ -42,7 +42,7 @@ local LEVEL = {
 
 local function trunc(s, l)
   if #s > l then
-    return string.sub(s, -l)
+    return '+'..string.sub(s, 1-l)
   end
   return s
 end
@@ -83,16 +83,16 @@ end
 local os_date = os.date
 local os_time = os.time
 local LOG_FILE = io.stderr
+local LEVEL_LEN = 6
 local NAME_LEN = 20
 
 local LOG_EOL = '\n'
 if string.sub(package.config, 1, 1) == '\\' then
   LOG_EOL = '\r\n'
 end
-local LOG_FORMAT = '%s %'..NAME_LEN..'.'..NAME_LEN..'s %-6s %s'..LOG_EOL
+local LOG_FORMAT = '%s %'..NAME_LEN..'.'..NAME_LEN..'s %-'..LEVEL_LEN..'s %s'..LOG_EOL
 
 local function defaultLogRecorder(logger, time, level, message)
-  --LOG_FILE:write(os_date('%Y-%m-%dT%H:%M:%S', time)..' '..logger.sname..' '..LEVEL_NAMES[level]..' '..message..LOG_EOL)
   LOG_FILE:write(string.format(LOG_FORMAT, os_date('%Y-%m-%dT%H:%M:%S', time), logger.sname, LEVEL_NAMES[level], message))
   LOG_FILE:flush()
 end
@@ -182,6 +182,7 @@ local Logger = require('jls.lang.class').create(function(logger)
   end
 
   function logger:setName(name)
+    self.name = name
     self.sname = trunc(string.gsub(trim(name or ''), '%s+', '_'), NAME_LEN)
   end
 
@@ -200,7 +201,17 @@ local Logger = require('jls.lang.class').create(function(logger)
       if lgr then
         return lgr
       end
-      lgr = self:getClass():new(name, self.level)
+      local lvl = self.level
+      if self.levelMap then
+        for p, l in pairs(self.levelMap) do
+          if string.find(name, p) then
+            if l < lvl then
+              lvl = l
+            end
+          end
+        end
+      end
+      lgr = self:getClass():new(name, lvl)
       self.loggerMap[name] = lgr
       return lgr
     end
@@ -216,10 +227,13 @@ local Logger = require('jls.lang.class').create(function(logger)
   --- Sets the log level for this logger.
   -- @param level The log level.
   function logger:setLevel(level)
-    self.level = parseLevel(level)
+    local l = parseLevel(level)
+    self.level = l
     if self.loggerMap then
       for _, lgr in pairs(self.loggerMap) do
-        lgr:setLevel(self.level)
+        if l < lgr:getLevel() then
+          lgr:setLevel(l)
+        end
       end
     end
   end
@@ -388,6 +402,17 @@ if jlsLoggerLevel then
   if l then
     logger:setLevel(l)
     logger:info('set log level to %s based on the JLS_LOGGER_LEVEL environment variable', levelToString(l))
+  end
+end
+
+local jlsLoggerLevels = os.getenv('JLS_LOGGER_LEVELS')
+if jlsLoggerLevels then
+  local m = {}
+  for p, l in string.gmatch(jlsLoggerLevels, "([^=:,;%s]+)[=:](%w+)") do
+    m[p] = levelFromString(l)
+  end
+  if next(m) then
+    logger.levelMap = m
   end
 end
 
