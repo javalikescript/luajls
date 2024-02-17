@@ -5,6 +5,7 @@ SET ALL=no
 SET BASE=no
 SET VERBOSE=no
 SET STDOUT=no
+SET QUIET=no
 SET JLS_REQUIRES=
 
 :args
@@ -13,6 +14,7 @@ SET ARG=%1
 SHIFT
 IF %ARG%==-v SET VERBOSE=yes
 IF %ARG%==-o SET STDOUT=yes
+IF %ARG%==-q SET QUIET=yes
 IF %ARG%==-a SET ALL=yes
 IF %ARG%==all SET ALL=yes
 IF %ARG%==-b SET BASE=yes
@@ -98,8 +100,10 @@ IF %ERRLEV% NEQ 0 (
   SET /a ERRORCOUNT+=1
   ECHO /!\ test %TEST_FILE% in error
   IF NOT %STDOUT%==yes (
-    %LUA% tests\%TEST_DIR%\%TEST_FILE%
-    ECHO.
+    IF NOT %QUIET%==yes (
+      %LUA% tests\%TEST_DIR%\%TEST_FILE%
+      ECHO.
+    )
   )
 )
 GOTO :eof
