@@ -20,7 +20,7 @@ local fs = require('jls.io.fs')
 local class = require('jls.lang.class')
 local Path = require('jls.io.Path')
 local FileDescriptor = require('jls.io.FileDescriptor')
---local logger = require('jls.lang.loggerFactory')(...)
+--local logger = require('jls.lang.logger'):get(...)
 
 --- A File class.
 -- A File instance represents a file or a directory.

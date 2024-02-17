@@ -11,7 +11,7 @@ configurationPath:getParentPath():getName() -- returns 'work'
 
 ]]
 
---local logger = require('jls.lang.loggerFactory')(...)
+--local logger = require('jls.lang.logger'):get(...)
 
 --- A Path class.
 -- A Path instance represents a file or a directory.

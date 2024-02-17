@@ -2,7 +2,7 @@
 -- @module jls.io.streams.ChunkedStreamHandler
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local StreamHandler = require('jls.io.StreamHandler')
 
 --- A ChunkedStreamHandler class.

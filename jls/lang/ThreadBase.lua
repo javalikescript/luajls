@@ -10,7 +10,7 @@ The _package_ curent values _path_, _cpath_ and _preload_ are transfered to the 
 ]]
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
 

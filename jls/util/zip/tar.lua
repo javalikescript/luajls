@@ -3,7 +3,7 @@
 -- @module jls.util.zip.tar
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local strings = require('jls.util.strings')
 local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')

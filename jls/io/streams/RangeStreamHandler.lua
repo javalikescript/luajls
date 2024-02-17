@@ -1,7 +1,7 @@
 --- This class allows to restrict the stream to pass to the wrapped handler to a specified range.
 -- @module jls.io.streams.RangeStreamHandler
 -- @pragma nostrip
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local StreamHandler = require('jls.io.StreamHandler')
 
 --- A RangeStreamHandler class.

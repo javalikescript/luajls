@@ -1,5 +1,5 @@
 local class = require('jls.lang.class')
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local event = require('jls.lang.event')
 local Exception = require('jls.lang.Exception')

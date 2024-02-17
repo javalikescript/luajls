@@ -2,7 +2,7 @@
 -- @module jls.io.streams.BlockStreamHandler
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.StreamHandler')

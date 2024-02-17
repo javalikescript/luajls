@@ -7,7 +7,7 @@ This class allows to buffer a stream while the sub handler is not available.
 @pragma nostrip
 ]]
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.StreamHandler')
 

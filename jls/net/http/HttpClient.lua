@@ -3,7 +3,7 @@
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local TcpSocket = require('jls.net.TcpSocket')
 local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')

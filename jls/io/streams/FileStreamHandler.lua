@@ -2,7 +2,7 @@
 -- @module jls.io.streams.FileStreamHandler
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local File = require('jls.io.File')
 local FileDescriptor = require('jls.io.FileDescriptor')

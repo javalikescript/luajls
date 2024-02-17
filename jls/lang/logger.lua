@@ -13,7 +13,7 @@ The JLS\_LOGGER\_LEVEL environment variable could be used to indicate the log le
 
 
 @usage
-local logger = require('jls.lang.loggerFactory')(...) -- require will pass the module name
+local logger = require('jls.lang.logger'):get(...) -- require will pass the module name
 logger:info('Some usefull information message')
 
 if logger:isLoggable(logger.FINE) then
@@ -40,20 +40,17 @@ local LEVEL = {
   ALL = 0 --- The all level is the lowest level
 }
 
-local function pad(s, l, e)
-  if e then
-    if #s < l then
-      return string.rep(' ', l - #s)..s
-    else
-      return string.sub(s, -l)
-    end
+local function trunc(s, l)
+  if #s > l then
+    return string.sub(s, -l)
   end
-  if #s < l then
-    return s..string.rep(' ', l - #s)
-  else
-    return string.sub(s, 1, l)
-  end
+  return s
 end
+
+local function trim(value)
+  return (string.gsub(string.gsub(value, '^%s+', ''), '%s+$', ''))
+end
+
 
 local LEVEL_NAMES = {}
 for k, v in pairs(LEVEL) do
@@ -92,7 +89,7 @@ local LOG_EOL = '\n'
 if string.sub(package.config, 1, 1) == '\\' then
   LOG_EOL = '\r\n'
 end
-local LOG_FORMAT = '%s %s %-6s %s'..LOG_EOL
+local LOG_FORMAT = '%s %'..NAME_LEN..'.'..NAME_LEN..'s %-6s %s'..LOG_EOL
 
 local function defaultLogRecorder(logger, time, level, message)
   --LOG_FILE:write(os_date('%Y-%m-%dT%H:%M:%S', time)..' '..logger.sname..' '..LEVEL_NAMES[level]..' '..message..LOG_EOL)
@@ -171,9 +168,6 @@ local Logger = require('jls.lang.class').create(function(logger)
   local FINER = LEVEL.FINER
   local FINEST = LEVEL.FINEST
 
-  -- shortcuts
-  logger.LEVEL = LEVEL
-
   --- Creates a new logger with the specified level.
   -- @function Logger:new
   -- @tparam[opt] string name The module name
@@ -183,9 +177,34 @@ local Logger = require('jls.lang.class').create(function(logger)
   --local console = require('jls.lang.logger'):getClass():new()
   --console:info('Some usefull information message')
   function logger:initialize(name, level)
-    self.name = name or ''
-    self.sname = pad(string.gsub(string.gsub(string.gsub(self.name, '^%s+', ''), '%s+$', ''), '%s+', '_'), NAME_LEN, true)
-    self.level = level or WARN
+    self:setName(name)
+    self:setLevel(level or WARN)
+  end
+
+  function logger:setName(name)
+    self.sname = trunc(string.gsub(trim(name or ''), '%s+', '_'), NAME_LEN)
+  end
+
+  --- Returns the logger for the specified name.
+  -- @tparam[opt] string name The module name
+  -- @return a logger
+  -- @usage
+  --local console = require('jls.lang.logger'):get(...)
+  --console:info('Some usefull information message')
+  function logger:get(name)
+    if name then
+      if not self.loggerMap then
+        self.loggerMap = {}
+      end
+      local lgr = self.loggerMap[name]
+      if lgr then
+        return lgr
+      end
+      lgr = self:getClass():new(name, self.level)
+      self.loggerMap[name] = lgr
+      return lgr
+    end
+    return self
   end
 
   --- Returns the log level for this logger.
@@ -198,6 +217,11 @@ local Logger = require('jls.lang.class').create(function(logger)
   -- @param level The log level.
   function logger:setLevel(level)
     self.level = parseLevel(level)
+    if self.loggerMap then
+      for _, lgr in pairs(self.loggerMap) do
+        lgr:setLevel(self.level)
+      end
+    end
   end
 
   --- Tells wether or not a message of the specified level will be logged by this logger. 

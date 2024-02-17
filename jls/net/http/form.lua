@@ -1,4 +1,4 @@
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 local StringBuffer = require('jls.lang.StringBuffer')

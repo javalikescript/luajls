@@ -14,7 +14,7 @@ local luvLib = require('luv')
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local luv_stream = require('jls.lang.luv_stream')
 local close, read_start, read_stop, write = luv_stream.close, luv_stream.read_start, luv_stream.read_stop, luv_stream.write
 

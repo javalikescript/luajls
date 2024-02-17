@@ -1,4 +1,4 @@
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 

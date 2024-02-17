@@ -7,7 +7,7 @@
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local StringBuffer = require('jls.lang.StringBuffer')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpExchange = require('jls.net.http.HttpExchange')

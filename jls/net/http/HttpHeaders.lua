@@ -2,7 +2,7 @@
 -- @module jls.net.http.HttpHeaders
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local StringBuffer = require('jls.lang.StringBuffer')
 local strings = require('jls.util.strings')
 local Map = require('jls.util.Map')

@@ -1,6 +1,6 @@
 local luvLib = require('luv')
 local class = require('jls.lang.class')
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Exception = require('jls.lang.Exception')
 
 return class.create(function(event)

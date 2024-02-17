@@ -2,7 +2,7 @@
 -- @module jls.net.http.filter.BasicAuthenticationHttpFilter
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local base64 = require('jls.util.base64')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 

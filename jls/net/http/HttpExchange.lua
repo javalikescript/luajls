@@ -2,7 +2,7 @@
 -- @module jls.net.http.HttpExchange
 -- @pragma nostrip
 
-local logger = require('jls.lang.loggerFactory')(...)
+local logger = require('jls.lang.logger'):get(...)
 local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
