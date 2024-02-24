@@ -43,6 +43,7 @@ local methodNameByLevel = {
 Tests = {}
 
 function Tests:setUp()
+  logFile:getMessagesAndClean()
   Logger.setLogFile(logFile)
 end
 
@@ -95,6 +96,54 @@ function Tests:test_levels()
     logger[methodName](logger, 'text')
     lu.assertEquals(logFile:getMessagesAndClean(), {levelName..' text'})
   end
+end
+
+function Tests:test_applyConfig()
+  local l_a, l_b, l_c
+  local function reset(a, b, c)
+    l_a = Logger:new(a)
+    l_b = l_a:get(b or 'a.b')
+    l_c = l_a:get(c or 'a.c')
+  end
+  local function set(a, b, c)
+    l_a:setLevel(a or Logger.LEVEL.WARN)
+    l_b:setLevel(b or Logger.LEVEL.WARN)
+    l_c:setLevel(c or Logger.LEVEL.WARN)
+  end
+  local function check(a, b, c)
+    lu.assertEquals(l_a:getLevel(), a or Logger.LEVEL.WARN)
+    lu.assertEquals(l_b:getLevel(), b or Logger.LEVEL.WARN)
+    lu.assertEquals(l_c:getLevel(), c or Logger.LEVEL.WARN)
+  end
+
+  reset()
+  check()
+
+  set(Logger.LEVEL.FINER, Logger.LEVEL.FINE, Logger.LEVEL.INFO)
+  check(Logger.LEVEL.FINER, Logger.LEVEL.FINE, Logger.LEVEL.INFO)
+
+  reset()
+  check()
+
+  l_a:applyConfig()
+  check()
+  reset()
+
+  l_a:applyConfig('fine')
+  check(Logger.LEVEL.FINE, Logger.LEVEL.FINE, Logger.LEVEL.FINE)
+  reset()
+
+  l_a:applyConfig('a=fine')
+  check(nil, Logger.LEVEL.FINE, Logger.LEVEL.FINE)
+  reset()
+
+  l_a:applyConfig('a.c=fine')
+  check(nil, nil, Logger.LEVEL.FINE)
+  reset()
+
+  l_a:applyConfig('info;a.b=fine')
+  check(Logger.LEVEL.INFO, Logger.LEVEL.FINE, Logger.LEVEL.INFO)
+  reset()
 end
 
 os.exit(lu.LuaUnit.run())

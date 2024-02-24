@@ -152,6 +152,41 @@ local function log(logger, level, message, ...)
   LOG_RECORD(logger, os_time(), level, message)
 end
 
+local function addLevel(levels, pattern, level)
+  if level then
+    -- cleanup duplicate patterns
+    for i = #levels, 1, -1 do
+      if levels[i].pattern == pattern then
+        table.remove(levels, i)
+      end
+    end
+    table.insert(levels, {
+      pattern = pattern,
+      level = level
+    })
+  end
+end
+
+local function getLevelByName(levels, name)
+  local level
+  if levels and name then
+    for _, li in ipairs(levels) do
+      if string.find(name, li.pattern) then
+        level = li.level
+      end
+    end
+  end
+  return level
+end
+
+local function applyLevelForName(logger, levels, name)
+  local level = getLevelByName(levels, name)
+  if level then
+    logger:setLevel(level)
+    return level
+  end
+end
+
 
 --- A Logger class.
 -- A Logger object is used to log messages for a specific system or application component.
@@ -193,7 +228,7 @@ local Logger = require('jls.lang.class').create(function(logger)
   --local console = require('jls.lang.logger'):get(...)
   --console:info('Some usefull information message')
   function logger:get(name)
-    if name then
+    if type(name) == 'string' then
       if not self.loggerMap then
         self.loggerMap = {}
       end
@@ -201,17 +236,8 @@ local Logger = require('jls.lang.class').create(function(logger)
       if lgr then
         return lgr
       end
-      local lvl = self.level
-      if self.levelMap then
-        for p, l in pairs(self.levelMap) do
-          if string.find(name, p) then
-            if l < lvl then
-              lvl = l
-            end
-          end
-        end
-      end
-      lgr = self:getClass():new(name, lvl)
+      -- for backward compatibility, the default instance propagates its level
+      lgr = self:getClass():new(name, getLevelByName(self.levels, name) or self.level)
       self.loggerMap[name] = lgr
       return lgr
     end
@@ -227,15 +253,7 @@ local Logger = require('jls.lang.class').create(function(logger)
   --- Sets the log level for this logger.
   -- @param level The log level.
   function logger:setLevel(level)
-    local l = parseLevel(level)
-    self.level = l
-    if self.loggerMap then
-      for _, lgr in pairs(self.loggerMap) do
-        if l < lgr:getLevel() then
-          lgr:setLevel(l)
-        end
-      end
-    end
+    self.level = parseLevel(level)
   end
 
   --- Tells wether or not a message of the specified level will be logged by this logger. 
@@ -360,6 +378,33 @@ local Logger = require('jls.lang.class').create(function(logger)
     end
   end
 
+  function logger:applyConfig(config)
+    if type(config) == 'string' then
+      local levels = self.levels or {}
+      for part in string.gmatch(config, "[^,;\n]+") do
+        part = trim(part)
+        local name, value = string.match(part, '^([^=:]*[^=:%s])%s*[=:]%s*(.*)$')
+        if name then
+          addLevel(levels, name, levelFromString(value))
+        else
+          addLevel(levels, '.*', levelFromString(part))
+        end
+      end
+      if next(levels) then
+        if self.loggerMap then
+          for name, lgr in pairs(self.loggerMap) do
+            applyLevelForName(lgr, levels, name)
+          end
+        end
+        local level = applyLevelForName(self, levels, '')
+        if level then
+          self:info('set log level to %s based on the JLS_LOGGER_LEVEL environment variable', levelToString(level))
+        end
+        self.levels = levels
+      end
+    end
+  end
+
   -- shortcuts
   for k, v in pairs(LEVEL) do
     logger[k] = v
@@ -394,26 +439,19 @@ end
 -- the module is the default instance of Logger
 local logger = Logger:new()
 
---logger.Logger = Logger -- use logger:getClass()
-
-local jlsLoggerLevel = os.getenv('JLS_LOGGER_LEVEL')
-if jlsLoggerLevel then
-  local l = levelFromString(jlsLoggerLevel)
-  if l then
-    logger:setLevel(l)
-    logger:info('set log level to %s based on the JLS_LOGGER_LEVEL environment variable', levelToString(l))
+-- for backward compatibility, the default instance propagates its level
+function logger:setLevel(level)
+  local l = parseLevel(level)
+  self.level = l
+  if self.loggerMap then
+    for _, lgr in pairs(self.loggerMap) do
+      if l < lgr:getLevel() then
+        lgr:setLevel(l)
+      end
+    end
   end
 end
 
-local jlsLoggerLevels = os.getenv('JLS_LOGGER_LEVELS')
-if jlsLoggerLevels then
-  local m = {}
-  for p, l in string.gmatch(jlsLoggerLevels, "([^=:,;%s]+)[=:](%w+)") do
-    m[p] = levelFromString(l)
-  end
-  if next(m) then
-    logger.levelMap = m
-  end
-end
+logger:applyConfig(os.getenv('JLS_LOGGER_LEVEL'))
 
 return logger
