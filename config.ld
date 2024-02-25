@@ -8,7 +8,7 @@ file = {'jls', exclude = {
   'jls/util/Struct.lua',
 }}
 project = "luajls"
-title = "Lua JLS 0.7"
+title = "Lua JLS 0.8"
 description = "luajls documentation"
 full_description = [[
 The luajls library provides abstraction interfaces for general-purpose scripting.
