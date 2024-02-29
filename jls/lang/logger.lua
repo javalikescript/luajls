@@ -378,6 +378,21 @@ local Logger = require('jls.lang.class').create(function(logger)
     end
   end
 
+  function logger:propagateLevel(level, force)
+    if self.loggerMap then
+      for _, lgr in pairs(self.loggerMap) do
+        if force or level < lgr:getLevel() then
+          lgr:setLevel(level)
+        end
+      end
+    end
+  end
+
+  function logger:cleanConfig()
+    self.levels = nil
+    self:propagateLevel(self.level, true)
+  end
+
   function logger:applyConfig(config)
     if type(config) == 'string' then
       local levels = self.levels or {}
@@ -396,10 +411,7 @@ local Logger = require('jls.lang.class').create(function(logger)
             applyLevelForName(lgr, levels, name)
           end
         end
-        local level = applyLevelForName(self, levels, '')
-        if level then
-          self:info('set log level to %s based on the JLS_LOGGER_LEVEL environment variable', levelToString(level))
-        end
+        applyLevelForName(self, levels, '')
         self.levels = levels
       end
     end
@@ -441,17 +453,13 @@ local logger = Logger:new()
 
 -- for backward compatibility, the default instance propagates its level
 function logger:setLevel(level)
-  local l = parseLevel(level)
-  self.level = l
-  if self.loggerMap then
-    for _, lgr in pairs(self.loggerMap) do
-      if l < lgr:getLevel() then
-        lgr:setLevel(l)
-      end
-    end
-  end
+  self.level = parseLevel(level)
+  self:propagateLevel(self.level)
 end
 
 logger:applyConfig(os.getenv('JLS_LOGGER_LEVEL'))
+if logger:getLevel() >= LEVEL.INFO then
+  logger:info('set log level to %s based on the JLS_LOGGER_LEVEL environment variable', levelToString(logger:getLevel()))
+end
 
 return logger
