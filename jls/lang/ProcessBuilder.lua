@@ -165,9 +165,4 @@ return require('jls.lang.class').create(function(processBuilder)
     return processHandle, err
   end
 
-end, function(ProcessBuilder)
-
-  -- TODO remove as deprecated
-  ProcessBuilder.getExecutablePath = ProcessHandle.getExecutablePath
-
 end)

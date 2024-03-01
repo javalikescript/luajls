@@ -520,22 +520,22 @@ end, function(HttpServer)
   HttpServer.notFoundHandler = notFoundHandler
 
   require('jls.lang.loader').lazyMethod(HttpServer, 'createSecure', function(secure)
-    local SecureTcpServer = class.create(secure.TcpSocket, function(secureTcpServer)
-      function secureTcpServer:onHandshakeStarting(client)
+    local SecureTcpSocket = class.create(secure.TcpSocket, function(secureTcpSocket)
+      function secureTcpSocket:onHandshakeStarting(client)
         if self._hss then
           self._hss.pendings[client] = {
             start_time = os.time()
           }
         end
       end
-      function secureTcpServer:onHandshakeCompleted(client)
+      function secureTcpSocket:onHandshakeCompleted(client)
         if self._hss then
           self._hss.pendings[client] = nil
         end
       end
     end)
     return function(options)
-      local tcp = SecureTcpServer:new()
+      local tcp = SecureTcpSocket:new()
       if options then
         tcp:setSecureContext(class.asInstance(secure.Context, options))
       end

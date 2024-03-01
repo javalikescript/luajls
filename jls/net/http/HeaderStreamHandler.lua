@@ -28,7 +28,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
       if line then
         if logger:isLoggable(logger.WARN) then
           logger:warn('HeaderStreamHandler received data after read completed')
-          logger:traceback()
+          logger:warn(debug.traceback())
         end
         --error('Data after read completed')
       end

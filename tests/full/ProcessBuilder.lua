@@ -3,6 +3,7 @@ local lu = require('luaunit')
 -- JLS_REQUIRES=\!luv
 
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
+local ProcessHandle = require('jls.lang.ProcessHandle')
 local loader = require('jls.lang.loader')
 local Pipe = loader.tryRequire('jls.io.Pipe')
 local File = require('jls.io.File')
@@ -11,7 +12,7 @@ local loop = require('jls.lang.loopWithTimeout')
 
 local logger = require('jls.lang.logger')
 
-local LUA_PATH = ProcessBuilder.getExecutablePath()
+local LUA_PATH = ProcessHandle.getExecutablePath()
 logger:fine('Lua path is "%s"', LUA_PATH)
 local WRITE = 'io.write'
 if string.find(LUA_PATH, 'luvit$') then

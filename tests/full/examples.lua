@@ -1,6 +1,7 @@
 local lu = require('luaunit')
 
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
+local ProcessHandle = require('jls.lang.ProcessHandle')
 local system = require('jls.lang.system')
 local File = require('jls.io.File')
 local loop = require('jls.lang.loopWithTimeout')
@@ -9,7 +10,7 @@ local TEST_FILENAME = 'examples/README.md'
 local TMP_FILENAME = 'tests/to_remove.tmp'
 local TMP_2_FILENAME = 'tests/to_remove_2.tmp'
 local TEST_PORT = 8765
-local LUA_PATH = ProcessBuilder.getExecutablePath()
+local LUA_PATH = ProcessHandle.getExecutablePath()
 
 local function assertExitCode(ph, value, message)
   local exitCode

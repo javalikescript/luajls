@@ -1,8 +1,7 @@
 local lu = require('luaunit')
 
 local loop = require('jls.lang.loopWithTimeout')
-local TcpClient = require('jls.net.TcpClient')
-local TcpServer = require('jls.net.TcpServer')
+local TcpSocket = require('jls.net.TcpSocket')
 local strings = require('jls.util.strings')
 local List = require('jls.util.List')
 local HttpHandler = require('jls.net.http.HttpHandler')
@@ -23,7 +22,7 @@ local function createTcpServer(onData)
       onData = nil
     end
   end
-  local server = TcpServer:new()
+  local server = TcpSocket:new()
   assert(server:bind('127.0.0.1', TEST_PORT))
   function server:onAccept(client)
     client:readStart(function(err, data)
@@ -53,7 +52,7 @@ local function createTcpServer(onData)
 end
 
 local function createTcpClient(requestData)
-  local client = TcpClient:new()
+  local client = TcpSocket:new()
   local receivedCount = 0
   return client:connect('127.0.0.1', TEST_PORT):next(function()
     logger:finer('tcp client connected')

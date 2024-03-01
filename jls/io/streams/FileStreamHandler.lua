@@ -121,9 +121,6 @@ end, function(FileStreamHandler)
           end
           if length then
             length = length - l
-            --if length > 1048576 and logger:isLoggable(logger.FINE) then
-            --  logger:logopt(logger.FINE, 'readCallback() remaining length '..tostring(length))
-            --end
             if length <= 0 then
               l = 0
             elseif size > length then

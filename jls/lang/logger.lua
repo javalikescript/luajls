@@ -274,46 +274,6 @@ local Logger = require('jls.lang.class').create(function(logger)
     end
   end
 
-  -- for compatibility, deprecated
-  function logger:logopt(level, message, ...)
-    local time = os_time()
-    if time > (self.time or 0) then
-      local l = parseLevel(level)
-      if l >= self.level then
-        self.time = time
-        log(self, l, message, ...)
-      end
-    end
-  end
-
-  -- for compatibility, deprecated
-  function logger:logTable(level, value, name, depth)
-    if parseLevel(level) >= self.level then
-      LOG_FILE:write(dumpToString(value, name or 'value', depth or 5, '', '  ', 0))
-      LOG_FILE:flush()
-    end
-  end
-
-  -- for compatibility, deprecated
-  function logger:logTraceback(level, message)
-    local l = parseLevel(level)
-    if l >= self.level then
-      log(self, l, debug.traceback(message, 2))
-    end
-  end
-
-  -- for compatibility, deprecated
-  function logger:dump(value, name, depth)
-    self:logTable(DEBUG, value, name, depth)
-  end
-
-  -- for compatibility, deprecated
-  function logger:traceback(message)
-    if DEBUG >= self.level then
-      log(self, DEBUG, debug.traceback(message, 2))
-    end
-  end
-
   --- Logs the specified message with the ERROR level.
   -- @param message The log message.
   function logger:error(message, ...)

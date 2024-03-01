@@ -9,8 +9,8 @@ local HttpServer = require('jls.net.http.HttpServer')
 
 local loader = require('jls.lang.loader')
 local loop = require('jls.lang.loopWithTimeout')
-local TcpClientLuv = loader.getRequired('jls.net.TcpClient-luv')
-local TcpClientSocket = loader.getRequired('jls.net.TcpClient-socket')
+local TcpSocketLuv = loader.getRequired('jls.net.TcpSocket-luv')
+local TcpSocketSocket = loader.getRequired('jls.net.TcpSocket-socket')
 local luaSocketLib = loader.tryRequire('socket')
 
 local File = require('jls.io.File')
@@ -47,7 +47,7 @@ local function createHttpsServer(handler, keep)
   if not handler then
     handler = notFoundHandler
   end
-  local tcp = secure.TcpServer:new()
+  local tcp = secure.TcpSocket:new()
   local secureContext = secure.Context:new({
     key = PKEY_PEM,
     certificate = CACERT_PEM
@@ -235,15 +235,15 @@ function Test_HttpsServerClientsKeepAlive()
 end
 
 local function canResetConnection()
-  return TcpClientSocket or TcpClientLuv and luaSocketLib
+  return TcpSocketSocket or TcpSocketLuv and luaSocketLib
 end
 
 local function resetConnection(tcp, close, shutdown)
-  if TcpClientLuv and luaSocketLib and TcpClientLuv:isInstance(tcp) then
+  if TcpSocketLuv and luaSocketLib and TcpSocketLuv:isInstance(tcp) then
     local fd = tcp.tcp:fileno()
     tcp = luaSocketLib.tcp()
     tcp:setfd(fd)
-  elseif TcpClientSocket and TcpClientSocket:isInstance(tcp) then
+  elseif TcpSocketSocket and TcpSocketSocket:isInstance(tcp) then
     tcp = tcp.tcp
   else
     error('illegal state')
@@ -260,9 +260,9 @@ local function resetConnection(tcp, close, shutdown)
 end
 
 local function shutdownConnection(tcp, close)
-  if TcpClientLuv and TcpClientLuv:isInstance(tcp) then
+  if TcpSocketLuv and TcpSocketLuv:isInstance(tcp) then
     tcp.tcp:shutdown()
-  elseif TcpClientSocket and TcpClientSocket:isInstance(tcp) then
+  elseif TcpSocketSocket and TcpSocketSocket:isInstance(tcp) then
     tcp.tcp:shutdown('both')
   end
   if close then
@@ -276,7 +276,7 @@ local function createSecureTcpClient()
     logger:info('ssl cert verify => false')
     return false
   end)
-  local client = secure.TcpClient:new()
+  local client = secure.TcpSocket:new()
   client:sslInit(false, secureContext)
   return client
 end
@@ -288,7 +288,7 @@ function Test_HttpsClientServerConnectionCloseAfterHandshake()
     logger:info('server replied')
   end):next(function(s)
     server = s
-    client = secure.TcpClient:new()
+    client = secure.TcpSocket:new()
     client:connect('localhost', TEST_PORT):next(function()
       logger:info('client connected')
       return client:close()

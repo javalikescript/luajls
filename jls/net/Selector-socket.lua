@@ -78,7 +78,6 @@ return require('jls.lang.class').create(function(selector)
     mode = mode or computedMode
     if logger:isLoggable(logger.FINEST) then
       logger:finest('selector:register('..socketToString(socket)..', '..tostring(context.mode)..'=>'..tostring(mode)..')')
-      --logger:traceback()
     end
     if mode == context.mode then
       return

@@ -221,14 +221,6 @@ end, function(Path)
     return string.match(pathname, '^(.+)[/\\]([^/\\]*)$') or pathname
   end
 
-  -- TODO remove, deprecated
-  function Path.asPathName(pathOrName)
-    if type(pathOrName) == 'table' and type(pathOrName.getPathName) == 'function' then
-      return pathOrName:getPathName()
-    end
-    return Path.cleanPath(pathOrName)
-  end
-
   function Path.asNormalizedPath(path)
     if type(path) == 'table' and type(path.npath) == 'string' then
       return path.npath

@@ -1,9 +1,10 @@
 local lu = require('luaunit')
 
 local system = require('jls.lang.system')
+local ProcessHandle = require('jls.lang.ProcessHandle')
 local loop = require('jls.lang.loopWithTimeout')
 
-local LUA_EXE_PATH = require('jls.lang.ProcessBuilder').getExecutablePath()
+local LUA_EXE_PATH = ProcessHandle.getExecutablePath()
 
 local function commandLine(code)
   return system.formatCommandLine({

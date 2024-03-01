@@ -78,11 +78,4 @@ return require('jls.lang.class').create(function(struct)
     return string.pack(self.format, table.unpack(values))
   end
 
-end, function(Struct)
-
-  -- Deprecated, to remove
-  Struct.decodeVariableByteInteger = strings.decodeVariableByteInteger
-  -- Deprecated, to remove
-  Struct.encodeVariableByteInteger = strings.encodeVariableByteInteger
-
 end)

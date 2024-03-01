@@ -558,7 +558,5 @@ return {
   createCertificate = createCertificate,
   readCertificate = readCertificate,
   Context = SecureContext,
-  TcpServer = SecureTcpSocket, -- Deprecated, to remove
-  TcpClient = SecureTcpSocket, -- Deprecated, to remove
   TcpSocket = SecureTcpSocket
 }

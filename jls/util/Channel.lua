@@ -247,7 +247,6 @@ return class.create(function(channel, _, Channel)
   local MSG_ID_CONNECT = 1
   local MSG_ID_USER = 2
   Channel.MESSAGE_ID_USER = MSG_ID_USER
-  Channel.MESSAGE_TYPE_USER = MSG_ID_USER -- deprecated to remove
 
   --- Starts receiving messages on this channel.
   -- The handler will be called with the payload and the message type.
