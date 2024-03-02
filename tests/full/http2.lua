@@ -195,6 +195,7 @@ local function runHttpClientServer(onConnect, isSecure, handler)
     client = createHttpClient(isSecure)
     return client:connectV2()
   end):next(function()
+    logger:info('client connected')
     return onConnect(client)
   end):catch(function(reason)
     logger:warn('error in test, due to %s', reason:toString())
@@ -213,6 +214,7 @@ end
 local function assertFetchHttpClientServer(isSecure, options)
   local responseStatus, responseBody, responseVersion
   runHttpClientServer(function(client)
+    logger:info('fetching')
     return client:fetch('/', options):next(function(response)
       logger:info('response fetched')
       responseStatus = response:getStatusCode()
@@ -245,7 +247,9 @@ end
 local function assertFetchsHttpClientServer(isSecure, options)
   local responses, responseVersion
   local function doFetch(client, resource, options)
+    logger:info('fetching')
     return client:fetch(resource, options):next(function(response)
+      logger:info('response fetched')
       if response:getStatusCode() ~= 200 then
         return Promise.reject('bad status code')
       end

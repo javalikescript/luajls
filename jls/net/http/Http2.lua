@@ -140,7 +140,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onEndStream()
-    logger:finer('stream:onEndStream()')
+    logger:finer('on end stream %s', self.id)
     if self.state == STATE.OPEN then
       self.state = STATE.HALF_CLOSED_REMOTE
     elseif self.state == STATE.HALF_CLOSED_LOCAL then
@@ -222,6 +222,8 @@ local Stream = class.create(function(stream)
     if endStream then
       self:onData(nil)
       self:onEndStream()
+    else
+      self.start_time = os.time()
     end
   end
 
@@ -258,6 +260,8 @@ local Stream = class.create(function(stream)
       local p = self.http2:sendData(self.id, data, endStream)
       if endStream then
         self:doEndStream()
+      else
+        self.start_time = os.time()
       end
       return p
     end
@@ -476,6 +480,20 @@ return class.create(function(http2)
       self.pingMap[pingData] = {cb = cb, time = os.time()}
       return p
     end)
+  end
+
+  function http2:closePendings(delaySec)
+    local time = os.time() - (delaySec or 0)
+    local count = 0
+    for _, stream in pairs(self.streams) do
+      local start_time = stream.start_time
+      if type(start_time) ~= 'number' or start_time < time then
+        logger:fine('closing pending stream %d', stream.id)
+        self:closedStream(stream)
+        count = count + 1
+      end
+    end
+    logger:info('%d pending stream(s) closed (>%ds)', count, delaySec)
   end
 
   function http2:readStart(settings)
@@ -697,6 +715,10 @@ return class.create(function(http2)
     self.client:close()
   end
 
+  function http2:isClosed()
+    return self.client:isClosed()
+  end
+
   function http2:handleError(reason, ...)
     self:doClose()
     if type(reason) == 'string' then
@@ -725,6 +747,7 @@ return class.create(function(http2)
 
   function http2:close()
     logger:fine('http2:close()')
+    self:closePendings(-1)
     return self:goAway()
   end
 

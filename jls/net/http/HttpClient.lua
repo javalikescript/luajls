@@ -228,21 +228,37 @@ return class.create(function(httpClient)
     end
 
     function stream:onEndStream()
-      super.onEndStream(self)
       local endStreamCallback = self.endStreamCallback
       if endStreamCallback then
         self.endStreamCallback = nil
         endStreamCallback()
       end
+      super.onEndStream(self)
+    end
+
+    function stream:clearCallbacks(reason)
+      local endStreamCallback = self.endStreamCallback
+      if endStreamCallback then
+        self.endStreamCallback = nil
+        logger:fine('clear end stream %d callback due to "%s"', self.id, reason)
+        endStreamCallback(reason)
+      end
+      local endHeadersCallback = self.endHeadersCallback
+      if endHeadersCallback then
+        self.endHeadersCallback = nil
+        logger:fine('clear end stream %d headers callback due to "%s"', self.id, reason)
+        endHeadersCallback(reason)
+      end
     end
 
     function stream:onError(reason)
       super.onError(self, reason)
-      local endHeadersCallback = self.endHeadersCallback
-      if endHeadersCallback then
-        self.endHeadersCallback = nil
-        endHeadersCallback(reason)
-      end
+      self:clearCallbacks(reason)
+    end
+
+    function stream:close()
+      super.close(self)
+      self:clearCallbacks('closed')
     end
 
   end, function(Stream)

@@ -76,14 +76,13 @@ local Stream = class.create(Http2.Stream, function(stream, super)
   end
 
   function stream:onEndStream()
-    super.onEndStream(self)
-    logger:finer('stream:onEndStream() %s', self.id)
     local exchange = self.exchange
     local endStreamCallback = self.endStreamCallback
     if endStreamCallback then
       self.endStreamCallback = nil
       endStreamCallback()
     end
+    super.onEndStream(self)
     exchange:notifyRequestBody() -- TODO Remove
     self.http2.server:prepareResponseHeaders(exchange)
     local response = exchange:getResponse()
@@ -96,6 +95,25 @@ local Stream = class.create(Http2.Stream, function(stream, super)
     end):catch(function(reason)
       logger:warn('unable to reply due to "%s" on %s', reason, requestToString(exchange))
     end)
+  end
+
+  function stream:clearCallbacks(reason)
+    local endStreamCallback = self.endStreamCallback
+    if endStreamCallback then
+      self.endStreamCallback = nil
+      logger:fine('clear end stream %d callback due to "%s"', self.id, reason)
+      endStreamCallback(reason)
+    end
+  end
+
+  function stream:onError(reason)
+    super.onError(self, reason)
+    self:clearCallbacks(reason)
+  end
+
+  function stream:close()
+    super.close(self)
+    self:clearCallbacks('closed')
   end
 
 end)
@@ -122,6 +140,11 @@ local ServerHttp2 = class.create(Http2, function(http2, super)
     if next(self.streams) == nil then
       self.start_time = os.time()
     end
+  end
+
+  function http2:doClose()
+    super.doClose(self)
+    self.server.pendings[self.client] = nil
   end
 
   function http2:onPing()
