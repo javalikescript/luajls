@@ -71,6 +71,7 @@ local STATE = {
   HALF_CLOSED_REMOTE = 5,
   CLOSED = 6,
 }
+local STATE_BY_ID = Map.reverse(STATE)
 
 local function findFrame(_, data, length)
   if length < 9 then
@@ -373,6 +374,10 @@ return class.create(function(http2)
   function http2:registerStream(stream)
     -- The first use of a new stream identifier implicitly closes all streams in the "idle" state
     -- that might have been initiated by that peer with a lower-valued stream identifier.
+    local maxStreams = self.settings[SETTINGS.MAX_CONCURRENT_STREAMS]
+    if maxStreams and Map.size(self.streams) > maxStreams then
+      logger:warn('too much concurrent streams, %d', Map.size(self.streams))
+    end
     self.streams[stream.id] = stream
     if logger:isLoggable(logger.FINE) then
       logger:fine('register stream %d, %s', stream.id, self:toPrettyString())
@@ -488,7 +493,7 @@ return class.create(function(http2)
     for _, stream in pairs(self.streams) do
       local start_time = stream.start_time
       if type(start_time) ~= 'number' or start_time < time then
-        logger:fine('closing pending stream %d', stream.id)
+        logger:fine('closing pending stream %d on state %s', stream.id, STATE_BY_ID[stream.state])
         self:closedStream(stream)
         count = count + 1
       end
@@ -570,14 +575,14 @@ return class.create(function(http2)
             return
           end
           logger:fine('settings received')
-          local settings = {}
+          local stgs = {}
           local id, value
           while offset <= #data do
             id, value, offset = string.unpack('>I2I4', data, offset)
             if logger:isLoggable(logger.FINE) then
               logger:fine('setting %s(%d): %d was %s', SETTINGS_BY_ID[id], id, value, self.settings[id])
             end
-            settings[id] = value
+            stgs[id] = value
             self.settings[id] = value
             if id == SETTINGS.HEADER_TABLE_SIZE then
               self.hpack:resizeIndexes(value)
@@ -589,7 +594,7 @@ return class.create(function(http2)
             self.initialSettingsCb = nil
             self.initialSettingsPromise = nil
           end
-          self:onSettings(settings)
+          self:onSettings(stgs)
         elseif frameType == FRAME.WINDOW_UPDATE then
           if self:checkFrame(nil, frameLen ~= 4) then
             return
