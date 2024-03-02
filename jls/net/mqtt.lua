@@ -13,6 +13,7 @@ local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local List = require('jls.util.List')
 local strings = require('jls.util.strings')
+local Codec = require('jls.util.Codec')
 
 --[[
   mosquitto -v
@@ -248,7 +249,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
             buffer = string.sub(buffer, 1, packetLength)
           end
           if logger:isLoggable(logger.FINEST) then
-            logger:finest('mqttClientBase:read %s "%s"', self.clientId, require('jls.util.hex').encode(buffer))
+            logger:finest('mqttClientBase:read %s "%s"', self.clientId, Codec.encode('hex', buffer))
           end
           self:onReadPacket(packetTypeAndFlags >> 4, packetTypeAndFlags & 0xf, buffer, offset, remainingLength)
           buffer = remainingBuffer
@@ -261,7 +262,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
 
   function mqttClientBase:write(data, callback)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('mqttClientBase:write() "%s"', require('jls.util.hex').encode(data))
+      logger:finest('mqttClientBase:write() "%s"', Codec.encode('hex', data))
     end
     local cb, d = Promise.ensureCallback(callback)
     self.tcpClient:write(data, function(err)

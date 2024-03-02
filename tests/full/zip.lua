@@ -1,20 +1,21 @@
 local lu = require('luaunit')
 
-local base64 = require('jls.util.base64')
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
+local Codec = require('jls.util.Codec')
+local base64 = Codec.getInstance('base64')
 
-local EMPTY_DEFLATED = base64.decode('eJwDAAAAAAE=')
+local EMPTY_DEFLATED = base64:decode('eJwDAAAAAAE=')
 local SPACES_INFLATED = '                                                                                '
-local SPACES_DEFLATED = base64.decode('eJxTUKAuAACVXwoB')
-local SPACES_DEFLATED_100 = base64.decode('eJztwYEAAAAAgCCV/SkXqQoAAAAAAAAAGKcS6C4=')
+local SPACES_DEFLATED = base64:decode('eJxTUKAuAACVXwoB')
+local SPACES_DEFLATED_100 = base64:decode('eJztwYEAAAAAgCCV/SkXqQoAAAAAAAAAGKcS6C4=')
 local HELLO_WORLD_INFLATED = 'Hello world!'
-local HELLO_WORLD_DEFLATED = base64.decode('eJzzSM3JyVcozy/KSVEEAB0JBF4=')
+local HELLO_WORLD_DEFLATED = base64:decode('eJzzSM3JyVcozy/KSVEEAB0JBF4=')
 
 local VALUES = {'', 'a', 'ab', 'abc', HELLO_WORLD_INFLATED}
 
 local function print_base64_deflated(s)
-  print('"'..s..'" => '..base64.encode(Deflater:new():deflate(s, 'finish')))
+  print('"'..s..'" => '..base64:encode(Deflater:new():deflate(s, 'finish')))
 end
 
 local function print_base64_deflated_n(s, n)
@@ -24,7 +25,7 @@ local function print_base64_deflated_n(s, n)
     deflated = deflated..deflater:deflate(s)
   end
   deflated = deflated..deflater:finish()
-  print('"'..s..'" x '..tostring(n)..' => '..base64.encode(deflated))
+  print('"'..s..'" x '..tostring(n)..' => '..base64:encode(deflated))
 end
 
 local function print_base64_deflated_l(l)
@@ -32,10 +33,10 @@ local function print_base64_deflated_l(l)
   local deflated = ''
   for i, s in ipairs(l) do
     deflated = deflated..deflater:deflate(s)
-    print('['..tostring(i)..'] => '..base64.encode(deflated))
+    print('['..tostring(i)..'] => '..base64:encode(deflated))
   end
   deflated = deflated..deflater:finish()
-  print('['..tostring(#l)..'] => '..base64.encode(deflated))
+  print('['..tostring(#l)..'] => '..base64:encode(deflated))
 end
 
 --[[]

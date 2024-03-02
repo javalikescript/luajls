@@ -8,6 +8,7 @@ local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
 local StreamHandler = require('jls.io.StreamHandler')
 local Crc32 = require('jls.util.md.crc32')
+local Codec = require('jls.util.Codec')
 
 -- see https://tools.ietf.org/html/rfc1952
 
@@ -195,7 +196,7 @@ function gzip.decompressStream(sh, onHeader)
           footer = string.sub(buffer, bufferSize - 7)
           buffer = string.sub(buffer, 1, bufferSize - 8)
           if logger:isLoggable(logger.FINER) then
-            logger:finer('footer %s', require('jls.util.hex').encode(footer))
+            logger:finer('footer %s', Codec.encode('hex', footer))
           end
         end
         inflated = inflater:inflate(buffer)

@@ -97,7 +97,6 @@ end, function(Codec)
     return Codec.getCodec(name):new(...)
   end
 
-  -- for compatibility, to remove
   function Codec.decode(name, value, ...)
     return Codec.getCodec(name):new(...):decode(value)
   end
@@ -110,6 +109,8 @@ end, function(Codec)
   function Codec.encodeStream(name, sh, ...)
     return Codec.getCodec(name):new(...):encodeStream(sh)
   end
+
+  -- for compatibility, to remove
   function Codec:compat()
     return {
       decode = function(value, ...)

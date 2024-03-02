@@ -9,6 +9,7 @@ local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')
 local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local gzip = require('jls.lang.loader').tryRequire('jls.util.zip.gzip')
+local Codec = require('jls.util.Codec')
 
 -- see https://en.wikipedia.org/wiki/Tar_(computing)
 -- see https://pubs.opengroup.org/onlinepubs/9699919799/utilities/pax.html#tag_20_92_13_06
@@ -57,11 +58,11 @@ end
 
 local function parseHeader(block)
   if logger:isLoggable(logger.FINEST) then
-    logger:finest('parseHeader(#%d: %s)', #block, require('jls.util.hex').encode(block))
+    logger:finest('parseHeader(#%d: %s)', #block, Codec.encode('hex', block))
   end
   local name, mode, uid, gid, size, mtime, chksum, typeflag, linkname, magic, extra = cuts(block, 100, 8, 8, 8, 12, 12, 8, 1, 100, 6, 512)
   if logger:isLoggable(logger.FINER) then
-    logger:finer('parseHeader(#%d) %s, %s, %s', #block, require('jls.util.hex').encode(name), require('jls.util.hex').encode(size), require('jls.util.hex').encode(mtime))
+    logger:finer('parseHeader(#%d) %s, %s, %s', #block, Codec.encode('hex', name), Codec.encode('hex', size), Codec.encode('hex', mtime))
   end
   if magic == 'ustar\0' then
     local version, uname, gname, devmajor, devminor, prefix = cuts(extra, 2, 32, 32, 8, 8, 155)

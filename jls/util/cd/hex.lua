@@ -64,19 +64,19 @@ local DecodeStreamHandler = class.create('jls.io.streams.BlockStreamHandler', fu
 end)
 
 local EncodeStreamHandler = class.create(require('jls.io.StreamHandler').WrappedStreamHandler, function(encodeStreamHandler, super)
-  function encodeStreamHandler:initialize(handler, lowerCase)
+  function encodeStreamHandler:initialize(handler, upperCase)
     super.initialize(self, handler)
-    self.lowerCase = lowerCase
+    self.upperCase = upperCase
   end
   function encodeStreamHandler:onData(data)
-    return self.handler:onData(data and encode(data, self.lowerCase))
+    return self.handler:onData(data and encode(data, self.upperCase))
   end
 end)
 
 return require('jls.lang.class').create('jls.util.Codec', function(hex)
 
-  function hex:initialize(lowerCase, ignoreSpaces)
-    self.lowerCase = lowerCase
+  function hex:initialize(upperCase, ignoreSpaces)
+    self.upperCase = upperCase
     self.ignoreSpaces = ignoreSpaces
   end
 
@@ -88,7 +88,7 @@ return require('jls.lang.class').create('jls.util.Codec', function(hex)
   end
 
   function hex:encode(value)
-    return encode(value, self.lowerCase)
+    return encode(value, self.upperCase)
   end
 
   function hex:decodeStream(sh)
@@ -96,7 +96,7 @@ return require('jls.lang.class').create('jls.util.Codec', function(hex)
   end
 
   function hex:encodeStream(sh)
-    return EncodeStreamHandler:new(sh, self.lowerCase)
+    return EncodeStreamHandler:new(sh, self.upperCase)
   end
 
   function hex:getName()

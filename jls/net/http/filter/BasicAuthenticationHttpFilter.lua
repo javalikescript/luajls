@@ -3,7 +3,7 @@
 -- @pragma nostrip
 
 local logger = require('jls.lang.logger'):get(...)
-local base64 = require('jls.util.base64')
+local Codec = require('jls.util.Codec')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 
 --- A BasicAuthenticationHttpFilter class.
@@ -46,7 +46,7 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
     end
     logger:finest('basicAuthentication() authorization: "%s"', authorization)
     if string.find(authorization, 'Basic ') == 1 then
-      authorization = base64.decode(string.sub(authorization, 7))
+      authorization = Codec.decode('base64', string.sub(authorization, 7))
       if authorization then
         local user, password = string.match(authorization, '^([^:]+):(.+)$')
         if user then

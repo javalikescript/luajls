@@ -6,11 +6,12 @@ local opensslLib = require('openssl')
 local cipherLib = opensslLib.cipher
 local bnLib = opensslLib.bn
 local strings = require('jls.util.strings')
+local Codec = require('jls.util.Codec')
 
 local CipherStreamHandler = class.create(StreamHandler, function(cipherStreamHandler, super)
   function cipherStreamHandler:initialize(sh, alg, encrypt, key, iv, pad)
     if logger:isLoggable(logger.FINE) then
-      logger:fine('CipherStreamHandler:new(?, %s, %s, ?, %s, %s)', alg, encrypt, iv and require('jls.util.hex').encode(iv), pad)
+      logger:fine('CipherStreamHandler:new(?, %s, %s, ?, %s, %s)', alg, encrypt, iv and Codec.encode('hex', iv), pad)
     end
     super.initialize(self, sh)
     self.handler = sh

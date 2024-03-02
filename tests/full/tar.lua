@@ -2,15 +2,16 @@ local lu = require('luaunit')
 
 local tar = require('jls.util.zip.tar')
 local File = require('jls.io.File')
-local base64 = require('jls.util.base64')
+local Codec = require('jls.util.Codec')
 local StreamHandler = require('jls.io.StreamHandler')
+local base64 = Codec.getInstance('base64')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
 local TMP_DIR = File:new(TMP_PATH)
 
 -- echo -n Hi>a.txt; echo "Hello World !">b.txt; tar -czf - a.txt b.txt | base64
-local SAMPLE_TAR_GZ = base64.decode('H4sIAAAAAAAAA+3TMQrCQBCF4a09xXgB2TGb7BVyA+sVUwRWAskGPL5JsBBExCJZhf9rBmameM0Lh3RLZl12Ujk3T/WlfZ4PR6PFtCkL7+Y/VWfViF0512IcUuhFzBCuYxPf/326/6m6zZ0AOZ1/of9avfbf0/8t1E2MnZy6Pl5kv8udBgAAAAAAAAAAAAAAAN+6A+eyywsAKAAA')
+local SAMPLE_TAR_GZ = base64:decode('H4sIAAAAAAAAA+3TMQrCQBCF4a09xXgB2TGb7BVyA+sVUwRWAskGPL5JsBBExCJZhf9rBmameM0Lh3RLZl12Ujk3T/WlfZ4PR6PFtCkL7+Y/VWfViF0512IcUuhFzBCuYxPf/326/6m6zZ0AOZ1/of9avfbf0/8t1E2MnZy6Pl5kv8udBgAAAAAAAAAAAAAAAN+6A+eyywsAKAAA')
 
 Tests = {}
 

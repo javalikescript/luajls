@@ -3,12 +3,13 @@ local lu = require('luaunit')
 local gzip = require('jls.util.zip.gzip')
 local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
-local base64 = require('jls.util.base64')
+local Codec = require('jls.util.Codec')
+local base64 = Codec.getInstance('base64')
 
 local SAMPLE_PLAIN = 'Hello world !'
 
 -- echo -n "Hello world !" | gzip | base64
-local SAMPLE_GZIPPED = base64.decode('H4sIAAAAAAAAA/NIzcnJVyjPL8pJUVAEAEAsDgcNAAAA')
+local SAMPLE_GZIPPED = base64:decode('H4sIAAAAAAAAA/NIzcnJVyjPL8pJUVAEAEAsDgcNAAAA')
 
 local function compress_decompress(data, header)
   local bufferedStream = BufferedStreamHandler:new(StreamHandler.null)
@@ -33,7 +34,7 @@ function Test_compress()
   local stream = gzip.compressStream(bufferedStream)
   StreamHandler.fill(stream, SAMPLE_PLAIN)
   local result = bufferedStream:getBuffer()
-  lu.assertEquals(base64.encode(result), base64.encode(SAMPLE_GZIPPED))
+  lu.assertEquals(base64:encode(result), base64:encode(SAMPLE_GZIPPED))
 end
 
 function Test_compress_decompress()

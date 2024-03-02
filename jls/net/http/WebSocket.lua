@@ -13,10 +13,10 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpClient = require('jls.net.http.HttpClient')
 local Http2 = require('jls.net.http.Http2')
-local base64 = require('jls.util.base64')
 local MessageDigest = require('jls.util.MessageDigest')
+local Codec = require('jls.util.Codec')
+local base64 = Codec.getInstance('base64')
 
-local hex = require('jls.util.hex')
 
 local CONST = {
   HEADER_SEC_WEBSOCKET_KEY = 'Sec-WebSocket-Key',
@@ -52,7 +52,7 @@ local CONST = {
 local function hashWebSocketKey(key)
   local md = MessageDigest.getInstance('SHA-1')
   md:update(key..'258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
-  return base64.encode(md:digest())
+  return base64:encode(md:digest())
 end
 
 local math_random = math.random
@@ -293,7 +293,7 @@ return class.create(function(webSocket)
         end)
       end
       -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
-      local key = base64.encode(randomChars(16))
+      local key = base64:encode(randomChars(16))
       return client:fetch(nil, {
         headers = {
           [HttpMessage.CONST.HEADER_USER_AGENT] = HttpMessage.CONST.DEFAULT_USER_AGENT,
@@ -491,7 +491,7 @@ return class.create(function(webSocket)
     end
     local frame = formatFrame(fin, opcode, mask, payload)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('webSocket:sendFrame() %s', hex.encode(frame))
+      logger:finest('webSocket:sendFrame() %s', Codec.encode('hex', frame))
     end
     local cb, d = Promise.ensureCallback(callback)
     self.tcp:write(frame, function(err)
