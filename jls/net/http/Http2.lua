@@ -8,8 +8,7 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local Map = require('jls.util.Map')
 local strings = require('jls.util.strings')
 
---local hex = require('jls.util.Codec').getInstance('hex')
---logger = logger:getClass():new(); logger:setLevel('finer')
+-- https://datatracker.ietf.org/doc/html/rfc9113
 
 local FRAME = {
   DATA = 0,
@@ -117,6 +116,10 @@ local function packSettings(settings)
   return table.concat(parts)
 end
 
+local function isServerInitiated(id)
+  return id % 2 == 0
+end
+
 
 local Stream = class.create(function(stream)
 
@@ -130,18 +133,28 @@ local Stream = class.create(function(stream)
     self.sendWindowSize = http2:getRemoteSetting(SETTINGS.INITIAL_WINDOW_SIZE)
     self.recvWindowSize = self.http2.initialWindowSize
     self.recvMinSize = self.http2.initialWindowSize * 3 // 4
-    self.start_time = os.time()
+    self.idleTimeout = 0
+    self.lastTime = os.time()
+    self.startTime = self.lastTime
+  end
+
+  function stream:toString()
+    return string.format('stream(id %d, state %s, start %d, last %d)', self.id, STATE_BY_ID[self.state], self.startTime, self.lastTime)
   end
 
   function stream:onEndHeaders()
     logger:finer('onEndHeaders()')
     if self.state == STATE.IDLE then
-      self.state = STATE.OPEN
+      if isServerInitiated(self.id) then
+        self.state = STATE.OPEN
+      else
+        self:onError('Cannot open server initiated stream')
+      end
     end
   end
 
   function stream:onEndStream()
-    logger:finer('on end stream %s', self.id)
+    logger:finer('on end %s', self)
     if self.state == STATE.OPEN then
       self.state = STATE.HALF_CLOSED_REMOTE
     elseif self.state == STATE.HALF_CLOSED_LOCAL then
@@ -151,9 +164,7 @@ local Stream = class.create(function(stream)
 
   function stream:onWindowUpdate(increment)
     self.sendWindowSize = self.sendWindowSize + increment
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('window size increment: %d for stream %d, new size is %d', increment, self.id, self.sendWindowSize)
-    end
+    logger:fine('window size increment: %d for %s, new size is %d', increment, self, self.sendWindowSize)
     local sendCallback = self.sendCallback
     if sendCallback then
       self.sendCallback = nil
@@ -163,7 +174,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onError(reason)
-    logger:info('stream %s in error due to %s', self.id, reason)
+    logger:info('%s in error due to %s', self, reason)
     local sendCallback = self.sendCallback
     if sendCallback then
       self.sendCallback = nil
@@ -175,7 +186,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:doEndStream()
-    logger:finer('doEndStream()')
+    logger:finer('do end %s', self)
     if self.state == STATE.OPEN then
       self.state = STATE.HALF_CLOSED_LOCAL
     elseif self.state == STATE.HALF_CLOSED_REMOTE then
@@ -186,6 +197,9 @@ local Stream = class.create(function(stream)
   function stream:sendHeaders(message, endHeaders, endStream)
     logger:finer('sendHeaders(?, %s, %s)', endHeaders, endStream)
     if endHeaders and self.state == STATE.IDLE then
+      if isServerInitiated(self.id) then
+        error('Cannot open client initiated stream')
+      end
       self.state = STATE.OPEN
     end
     local p = self.http2:sendHeaders(self.id, message, endHeaders, endStream)
@@ -224,7 +238,7 @@ local Stream = class.create(function(stream)
       self:onData(nil)
       self:onEndStream()
     else
-      self.start_time = os.time()
+      self.lastTime = os.time()
     end
   end
 
@@ -236,7 +250,7 @@ local Stream = class.create(function(stream)
       return Promise.reject('window size too small again')
     end
     return Promise:new(function(resolve, reject)
-      logger:fine('registering buffer callback for stream %d', self.id)
+      logger:fine('registering buffer callback for %d', self)
       self.sendCallback = function(err)
         if err then
           reject(err)
@@ -262,7 +276,7 @@ local Stream = class.create(function(stream)
       if endStream then
         self:doEndStream()
       else
-        self.start_time = os.time()
+        self.lastTime = os.time()
       end
       return p
     end
@@ -305,8 +319,12 @@ local Stream = class.create(function(stream)
     message:writeBodyCallback(self.blockSize)
   end
 
+  function stream:reset(errorCode)
+    return self.http2:resetStream(self.id, errorCode)
+  end
+
   function stream:close()
-    logger:finer('close()')
+    logger:finer('close %s', self)
     self.state = STATE.CLOSED
     self:onClose()
   end
@@ -341,6 +359,10 @@ return class.create(function(http2)
     self.pingIndex = 0
     self.settingAcks = {}
     self.initialSettingsPromise, self.initialSettingsCb = Promise.createWithCallback()
+  end
+
+  function http2:toString()
+    return string.format('http2(%s, next id %d, streams %d)', self.isServer and 'server' or 'client', self.streamNextId, Map.size(self.streams))
   end
 
   function http2:getRemoteSetting(id)
@@ -379,22 +401,14 @@ return class.create(function(http2)
       logger:warn('too much concurrent streams, %d', Map.size(self.streams))
     end
     self.streams[stream.id] = stream
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('register stream %d, %s', stream.id, self:toPrettyString())
-    end
+    logger:fine('register stream %d, %s', stream.id, self)
     return stream
   end
 
   function http2:closedStream(stream)
     self.streams[stream.id] = nil
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('end stream %d, %s', stream.id, self:toPrettyString())
-    end
+    logger:fine('end stream %d, %s', stream.id, self)
     stream:close()
-  end
-
-  function http2:toPrettyString()
-    return self.isServer and 'server' or 'client'
   end
 
   function http2:sendFrame(frameType, flags, streamId, data)
@@ -402,7 +416,7 @@ return class.create(function(http2)
     local frameLen = #data
     local frame = string.pack('>I3BBI4', frameLen, frameType, flags, streamId)..data
     if logger:isLoggable(logger.FINE) then
-      logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self:toPrettyString())
+      logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self)
       --logger:finer('frame #%d: %s', #data, hex:encode(data))
     end
     local p = self.client:write(frame)
@@ -414,7 +428,7 @@ return class.create(function(http2)
       end)
     end
     return p:catch(function(reason)
-      if frameType == FRAME.GOAWAY then
+      if frameType == FRAME.GOAWAY or frameType == FRAME.RST_STREAM then
         logger:fine('write error ignored "%s"', reason)
       else
         self:handleError('write error "%s" %s(%d), 0x%02x, id: %d', reason, FRAME_BY_TYPE[frameType], frameType, flags, streamId)
@@ -487,22 +501,37 @@ return class.create(function(http2)
     end)
   end
 
-  function http2:closePendings(delaySec)
-    local time = os.time() - (delaySec or 0)
+  function http2:resetStream(streamId, errorCode)
+    return self:sendFrame(FRAME.RST_STREAM, 0, streamId, string.pack('>I4', errorCode or ERRORS.NO_ERROR))
+  end
+
+  function http2:closeStream(stream, errorCode)
+    local state = stream.state
+    logger:fine('closing pending stream %d on state %s', stream.id, STATE_BY_ID[state])
+    if errorCode and state > STATE.IDLE and state < STATE.HALF_CLOSED_REMOTE then
+      stream:reset(errorCode)
+    end
+    self:closedStream(stream)
+  end
+
+  function http2:applyTimeout(time)
+    if type(time) ~= 'number' then
+      time = os.time()
+    end
+    local excludedState = self.isServer and STATE.HALF_CLOSED_REMOTE or STATE.OPEN
     local count = 0
     for _, stream in pairs(self.streams) do
-      local start_time = stream.start_time
-      if type(start_time) ~= 'number' or start_time < time then
-        logger:fine('closing pending stream %d on state %s', stream.id, STATE_BY_ID[stream.state])
-        if stream.state > STATE.IDLE and stream.state < STATE.HALF_CLOSED_REMOTE then
-          self:sendFrame(FRAME.RST_STREAM, 0, stream.id, string.pack('>I4', ERRORS.CANCEL))
+      if stream.state ~= excludedState then
+        local lastTime = stream.lastTime
+        local idleTimeout = stream.idleTimeout or 0
+        if idleTimeout > 0 and lastTime and lastTime + idleTimeout < time then
+          self:closeStream(stream, ERRORS.CANCEL)
+          count = count + 1
         end
-        self:closedStream(stream)
-        count = count + 1
       end
     end
     if count > 0 then
-      logger:info('%d pending stream(s) closed (>%ds)', count, delaySec)
+      logger:info('%d stream(s) closed due to timeout', count)
     end
   end
 
@@ -522,7 +551,7 @@ return class.create(function(http2)
         local stream
         local frameLen = #data - 9
         if logger:isLoggable(logger.FINE) then
-          logger:fine('received frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self:toPrettyString())
+          logger:fine('received frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self)
         end
         local offset, endOffset
         offset = 10
@@ -550,11 +579,19 @@ return class.create(function(http2)
           if flags & PRIORITY_FLAG ~= 0 then
             offset = self:handlePriority(streamId, data, offset, endOffset)
           end
-          if self.isServer == (streamId % 2 == 0) then
+          if self.isServer == isServerInitiated(streamId) then
             stream = self:checkStreamFrame(streamId, frameType)
           else
             stream = self.streams[streamId]
             if not stream then
+              --[[
+                -- nginx limits the number of requests to 1000
+                self.nbRequests = self.nbRequests + 1
+                if self.nbRequests > self.maxRequests then
+                  self:goAway(ERRORS.NO_ERROR, 'max requests reached')
+                  return
+                end
+              ]]
               stream = self:newStream(streamId)
               self:registerStream(stream)
             end
@@ -625,8 +662,11 @@ return class.create(function(http2)
           if self:checkFrame(streamId == 0) then
             return
           end
-          logger:warn('push promise rejected')
-          self:sendFrame(FRAME.RST_STREAM, 0, streamId, string.pack('>I4', ERRORS.REFUSED_STREAM))
+          offset, endOffset = readPadding(flags, data, offset)
+          local promisedStreamId  = string.unpack('>I4', data, offset)
+          promisedStreamId = promisedStreamId & 0x7fffffff
+          logger:warn('push promise rejected (%d, %d)', streamId, promisedStreamId)
+          self:resetStream(promisedStreamId, ERRORS.REFUSED_STREAM)
         elseif frameType == FRAME.PING then
           if self:checkFrame(streamId ~= 0, frameLen ~= 8) then
             return
@@ -650,13 +690,12 @@ return class.create(function(http2)
           local lastStreamId, errorCode
           lastStreamId, errorCode, offset = string.unpack('>I4I4', data, offset)
           lastStreamId = lastStreamId & 0x7fffffff
+          local debugData = offset < #data and string.sub(data, offset) or 'n/a'
           if errorCode ~= 0 then
-            if offset < #data then
-              local debugData = string.sub(data, offset)
-              self:handleError('go away, error %d: %s, debug "%s"', errorCode, ERRORS_BY_ID[errorCode], debugData)
-            else
-              self:handleError('go away, error %d: %s', errorCode, ERRORS_BY_ID[errorCode])
-            end
+            self:handleError('go away, error %d: %s, debug "%s"', errorCode, ERRORS_BY_ID[errorCode], debugData)
+          else
+            logger:fine('go away %s, debug "%s"', self, debugData)
+            self:doClose()
           end
         elseif frameType == FRAME.CONTINUATION then
           stream = self:checkStreamFrame(streamId, frameType)
@@ -672,9 +711,7 @@ return class.create(function(http2)
         self:doClose()
       end
     end), self.isServer and findFrameWithPreface or findFrame)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('start reading, %s', self:toPrettyString())
-    end
+    logger:fine('start reading, %s', self)
     client:readStart(cs)
     return self:sendSettings(settings, not self.isServer)
   end
@@ -712,11 +749,11 @@ return class.create(function(http2)
 
   function http2:goAway(errorCode, debugData, ...)
     if logger:isLoggable(logger.FINE) then
-      logger:fine('goAway(%s, %s)', errorCode, debugData and string.format(debugData, ...))
+      logger:fine('goAway(%s, %s) %s', errorCode, debugData and string.format(debugData, ...), self)
     end
     local lastStreamId = self.streamNextId -- TODO get correct value
-    local data = string.pack('>I4I4', lastStreamId, errorCode or 0)
-    if errorCode and errorCode ~= 0 and debugData then
+    local data = string.pack('>I4I4', lastStreamId, errorCode or ERRORS.NO_ERROR)
+    if debugData then
       data = data..string.format(debugData, ...)
     end
     return self:sendFrame(FRAME.GOAWAY, 0, 0, data):finally(function()
@@ -761,7 +798,12 @@ return class.create(function(http2)
 
   function http2:close()
     logger:fine('close()')
-    self:closePendings(-1)
+    local count = 0
+    for _, stream in pairs(self.streams) do
+      self:closedStream(stream)
+      count = count + 1
+    end
+    logger:fine('%d stream(s) closed', count)
     return self:goAway()
   end
 
