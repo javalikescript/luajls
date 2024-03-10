@@ -695,7 +695,8 @@ return class.create(function(http2)
             self:handleError('go away, error %d: %s, debug "%s"', errorCode, ERRORS_BY_ID[errorCode], debugData)
           else
             logger:fine('go away %s, debug "%s"', self, debugData)
-            self:doClose()
+            -- a receiver of a GOAWAY that has no more use for the connection SHOULD still send a GOAWAY frame before terminating the connection
+            self:goAway()
           end
         elseif frameType == FRAME.CONTINUATION then
           stream = self:checkStreamFrame(streamId, frameType)
