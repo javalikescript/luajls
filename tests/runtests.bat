@@ -57,7 +57,8 @@ GOTO :eof
 :runall
 SET JLS_REQUIRES=!socket,!lfs
 CALL :runtests
-SET JLS_REQUIRES=!luv
+REM missing !zlib !openssl
+SET JLS_REQUIRES=!luv,!lxp,!cjson
 CALL :runtests
 SET JLS_REQUIRES=
 CALL :runtests
