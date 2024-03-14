@@ -140,17 +140,22 @@ return class.create(function(httpClient)
       return Promise.resolve(self)
     end
     self:close(false)
+    local tcp
     if self.isSecure then
-      self.tcpClient = secure.TcpSocket:new()
-      self.tcpClient:sslInit(false, self.secureContext or SECURE_CONTEXT)
+      tcp = secure.TcpSocket:new()
+      tcp:sslInit(false, self.secureContext or SECURE_CONTEXT)
     else
-      self.tcpClient = TcpSocket:new()
+      tcp = TcpSocket:new()
     end
-    self.connecting = self.tcpClient:connect(self.host, self.port or 80):next(function()
-      if self.isSecure and self.tcpClient.sslGetAlpnSelected then
-        if self.tcpClient:sslGetAlpnSelected() == 'h2' then
+    self.tcpClient = tcp
+    local connecting = tcp:connect(self.host, self.port or 80)
+    self.connecting = connecting
+    connecting:next(function()
+      logger:finer('connected %s', tcp)
+      if self.isSecure and tcp.sslGetAlpnSelected then
+        if tcp:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
-          local http2 = Http2:new(self.tcpClient, false)
+          local http2 = Http2:new(tcp, false)
           -- To avoid unnecessary latency, clients are permitted to send additional frames to the server immediately after sending the client connection preface
           self.http2 = http2
           return http2:readStart({
@@ -167,7 +172,7 @@ return class.create(function(httpClient)
     end):finally(function()
       self.connecting = nil
     end)
-    return self.connecting
+    return connecting
   end
 
   local function handleRedirect(client, options, request, response)
