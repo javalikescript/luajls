@@ -31,7 +31,9 @@ return class.create(function(event)
   function event:clearTimeout(timer)
     if timer then
       timer:stop()
-      timer:close()
+      if not timer:is_closing() then
+        timer:close()
+      end
     end
   end
 
