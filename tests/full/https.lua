@@ -80,11 +80,11 @@ local function sendReceiveClose(client, resource, options)
     headers = { connection = 'close' }
   }, options or {})):next(function(response)
     return response:text():next(function()
-      logger:finer('sendReceiveClose(), response is '..tostring(response))
+      logger:finer('sendReceiveClose(), response is %s', response)
       client.t_response = response
     end)
   end):catch(function(err)
-    logger:fine('sendReceiveClose error "'..tostring(err)..'"')
+    logger:fine('sendReceiveClose error "%s"', err)
     client.t_err = err
   end):finally(function()
     client:close()
@@ -249,7 +249,7 @@ local function resetConnection(tcp, close, shutdown)
     error('illegal state')
   end
   local lingerOption = tcp:getoption('linger')
-  logger:fine('linger: '..tostring(lingerOption.on)..', '..tostring(lingerOption.timeout))
+  logger:fine('linger: %s, %s', lingerOption.on, lingerOption.timeout)
   tcp:setoption('linger', {on = false, timeout = 0})
   if shutdown then
     tcp:shutdown('both')
@@ -322,7 +322,7 @@ if canResetConnection() then
         server:close()
         logger:info('server closed')
       end, function(err)
-        logger:info('an error occurred, '..tostring(err))
+        logger:info('an error occurred, %s', err)
       end)
     end)
     if not loop(function()

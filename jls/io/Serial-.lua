@@ -11,7 +11,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial, su
   end
 
   function serial:readStart(stream)
-    logger:finer('serial:readStart()')
+    logger:finer('readStart()')
     if self.readTaskId then
       error('read already started')
     end
@@ -37,7 +37,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial, su
   end
 
   function serial:readStop()
-    logger:finer('serial:readStop()')
+    logger:finer('readStop()')
     if self.readTaskId then
       event:clearInterval(self.readTaskId)
       self.readTaskId = nil

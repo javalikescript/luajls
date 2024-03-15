@@ -72,6 +72,8 @@ local Schedule = class.create(function(schedule)
     return nil
   end
 
+  schedule.toString = schedule.format
+
   local function fieldNext(list, value)
     local n = #list
     if n == 0 then
@@ -97,7 +99,6 @@ local Schedule = class.create(function(schedule)
         date:plusYears(1)
       end
     end
-    --logger:finest('schedule:slotMonth() => '..date:toISOString())
     return date
   end
 
@@ -147,7 +148,6 @@ local Schedule = class.create(function(schedule)
       date:setMinute(fieldNext(self.minute, 0))
       if nextValue < value then
         date:plusMonths(1)
-        --logger:finest('schedule:slotDay() ... '..date:toISOString())
         return self:slotMonth(date)
       end
     end
@@ -162,7 +162,6 @@ local Schedule = class.create(function(schedule)
       date:setMinute(fieldNext(self.minute, 0))
       if nextValue < value then
         date:plusDays(1)
-        --logger:finest('schedule:slotHour() ... '..date:toISOString())
         return self:slotDay(date)
       end
     end
@@ -176,11 +175,9 @@ local Schedule = class.create(function(schedule)
       date:setMinute(nextValue)
       if nextValue < value then
         date:plusHours(1)
-        --logger:finest('schedule:slotMinute() ... '..date:toISOString())
         return self:slotHour(date)
       end
     end
-    --logger:finest('schedule:slotMinute() => '..date:toISOString())
     return date
   end
 
@@ -190,9 +187,7 @@ local Schedule = class.create(function(schedule)
       date:setSecond(0)
       date:plusMinutes(1)
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('schedule:slotDate('..date:toISOString()..')')
-    end
+    logger:finest('slotDate(%s)', date)
     return self:slotMinute(self:slotHour(self:slotDay(self:slotMonth(date))))
   end
 
@@ -339,9 +334,7 @@ local Scheduler = class.create(function(scheduler)
     if not schedule then
       return nil, 'Invalid or missing schedule'
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('scheduler:schedule('..schedule:format()..')')
-    end
+    logger:finest('schedule(%s)', schedule)
     local t = {
       schedule = schedule,
       fn = fn
@@ -386,9 +379,7 @@ local Scheduler = class.create(function(scheduler)
     if not from then
       from = plusMilliseconds(to, -1)
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('scheduler:runBetween(%s, %s) #%d', from:toISOString(true), to:toISOString(true), #self.schedules)
-    end
+    logger:finest('runBetween(%s, %s) #%d', from, to, #self.schedules)
     local nearest
     for _, t in ipairs(self.schedules) do
       local date = from
@@ -396,9 +387,7 @@ local Scheduler = class.create(function(scheduler)
       while true do
         date = t.schedule:ofDate(plusMilliseconds(date))
         if date:compareTo(to) > 0 then
-          if logger:isLoggable(logger.FINEST) then
-            logger:finest('scheduler:runBetween() => '..t.schedule:format()..' next '..date:toISOString(true))
-          end
+          logger:finest('runBetween() => %s next %s', t.schedule, date)
           if not nearest or date:compareTo(nearest) < 0 then
             nearest = date
           end
@@ -421,23 +410,17 @@ local Scheduler = class.create(function(scheduler)
       date = currentDate()
     end
     if self.previous and date:compareTo(self.previous) <= 0 then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('scheduler:runTo('..date:toISOString(true)..') => already run')
-      end
+      logger:fine('runTo(%s) => already run', date)
       return nil, "already run"
     end
     if self.next and date:compareTo(self.next) < 0 then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('scheduler:runTo('..date:toISOString(true)..') => before next '..self.next:toISOString(true))
-      end
+      logger:fine('runTo(%s) => before next %s', date, self.next)
       return self.next:getTime() - date:getTime()
     end
     self.next = self:runBetween(self.previous, date, all)
     self.previous = date
     if not self.next then
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('scheduler:runTo('..date:toISOString(true)..') => no schedule')
-      end
+      logger:fine('runTo(%s) => no schedule', date)
       return nil, "no schedule"
     end
     return self.next:getTime() - date:getTime()

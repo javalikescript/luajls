@@ -26,7 +26,7 @@ local DEFAULT_CIPHERS = 'ECDHE-RSA-AES128-SHA256:AES128-GCM-SHA256:' .. -- TLS 1
 local SecureContext = class.create(function(secureContext)
 
   function secureContext:initialize(options)
-    logger:finer('secureContext:initialize()')
+    logger:finer('initialize()')
     if type(options) ~= 'table' then
       options = {}
     end
@@ -67,12 +67,12 @@ local SecureContext = class.create(function(secureContext)
   end
 
   function secureContext:verifyLocations(cafile, capath)
-    logger:finer('secureContext:verifyLocations()')
+    logger:finer('verifyLocations()')
     self.sslContext:verify_locations(cafile, capath)
   end
 
   function secureContext:use(certificate, key, password)
-    logger:finer('secureContext:use()')
+    logger:finer('use()')
     local File = require('jls.io.File')
     local certificateFile = File:new(certificate)
     local keyFile = File:new(key)
@@ -86,9 +86,7 @@ local SecureContext = class.create(function(secureContext)
   end
 
   function secureContext:ssl(inMem, outMem, isServer)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('secureContext:ssl('..tostring(inMem)..', '..tostring(outMem)..', '..tostring(isServer)..')')
-    end
+    logger:finer('ssl(%s, %s, %s)', inMem, outMem, isServer)
     return self.sslContext:ssl(inMem, outMem, isServer)
   end
 
@@ -147,7 +145,7 @@ end)
 local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super, SecureTcpSocket)
 
   function secureTcpSocket:sslInit(isServer, secureContext)
-    logger:finer('secureTcpSocket:sslInit()')
+    logger:finer('sslInit()')
     self.inMem = opensslLib.bio.mem(BUFFER_SIZE)
     self.outMem = opensslLib.bio.mem(BUFFER_SIZE)
     if not secureContext then
@@ -156,7 +154,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
     self.sslReading = false
     --[[if self.sslCheckHost == nil then
-      logger:fine('secureTcpSocket:sslInit() use default check host')
+      logger:fine('sslInit() use default check host')
       self.sslCheckHost = not isServer
     end]]
   end
@@ -169,7 +167,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:sslShutdown()
-    logger:finer('secureTcpSocket:sslShutdown()')
+    logger:finer('sslShutdown()')
     if self.sslReading then
       self:readStop()
     end
@@ -177,7 +175,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       self.ssl:shutdown()
     end
     self.ssl = nil
-    logger:finer('secureTcpSocket:sslShutdown() in and out Mem')
+    logger:finer('sslShutdown() in and out Mem')
     if self.inMem then
       self.inMem:close()
     end
@@ -189,7 +187,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:close(callback)
-    logger:finer('secureTcpSocket:close()')
+    logger:finer('close()')
     local cb, d = Promise.ensureCallback(callback)
     super.close(self, function(err)
       self:sslShutdown()
@@ -201,7 +199,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:connect(addr, port, callback)
-    logger:finer('secureTcpSocket:connect()')
+    logger:finer('connect()')
     local cb, d = Promise.ensureCallback(callback)
     super.connect(self, addr, port):next(function()
       return self:onConnected(addr)
@@ -210,19 +208,19 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:onConnected(host, startData)
-    logger:finer('secureTcpSocket:onConnected()')
+    logger:finer('onConnected()')
     return self:startHandshake(startData):next(function()
       if logger:isLoggable(logger.FINE) then
-        logger:fine('secureTcpSocket:connect() handshake completed for '..TcpSocket.socketToString(self.tcp))
+        logger:fine('connect() handshake completed for %s', self.tcp)
         if logger:isLoggable(logger.FINER) then
-          logger:finer('getpeerverification() => '..tostring(self.ssl:getpeerverification()))
-          logger:finer('peerCert:subject() => '..tostring(self.ssl:peer():subject():oneline()))
+          logger:finer('getpeerverification() => %s', self.ssl:getpeerverification())
+          logger:finer('peerCert:subject() => %s', self.ssl:peer():subject():oneline())
         end
       end
       if self.sslCheckHost then
         local peerCert = self.ssl:peer()
         if host and not peerCert:check_host(host) then
-          logger:fine('secureTcpSocket:connect() => Wrong host')
+          logger:fine('connect() => Wrong host')
           return Promise.reject('Wrong host')
         end
       end
@@ -235,9 +233,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     while self.outMem:pending() > 0 do
       table.insert(chunks, self.outMem:read())
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('secureTcpSocket:sslFlush() #chunks is '..tostring(#chunks))
-    end
+    logger:finer('sslFlush() #chunks is %d', #chunks)
     if #chunks > 0 then
       return super.write(self, chunks, callback)
     end
@@ -249,11 +245,9 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:sslDoHandshake(callback)
-    logger:finest('secureTcpSocket:sslDoHandshake()')
+    logger:finest('sslDoHandshake()')
     local ret, err = self.ssl:handshake()
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('secureTcpSocket:sslDoHandshake() ssl:handshake() => '..tostring(ret)..', '..tostring(err))
-    end
+    logger:finer('sslDoHandshake() ssl:handshake() => %s, %s', ret, err)
     if ret == nil then
       self:close()
       callback('closed')
@@ -284,18 +278,13 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       Number 0 means SSL connection closed, other numbers means you should do some SSL operation.
   ]]
   function secureTcpSocket:sslRead(stream)
-    logger:finer('secureTcpSocket:sslRead()')
+    logger:finer('sslRead()')
     --local data = nil -- we may want to proceed all the available data
     while self.sslReading and (self.inMem:pending() > 0 or self.ssl:pending() > 0) do
       local plainData, op = self.ssl:read()
       if plainData then
-        if logger:isLoggable(logger.FINER) then
-          if logger:isLoggable(logger.FINEST) then
-            logger:finest('ssl:read() => "'..tostring(plainData)..'"')
-          else
-            logger:finer('ssl:read() => #'..tostring(string.len(plainData)))
-          end
-        end
+        logger:finer('ssl:read() => #%d', #plainData)
+        logger:finest('ssl:read() => "%s"', plainData)
         --[[if data then
           data = data..plainData
         else
@@ -305,11 +294,9 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
         -- the stream may be no more relevant
         stream:onData(plainData)
       else
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('ssl:read() fail due to "'..tostring(op)..'"')
-        end
+        logger:finer('ssl:read() fail due to "%s"', op)
         if plainData == nil then
-          stream:onError('SSL error "'..tostring(op)..'"')
+          stream:onError('SSL error "%s"', op)
         elseif op == 0 then
           --self:close()
           stream:onError('SSL connection closed')
@@ -323,7 +310,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:startHandshake(startData)
-    logger:finer('secureTcpSocket:startHandshake()')
+    logger:finer('startHandshake()')
     if not self.ssl then
       self:sslInit(false)
     end
@@ -339,9 +326,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       end
     end
     super.readStart(self, StreamHandler:new(function(_, cipherData)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('sslStream:onData('..tostring(cipherData and #cipherData)..')')
-      end
+      logger:fine('onData(%s)', cipherData and #cipherData)
       if cipherData then
         if self.inMem:write(cipherData) then
           self:sslDoHandshake(resolutionCallback)
@@ -360,7 +345,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     if logger:isLoggable(logger.FINE) then
       local luvLib = require('jls.lang.loader').getRequired('luv')
       if luvLib and luvLib.loop_mode() == nil then
-        logger:fine('secureTcpSocket:startHandshake() event loop is not running !')
+        logger:fine('startHandshake() event loop is not running !')
       end
     end
     self:sslDoHandshake(resolutionCallback)
@@ -372,20 +357,18 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   function secureTcpSocket:readStart(stream)
     local str = StreamHandler.ensureStreamHandler(stream)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('secureTcpSocket:readStart()')
+      logger:finer('readStart()')
       if logger:isLoggable(logger.FINEST) and self.tcp then
         for _, n in ipairs({'is_readable', 'is_writable', 'is_active', 'is_closing', 'has_ref', 'fileno'}) do
           local fn = self.tcp[n]
           if type(fn) == 'function' then
-            logger:finest('  '..n..': '..tostring(fn(self.tcp)))
+            logger:finest('  %s: %s', n, fn(self.tcp))
           end
         end
       end
     end
     local sslStream = StreamHandler:new(function(_, cipherData)
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('sslStream:onData(#'..tostring(cipherData and #cipherData)..')')
-      end
+      logger:finer('onData(#%s)', cipherData and #cipherData)
       if cipherData then
         if self.inMem:write(cipherData) then
           self:sslRead(str)
@@ -395,15 +378,13 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
         str:onData()
       end
     end, function(_, err)
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('secureTcpSocket:readStart() stream on error due to "'..tostring(err)..'"')
-      end
+      logger:fine('readStart() stream on error due to "%s"', err)
       str:onError(err)
     end)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('ssl:pending() => '..tostring(self.ssl:pending()))
-      logger:finer('inMem:pending() => '..tostring(self.inMem:pending()))
-      logger:finer('outMem:pending() => '..tostring(self.outMem:pending()))
+      logger:finer('ssl:pending() => %s', self.ssl:pending())
+      logger:finer('inMem:pending() => %s', self.inMem:pending())
+      logger:finer('outMem:pending() => %s', self.outMem:pending())
     end
     -- prior to start reading we want to be sure that the connection is still ok
     -- otherwise libuv will crash on an assertion
@@ -414,9 +395,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     else
       super.write(self, '', function(err)
         if err then
-          if logger:isLoggable(logger.FINE) then
-            logger:fine('secureTcpSocket:readStart() - write() => "'..tostring(err)..'" the connection may have been reset')
-          end
+          logger:fine('readStart() - write() => "%s" the connection may have been reset', err)
           str:onError(err)
         else
           self.sslReading = true
@@ -428,19 +407,14 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:readStop()
-    logger:finer('secureTcpSocket:readStop()')
+    logger:finer('readStop()')
     self.sslReading = false
     return super.readStop(self)
   end
 
   function secureTcpSocket:write(data, callback)
-    if logger:isLoggable(logger.FINER) then
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('secureTcpSocket:write('..tostring(data)..')')
-      else
-        logger:finer('secureTcpSocket:write(#'..tostring(data and #data)..')')
-      end
-    end
+    logger:finer('write(#%s)', data and #data)
+    logger:finest('write(%s)', data)
     if type(data) ~= 'string' then
       if type(data) ~= 'table' then
         error('invalid data type')
@@ -483,24 +457,20 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   function secureTcpSocket:handleAccept()
     local tcp = self:tcpAccept()
     if tcp then
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('secureTcpSocket:handleAccept() accepting '..TcpSocket.socketToString(tcp))
-      end
+      logger:finer('handleAccept() accepting %s', tcp)
       local client = SecureTcpSocket:new(tcp)
       client:sslInit(true, self:getSecureContext())
       self:onHandshakeStarting(client)
       client:startHandshake():next(function()
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('secureTcpSocket:handleAccept() handshake completed for '..TcpSocket.socketToString(tcp))
-        end
+        logger:finer('handleAccept() handshake completed for %s', tcp)
         self:onHandshakeCompleted(client)
         self:onAccept(client)
       end, function(reason)
         client:close()
-        logger:fine('secureTcpSocket:handleAccept() handshake error, %s', reason)
+        logger:fine('handleAccept() handshake error, %s', reason)
       end)
     else
-      logger:fine('secureTcpSocket:handleAccept() error')
+      logger:fine('handleAccept() error')
     end
   end
 

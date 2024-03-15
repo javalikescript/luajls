@@ -169,9 +169,7 @@ local sh = gzip.decompressStream(FileStreamHandler:new('test.txt'))
 FileStreamHandler.readAllSync('test.txt.gz', sh)
 ]]
 function gzip.decompressStream(sh, onHeader)
-  if logger:isLoggable(logger.FINER) then
-    logger:finer('decompressStream()')
-  end
+  logger:finer('decompressStream()')
   local cb = StreamHandler.ensureCallback(sh)
   local header, inflated
   local buffer = ''

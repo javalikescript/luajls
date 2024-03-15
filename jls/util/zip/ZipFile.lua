@@ -198,9 +198,7 @@ return class.create(function(zipFile, _, ZipFile)
       -- the header may have a comment
       size = 1024
       offset = fileLength - size
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('readEntries() bad Central Directory Record signature, searching at %s', offset)
-      end
+      logger:finer('readEntries() bad Central Directory Record signature, searching at %s', offset)
       local buffer = fd:readSync(size, offset)
       local index = string.find(buffer, 'PK\x05\x06', 1, true)
       if index then
@@ -218,9 +216,7 @@ return class.create(function(zipFile, _, ZipFile)
     local entryCount = header.entryCount
     size = ZipFile.STRUCT.FileHeader:getSize()
     offset = header.offset
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('readEntries() offset: %s entry count: %s FileHeader size: %s', offset, entryCount, size)
-    end
+    logger:finer('readEntries() offset: %s entry count: %s FileHeader size: %s', offset, entryCount, size)
     for i = 1, entryCount do
       local fileHeader = ZipFile.STRUCT.FileHeader:fromString(fd:readSync(size, offset))
       if fileHeader.signature ~= ZipFile.CONSTANT.FILE_HEADER_SIGNATURE then

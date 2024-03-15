@@ -100,7 +100,7 @@ return class.create(function(pipe, _, Pipe)
   end
 
   function pipe:shutdown(callback)
-    logger:finest('pipe:shutdown()')
+    logger:finest('shutdown()')
     local fd = self.writeFd
     if fd then
       self.writeFd = nil

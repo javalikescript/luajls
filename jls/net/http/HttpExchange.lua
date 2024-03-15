@@ -24,6 +24,21 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     self.response:setStatusCode(HttpMessage.CONST.HTTP_OK, 'OK')
   end
 
+  function httpExchange:toString()
+    local request = self:getRequest()
+    if request then
+      local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
+      local path = request:getTargetPath()
+      local statusCode = '?'
+      local response = self:getResponse()
+      if response then
+        statusCode = response:getStatusCode()
+      end
+      return string.format('%s; %s %s %s %s=> %s', self.attributes, request:getMethod(), path, request:getVersion(), hostport and '('..hostport..') ' or '', statusCode)
+    end
+    return tostring(self.attributes)
+  end
+
   --- Returns the HTTP context.
   -- Only available during the request handling
   -- @treturn HttpContext the HTTP context.
@@ -177,7 +192,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
 
   function httpExchange:handleRequest(context)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('httpExchange:handleRequest() "%s"', self.request:getTarget())
+      logger:finer('handleRequest() "%s"', self.request:getTarget())
     end
     self.context = context
     local status, result = Exception.pcall(context.handleExchange, context, self)
@@ -185,17 +200,13 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       -- always return a promise
       if Promise:isInstance(result) then
         return result:catch(function(reason)
-          if logger:isLoggable(logger.WARN) then
-            logger:warn('HttpExchange error while handling promise "%s", due to %s', self:getRequest():getTarget(), reason)
-          end
+          logger:warn('error while handling promise %s, due to %s', self, reason)
           self:resetResponseToError(reason)
         end)
       end
       return Promise.resolve()
     end
-    if logger:isLoggable(logger.WARN) then
-      logger:warn('HttpExchange error while handling "%s", due to %s', self:getRequest():getTarget(), result)
-    end
+    logger:warn('error while handling %s, due to %s', self, result)
     self:resetResponseToError(result)
     return Promise.resolve()
   end
@@ -216,7 +227,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   function httpExchange:close()
-    logger:finest('httpExchange:close()')
+    logger:finest('close()')
     self.request:close()
     self.response:close()
     local client = self.client

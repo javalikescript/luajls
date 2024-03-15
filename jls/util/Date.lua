@@ -259,6 +259,10 @@ return require('jls.lang.class').create(function(date)
     return os.date(ISO_FORMAT, t)..mss..string.format('%+03d:%02d', offsetHour, offsetMin)
   end
 
+  function date:toString()
+    return os.date(nil, self:getTimeInSeconds())
+  end
+
   function date:toRFC822String(utc)
     -- Sun, 06 Nov 1994 08:49:37 GMT -- os.date('%a, %d %b %y %T %z')
     if utc then

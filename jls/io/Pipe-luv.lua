@@ -34,11 +34,11 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam[opt] number backlog the connection queue size, default is 32.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe server is bound.
   function pipe:bind(name, backlog)
-    logger:finest('pipe:bind(%s, %s)', name, backlog)
+    logger:finest('bind(%s, %s)', name, backlog)
     -- status, err
     local _, err = self.fd:bind(name)
     if err then
-      logger:fine('pipe:bind(%s, %s) bind in error, %s', name, backlog, err)
+      logger:fine('bind(%s, %s) bind in error, %s', name, backlog, err)
       return Promise.reject(err)
     end
     _, err = luvLib.listen(self.fd, backlog or 32, function(err)
@@ -46,7 +46,7 @@ return class.create(function(pipe, _, Pipe)
       self:handleAccept()
     end)
     if err then
-      logger:fine('pipe:bind(%s, %s) listen in error, %s', name, backlog, err)
+      logger:fine('bind(%s, %s) listen in error, %s', name, backlog, err)
       return Promise.reject(err)
     end
     return Promise.resolve()
@@ -54,7 +54,7 @@ return class.create(function(pipe, _, Pipe)
 
   function pipe:handleAccept()
     local fd = self:pipeAccept()
-    logger:finest('pipe:handleAccept() fd: %s, accept: %s', self.fd, fd)
+    logger:finest('handleAccept() fd: %s, accept: %s', self.fd, fd)
     if fd then
       local p = class.makeInstance(Pipe)
       p.fd = fd
@@ -63,7 +63,7 @@ return class.create(function(pipe, _, Pipe)
   end
 
   function pipe:pipeAccept()
-    logger:finest('pipe:pipeAccept()')
+    logger:finest('pipeAccept()')
     local fd = luvLib.new_pipe(false)
     local status, err = luvLib.accept(self.fd, fd)
     if status then
@@ -76,7 +76,7 @@ return class.create(function(pipe, _, Pipe)
   -- This method should be overriden, the default implementation closes the client.
   -- @param pipeClient the pipe client to accept.
   function pipe:onAccept(pipeClient)
-    logger:fine('pipe:onAccept() => closing')
+    logger:fine('onAccept() => closing')
     pipeClient:close()
   end
 
@@ -85,7 +85,7 @@ return class.create(function(pipe, _, Pipe)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the pipe is connected.
   function pipe:connect(name, callback)
-    logger:finest('pipe:connect(%s)', name)
+    logger:finest('connect(%s)', name)
     local cb, d = Promise.ensureCallback(callback)
     self.fd:connect(name, cb)
     return d
@@ -140,7 +140,7 @@ return class.create(function(pipe, _, Pipe)
 
   -- Shutdowns the outgoing (write) side of a duplex stream.
   function pipe:shutdown(callback)
-    logger:finest('pipe:shutdown()')
+    logger:finest('shutdown()')
     local cb, d = Promise.ensureCallback(callback)
     if self.fd then
       luvLib.shutdown(self.fd, cb)

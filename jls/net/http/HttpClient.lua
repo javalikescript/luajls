@@ -133,7 +133,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:connectV2()
-    logger:finer('httpClient:connectV2()')
+    logger:finer('connectV2()')
     if self.connecting then
       return self.connecting
     elseif not self:isClosed() then
@@ -436,7 +436,7 @@ return class.create(function(httpClient)
   -- deprecated
 
   function httpClient:initializeV1(options)
-    logger:finer('httpClient:initializeV1(...)')
+    logger:finer('initializeV1(...)')
     options = options or {}
     local request = HttpMessage:new()
     self.request = request
@@ -479,9 +479,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:setUrl(url)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('httpClient:setUrl(%s)', url)
-    end
+    logger:finer('setUrl(%s)', url)
     local u = class.asInstance(Url, url)
     -- do our best to keep the client
     if self.tcpClient and not sameClient(u, self.request.url) then
@@ -493,7 +491,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:connect()
-    logger:finer('httpClient:connect()')
+    logger:finer('connect()')
     if self.tcpClient then
       return Promise.resolve(self)
     end
@@ -501,7 +499,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:reconnectV1()
-    logger:finer('httpClient:reconnect()')
+    logger:finer('reconnect()')
     self:closeClient(false)
     local request = self.request
     local url = request.url
@@ -552,18 +550,18 @@ return class.create(function(httpClient)
   end
 
   function httpClient:receiveResponseHeaders()
-    logger:finer('httpClient:receiveResponseHeaders()')
+    logger:finer('receiveResponseHeaders()')
     local response = HttpMessage:new()
     local hsh = HeaderStreamHandler:new(response)
     return hsh:read(self.tcpClient):next(function(remainingBuffer)
       if logger:isLoggable(logger.FINE) then
-        logger:finer('httpClient:receiveResponseHeaders() header done, status code is %d, remainingBuffer is #%s',
+        logger:finer('header done, status code is %d, remainingBuffer is #%s',
           response:getStatusCode(), remainingBuffer and #remainingBuffer)
       end
       if self.maxRedirectCount > 0 and (response:getStatusCode() // 100) == 3 then
         local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
         if location then
-          logger:finer('httpClient:receiveResponseHeaders() redirected #%d to "%s"', self.maxRedirectCount, location)
+          logger:finer('redirected #%d to "%s"', self.maxRedirectCount, location)
           self.maxRedirectCount = self.maxRedirectCount - 1
           return self:closeClient():next(function()
             self:setUrl(location) -- TODO Is it ok to overwrite the url?
@@ -583,7 +581,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:receiveResponseBody(buffer)
-    logger:finest('httpClient:receiveResponseBody(%s)', buffer and #buffer)
+    logger:finest('receiveResponseBody(%s)', buffer and #buffer)
     local connection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
     local connectionClose
     if connection then
@@ -600,22 +598,22 @@ return class.create(function(httpClient)
   end
 
   function httpClient:receiveResponse()
-    logger:finest('httpClient:receiveResponse()')
+    logger:finest('receiveResponse()')
     return self:receiveResponseHeaders():next(function(remainingBuffer)
-      logger:finest('httpClient:receiveResponse() headers done')
+      logger:finest('receiveResponse() headers done')
       return self:receiveResponseBody(remainingBuffer)
     end)
   end
 
   function httpClient:sendReceive()
-    logger:finer('httpClient:sendReceive()')
+    logger:finer('sendReceive()')
     return self:connect():next(function()
       return self:sendRequest()
     end):next(function()
-      logger:finer('httpClient:sendReceive() send completed')
+      logger:finer('send completed')
       return self:receiveResponse()
     end):next(function()
-      logger:finer('httpClient:sendReceive() receive completed')
+      logger:finer('receive completed')
       return self.response
     end)
   end

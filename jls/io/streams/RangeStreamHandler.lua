@@ -16,7 +16,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   -- @tparam[opt] number length the length of the range
   -- @function RangeStreamHandler:new
   function rangeStreamHandler:initialize(handler, offset, length)
-    logger:finest('rangeStreamHandler:initialize(?, %s, %s)', offset, length)
+    logger:finest('initialize(?, %s, %s)', offset, length)
     super.initialize(self, handler)
     self.first = offset or 0
     self.last = self.first + (length or math.maxinteger) - 1
@@ -31,7 +31,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
       local first = self.offset
       self.offset = first + size
       if logger:isLoggable(logger.FINER) then
-        logger:finer('rangeStreamHandler:onData(#%s) [%s-%s] => [%s-%s]', size, self.first, self.last, first, self.offset)
+        logger:finer('onData(#%s) [%s-%s] => [%s-%s]', size, self.first, self.last, first, self.offset)
       end
       if first >= self.first and self.offset < self.last then
         return self.handler:onData(data)

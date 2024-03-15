@@ -91,7 +91,7 @@ webview:loop()
   -- The JavaScript syntax is window.external.invoke("string value");
   -- @tparam function cb The callback to register.
   function webView:callback(cb)
-    logger:fine('webView:callback(%s)', cb)
+    logger:fine('callback(%s)', cb)
     self:checkAvailable()
     webviewLib.callback(self._webview, cb)
   end
@@ -99,7 +99,7 @@ webview:loop()
   --- Evaluates the specified JavaScript code in the web page.
   -- @tparam string js The JavaScript code to evaluate.
   function webView:eval(js)
-    logger:fine('webView:eval(%s)', js)
+    logger:fine('eval(%s)', js)
     self:checkAvailable()
     webviewLib.eval(self._webview, js, true)
   end
@@ -107,7 +107,7 @@ webview:loop()
   --- Sets the webview fullscreen.
   -- @tparam boolean fullscreen true to switch the webview to fullscreen.
   function webView:fullscreen(fullscreen)
-    logger:fine('webView:fullscreen(%s)', fullscreen)
+    logger:fine('fullscreen(%s)', fullscreen)
     self:checkAvailable()
     webviewLib.fullscreen(self._webview, fullscreen)
   end
@@ -115,14 +115,14 @@ webview:loop()
   --- Sets the webview title.
   -- @tparam string title The webview title to set.
   function webView:title(title)
-    logger:fine('webView:title(%s)', title)
+    logger:fine('title(%s)', title)
     self:checkAvailable()
     webviewLib.title(self._webview, title)
   end
 
   --- Terminates the webview.
   function webView:terminate()
-    logger:fine('webView:terminate()')
+    logger:fine('terminate()')
     local wv = self._webview
     if wv then
       self._webview = nil

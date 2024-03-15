@@ -27,9 +27,7 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   function udpSocket:bind(addr, port, options)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
-    end
+    logger:finer('bind(%s, %s)', addr, port)
     self:create(addr, options)
     if options and options.reuseaddr ~= nil then
       local status, err = self.nds:setoption('reuseaddr', options.reuseaddr)
@@ -41,9 +39,7 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   function udpSocket:connect(addr, port)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:connect('..tostring(addr)..', '..tostring(port)..')')
-    end
+    logger:finer('connect(%s, %s)', addr, port)
     return self.nds:setpeername(addr, port)
   end
 
@@ -64,49 +60,37 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   function udpSocket:setBroadcast(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setBroadcast('..tostring(value)..')')
-    end
+    logger:finer('setBroadcast(%s)', value)
     return self.nds:setoption('broadcast', value)
   end
 
   function udpSocket:setLoopbackMode(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setLoopbackMode('..tostring(value)..')')
-    end
+    logger:finer('setLoopbackMode(%s)', value)
     return self.nds:setoption('ip-multicast-loop', value)
   end
 
   function udpSocket:setTimeToLive(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setTimeToLive('..tostring(value)..')')
-    end
+    logger:finer('setTimeToLive(%s)', value)
     return self.nds:setoption('ip-multicast-ttl', value)
   end
 
   function udpSocket:setInterface(value)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:setInterface('..tostring(value)..')')
-    end
+    logger:finer('setInterface(%s)', value)
     return self.nds:setoption('ip-multicast-if', value)
   end
 
   function udpSocket:joinGroup(mcastaddr, ifaddr)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:joinGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
-    end
+    logger:finer('joinGroup(%s, %s)', mcastaddr, ifaddr)
     return self.nds:setoption('ip-add-membership', {multiaddr = mcastaddr, interface = ifaddr})
   end
 
   function udpSocket:leaveGroup(mcastaddr, ifaddr)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:leaveGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
-    end
+    logger:finer('leaveGroup(%s, %s)', mcastaddr, ifaddr)
     return self.nds:setoption('ip-drop-membership', {multiaddr = mcastaddr, interface = ifaddr})
   end
 
   function udpSocket:receiveStart(cb)
-    logger:debug('udpSocket:receiveStart(?)')
+    logger:finer('receiveStart(?)')
     local stream = StreamHandler.ensureStreamHandler(cb)
     if self.nds then
       self.selector:register(self.nds, nil, stream, nil, nil, true)
@@ -116,16 +100,14 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   function udpSocket:receiveStop()
-    logger:debug('udpSocket:receiveStop()')
+    logger:finer('receiveStop()')
     if self.nds then
       self.selector:unregister(self.nds, Selector.MODE_RECV)
     end
   end
 
   function udpSocket:send(data, addr, port, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('udpSocket:send('..tostring(string.len(data))..')')
-    end
+    logger:finer('send(%s)', data and #data)
     local cb, d = Promise.ensureCallback(callback)
     self:create(addr)
     if self.nds then
@@ -137,7 +119,7 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   function udpSocket:close(callback)
-    logger:debug('udpSocket:close()')
+    logger:finer('close()')
     local cb, d = Promise.ensureCallback(callback)
     local nds = self.nds
     self.nds = false

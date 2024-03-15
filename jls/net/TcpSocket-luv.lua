@@ -40,25 +40,13 @@ local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
   The default action of this signal is to terminate the process, so the process must catch the signal to avoid being involuntarily terminated.
 ]]
 if not isWindowsOS and not os.getenv('JLS_DO_NOT_IGNORE_SIGPIPE') then
-  if logger:isLoggable(logger.FINE) then
-    logger:fine('TcpSocket-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
-  end
+  logger:fine('TcpSocket-luv: ignoring SIGPIPE, use environment "JLS_DO_NOT_IGNORE_SIGPIPE" to disable')
   local state, linuxLib = pcall(require, 'linux')
   if state then
     linuxLib.signal(linuxLib.constants.SIGPIPE, 'SIG_IGN')
   else
     pcall(require, 'socket.core')
   end
-end
-
-local function socketToString(client)
-  if client then
-    local t = client:getpeername()
-    if t then
-      return tostring(t.ip)..':'..tostring(t.port)
-    end
-  end
-  return 'n/a'
 end
 
 --- The TcpSocket class.
@@ -71,10 +59,19 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     self.tcp = tcp
   end
 
+  function tcpSocket:toString()
+    if self.tcp then
+      local t = self.tcp:getpeername()
+      if t then
+        return string.format('%s; %s:%s', self.tcp, t.ip, t.port)
+      end
+    end
+    return 'unbounded tcp socket'
+  end
+
   --- Returns the local name of this TCP socket.
   -- @treturn string the local name of this TCP socket.
   function tcpSocket:getLocalName()
-    --logger:finer('tcp:getLocalName()')
     local addr = self.tcp:getsockname()
     if addr then
       return addr.ip, addr.port, addr.family
@@ -85,7 +82,6 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   --- Returns the remote name of this TCP socket.
   -- @treturn string the remote name of this TCP socket.
   function tcpSocket:getRemoteName()
-    --logger:finer('tcp:getRemoteName()')
     local addr = self.tcp:getpeername()
     if addr then
       return addr.ip, addr.port, addr.family
@@ -103,9 +99,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the socket is closed.
   function tcpSocket:close(callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpSocket:close()')
-    end
+    logger:finer('close()')
     local tcp = self.tcp
     self.tcp = nil
     if self.tcp2 then
@@ -136,9 +130,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   --local s = TcpSocket:new()
   --s:connect('127.0.0.1', 80)
   function tcpSocket:connect(addr, port, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpSocket:connect('..tostring(addr)..', '..tostring(port)..', ...)')
-    end
+    logger:finer('connect(%s, %s, ...)', addr, port)
     local client = self
     local cb, d = Promise.ensureCallback(callback)
     -- family and protocol: inet inet6 unix ipx netlink x25 ax25 atmpvc appletalk packet
@@ -147,10 +139,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
       if err then
         return cb(err)
       end
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('tcpSocket:connect() '..tostring(addr)..':'..tostring(port)..' => #'..tostring(#res))
-        --logger:finer('getaddrinfo: '..require('jls.util.tables').stringify(res, 2))
-      end
+      logger:finer('connect() %s:%s => #%s', addr, port, #res)
       local ccb, i = nil, 0
       -- try to connect to each translated/resolved address using the first succesful one
       ccb = function(connectErr)
@@ -164,16 +153,11 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
         if i < #res then
           i = i + 1
           local ai = res[i]
-          if logger:isLoggable(logger.FINER) then
-            logger:finer('tcpSocket:connect() on '..tostring(ai.addr)..':'..tostring(ai.port))
-            --logger:finer('addr['..tostring(i)..'] '..require('jls.util.tables').stringify(ai, 2))
-          end
+          logger:finer('connect() on %s:%s', ai.addr, ai.port)
           client.tcp = luvLib.new_tcp()
           client.tcp:connect(ai.addr, ai.port, ccb)
         else
-          if logger:isLoggable(logger.FINE) then
-            logger:fine('tcpSocket:connect() error "'..tostring(connectErr)..'"')
-          end
+          logger:fine('connect() error "%s"', connectErr)
           return cb(connectErr)
         end
       end
@@ -216,7 +200,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   --- Enables or disables TCP no delay.
   -- @tparam boolean on true to activate TCP no delay.
   function tcpSocket:setTcpNoDelay(on)
-    logger:finer('tcpSocket:setTcpNoDelay('..tostring(on)..')')
+    logger:finer('setTcpNoDelay(%s)', on)
     self.tcp:nodelay(on)
     return self
   end
@@ -225,16 +209,14 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   -- @tparam boolean on true to activate keep alive.
   -- @tparam number delay the keep alive delay.
   function tcpSocket:setKeepAlive(on, delay)
-    logger:finer('tcpSocket:setKeepAlive('..tostring(on)..', '..tostring(delay)..')')
+    logger:finer('setKeepAlive(%s, %s)', on, delay)
     self.tcp:keepalive(on, delay)
     return self
   end
 
   function tcpSocket:bindThenListen(addr, port, backlog)
     backlog = backlog or 32
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpSocket:bindThenListen('..tostring(addr)..', '..tostring(port)..', '..tostring(backlog)..')')
-    end
+    logger:finer('bindThenListen(%s, %s, %s)', addr, port, backlog)
     local server = self
     local tcp = luvLib.new_tcp()
     -- to disable dual-stack support and use only IPv6: {ipv6only = true}
@@ -257,13 +239,11 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   function tcpSocket:handleAccept()
     local tcp = self:tcpAccept()
     if tcp then
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('tcpSocket:handleAccept() accepting '..socketToString(tcp))
-      end
+      logger:finer('accepting %s', self)
       local client = TcpSocket:new(tcp)
       self:onAccept(client)
     else
-      logger:finer('tcpSocket:handleAccept() accept error')
+      logger:finer('accept error')
     end
   end
 
@@ -271,9 +251,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     if self.tcp then
       local tcp = luvLib.new_tcp()
       self.tcp:accept(tcp)
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('tcpSocket:accept() '..socketToString(tcp))
-      end
+      logger:finer('accept() %s', self)
       return tcp
     end
   end
@@ -291,30 +269,21 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     if type(backlog) ~= 'number' then
       backlog = 32
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('tcpSocket:bind('..tostring(node)..', '..tostring(port)..')')
-    end
+    logger:finer('bind(%s, %s)', node, port)
     local cb, d = Promise.ensureCallback(callback)
     -- FIXME getaddrinfo does not have a port argument
     luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, res)
       if err then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('tcpSocket:bind('..tostring(node)..', '..tostring(port)..') getaddrinfo() in error, '..tostring(err))
-        end
+        logger:fine('getaddrinfo %s:%s in error, %s', node, port, err)
         return cb(err)
       end
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('tcpSocket:bind() '..tostring(node)..':'..tostring(port)..' => #'..tostring(#res))
-      end
-      --logger:info('getaddrinfo(%s, %s) %s', node, port, require('jls.util.tables').stringify(res, 2))
+      logger:finer('getaddrinfo %s:%s => #%d', node, port, #res)
       local ai = res[1]
       local bindErr
       local p = port or ai.port or 0
       self.tcp, bindErr = self:bindThenListen(ai.addr, p, backlog)
       if bindErr then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('tcpSocket:bind() bindThenListen() in error, '..tostring(bindErr))
-        end
+        logger:fine('bindThenListen() in error, %s', bindErr)
         return cb(bindErr)
       end
       -- TODO check if dual socket is necessary on other OSes
@@ -336,16 +305,13 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
           end
           self.tcp2, bindErr = self:bindThenListen(ai2.addr, p, backlog)
           if bindErr then
-            if logger:isLoggable(logger.FINE) then
-              logger:warn('tcpSocket:bind() second bindThenListen() in error, '..tostring(bindErr))
-            end
+            logger:warn('second bindThenListen() in error, %s', bindErr)
             self.tcp:close()
             self.tcp = nil
             return cb(bindErr)
           end
         end
       end
-      --logger:finer('tcpSocket:bind() completed')
       return cb()
     end)
     return d
@@ -362,7 +328,5 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   function tcpSocket:onAccept(client)
     client:close()
   end
-
-  TcpSocket.socketToString = socketToString
 
 end)

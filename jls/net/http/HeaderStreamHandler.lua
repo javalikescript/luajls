@@ -23,13 +23,10 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
   end
 
   function headerStreamHandler:onData(line)
-    logger:finest('headerStreamHandler:onData("%s")', line)
+    logger:finest('onData("%s")', line)
     if not self.onCompleted then
       if line then
-        if logger:isLoggable(logger.WARN) then
-          logger:warn('HeaderStreamHandler received data after read completed')
-          logger:warn(debug.traceback())
-        end
+        logger:warn('HeaderStreamHandler received data after read completed')
         --error('Data after read completed')
       end
       return
@@ -46,7 +43,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
     local l = string.len(line)
     self.size = self.size + l
     if l >= self.maxLineLength then
-      logger:fine('headerStreamHandler:onData() too long header is "%s"', line)
+      logger:fine('onData() too long header is "%s"', line)
       self:onError('Too long header line '..tostring(l)..' (max is '..tostring(self.maxLineLength)..')', 413)
     elseif self.size >= self.maxSize then
       self:onError('Too much headers '..tostring(self.size)..' (max is '..tostring(self.maxSize)..')', 413)
@@ -79,7 +76,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
   end
 
   function headerStreamHandler:read(stream, buffer)
-    logger:finer('headerStreamHandler:read(?, #%s)', buffer and #buffer)
+    logger:finer('read(?, #%s)', buffer and #buffer)
     if self.onCompleted then
       error('Read in progress')
     end
@@ -87,7 +84,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
       local s
       local partHandler = ChunkedStreamHandler:new(self, '\r\n', true, self.maxLineLength, '')
       function self:onCompleted(err)
-        logger:finer('headerStreamHandler:read() onCompleted(%s)', err)
+        logger:finer('read() onCompleted(%s)', err)
         self.onCompleted = nil
         if s then
           s:readStop()

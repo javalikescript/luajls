@@ -40,7 +40,7 @@ return class.create(function(serial)
     local data = nil
     if count then
       if count <= 0 then
-        logger:fine('serial:readAvailable() has nothing to read')
+        logger:fine('nothing to read')
         return
       end
       data, err = self.fileDesc:readSync(count)
@@ -51,7 +51,7 @@ return class.create(function(serial)
     if status or not err and Exception.pcall(callback, e) then
       return
     end
-    logger:warn('serial:readAvailable() callback in error due to %s', e)
+    logger:warn('callback in error due to %s', e)
   end
 
   --- Writes data on this serial device.
@@ -111,7 +111,7 @@ end, function(Serial)
       return nil, err
     end
     if type(options.flush) == 'nil' or options.flush then
-      logger:debug('Serial:open() flushing')
+      logger:debug('flushing')
       serialLib.flush(fileDesc.fd)
     end
     if next(options) ~= nil then

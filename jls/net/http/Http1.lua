@@ -59,13 +59,13 @@ end
 function Http1.writeHeaders(tcp, message, callback)
   local buffer = StringBuffer:new(message:getLine(), '\r\n')
   message:appendHeaders(buffer):append('\r\n')
-  logger:finer('Http1.writeHeaders() "%s"', buffer)
+  logger:finer('writeHeaders() "%s"', buffer)
   -- TODO write StringBuffer
   return tcp:write(buffer:toString(), callback)
 end
 
 function Http1.readBody(tcp, message, buffer, callback)
-  logger:finest('Http1.readBody()')
+  logger:finest('readBody()')
   local bsh = message:getBodyStreamHandler()
   local cb, promise = Promise.ensureCallback(callback)
   local chunkFinder = nil
@@ -79,7 +79,7 @@ function Http1.readBody(tcp, message, buffer, callback)
     end
   end
   local length = message:getContentLength()
-  logger:finer('Http1.readBody() content length is %s', length)
+  logger:finer('readBody() content length is %s', length)
   if length and length <= 0 then
     bsh:onData(nil)
     cb(nil, buffer) -- empty body
@@ -87,11 +87,11 @@ function Http1.readBody(tcp, message, buffer, callback)
   end
   if length and buffer then
     local bufferLength = #buffer
-    logger:finer('Http1.readBody() remaining buffer length is %s', bufferLength)
+    logger:finer('readBody() remaining buffer length is %s', bufferLength)
     if bufferLength >= length then
       local remainingBuffer = nil
       if bufferLength > length then
-        logger:warn('Http1.readBody() remaining buffer too big %s > %s', bufferLength, length)
+        logger:warn('readBody() remaining buffer too big %s > %s', bufferLength, length)
         remainingBuffer = string.sub(buffer, length + 1)
         buffer = string.sub(buffer, 1, length)
       end
@@ -109,7 +109,7 @@ function Http1.readBody(tcp, message, buffer, callback)
       return promise
     end
     length = -1
-    logger:finer('Http1.readBody() connection: %s', connection)
+    logger:finer('readBody() connection: %s', connection)
     if not (strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) or chunkFinder or message:getVersion() == HttpMessage.CONST.VERSION_1_0) then
       cb('Content length value, chunked transfer encoding or connection close expected')
       return promise
@@ -119,7 +119,7 @@ function Http1.readBody(tcp, message, buffer, callback)
   -- after that we know that we have something to read from the client
   local sh = StreamHandler:new(function(err, data)
     if err then
-      logger:fine('Http1.readBody() stream error is "%s"', err)
+      logger:fine('readBody() stream error is "%s"', err)
     else
       local r = bsh:onData(data)
       -- we may need to wait for promise resolution prior calling the callback
@@ -153,19 +153,19 @@ end
 Http1.BODY_BLOCK_SIZE = 2 << 14
 
 function Http1.writeBody(tcp, message)
-  logger:finer('Http1.writeBody()')
+  logger:finer('writeBody()')
   local pr, cb = Promise.createWithCallback()
   local len = 0
   message:setBodyStreamHandler(StreamHandler:new(function(err, data)
     if err then
-      logger:fine('Http1.writeBody() stream error "%s"', err)
+      logger:fine('writeBody() stream error "%s"', err)
       cb(err)
     elseif data then
       len = len + #data
-      logger:finest('Http1.writeBody() write #%d "%s"', len, data)
+      logger:finest('writeBody() write #%d "%s"', len, data)
       return tcp:write(data)
     else
-      logger:finer('Http1.writeBody() done #%s', len)
+      logger:finer('writeBody() done #%s', len)
       cb()
     end
   end))

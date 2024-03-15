@@ -247,10 +247,6 @@ httpServer:createContext('/(.*)', RouterHttpHandler:new({
   --]]
   function routerHttpHandler:initialize(handlers, attributes, noBody)
     self.handlers = prepareHandlers(handlers or {})
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('Router handlers')
-      logger:finest(self.handlers)
-    end
     if type(attributes) == 'table' then
       self.attributes = attributes
     end

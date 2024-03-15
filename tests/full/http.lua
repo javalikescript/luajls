@@ -30,7 +30,7 @@ local function createTcpServer(onData)
         onData(server, client, data)
       end
       if err then
-        logger:warn('tcp server error "'..tostring(err)..'" => closing')
+        logger:warn('tcp server error "%s" => closing', err)
         server.t_error = err
         server:close()
         client:close()
@@ -58,13 +58,13 @@ local function createTcpClient(requestData)
     logger:finer('tcp client connected')
     client:readStart(function(err, data)
       if err then
-        logger:warn('tcp client stream error '..tostring(err))
+        logger:warn('tcp client stream error %s', err)
         client.t_error = err
         client:close()
       elseif data then
         receivedCount = receivedCount + 1
-        logger:finer('tcp client receives #'..tostring(receivedCount)..' data #'..tostring(#data))
-        logger:finest('tcp client receives data '..tostring(data))
+        logger:finer('tcp client receives #%d data #%d', receivedCount, #data)
+        logger:finest('tcp client receives data %s', data)
         if client.t_receivedData then
           client.t_receivedData = client.t_receivedData..data
         else
@@ -80,7 +80,7 @@ local function createTcpClient(requestData)
     end
     return client
   end, function(err)
-    logger:warn('tcp client connect error '..tostring(err))
+    logger:warn('tcp client connect error %s', err)
   end)
 end
 
@@ -104,7 +104,7 @@ local function createHttpServer(handler, keep)
   local ch = function(exchange)
     server.t_requestCount = server.t_requestCount + 1
     server.t_request = exchange:getRequest()
-    logger:finer('http server handle #'..tostring(server.t_requestCount))
+    logger:finer('http server handle #%s', server.t_requestCount)
     if not keep then
       exchange:onClose():next(function()
         logger:finer('http exchange closed')
@@ -142,11 +142,11 @@ local function sendReceiveClose(client, resource, options)
     headers = { connection = 'close' }
   }):next(function(response)
     return response:text():next(function()
-      logger:finer('sendReceiveClose(), response is '..tostring(response))
+      logger:finer('sendReceiveClose(), response is %s', response)
       client.t_response = response
     end)
   end):catch(function(err)
-    logger:fine('sendReceiveClose error "'..tostring(err)..'"')
+    logger:fine('sendReceiveClose error "%s"', err)
     client.t_err = err
   end):finally(function()
     client:close()
@@ -668,7 +668,7 @@ function Test_HttpServer_keep_alive()
   lu.assertEquals(server.t_requestCount, 2)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
   local bodies = strings.split(client.t_receivedData, 'HTTP/1%.')
-  logger:finest('http client received '..List.join(bodies, '+'))
+  logger:finest('http client received %s', List.join(bodies, '+'))
   lu.assertEquals(#bodies, 3)
 end
 
@@ -694,7 +694,7 @@ function Test_HttpClientServer_keep_alive()
     end):next(function()
       logger:fine('send receive completed for second request')
     end):catch(function(err)
-      logger:warn('send receive error: "'..tostring(err)..'"')
+      logger:warn('send receive error: "%s"', err)
     end):finally(function()
       logger:fine('closing client and server')
       client:close()

@@ -18,9 +18,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   --- Creates a delayed @{StreamHandler}.
   -- @function DelayedStreamHandler:new
   function delayedStreamHandler:initialize()
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('delayedStreamHandler:initialize()')
-    end
+    logger:finest('initialize()')
     super.initialize(self)
     self.buffer = StringBuffer:new()
     self.error = nil
@@ -78,7 +76,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     if self.handler then
       return self.handler:onData(data)
     end
-    logger:finest('delayedStreamHandler:onData(#%s)', data and #data)
+    logger:finest('onData(#%s)', data and #data)
     if data then
       self.buffer:append(data)
     else

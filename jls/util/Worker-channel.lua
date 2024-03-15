@@ -32,9 +32,7 @@ local function newThreadChannel(fn, data, scheme)
   return channelServer:bind(nil, scheme):next(function()
     local channelName = channelServer:getName()
     thread:start(channelName, chunk, jsonData):ended():next(function()
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('workerServer thread ended')
-      end
+      logger:finer('workerServer thread ended')
     end)
     return acceptPromise
   end)

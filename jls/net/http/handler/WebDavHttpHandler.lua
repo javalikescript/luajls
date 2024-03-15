@@ -84,7 +84,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     local request = exchange:getRequest()
     -- "0", "1", or "infinity" optionally suffixed ",noroot"
     local depth = request:getHeader('depth') or 'infinity'
-    logger:fine('-- webdav depth: %s --------', depth)
+    logger:fine('webdav depth: %s', depth)
     local response = exchange:getResponse()
     local baseHref = string.gsub(request:getTargetPath()..'/', '//+', '/')
     --local host = request:getHeader(HTTP_CONST.HEADER_HOST)
@@ -103,10 +103,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     response:setStatusCode(207, 'OK')
     --Content-Type: application/xml; charset="utf-8"
     response:setContentType('application/xml')
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('-- webdav propfind response --------')
-      logger:fine(body)
-    end
+    logger:fine('propfind response: "%s"', body)
     response:setBody('<?xml version="1.0" encoding="utf-8" ?>'..body)
   end
 
@@ -123,7 +120,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
             local body = request:getBody()
             local t = xml.decode(body)
             if logger:isLoggable(logger.FINE) then
-              logger:fine(xml.encode(t))
+              logger:fine('request: "%s"', xml.encode(t))
             end
             if t.name == 'propfind' then
               propfind = t[1]
@@ -186,9 +183,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     else
       super.handleFile(self, exchange, file, false)
     end
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webdav => %s', exchange:getResponse():getStatusCode())
-    end
+    logger:fine('webdav => %s', exchange)
   end
 
 end)

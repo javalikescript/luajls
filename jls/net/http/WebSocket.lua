@@ -312,12 +312,12 @@ return class.create(function(webSocket)
         if acceptKey ~= hashWebSocketKey(key) then
           return Promise.reject('Bad key')
         end
-        logger:fine('webSocket:open() Switching protocols')
+        logger:fine('open() Switching protocols')
         self.tcp = client.tcpClient
       end)
     end):catch(function(reason)
       client:close()
-      logger:fine('webSocket:open() error: "%s"', reason)
+      logger:fine('open() error: "%s"', reason)
       return Promise.reject(reason)
     end):finally(function()
       self.connecting = nil
@@ -329,7 +329,7 @@ return class.create(function(webSocket)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the data has been written.
   function webSocket:sendTextMessage(message, callback)
-    logger:finer('webSocket:sendTextMessage("%s")', message)
+    logger:finer('sendTextMessage("%s")', message)
     return self:sendFrame(true, CONST.OP_CODE_TEXT_FRAME, self.mask, tostring(message), callback)
   end
 
@@ -401,7 +401,7 @@ return class.create(function(webSocket)
   -- such as when some data couldn't be received or sent.
   -- @param reason the error reason.
   function webSocket:onError(reason)
-    logger:fine('webSocket:onError("%s")', reason)
+    logger:fine('onError("%s")', reason)
   end
 
   function webSocket:raiseError(reason)
@@ -413,26 +413,22 @@ return class.create(function(webSocket)
   --- Called when a text message is received on this WebSocket.
   -- @tparam string message the text message.
   function webSocket:onTextMessage(message)
-    logger:fine('webSocket:onTextMessage("%s")', message)
+    logger:fine('onTextMessage("%s")', message)
   end
 
   --- Called when a binary message is received on this WebSocket.
   -- @tparam string message the binary message.
   function webSocket:onBinaryMessage(message)
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocket:onBinaryMessage()')
-    end
+    logger:fine('onBinaryMessage()')
   end
 
   function webSocket:onPong(data)
-    logger:fine('webSocket:onPong("%s")', data)
+    logger:fine('onPong("%s")', data)
   end
 
   --- Called when this WebSocket has been closed.
   function webSocket:onClose()
-    if logger:isLoggable(logger.FINE) then
-      logger:fine('webSocket:onClose()')
-    end
+    logger:fine('onClose()')
   end
 
   function webSocket:onReadFrameFin(opcode, payload)
@@ -451,7 +447,7 @@ return class.create(function(webSocket)
   end
 
   function webSocket:onReadFrame(fin, opcode, payload, rsv)
-    logger:finer('webSocket:onReadFrame(%s, %s, %s, %s)', fin, opcode, #payload, rsv)
+    logger:finer('onReadFrame(%s, %s, %s, %s)', fin, opcode, #payload, rsv)
     local appData = self:handleExtension(fin, opcode, payload, rsv)
     if not appData then
       self:raiseError('unsupported extension, '..tostring(rsv))
@@ -485,13 +481,13 @@ return class.create(function(webSocket)
   end
 
   function webSocket:sendFrame(fin, opcode, mask, payload, callback)
-    logger:finer('webSocket:sendFrame(%s, %s, %s)', fin, opcode, mask)
+    logger:finer('sendFrame(%s, %s, %s)', fin, opcode, mask)
     if not self.tcp then
       return Promise.reject('not connected')
     end
     local frame = formatFrame(fin, opcode, mask, payload)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('webSocket:sendFrame() %s', Codec.encode('hex', frame))
+      logger:finest('sendFrame() %s', Codec.encode('hex', frame))
     end
     local cb, d = Promise.ensureCallback(callback)
     self.tcp:write(frame, function(err)
@@ -541,7 +537,7 @@ end, function(WebSocket)
     end
 
     function upgradeHandler:handleConnect(exchange)
-      logger:fine('upgradeHandler:handleConnect()')
+      logger:fine('handleConnect()')
       local request = exchange:getRequest()
       local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
       if headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
@@ -568,7 +564,7 @@ end, function(WebSocket)
     end
 
     function upgradeHandler:handleUpgrade(exchange)
-      logger:fine('upgradeHandler:handleUpgrade()')
+      logger:fine('handleUpgrade()')
       local request = exchange:getRequest()
       local headerConnection = string.lower(request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) or '')
       local headerUpgrade = string.lower(request:getHeader(HttpMessage.CONST.HEADER_UPGRADE) or '')
@@ -594,11 +590,11 @@ end, function(WebSocket)
             end
             -- override HTTP client close
             function exchange.close()
-              logger:finer('upgradeHandler:handle() close exchange')
+              logger:finer('handle() close exchange')
               local client = exchange.client
               exchange.client = nil
               HttpExchange.prototype.close(exchange)
-              logger:finer('upgradeHandler:handle() open websocket')
+              logger:finer('handle() open websocket')
               self:onOpen(WebSocket:new():initializeTcp(client), exchange)
             end
           end
@@ -612,11 +608,11 @@ end, function(WebSocket)
     end
 
     function upgradeHandler:handle(exchange)
+      logger:finer('handle() %s', exchange)
       local request = exchange:getRequest()
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('upgradeHandler:handle() %s', request:getMethod())
+      if logger:isLoggable(logger.FINEST) then
         for name, value in pairs(request:getHeadersTable()) do
-          logger:finer(' %s: "%s"', name, value)
+          logger:finest(' %s: "%s"', name, value)
         end
       end
       if request:getMethod() == 'GET' and exchange.client then
@@ -637,7 +633,7 @@ end, function(WebSocket)
     -- @tparam WebSocket webSocket The new WebSocket.
     -- @param exchange The HTTP exchange used for the upgrade.
     function upgradeHandler:onOpen(webSocket, exchange)
-      logger:fine('upgradeHandler:onOpen() closing')
+      logger:fine('onOpen() closing')
       webSocket:close(false)
     end
 

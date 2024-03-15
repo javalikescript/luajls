@@ -16,9 +16,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   -- @tparam[opt] StreamHandler handler the handler to wrap
   -- @function BufferedStreamHandler:new
   function bufferedStreamHandler:initialize(handler)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('bufferedStreamHandler:initialize()')
-    end
+    logger:finest('initialize()')
     super.initialize(self, handler)
     self.buffer = StringBuffer:new()
   end
@@ -35,7 +33,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function bufferedStreamHandler:onData(data)
-    logger:finer('bufferedStreamHandler:onData(#%s)', data and #data)
+    logger:finer('onData(#%s)', data and #data)
     if data then
       self.buffer:append(data)
     else

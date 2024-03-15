@@ -5,15 +5,21 @@ local loader = require('jls.lang.loader')
 local event = loader.requireOne('jls.lang.event-')
 local List = require('jls.util.List')
 
-local function socketToString(client)
-  --local ip, port = client:getpeername()
-  if client then
-    local status, ip, port = pcall(client.getpeername, client) -- unconnected udp fails
-    if status and ip then
-      return tostring(ip)..':'..tostring(port)
+local function log(message, ...)
+  if logger:isLoggable(logger.FINER) then
+    local l = select('#', ...)
+    local values = {...}
+    for i = 1, l do
+      local v = values[i]
+      if type(v) == 'userdata' and type(v.getpeername) == 'function' then
+        local status, ip, port = pcall(v.getpeername, v) -- unconnected udp fails
+        if status and ip then
+          values[i] = string.format('%s; %s:%s', v, ip, port)
+        end
+      end
     end
+    logger:finer(message, table.unpack(values, 1, l))
   end
-  return 'n/a'
 end
 
 local function emptyFunction() end
@@ -76,9 +82,7 @@ return require('jls.lang.class').create(function(selector)
       computedMode = computedMode | MODE_SEND
     end
     mode = mode or computedMode
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:register('..socketToString(socket)..', '..tostring(context.mode)..'=>'..tostring(mode)..')')
-    end
+    log('register(%s, %s=>%s)', socket, context.mode, mode)
     if mode == context.mode then
       return
     end
@@ -96,7 +100,6 @@ return require('jls.lang.class').create(function(selector)
     else
       self.contt[socket] = context
       socket:settimeout(0) -- do not block
-      --logger:finest('selector:register(), '..tostring(context)..' as '..tostring(self.contt[socket]))
     end
     if mode > 0 then
       if addMode & MODE_RECV == MODE_RECV then
@@ -120,9 +123,7 @@ return require('jls.lang.class').create(function(selector)
   end
 
   function selector:unregister(socket, mode)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:unregister('..socketToString(socket)..', '..tostring(mode)..')')
-    end
+    log('unregister(%s, %s)', socket, mode)
     if mode then
       local context = self.contt[socket]
       if context then
@@ -136,25 +137,20 @@ return require('jls.lang.class').create(function(selector)
   end
 
   function selector:unregisterAndClose(socket)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:unregisterAndClose('..socketToString(socket)..')')
-    end
+    log('unregisterAndClose(%s)', socket)
     self:unregister(socket)
     socket:close()
   end
 
   function selector:close(socket, callback)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:close('..socketToString(socket)..')')
-    end
+    log('close(%s)', socket)
     local context = self.contt[socket]
     if context and context.mode & MODE_SEND == MODE_SEND then
-      if logger:isLoggable(logger.FINER) then
-        logger:finer('selector:close() defer to select, writet: #'..tostring(#context.writet))
-        if logger:isLoggable(logger.FINEST) and #context.writet > 0 and not socket.sendto then
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('close() defer to select, writet: #%s', #context.writet)
+        if logger:isLoggable(logger.FINER) and #context.writet > 0 and not socket.sendto then
           local wf = context.writet[1]
-          logger:finest('selector:select() to send '..tostring(wf.position)..'/'..tostring(wf.length)
-            ..' buffer: "'..tostring(wf.buffer)..'"')
+          logger:finer('to send %s/%s buffer: "%s"', wf.position, wf.length, wf.buffer)
         end
       end
       context.closeCallback = callback or emptyFunction
@@ -168,45 +164,35 @@ return require('jls.lang.class').create(function(selector)
 
   function selector:isEmpty()
     local count = #self.recvt + #self.sendt
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:isEmpty() => '..tostring(count == 0)..' ('..tostring(count)..')')
-      for i, socket in ipairs(self.recvt) do
-        logger:finest(' recvt['..tostring(i)..'] '..socketToString(socket))
-      end
-      for i, socket in ipairs(self.sendt) do
-        logger:finest(' sendt['..tostring(i)..'] '..socketToString(socket))
-      end
-    end
+    logger:finer('isEmpty() count: %s', count)
     return count == 0
   end
 
   function selector:select(timeout)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:select('..tostring(timeout)..'s) recvt: '..tostring(#self.recvt)..' sendt: '..tostring(#self.sendt))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('select(%ss) recvt: %s sendt: %s', timeout, #self.recvt, #self.sendt)
     end
     local canrecvt, cansendt, selectErr = luaSocketLib.select(self.recvt, self.sendt, timeout)
     if selectErr then
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('selector:select() error "'..tostring(selectErr)..'"')
-      end
+      logger:finer('select error "%s"', selectErr)
       if selectErr == 'timeout' then
         return true
       end
       return nil, selectErr
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('selector:select() canrecvt: '..tostring(#canrecvt)..' cansendt: '..tostring(#cansendt))
+    if logger:isLoggable(logger.FINER) then
+      logger:finer('canrecvt: %s cansendt: %s', #canrecvt, #cansendt)
     end
     -- process canrecvt sockets
     for _, socket in ipairs(canrecvt) do
       local context = self.contt[socket]
       if context and context.streamHandler then
         if type(context.streamHandler) == 'function' then
-          logger:finest('selector:select() accepting')
+          logger:finer('accepting')
           context.streamHandler()
         else
           local size = context.streamHandler.bufferSize or BUFFER_SIZE
-          logger:finest('selector:select() receiving '..tostring(size)..' on '..socketToString(socket))
+          log('receiving %s on %s', size, socket)
           local content, recvErr, partial, addr
           if context.ip then
             content, recvErr, partial = socket:receivefrom(size)
@@ -219,9 +205,8 @@ return require('jls.lang.class').create(function(selector)
           if content then
             context.streamHandler:onData(content, addr)
           elseif recvErr then
-            if logger:isLoggable(logger.FINER) then
-              logger:finer('selector:select() receive error: "'..tostring(recvErr)..'", content #'
-                ..tostring(content and #content)..'", partial #'..tostring(partial and #partial))
+            if logger:isLoggable(logger.FINE) then
+              logger:fine('receive error: "%s", content #%s", partial #%s', recvErr, content and #content, partial and #partial)
             end
             if partial and #partial > 0 then
               context.streamHandler:onData(partial)
@@ -237,9 +222,7 @@ return require('jls.lang.class').create(function(selector)
           end
         end
       else
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('selector unregistered socket '..socketToString(socket)..' will be closed')
-        end
+        log('unregistered socket %s will be closed', socket)
         self:unregisterAndClose(socket)
       end
     end
@@ -247,9 +230,7 @@ return require('jls.lang.class').create(function(selector)
     for _, socket in ipairs(cansendt) do
       local context = self.contt[socket]
       if context and #context.writet > 0 then
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('selector:select() sending on '..socketToString(socket))
-        end
+        log('sending on %s', socket)
         local wf = context.writet[1]
         if socket.sendto then
           local sendErr
@@ -264,9 +245,7 @@ return require('jls.lang.class').create(function(selector)
               -- the connection was closed before the transmission was completed
               wf.callback('closed')
             elseif sendErr ~= 'timeout' then
-              if logger:isLoggable(logger.FINEST) then
-                logger:finest('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
-              end
+              log('on %s, send error: %s', socket, sendErr)
               wf.callback(sendErr)
             end
           else
@@ -274,9 +253,7 @@ return require('jls.lang.class').create(function(selector)
             wf.callback()
             if #context.writet == 0 then
               if context.closeCallback then
-                if logger:isLoggable(logger.FINEST) then
-                  logger:finest('selector close socket '..socketToString(socket))
-                end
+                log('selector close socket %s', socket)
                 self:unregisterAndClose(socket)
                 context.closeCallback()
               else
@@ -293,9 +270,7 @@ return require('jls.lang.class').create(function(selector)
               -- the connection was closed before the transmission was completed
               wf.callback('closed')
             elseif sendErr ~= 'timeout' then
-              if logger:isLoggable(logger.FINEST) then
-                logger:finest('selector:select() on '..socketToString(socket)..', send error: '..tostring(sendErr))
-              end
+              log('on %s, send error: %s', socket, sendErr)
               wf.callback(sendErr) -- TODO discard all write futures
             end
           else
@@ -306,9 +281,7 @@ return require('jls.lang.class').create(function(selector)
             wf.callback()
             if #context.writet == 0 then
               if context.closeCallback then
-                if logger:isLoggable(logger.FINEST) then
-                  logger:finest('selector close socket '..socketToString(socket))
-                end
+                log('selector close socket %s', socket)
                 self:unregisterAndClose(socket)
                 context.closeCallback()
               else
@@ -318,9 +291,7 @@ return require('jls.lang.class').create(function(selector)
           end
         end
       else
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('selector unregistered socket '..socketToString(socket)..' will be closed')
-        end
+        log('selector unregistered socket %s will be closed', socket)
         self:unregisterAndClose(socket)
       end
     end
@@ -328,8 +299,6 @@ return require('jls.lang.class').create(function(selector)
   end
 
 end, function(Selector)
-
-  Selector.socketToString = socketToString
 
   Selector.MODE_NONE = 0
   Selector.MODE_RECV = MODE_RECV

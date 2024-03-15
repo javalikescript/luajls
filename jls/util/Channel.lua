@@ -100,14 +100,14 @@ return class.create(function(channel, _, Channel)
   -- A channel can be a server using the bind method or a client using the connect method but not both.
   -- @function Channel:new
   function channel:initialize()
-    logger:finest('channel[%s]:initialize()', self)
+    logger:finest('[%s]:initialize()', self)
   end
 
   --- Closes this channel.
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the channel is closed.
   function channel:close(callback)
-    logger:finest('channel[%s]:close()', self)
+    logger:finest('[%s]:close()', self)
     local p
     if self.stream then
       p = self.stream:close(callback)
@@ -163,7 +163,7 @@ return class.create(function(channel, _, Channel)
   -- @treturn jls.lang.Promise a promise that resolves once the server channel is bound.
   function channel:bind(closeWithAccepted, scheme)
     scheme = scheme or DEFAULT_SCHEME
-    logger:finer('channel[%s]:bind(%s, %s)', self, closeWithAccepted, scheme)
+    logger:finer('[%s]:bind(%s, %s)', self, closeWithAccepted, scheme)
     self:checkStream(true)
     self.name = ''
     local acceptedCount = 0
@@ -179,7 +179,7 @@ return class.create(function(channel, _, Channel)
       ch.stream = st
       ch.privateKey = privateKey
       ch.publicKey = publicKey
-      logger:finest('channel[%s]:bind() on accept %s', self, ch)
+      logger:finest('[%s]:bind() on accept %s', self, ch)
       if closeWithAccepted then
         acceptedCount = acceptedCount + 1
         ch:onClose():next(function()
@@ -198,7 +198,7 @@ return class.create(function(channel, _, Channel)
   -- This method should be overriden, the default implementation closes the channel.
   -- @param ch the channel to accept.
   function channel:onAccept(ch)
-    logger:fine('channel:onAccept() => closing')
+    logger:fine('onAccept() => closing')
     ch:close(false)
   end
 
@@ -225,7 +225,7 @@ return class.create(function(channel, _, Channel)
   -- @tparam string name the name of the channel.
   -- @treturn jls.lang.Promise a promise that resolves once the channel is connected.
   function channel:connect(name)
-    logger:finest('channel[%s]:connect("%s")', self, name)
+    logger:finest('[%s]:connect("%s")', self, name)
     self:checkStream(true)
     local t = Url.parse(name)
     if t and t.userinfo then
@@ -239,7 +239,7 @@ return class.create(function(channel, _, Channel)
         end
       end
     end
-    logger:finest('channel:connect() => reject')
+    logger:finest('connect() => reject')
     return Promise.reject('Invalid channel name "'..tostring(name)..'"')
   end
 
@@ -252,14 +252,14 @@ return class.create(function(channel, _, Channel)
   -- The handler will be called with the payload and the message type.
   -- @tparam function handleMessage a function that will be called when a message is received.
   function channel:receiveStart(handleMessage)
-    logger:finest('channel[%s]:receiveStart()', self)
+    logger:finest('[%s]:receiveStart()', self)
     self:checkStream()
     if type(handleMessage) ~= 'function' then
       error('Invalid message handling function')
     end
     local buffer = ''
     return self.stream:readStart(function(err, data)
-      logger:finest('channel[%s] read "%s", #%s', self, err, data and #data)
+      logger:finest('[%s] read "%s", #%s', self, err, data and #data)
       if err then
       elseif data then
         buffer = buffer..data
@@ -281,9 +281,7 @@ return class.create(function(channel, _, Channel)
             buffer = string.sub(buffer, 1, messageLength)
           end
           local payload = string.sub(buffer, offset)
-          if logger:isLoggable(logger.FINEST) then
-            logger:finest('channel received message id %s, payload "%s"', id, payload)
-          end
+          logger:finest('received message id %s, payload "%s"', id, payload)
           if id >= MSG_ID_USER and self.authorized then
             handleMessage(payload, id)
           elseif id == MSG_ID_CONNECT and payload == self.privateKey then
@@ -303,7 +301,7 @@ return class.create(function(channel, _, Channel)
   --- Stops receiving messages on this channel.
   -- This server channel shall not be used anymore.
   function channel:receiveStop()
-    logger:finest('channel:receiveStop()')
+    logger:finest('receiveStop()')
     self:checkStream()
     return self.stream:readStop()
   end
@@ -315,15 +313,15 @@ return class.create(function(channel, _, Channel)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the message has been sent.
   function channel:writeMessage(payload, id, callback)
-    logger:finest('channel[%s]:writeMessage(%s, "%s")', self, id, payload)
+    logger:finest('[%s]:writeMessage(%s, "%s")', self, id, payload)
     local cb, p = Promise.ensureCallback(callback)
     local wcb = cb or false
     if logger:isLoggable(logger.FINE) then
       wcb = function(reason)
         if reason then
-          logger:fine('channel write error "%s"', reason)
+          logger:fine('write error "%s"', reason)
         else
-          logger:finest('channel message sent %s', id)
+          logger:finest('message sent %s', id)
         end
         if cb then
           cb(reason)
@@ -337,7 +335,7 @@ return class.create(function(channel, _, Channel)
     end
     local _, req, err = self.stream:write(data, wcb)
     if not req and err then
-      logger:fine('channel write error, %s', err)
+      logger:fine('write error, %s', err)
       self:close(false)
     end
     return p, req, err

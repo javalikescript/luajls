@@ -101,7 +101,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
 
   function coroutineScheduler:runOnce(noWait)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('coroutineScheduler:runOnce(%s) #%d', noWait, #self.schedules)
+      logger:finest('runOnce(%s) #%d', noWait, #self.schedules)
     end
     local startTime = sysLib.timems()
     local currentTime = startTime

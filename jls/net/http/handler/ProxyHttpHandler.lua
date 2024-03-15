@@ -130,7 +130,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
   local function connectStream(fromClient, toClient, callback)
     fromClient:readStart(function(err, data)
       if err then
-        logger:fine('proxyHttpHandler tunnel error "%s"', err)
+        logger:fine('tunnel error "%s"', err)
       elseif data then
         toClient:write(data)
         return
@@ -158,12 +158,12 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     if not self:acceptHost(exchange, host) then
       return
     end
-    logger:finer('proxyHttpHandler connecting to "%s"', hostport)
+    logger:finer('connecting to "%s"', hostport)
     local client
     return Promise:new(function(resolve, reject)
       local targetClient = TcpSocket:new()
       targetClient:connect(host, port):next(function()
-        logger:fine('proxyHttpHandler connected to "%s"', hostport)
+        logger:fine('connected to "%s"', hostport)
         exchange.applyKeepAlive = returnFalse
         function exchange.close()
           client = exchange.client
@@ -172,7 +172,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
           HttpExchange.prototype.close(exchange)
           local onStreamClosed = function()
             if self.pendings[client] then
-              logger:fine('proxyHttpHandler connect to "%s" closed', hostport)
+              logger:fine('connect to "%s" closed', hostport)
               self.pendings[client] = nil
               client:close()
               targetClient:close()
@@ -184,7 +184,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
         HttpExchange.ok(exchange)
         resolve()
       end, function(err)
-        logger:fine('proxyHttpHandler connect error "%s"', err)
+        logger:fine('connect error "%s"', err)
         if client then
           client:close()
         end
@@ -211,7 +211,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     if not self:acceptHost(exchange, targetUrl:getHost()) then
       return
     end
-    logger:fine('proxyHttpHandler forward to "%s"', targetUrl)
+    logger:fine('forward to "%s"', targetUrl)
     -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
     local headers = HttpHeaders:new()
     headers:addHeadersTable(request:getHeadersTable())
@@ -233,20 +233,20 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     -- buffer incoming request body prior client connection
     request:setBodyStreamHandler(DelayedStreamHandler:new())
     client:getRequest():onWriteBodyStreamHandler(function(clientRequest)
-      logger:finer('proxyHttpHandler client request on write body')
+      logger:finer('client request on write body')
       local drsh = request:getBodyStreamHandler()
       drsh:setStreamHandler(clientRequest:getBodyStreamHandler())
     end)
     local pr, cb = Promise.createWithCallback()
     client:connect():next(function()
-      logger:finer('proxyHttpHandler client connected')
+      logger:finer('client connected')
       return client:sendRequest() -- TODO switch to fetch
     end):next(function()
-      logger:finer('proxyHttpHandler client send completed')
+      logger:finer('client send completed')
       return client:receiveResponseHeaders()
     end):next(function(remainingBuffer)
       local clientResponse = client:getResponse()
-      logger:fine('proxyHttpHandler client status code is %d, remaining buffer #%d', clientResponse:getStatusCode(), remainingBuffer and #remainingBuffer or 0)
+      logger:fine('client status code is %d, remaining buffer #%d', clientResponse:getStatusCode(), remainingBuffer and #remainingBuffer or 0)
       response:setStatusCode(clientResponse:getStatusCode())
       local respHdrs = HttpHeaders:new()
       respHdrs:addHeadersTable(clientResponse:getHeadersTable())
@@ -254,17 +254,17 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       response:setHeadersTable(respHdrs:getHeadersTable())
       clientResponse:setBodyStreamHandler(DelayedStreamHandler:new())
       response:onWriteBodyStreamHandler(function()
-        logger:finer('proxyHttpHandler response on write body')
+        logger:finer('response on write body')
         local drsh = clientResponse:getBodyStreamHandler()
         drsh:setStreamHandler(response:getBodyStreamHandler())
       end)
       cb()
       return client:receiveResponseBody(remainingBuffer)
     end):next(function()
-      logger:finer('proxyHttpHandler closing client')
+      logger:finer('closing client')
       client:close()
     end, function(err)
-      logger:fine('proxyHttpHandler client error: %s', err)
+      logger:fine('client error: %s', err)
       response:setStatusCode(HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
       response:setBody('<p>Sorry something went wrong on our side.</p>')
       client:close()

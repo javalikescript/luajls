@@ -18,9 +18,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   -- @tparam[opt] boolean multiple true to indicate that the resulting size must be a multiple
   -- @function BlockStreamHandler:new
   function blockStreamHandler:initialize(handler, size, multiple)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('blockStreamHandler:initialize()')
-    end
+    logger:finest('initialize()')
     super.initialize(self, handler)
     self.size = size or 512
     self.buffer = StringBuffer:new()
@@ -36,7 +34,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function blockStreamHandler:onData(data)
-    logger:finer('blockStreamHandler:onData(#%s)', data and #data)
+    logger:finer('onData(#%s)', data and #data)
     if data then
       self.buffer:append(data)
       local len = self.buffer:length()

@@ -32,15 +32,15 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
     self.length = 0
     if logger:isLoggable(logger.FINEST) then
       if type(pattern) == 'string' then
-        logger:finest('chunkedStreamHandler:initialize(?, %q, %s, %s, %s)', pattern, plain, limit, stop)
+        logger:finest('initialize(?, %q, %s, %s, %s)', pattern, plain, limit, stop)
       else
-        logger:finest('chunkedStreamHandler:initialize(?, fn, ?, %s, %s)', limit, stop)
+        logger:finest('initialize(?, fn, ?, %s, %s)', limit, stop)
       end
     end
   end
 
   function chunkedStreamHandler:crunch(lastIndex, nextIndex)
-    logger:finer('chunkedStreamHandler:crunch(%s, %s)', lastIndex, nextIndex)
+    logger:finer('crunch(%s, %s)', lastIndex, nextIndex)
     if not nextIndex then
       nextIndex = lastIndex + 1
     end
@@ -71,11 +71,8 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function chunkedStreamHandler:onData(data)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('chunkedStreamHandler:onData("%s")', data)
-    else
-      logger:finer('chunkedStreamHandler:onData(#%s)', data and #data)
-    end
+    logger:finer('onData(#%s)', data and #data)
+    logger:finest('onData("%s")', data)
     if data then
       local length = string.len(data)
       if self.buffer then

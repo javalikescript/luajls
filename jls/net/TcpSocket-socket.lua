@@ -6,18 +6,28 @@ local StreamHandler = require('jls.io.StreamHandler')
 local Selector = require('jls.net.Selector-socket')
 
 return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
+
   function tcpSocket:initialize(socket, selector)
     self.tcp = socket
     self.selector = selector or Selector.DEFAULT
+    logger:finer('initialize() %s', self)
+  end
+
+  function tcpSocket:toString()
+    if self.tcp then
+      local status, ip, port = pcall(self.tcp.getpeername, self.tcp) -- unconnected udp fails
+      if status and ip then
+        return string.format('%s; %s:%s', self.tcp, ip, port)
+      end
+    end
+    return 'unbounded tcp socket'
   end
 
   function tcpSocket:getLocalName()
-    --logger:debug('tcpSocket:getLocalName()')
     return self.tcp:getsockname()
   end
 
   function tcpSocket:getRemoteName()
-    --logger:debug('tcpSocket:getRemoteName()')
     return self.tcp:getPeerName()
   end
 
@@ -26,7 +36,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:close(callback)
-    logger:debug('tcp:close()')
+    logger:finer('close()')
     local cb, d = Promise.ensureCallback(callback)
     local socket = self.tcp
     if socket then
@@ -39,16 +49,12 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:connect(addr, port, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpSocket:connect('..tostring(addr)..', '..tostring(port)..')')
-    end
+    logger:finer('connect(%s, %s)', addr, port)
     local tcp, err = luaSocketLib.connect(addr or '127.0.0.1', port)
     self.tcp = tcp
     local cb, d = Promise.ensureCallback(callback)
     if err then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('tcpSocket:connect('..tostring(addr)..', '..tostring(port)..') error => "'..tostring(err)..'"')
-      end
+      logger:finer('connect(%s, %s) error => "%s"', addr, port, err)
       cb(err)
     else
       cb(nil, self)
@@ -57,9 +63,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:write(data, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpSocket:write('..tostring(string.len(data))..')')
-    end
+    logger:finer('write(%s)', data and #data)
     local cb, d = Promise.ensureCallback(callback)
     local req, err
     if self.tcp then
@@ -72,7 +76,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:readStart(cb)
-    logger:debug('tcpSocket:readStart(?)')
+    logger:finer('readStart(?)')
     local stream = StreamHandler.ensureStreamHandler(cb)
     local err
     if self.tcp then
@@ -85,7 +89,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:readStop()
-    logger:debug('tcpSocket:readStop()')
+    logger:finer('readStop()')
     local err
     if self.tcp then
       self.selector:unregister(self.tcp, Selector.MODE_RECV)
@@ -96,19 +100,17 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:setTcpNoDelay(on)
-    logger:debug('tcpSocket:setTcpNoDelay('..tostring(on)..')')
+    logger:finer('setTcpNoDelay(%s)', on)
     return self.tcp:setoption('tcp-nodelay', on)
   end
 
   function tcpSocket:setKeepAlive(on, delay)
-    logger:debug('tcpSocket:setKeepAlive('..tostring(on)..', '..tostring(delay)..')')
+    logger:finer('setKeepAlive(%s, %s)', on, delay)
     return self.tcp:setoption('keepalive', on)
   end
 
   function tcpSocket:bind(addr, port, backlog, callback)
-    if logger:isLoggable(logger.DEBUG) then
-      logger:debug('tcpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
-    end
+    logger:finer('bind(%s, %s)', addr, port)
     if not addr or addr == '0.0.0.0' or addr == '::' then
       addr = '*'
     end
@@ -132,13 +134,11 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   function tcpSocket:handleAccept()
     local tcp = self:tcpAccept()
     if tcp then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('tcpSocket:handleAccept() accepting '..Selector.socketToString(tcp))
-      end
+      logger:finer('accepting %s', tcp)
       local client = TcpSocket:new(tcp)
       self:onAccept(client)
     else
-      logger:debug('tcpSocket:handleAccept() accept error')
+      logger:finer('accept error')
     end
   end
 
@@ -147,9 +147,8 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:onAccept(client)
+    logger:warn('closing on accept')
     client:close()
   end
-
-  TcpSocket.socketToString = Selector.socketToString
 
 end)

@@ -108,7 +108,6 @@ end, function(FileStreamHandler)
       size = FileStreamHandler.DEFAULT_BLOCK_SIZE
     end
     local function readCallback(err, data)
-      --logger:info('readCallback('..type(err)..', '..type(data)..')')
       if err then
         sh:onError(err)
         cb(err)

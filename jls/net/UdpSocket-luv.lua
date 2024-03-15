@@ -27,9 +27,7 @@ return require('jls.lang.class').create(function(udpSocket)
   --local s = UdpSocket:new()
   --s:bind('0.0.0.0', 1900, {reuseaddr = true, ipv6only = false})
   function udpSocket:bind(addr, port, options)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:bind('..tostring(addr)..', '..tostring(port)..')')
-    end
+    logger:finer('bind(%s, %s)', addr, port)
     return self.nds:bind(addr, port, options)
   end
 
@@ -46,36 +44,28 @@ return require('jls.lang.class').create(function(udpSocket)
   --- Enables or disables broadcast.
   -- @tparam boolean value true to activate broadcast.
   function udpSocket:setBroadcast(value)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:setBroadcast('..tostring(value)..')')
-    end
+    logger:finer('setBroadcast(%s)', value)
     return self.nds:set_broadcast(value)
   end
 
   --- Enables or disables multicast loopback mode.
   -- @tparam boolean value true to activate loopback mode.
   function udpSocket:setLoopbackMode(value)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:setLoopbackMode('..tostring(value)..')')
-    end
+    logger:finer('setLoopbackMode(%s)', value)
     return self.nds:set_multicast_loop(value)
   end
 
   --- Sets the multicast time to live value.
   -- @tparam number value the time to live.
   function udpSocket:setTimeToLive(value)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:setTimeToLive('..tostring(value)..')')
-    end
+    logger:finer('setTimeToLive(%s)', value)
     return self.nds:set_multicast_ttl(value)
   end
 
   --- Sets the multicast interface.
   -- @tparam string ifaddr the multicast interface.
   function udpSocket:setInterface(ifaddr)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:setInterface('..tostring(ifaddr)..')')
-    end
+    logger:finer('setInterface(%s)', ifaddr)
     return self.nds:set_multicast_interface(ifaddr)
   end
 
@@ -83,9 +73,7 @@ return require('jls.lang.class').create(function(udpSocket)
   -- @tparam string mcastaddr the multicast address.
   -- @tparam string ifaddr the interface address.
   function udpSocket:joinGroup(mcastaddr, ifaddr)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:joinGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
-    end
+    logger:finer('joinGroup(%s, %s)', mcastaddr, ifaddr)
     return self.nds:set_membership(mcastaddr, ifaddr, 'join')
   end
 
@@ -93,9 +81,7 @@ return require('jls.lang.class').create(function(udpSocket)
   -- @tparam string mcastaddr the multicast address.
   -- @tparam string ifaddr the interface address.
   function udpSocket:leaveGroup(mcastaddr, ifaddr)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:leaveGroup('..tostring(mcastaddr)..', '..tostring(ifaddr)..')')
-    end
+    logger:finer('leaveGroup(%s, %s)', mcastaddr, ifaddr)
     return self.nds:set_membership(mcastaddr, ifaddr, 'leave')
   end
 
@@ -107,7 +93,7 @@ return require('jls.lang.class').create(function(udpSocket)
   --  print('received', err, data)
   --end)
   function udpSocket:receiveStart(stream)
-    logger:finer('udpSocket:receiveStart(?)')
+    logger:finer('receiveStart(?)')
     local cb = StreamHandler.ensureCallback(stream)
     -- TODO Raise or return errors
     -- int 0 UV_EALREADY UV_ENOTCONN
@@ -117,23 +103,19 @@ return require('jls.lang.class').create(function(udpSocket)
     else
       cb('closed')
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:receiveStart() => '..tostring(err))
-    end
+    logger:finer('receiveStart() => %s', err)
     return err
   end
 
   --- Stops receiving datagram packets on this socket.
   function udpSocket:receiveStop()
-    logger:finer('udpSocket:receiveStop()')
+    logger:finer('receiveStop()')
     local err = 0
     if self.nds then
       -- TODO Raise or return errors
       err = self.nds:recv_stop()
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:receiveStop() => '..tostring(err))
-    end
+    logger:finer('receiveStop() => %s', err)
     return err
   end
 
@@ -147,9 +129,7 @@ return require('jls.lang.class').create(function(udpSocket)
   --local s = UdpSocket:new()
   --s:send('Hello', '239.255.255.250', 1900)
   function udpSocket:send(data, addr, port, callback)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('udpSocket:send('..tostring(string.len(data))..')')
-    end
+    logger:finer('send(%s)', data and #data)
     local cb, d = Promise.ensureCallback(callback)
     if self.nds then
       self.nds:send(data, addr, port, cb)
@@ -163,7 +143,7 @@ return require('jls.lang.class').create(function(udpSocket)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once this socket is closed.
   function udpSocket:close(callback)
-    logger:finer('udpSocket:close()')
+    logger:finer('close()')
     local cb, d = Promise.ensureCallback(callback)
     if self.nds then
       self.nds:close(cb)

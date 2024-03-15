@@ -28,23 +28,10 @@ local function encodeUInt16(i)
   return string.char((i >> 8) & 0xff, i & 0xff)
 end
 
-local function encodeUInt32(i)
-  if i < 0 then
-    return 0
-  end
-  return string.char((i >> 24) & 0xff, (i >> 16) & 0xff, (i >> 8) & 0xff, i & 0xff)
-end
-
 local function decodeUInt16(s, o)
   o = o or 1
   local b1, b2 = string.byte(s, o, o + 1)
   return (b1 << 8) | b2
-end
-
-local function decodeUInt32(s, o)
-  o = o or 1
-  local b1, b2, b3, b4 = string.byte(s, o, o + 3)
-  return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
 end
 
 local function encodeData(data)
@@ -166,7 +153,7 @@ local PROTOCOL_LEVEL = 4
 local MqttClientBase = class.create(function(mqttClientBase)
 
   function mqttClientBase:initialize(tcp)
-    logger:finer('mqttClientBase:initialize(...)')
+    logger:finer('initialize(...)')
     self.tcpClient = tcp
   end
 
@@ -179,7 +166,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
   end
 
   function mqttClientBase:onError(err)
-    logger:fine('mqttClientBase:onError("%s") %s', err, self.clientId)
+    logger:fine('onError("%s") %s', err, self.clientId)
   end
 
   function mqttClientBase:raiseError(reason)
@@ -188,11 +175,11 @@ local MqttClientBase = class.create(function(mqttClientBase)
   end
 
   function mqttClientBase:onPublish(topicName, payload, qos, retain, dup, packetId)
-    logger:finer('mqttClientBase:onPublish("%s", "%s", dup: %s, qos: %s, retain: %s, packetId: %s) %s', topicName, payload, dup, qos, retain, packetId, self.clientId)
+    logger:finer('onPublish("%s", "%s", dup: %s, qos: %s, retain: %s, packetId: %s) %s', topicName, payload, dup, qos, retain, packetId, self.clientId)
   end
 
   function mqttClientBase:onReadPacket(packetType, packetFlags, data, offset, len)
-    logger:finer('mqttClientBase:onReadPacket(%s) %s', packetType, self.clientId)
+    logger:finer('onReadPacket(%s) %s', packetType, self.clientId)
     if packetType == CONTROL_PACKET_TYPE.PUBLISH then
       local dup = packetFlags & 8 ~= 0
       local qos = (packetFlags >> 1) & 3
@@ -249,7 +236,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
             buffer = string.sub(buffer, 1, packetLength)
           end
           if logger:isLoggable(logger.FINEST) then
-            logger:finest('mqttClientBase:read %s "%s"', self.clientId, Codec.encode('hex', buffer))
+            logger:finest('read %s "%s"', self.clientId, Codec.encode('hex', buffer))
           end
           self:onReadPacket(packetTypeAndFlags >> 4, packetTypeAndFlags & 0xf, buffer, offset, remainingLength)
           buffer = remainingBuffer
@@ -262,7 +249,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
 
   function mqttClientBase:write(data, callback)
     if logger:isLoggable(logger.FINEST) then
-      logger:finest('mqttClientBase:write() "%s"', Codec.encode('hex', data))
+      logger:finest('write() "%s"', Codec.encode('hex', data))
     end
     local cb, d = Promise.ensureCallback(callback)
     self.tcpClient:write(data, function(err)
@@ -296,7 +283,7 @@ local MqttClientBase = class.create(function(mqttClientBase)
   -- Retain flag, will be delivered to future subscribers
   function mqttClientBase:publish(topicName, payload, qos, retain, dup, packetId, callback)
     if logger:isLoggable(logger.FINER) then
-      logger:finer('mqttClientBase:publish("%s", "%s") %s', topicName, payload, self.clientId)
+      logger:finer('publish("%s", "%s") %s', topicName, payload, self.clientId)
       logger:finer('publish dup: %s, qos: %s, retain: %s, packetId: %s', dup, qos, retain, packetId)
     end
     qos = (qos or 0) & 3
@@ -345,7 +332,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @function MqttClient:new
   -- @return a new MQTT client
   function mqttClient:initialize(options)
-    logger:finer('mqttClient:initialize(...)')
+    logger:finer('initialize(...)')
     options = options or {}
     self.keepAlive = 30
     self.packetId = 0
@@ -371,7 +358,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam[opt] number port the port to connect to, default is 1883.
   -- @return a promise that resolves once the client is connected.
   function mqttClient:connect(addr, port)
-    logger:finer('mqttClient:connect()')
+    logger:finer('connect()')
     return self.tcpClient:connect(addr or 'localhost', port or 1883):next(function()
       self:readStart()
       local connData = encodeData(PROTOCOL_NAME)..
@@ -392,7 +379,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   end
 
   function mqttClient:onReadPacket(packetType, packetFlags, data, offset, len)
-    logger:finer('mqttClient:onReadPacket()')
+    logger:finer('onReadPacket()')
     if packetType == CONTROL_PACKET_TYPE.CONNACK then
       local ackFlags = string.byte(data, offset)
       local code = string.byte(data, offset + 1)
@@ -422,11 +409,11 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   end
 
   function mqttClient:onConnected(code, sessionPresent)
-    logger:fine('mqttClient:onConnected(%s, %s)', code, sessionPresent)
+    logger:fine('onConnected(%s, %s)', code, sessionPresent)
   end
 
   function mqttClient:onPong()
-    logger:fine('mqttClient:onPong()')
+    logger:fine('onPong()')
   end
 
   function mqttClient:onPacketId(packetId, reason, value)
@@ -454,11 +441,11 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam string topicName The name of the topic.
   -- @tparam string payload The message payload.
   function mqttClient:onMessage(topicName, payload)
-    logger:info('mqttClient:onMessage("%s", "%s")', topicName, payload)
+    logger:info('onMessage("%s", "%s")', topicName, payload)
   end
 
   function mqttClient:onPublish(topicName, payload, qos, retain, dup, packetId)
-    logger:finer('mqttClient:onPublish("%s", "%s")', topicName, payload)
+    logger:finer('onPublish("%s", "%s")', topicName, payload)
     self:onMessage(topicName, payload)
   end
 
@@ -490,7 +477,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam number qos The QoS.
   -- @return a promise that resolves once the message is sent.
   function mqttClient:subscribe(topicName, qos)
-    logger:finer('mqttClient:subscribe("%s", %s)', topicName, qos)
+    logger:finer('subscribe("%s", %s)', topicName, qos)
     local packetId = self:nextPacketId()
     local data = encodeUInt16(packetId)
     if type(topicName) == 'table' then
@@ -509,7 +496,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
   -- @tparam string topicName The name of the topic.
   -- @return a promise that resolves once the message is sent.
   function mqttClient:unsubscribe(topicName)
-    logger:finer('mqttClient:subscribe("%s")', topicName)
+    logger:finer('subscribe("%s")', topicName)
     local packetId = self:nextPacketId()
     local data = encodeUInt16(packetId)
     if type(topicName) == 'table' then
@@ -549,7 +536,7 @@ end
 local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer, super)
 
   function mqttClientServer:initialize(tcp, server)
-    logger:finer('mqttClientServer:initialize(...)')
+    logger:finer('initialize(...)')
     self.server = server
     self.topics = {}
     super.initialize(self, tcp)
@@ -578,7 +565,7 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
 
   function mqttClientServer:onSubscribe(topicFilter, qos)
     local pattern = topicFilterToPattern(topicFilter)
-    logger:finer('mqttClientServer:onSubscribe("%s", qos: %s) "%s"', topicFilter, qos, pattern)
+    logger:finer('onSubscribe("%s", qos: %s) "%s"', topicFilter, qos, pattern)
     table.insert(self.topics, {
       pattern = pattern,
       qos = qos
@@ -587,29 +574,29 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
 
   function mqttClientServer:onUnsubscribe(topicFilter)
     local pattern = topicFilterToPattern(topicFilter)
-    logger:finer('mqttClientServer:onUnsubscribe("%s") "%s"', topicFilter, pattern)
+    logger:finer('onUnsubscribe("%s") "%s"', topicFilter, pattern)
     List.removeIf(self.topics, function(topic)
       return topic.pattern == pattern
     end)
   end
 
   function mqttClientServer:onPublish(topicName, payload, qos, retain, dup, packetId)
-    logger:finer('mqttClientServer:onPublish("%s", "%s", dup: %s, qos: %s, retain: %s)', topicName, payload, dup, qos, retain)
+    logger:finer('onPublish("%s", "%s", dup: %s, qos: %s, retain: %s)', topicName, payload, dup, qos, retain)
     self.server:publish(topicName, payload, qos, retain, dup, packetId)
   end
 
   function mqttClientServer:publish(topicName, payload, qos, retain, dup, packetId)
     local topic = self:findTopic(topicName)
     if topic then
-      logger:finer('mqttClientServer:publish("%s", "%s") clientId: "%s"', topicName, payload, self.clientId)
+      logger:finer('publish("%s", "%s") clientId: "%s"', topicName, payload, self.clientId)
       super.publish(self, topicName, payload, qos, retain, dup, packetId)
     else
-      logger:finer('mqttClientServer:publish("%s") clientId: "%s" topic not registered', topicName, self.clientId)
+      logger:finer('publish("%s") clientId: "%s" topic not registered', topicName, self.clientId)
     end
   end
 
   function mqttClientServer:onReadPacket(packetType, packetFlags, data, offset, len)
-    logger:finer('mqttClientServer:onReadPacket()')
+    logger:finer('onReadPacket()')
     if packetType == CONTROL_PACKET_TYPE.CONNECT then
       local protocolName
       protocolName, offset = decodeData(data, offset)
@@ -618,10 +605,7 @@ local MqttClientServer = class.create(MqttClientBase, function(mqttClientServer,
       self.keepAlive = decodeUInt16(data, offset + 2)
       logger:finer('connect protocol: "%s", level: %s, flags: %s, keep alive: %s', protocolName, protocolLevel, connectFlags, self.keepAlive)
       self.clientId, offset = decodeData(data, offset + 4)
-      if logger:isLoggable(logger.FINE) then
-        local addr, port = self.tcpClient:getRemoteName()
-        logger:fine('New client connected from %s:%s as "%s"', addr, port, self.clientId)
-      end
+      logger:fine('New client connected from %s as "%s"', self.tcpClient, self.clientId)
       self.server:registerClient(self)
       local sessionPresent = false
       local acknowledgeFlags = 0
@@ -684,7 +668,7 @@ local MqttServer = class.create(function(mqttServer)
   -- @function MqttServer:new
   -- @return a new MQTT server
   function mqttServer:initialize()
-    logger:finer('mqttServer:initialize(...)')
+    logger:finer('initialize(...)')
     self.clients = {}
     self.tcpServer = TcpSocket:new()
     local server = self
@@ -729,7 +713,7 @@ local MqttServer = class.create(function(mqttServer)
   end
 
   function mqttServer:publish(topicName, payload, qos, retain, dup, packetId)
-    logger:finer('mqttServer:publish("%s", "%s")', topicName, payload)
+    logger:finer('publish("%s", "%s")', topicName, payload)
     for _, client in pairs(self.clients) do
       client:publish(topicName, payload, qos, retain, dup, packetId)
     end

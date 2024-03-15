@@ -21,7 +21,7 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
             line = string.gsub(line, '%*', '.*')
             line = string.gsub(line, '%+', '[^%.]+')
             line = '^'..line..'$'
-            --logger:info('add pattern: "'..line..'"')
+            logger:finer('add pattern: "%s"', line)
           end
           table.insert(t, line)
         end

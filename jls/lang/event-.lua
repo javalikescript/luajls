@@ -36,7 +36,7 @@ return require('jls.lang.class').create(function(event)
     return self.scheduler:schedule(function()
       local status, err = Exception.pcall(callback, table.unpack(args, 1, args.n))
       if not status then
-        logger:warn('event:setTimeout() callback in error "%s"', err)
+        logger:warn('setTimeout() callback in error "%s"', err)
       end
     end, false, delayMs or 0) -- as opaque timer id
   end
@@ -65,7 +65,7 @@ return require('jls.lang.class').create(function(event)
       while true do
         local status, err = Exception.pcall(callback, table.unpack(args, 1, args.n))
         if not status then
-          logger:warn('event:setInterval() callback in error "%s"', err)
+          logger:warn('setInterval() callback in error "%s"', err)
         end
         at = coroutine.yield(at + delayMs)
       end
@@ -91,7 +91,7 @@ return require('jls.lang.class').create(function(event)
   -- @tparam[opt] number delayMs The time, in milliseconds, the timer should wait between two executions.
   -- @return An opaque value identifying the timer that can be used to cancel it.
   function event:setTask(callback, delayMs)
-    logger:debug('event:setTask(%s, %s)', callback, delayMs)
+    logger:debug('setTask(%s, %s)', callback, delayMs)
     if type(delayMs) ~= 'number' then
       delayMs = TASK_DELAY_MS
     end
@@ -100,11 +100,11 @@ return require('jls.lang.class').create(function(event)
         local status, result = Exception.pcall(callback, timeout)
         if status then
           if not result then
-            logger:debug('event:setTask() callback ends')
+            logger:debug('setTask() callback ends')
             break
           end
         else
-          logger:warn('event:setTask() callback in error "%s"', result)
+          logger:warn('setTask() callback in error "%s"', result)
           break
         end
         _, _, timeout = coroutine.yield(delayMs)

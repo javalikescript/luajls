@@ -58,14 +58,14 @@ return class.create(function(event)
     -- may returns nil then an error message in case of libuv returning <0
     local ret, err = luvLib.run()
     if ret then
-      logger:fine('event:loop() return %s', ret)
+      logger:fine('loop() return %s', ret)
     elseif ret == nil then
-      logger:fine('event:loop() in error %s', err)
+      logger:fine('loop() in error %s', err)
     end
   end
 
   function event:stop()
-    logger:fine('event:stop()')
+    logger:fine('stop()')
     luvLib.stop()
   end
 
