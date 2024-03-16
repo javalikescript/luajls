@@ -34,9 +34,9 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       if response then
         statusCode = response:getStatusCode()
       end
-      return string.format('%s; %s %s %s %s=> %s', self.attributes, request:getMethod(), path, request:getVersion(), hostport and '('..hostport..') ' or '', statusCode)
+      return string.format('httpExchange: %p; %s %s %s %s=> %s', self, request:getMethod(), path, request:getVersion(), hostport and '('..hostport..') ' or '', statusCode)
     end
-    return tostring(self.attributes)
+    return string.format('httpExchange: %p', self)
   end
 
   --- Returns the HTTP context.

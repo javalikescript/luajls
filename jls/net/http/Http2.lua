@@ -139,7 +139,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:toString()
-    return string.format('stream(id %d, state %s, start %d, last %d)', self.id, STATE_BY_ID[self.state], self.startTime, self.lastTime)
+    return string.format('stream: %p; %d, %s, %d-%d', self, self.id, STATE_BY_ID[self.state], self.startTime, self.lastTime)
   end
 
   function stream:onEndHeaders()
@@ -362,7 +362,7 @@ return class.create(function(http2)
   end
 
   function http2:toString()
-    return string.format('http2(%s, next id %d, streams %d)', self.isServer and 'server' or 'client', self.streamNextId, Map.size(self.streams))
+    return string.format('http2: %p; %s, streams %d/%d', self, self.isServer and 'server' or 'client', self.streamNextId, Map.size(self.streams))
   end
 
   function http2:getRemoteSetting(id)

@@ -210,9 +210,7 @@ return class.create(function(zipFile, _, ZipFile)
       end
     end
     logger:finer('readEntries() EOCDR size: %d offset: %d', size, offset)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('eocdRecord: %s', require('jls.util.tables').stringify(header, 2))
-    end
+    logger:finest('eocdRecord: %t', header)
     local entryCount = header.entryCount
     size = ZipFile.STRUCT.FileHeader:getSize()
     offset = header.offset
@@ -222,9 +220,7 @@ return class.create(function(zipFile, _, ZipFile)
       if fileHeader.signature ~= ZipFile.CONSTANT.FILE_HEADER_SIGNATURE then
         return nil, string.format('Invalid zip file, Bad File Header signature (0x%08x) for entry %d', fileHeader.signature, i)
       end
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('FileHeader: %s', require('jls.util.tables').stringify(fileHeader, 2))
-      end
+      logger:finest('FileHeader: %t', fileHeader)
       offset = offset + size
       local filename = ''
       if fileHeader.filenameLength > 0 then
@@ -320,10 +316,8 @@ return class.create(function(zipFile, _, ZipFile)
             fileHeader[k] = v
           end
         end
-        if logger:isLoggable(logger.FINEST) then
-          logger:finest('FileHeader: %s', require('jls.util.tables').stringify(fileHeader, 2))
-        end
-          local rawFileHeader = ZipFile.STRUCT.FileHeader:toString(fileHeader)
+        logger:finest('FileHeader: %t', fileHeader)
+        local rawFileHeader = ZipFile.STRUCT.FileHeader:toString(fileHeader)
         self.fd:writeSync(rawFileHeader)
         self.fd:writeSync(name)
         if #extra > 0 then
@@ -341,9 +335,7 @@ return class.create(function(zipFile, _, ZipFile)
         offset = startOffset,
         size = size
       }
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('EndOfCentralDirectoryRecord: %s', require('jls.util.tables').stringify(eocdRecord, 2))
-      end
+      logger:finest('EndOfCentralDirectoryRecord: %t', eocdRecord)
       local rawEOCDR = ZipFile.STRUCT.EndOfCentralDirectoryRecord:toString(eocdRecord)
       self.fd:writeSync(rawEOCDR)
       self.offset = self.offset + size + ZipFile.STRUCT.EndOfCentralDirectoryRecord:getSize()
@@ -448,9 +440,7 @@ return class.create(function(zipFile, _, ZipFile)
       filenameLength = #name,
       extraFieldLength = #extra,
     }
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('localFileHeader: %s', require('jls.util.tables').stringify(localFileHeader, 2))
-    end
+    logger:finest('localFileHeader: %t', localFileHeader)
     entry:setOffset(self.offset)
     entry:setLocalFileHeader(localFileHeader)
     local rawLocalFileHeader = ZipFile.STRUCT.LocalFileHeader:toString(localFileHeader)
@@ -499,9 +489,7 @@ return class.create(function(zipFile, _, ZipFile)
     if localFileHeader.signature ~= ZipFile.CONSTANT.LOCAL_FILE_HEADER_SIGNATURE then
       return nil, 'Invalid zip file, Bad Local File Header signature'
     end
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('localFileHeader: %s', require('jls.util.tables').stringify(localFileHeader, 2))
-    end
+    logger:finest('localFileHeader: %t', localFileHeader)
     offset = offset + size + localFileHeader.filenameLength + localFileHeader.extraFieldLength
     return localFileHeader, offset
   end

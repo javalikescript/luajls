@@ -17,10 +17,10 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     if self.tcp then
       local status, ip, port = pcall(self.tcp.getpeername, self.tcp) -- unconnected udp fails
       if status and ip then
-        return string.format('%s; %s:%s', self.tcp, ip, port)
+        return string.format('tcpSocket: %p; %s:%s', self, ip, port)
       end
     end
-    return 'unbounded tcp socket'
+    return string.format('tcpSocket: %p; unbounded', self)
   end
 
   function tcpSocket:getLocalName()

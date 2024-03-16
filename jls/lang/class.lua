@@ -96,7 +96,7 @@ local function cloneInstance(instance)
 end
 
 --local function toString(instance)
---  return instance:toString()
+--  return string.format('%s: %p', getName(getClass(instance)) or 'table', instance)
 --end
 
 --[[--

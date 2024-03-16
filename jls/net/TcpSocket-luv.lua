@@ -63,10 +63,10 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     if self.tcp then
       local t = self.tcp:getpeername()
       if t then
-        return string.format('%s; %s:%s', self.tcp, t.ip, t.port)
+        return string.format('tcpSocket: %p; %s:%s', self, t.ip, t.port)
       end
     end
-    return 'unbounded tcp socket'
+    return string.format('tcpSocket: %p; unbounded', self)
   end
 
   --- Returns the local name of this TCP socket.

@@ -53,7 +53,7 @@ local function getDescription(location)
   end):next(function(body)
     logger:finest('received description: "%s"', body)
     local description = xml.decode(body)
-    --logger:fine('received description: "%s"', tables.stringify(description, 2))
+    --logger:fine('received description: "%t"', description)
     return description
   end):finally(function()
     client:close()
@@ -332,7 +332,7 @@ if config.protocol == 'SSDP' then
         logger:warn('receive error: "%s"', err)
         receiver:close()
       elseif data then
-        logger:fine('received data: "%s", addr: %s', data, tables.stringify(addr))
+        logger:fine('received data: "%s", addr: %t', data, addr)
         local request = HttpMessage:new()
         Http1.fromString(data, request)
         logger:fine('method: "%s"', request:getMethod())
@@ -382,9 +382,7 @@ elseif config.protocol == 'mDNS' then
           logger:fine('received data: (%d) %s', #data, hex:encode(data))
         end
         local _, message = pcall(dns.decodeMessage, data)
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('message: %s', tables.stringify(message, 2))
-        end
+        logger:fine('message: %t', message)
         if message.id == id then
           print(string.format('Received %s answers from %s', #message.answers, addr and addr.ip or '?'))
           printRRs(message.answers)
@@ -431,11 +429,11 @@ elseif config.protocol == 'mDNS' then
         receiver:close()
       elseif data then
         if logger:isLoggable(logger.FINE) then
-          logger:fine('received data: (%d) %s from %s', #data, hex:encode(data), tables.stringify(addr))
+          logger:fine('received data: (%d) %s from %t', #data, hex:encode(data), addr)
         end
         local _, message = pcall(dns.decodeMessage, data)
         if logger:isLoggable(logger.INFO) then
-          logger:info('message: %s', tables.stringify(message, 2))
+          logger:info('message: %t', message)
         end
       else
         logger:warn('receive no data')

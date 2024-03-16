@@ -23,7 +23,7 @@ local function assertAddressInfo(host, addr, family)
     end
   end
   if not found then
-    logger:error('getAddressInfo(%s) %s', host, tables.stringify(infos, 2))
+    logger:error('getAddressInfo(%s) %t', host, infos)
   end
   lu.assertTrue(found)
 end

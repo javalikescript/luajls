@@ -7,6 +7,8 @@ SET VERBOSE=no
 SET STDOUT=no
 SET QUIET=no
 SET JLS_REQUIRES=
+SET JLS_LOGGER_LEVEL=
+SET REPLAY_LOGGER_LEVEL=warn
 
 :args
 IF _%1==_ GOTO :main
@@ -18,6 +20,7 @@ IF %ARG%==-q SET QUIET=yes
 IF %ARG%==-a SET ALL=yes
 IF %ARG%==all SET ALL=yes
 IF %ARG%==-b SET BASE=yes
+IF %ARG%==-l SET JLS_LOGGER_LEVEL=finest
 IF %ARG%==base SET BASE=yes
 IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs,!llthreads,!win32,!winapi,!luachild
 IF %ARG%==noluv SET JLS_REQUIRES=!luv
@@ -26,7 +29,6 @@ IF %ARG%==none SET JLS_REQUIRES=!buffer,!cjson,!lfs,!socket,!llthreads,!lpeg,!lu
 GOTO :args
 
 :main
-SET JLS_LOGGER_LEVEL=
 SET LUA=lua54
 WHERE /Q %LUA%
 IF ERRORLEVEL 1 SET LUA=lua
@@ -60,6 +62,7 @@ CALL :runtests
 REM missing !zlib !openssl
 SET JLS_REQUIRES=!luv,!lxp,!cjson
 CALL :runtests
+SET JLS_LOGGER_LEVEL=finest
 SET JLS_REQUIRES=
 CALL :runtests
 GOTO :eof
@@ -102,8 +105,11 @@ IF %ERRLEV% NEQ 0 (
   ECHO /!\ test %TEST_FILE% in error
   IF NOT %STDOUT%==yes (
     IF NOT %QUIET%==yes (
+      SET CURRENT_LOGGER_LEVEL=%JLS_LOGGER_LEVEL%
+      SET JLS_LOGGER_LEVEL=%REPLAY_LOGGER_LEVEL%
       %LUA% tests\%TEST_DIR%\%TEST_FILE%
       ECHO.
+      SET JLS_LOGGER_LEVEL=%CURRENT_LOGGER_LEVEL%
     )
   )
 )

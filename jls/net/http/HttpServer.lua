@@ -396,7 +396,7 @@ local HttpServer = class.create(function(httpServer)
       end
       logger:finer('request headers %s processed', exchange)
       if logger:isLoggable(logger.FINEST) then
-        logger:finest(request:getRawHeaders())
+        logger:finest('headers are %s', request:getRawHeaders())
       end
       return Http1.readBody(client, request, remnantBuffer)
     end):next(function(remnantBuffer)

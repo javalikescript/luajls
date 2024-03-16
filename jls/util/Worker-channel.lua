@@ -26,13 +26,13 @@ local function newThreadChannel(fn, data, scheme)
     require('jls.util.Worker-channel').initializeWorkerThread(...)
     require('jls.lang.event'):loop()
   end)
-  logger:finer('workerServer:newThreadChannel()')
+  logger:finer('newThreadChannel()')
   local channelServer = Channel:new()
   local acceptPromise = channelServer:acceptAndClose()
   return channelServer:bind(nil, scheme):next(function()
     local channelName = channelServer:getName()
     thread:start(channelName, chunk, jsonData):ended():next(function()
-      logger:finer('workerServer thread ended')
+      logger:finer('thread ended')
     end)
     return acceptPromise
   end)
@@ -56,13 +56,13 @@ return class.create(function(worker, _, Worker)
       local data = jsonData and json.decode(jsonData) -- TODO protect
       local status, e = Exception.pcall(fn, Worker:new(nil, nil, nil, channel), data)
       if status then
-        logger:finer('Worker initialized')
+        logger:finer('initialized')
       else
-        local message = 'Worker initialization failure, "'..tostring(e)..'"'
-        logger:fine(message)
-        channel:writeMessage(message, MT_ERROR)
+        logger:fine('initialization failure, %s', e)
+        channel:writeMessage('Initialization failure, "'..tostring(e)..'"', MT_ERROR)
       end
     else
+      logger:fine('fail to load chunk, %s', err)
       channel:writeMessage('Unable to load chunk due to "'..tostring(err)..'"', MT_ERROR)
     end
   end
@@ -148,7 +148,7 @@ return class.create(function(worker, _, Worker)
 
   function worker:postMessage(message)
     if self.pendingMessages then
-      logger:finer('worker:postMessage() add to pending messages')
+      logger:finer('postMessage() add to pending messages')
       table.insert(self.pendingMessages, message)
       if not self.postMessagePromise then
         self.postMessagePromise, self.postMessageCallback = Promise.createWithCallback()
@@ -159,7 +159,7 @@ return class.create(function(worker, _, Worker)
   end
 
   function worker:onMessage(message)
-    logger:finer('worker:onMessage() not overriden')
+    logger:finer('onMessage() not overriden')
   end
 
   function worker:close()
