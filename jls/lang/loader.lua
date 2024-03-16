@@ -319,6 +319,37 @@ local function load(name, path, try, asRequire)
   error(err)
 end
 
+--- Loads a resource.
+-- A resource is data accessible in the Lua path or in the table `package.resource`.
+-- If no resource is found, or if there is any error loading the resource, then an error is raised.
+-- If `package.resource[name]` returns a function, then it is called to get the resource with the name as parameter.
+-- @tparam string name the name of the resource to load using slash as separator, for example "a/b.json"
+-- @treturn string the resource
+-- @function loadResource
+local function loadResource(name)
+  logger:fine('loadResource("%s")', name)
+  if type(package.resource) == 'table' then
+    local r = package.resource[name]
+    if type(r) == 'function' then
+      r = r(name)
+    end
+    if type(r) == 'string' then
+      return r
+    end
+  end
+  local n, e = string.match(name, '^/?(.+)(%.[^/%.]*)$')
+  if not n then
+    n, e = name, ''
+  end
+  local nn = string.gsub(n, '/', '.')
+  local ep = string.gsub(package.path, '%.lua', e)
+  local p = assert(package.searchpath(nn, ep))
+  local fd = assert(io.open(p, 'rb'))
+  local r = fd:read('*a')
+  fd:close()
+  return r
+end
+
 local function appendLuaPath(name)
   if not string.find(package.path, name) then
     package.path = package.path..';'..name
@@ -350,6 +381,7 @@ return {
   unload = unload,
   unloadAll = unloadAll,
   load = load,
+  loadResource = loadResource,
   appendLuaPath = appendLuaPath,
   resetLuaPath = resetLuaPath,
 }

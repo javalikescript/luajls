@@ -9,6 +9,7 @@ local UNKNOWN_MODULE_NAME = 'not_mod_test'
 TestLoader = {}
 
 function TestLoader:setUp()
+  package.resource = nil
   loader.appendLuaPath('tests/?.lua')
   loader.unload(TEST_MODULE_NAME)
   loader.unload(TEST_2_MODULE_NAME)
@@ -79,6 +80,16 @@ function TestLoader:test_lazyFunction()
   lu.assertIs(f(), mr)
   lu.assertEquals(fc, 2)
   lu.assertEquals(pfc, 1)
+end
+
+function TestLoader:test_loadResource()
+  lu.assertEquals(loader.loadResource('res_test.txt'), 'Resource content')
+  lu.assertEquals(loader.loadResource('tests/res_test.txt'), 'Resource content')
+  package.resource = {a = 'a content', b = function(n) return 'b:'..n end, ['res_test.txt'] = 'c'}
+  lu.assertEquals(loader.loadResource('a'), 'a content')
+  lu.assertEquals(loader.loadResource('b'), 'b:b')
+  lu.assertEquals(loader.loadResource('res_test.txt'), 'c')
+  package.resource = nil
 end
 
 os.exit(lu.LuaUnit.run())
