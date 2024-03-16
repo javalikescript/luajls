@@ -82,6 +82,9 @@ end
 
 local os_date = os.date
 local os_time = os.time
+local string_format = string.format
+local string_find = string.find
+local string_byte = string.byte
 local LOG_FILE = io.stderr
 local LEVEL_LEN = 6
 local NAME_LEN = 20
@@ -93,61 +96,67 @@ end
 local LOG_FORMAT = '%s %'..NAME_LEN..'.'..NAME_LEN..'s %-'..LEVEL_LEN..'s %s'..LOG_EOL
 
 local function defaultLogRecorder(logger, time, level, message)
-  LOG_FILE:write(string.format(LOG_FORMAT, os_date('%Y-%m-%dT%H:%M:%S', time), logger.sname, LEVEL_NAMES[level], message))
+  LOG_FILE:write(string_format(LOG_FORMAT, os_date('%Y-%m-%dT%H:%M:%S', time), logger.sname, LEVEL_NAMES[level], message))
   LOG_FILE:flush()
 end
 local LOG_RECORD = defaultLogRecorder
 
-local function dumpToList(l, v, name, maxLevel, prefix, indent, level)
-  local tv = type(v)
-  local pn = prefix..name..' (' .. tv .. ')'
-  -- There are eight basic types in Lua: nil, boolean, number, string, userdata, function, thread, and table.
-  if tv == 'string' then
-    table.insert(l, pn..': "'..v..'"')
-  elseif tv == 'table' then
-    local empty = next(v) == nil
-    if empty then
-      table.insert(l, pn..': empty')
-    else
-      table.insert(l, pn..':')
-      if level < maxLevel then
-        for k in pairs(v) do
-          dumpToList(l, v[k], '['..k..']', maxLevel, prefix..indent, indent, level + 1)
-        end
-      else
-        table.insert(l, prefix..indent..'...')
-      end
-    end
-  else
-    table.insert(l, pn..': '..tostring(v))
-    local mt = getmetatable(v)
-    if mt then
-      dumpToList(l, mt, 'metatable', maxLevel, prefix..indent, indent, level + 1)
+local format_t = tostring
+do
+  local status, tables = pcall(require, 'jls.util.tables')
+  if status then
+    local stringify = tables.stringify
+    format_t = function(value, up)
+      return stringify(value, up and 2 or nil, true)
     end
   end
 end
 
-local function dumpToString(v, name, maxLevel, prefix, indent, level)
-  local l =  {}
-  dumpToList(l, v, name, maxLevel, prefix, indent, level)
-  return table.concat(l, LOG_EOL)
+local function ctoh(c)
+  return string_format('%02x', string_byte(c))
+end
+local function ctoH(c)
+  return string_format('%02X', string_byte(c))
 end
 
 local function log(logger, level, message, ...)
-  if type(message) == 'string' and string.find(message, '%', 1, true) and select('#', ...) > 0 then
-    message = string.format(message, ...)
-  else
-    local args = table.pack(message, ...)
-    local l =  {}
-    for i = 1, args.n do
-      local v = args[i]
-      if type(v) == 'string' then
-        table.insert(l, v)
+  local n = select('#', ...)
+  if type(message) == 'string' then
+    if n > 0 and string_find(message, '%', 1, true) then
+      if string_find(message, '%%[tTxX]') then
+        local args = {...}
+        local i = 0
+        message = string.gsub(message, '%%(.)', function(s)
+          if s == '%' then
+            return '%%'
+          end
+          if i < n then
+            i = i + 1
+            if s == 't' or s == 'T' then
+              args[i] = format_t(args[i], s == 'T')
+              return '%s'
+            elseif s == 'x' or s == 'X' then
+              local v = args[i]
+              if type(v) == 'string' then
+                args[i] = string.gsub(v, '.', s == 'X' and ctoH or ctoh)
+                return '%s'
+              end
+            end
+          end
+          return '%'..s
+        end)
+        message = string_format(message, table.unpack(args, 1, i))
       else
-        dumpToList(l, v, '#'..tostring(i), 5, '', '  ', 0)
+        message = string_format(message, ...)
       end
     end
-    message = table.concat(l, LOG_EOL)
+  else
+    local args = {message, ...}
+    local l =  {}
+    for i = 1, n + 1 do
+      table.insert(l, format_t(args[i], true))
+    end
+    message = table.concat(l, ' ')
   end
   LOG_RECORD(logger, os_time(), level, message)
 end
@@ -171,7 +180,7 @@ local function getLevelByName(levels, name)
   local level
   if levels and name then
     for _, li in ipairs(levels) do
-      if string.find(name, li.pattern) then
+      if string_find(name, li.pattern) then
         level = li.level
       end
     end
