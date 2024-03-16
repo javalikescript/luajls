@@ -296,7 +296,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       else
         logger:finer('ssl:read() fail due to "%s"', op)
         if plainData == nil then
-          stream:onError('SSL error "%s"', op)
+          stream:onError('SSL error "'..tostring(op)..'"')
         elseif op == 0 then
           --self:close()
           stream:onError('SSL connection closed')
