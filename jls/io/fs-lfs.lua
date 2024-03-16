@@ -14,17 +14,18 @@ return {
     return os.rename(path, newPath)
   end,
   copyfile = function(path, newPath)
-    local fd = io.open(path, 'rb')
+    local fd, err = io.open(path, 'rb')
     if not fd then
-      return nil, 'File not found'
+      return nil, err
     end
-    local data = fd:read('a')
+    local data = fd:read('*a')
     fd:close()
-    fd = io.open(newPath, 'wb')
-    if fd then
-      fd:write(data)
-      fd:close()
+    fd, err = io.open(newPath, 'wb')
+    if not fd then
+      return nil, err
     end
+    fd:write(data)
+    fd:close()
   end,
   dir = lfsLib.dir
 }
