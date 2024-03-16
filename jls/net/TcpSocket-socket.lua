@@ -28,7 +28,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:getRemoteName()
-    return self.tcp:getPeerName()
+    return self.tcp:getpeername()
   end
 
   function tcpSocket:isClosed()
