@@ -101,15 +101,19 @@ local function defaultLogRecorder(logger, time, level, message)
 end
 local LOG_RECORD = defaultLogRecorder
 
-local format_t = tostring
-do
+local format_t
+-- lazy loading tables on first call
+format_t = function(...)
   local status, tables = pcall(require, 'jls.util.tables')
   if status then
     local stringify = tables.stringify
     format_t = function(value, up)
       return stringify(value, up and 2 or nil, true)
     end
+  else
+    format_t = tostring
   end
+  return format_t(...)
 end
 
 local function ctoh(c)
