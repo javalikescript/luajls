@@ -233,7 +233,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     while self.outMem:pending() > 0 do
       table.insert(chunks, self.outMem:read())
     end
-    logger:finer('sslFlush() #chunks is %d', #chunks)
+    logger:finer('sslFlush() %l chunks', chunks)
     if #chunks > 0 then
       return super.write(self, chunks, callback)
     end
@@ -283,7 +283,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     while self.sslReading and (self.inMem:pending() > 0 or self.ssl:pending() > 0) do
       local plainData, op = self.ssl:read()
       if plainData then
-        logger:finer('ssl:read() => #%d', #plainData)
+        logger:finer('ssl:read() => #%l', plainData)
         logger:finest('ssl:read() => "%s"', plainData)
         --[[if data then
           data = data..plainData
@@ -326,7 +326,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       end
     end
     super.readStart(self, StreamHandler:new(function(_, cipherData)
-      logger:fine('onData(%s)', cipherData and #cipherData)
+      logger:fine('onData(%l)', cipherData)
       if cipherData then
         if self.inMem:write(cipherData) then
           self:sslDoHandshake(resolutionCallback)
@@ -368,7 +368,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       end
     end
     local sslStream = StreamHandler:new(function(_, cipherData)
-      logger:finer('onData(#%s)', cipherData and #cipherData)
+      logger:finer('onData(#%l)', cipherData)
       if cipherData then
         if self.inMem:write(cipherData) then
           self:sslRead(str)
@@ -413,7 +413,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:write(data, callback)
-    logger:finer('write(#%s)', data and #data)
+    logger:finer('write(#%l)', data)
     logger:finest('write(%s)', data)
     if type(data) ~= 'string' then
       if type(data) ~= 'table' then

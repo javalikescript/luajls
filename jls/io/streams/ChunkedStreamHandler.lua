@@ -71,7 +71,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function chunkedStreamHandler:onData(data)
-    logger:finer('onData(#%s)', data and #data)
+    logger:finer('onData(#%l)', data)
     logger:finest('onData("%s")', data)
     if data then
       local length = string.len(data)

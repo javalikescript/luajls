@@ -15,7 +15,7 @@ local function createChunkFinder()
   local needChunkSize = true
   local chunkSize
   return function(self, buffer, length)
-    logger:finer('chunkFinder(#%d, %s) chunk size: %s, needChunkSize: %s', #buffer, length, chunkSize, needChunkSize)
+    logger:finer('chunkFinder(#%l, %s) chunk size: %s, needChunkSize: %s', buffer, length, chunkSize, needChunkSize)
     if needChunkSize then
       local ib, ie = string.find(buffer, '\r\n', 1, true)
       if ib and ib > 1 and ib < 32 then

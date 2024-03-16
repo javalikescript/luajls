@@ -397,7 +397,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
     elseif packetType == CONTROL_PACKET_TYPE.SUBACK then
       local packetId = decodeUInt16(data, offset)
       local returnCodes = table.pack(string.byte(data, offset + 2, len))
-      logger:finer('subscribed(%s, #%s)', packetId, #returnCodes)
+      logger:finer('subscribed(%s, #%l)', packetId, returnCodes)
       self:onPacketId(packetId, nil, returnCodes)
     elseif packetType == CONTROL_PACKET_TYPE.UNSUBACK then
       local packetId = decodeUInt16(data, offset)

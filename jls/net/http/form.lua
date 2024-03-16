@@ -56,7 +56,7 @@ function form.parseFormData(body, boundary)
   local contents = strings.split(body, '--'..boundary, true)
   if contents[#contents] == '--\r\n' then
     table.remove(contents)
-    logger:fine('contents count is %s', #contents)
+    logger:fine('contents count is %l', contents)
     for _, content in ipairs(contents) do
       logger:finest('processing content "%s"', content)
       local message = HttpMessage:new()

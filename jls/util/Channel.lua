@@ -259,7 +259,7 @@ return class.create(function(channel, _, Channel)
     end
     local buffer = ''
     return self.stream:readStart(function(err, data)
-      logger:finest('[%s] read "%s", #%s', self, err, data and #data)
+      logger:finest('[%s] read "%s", #%l', self, err, data)
       if err then
       elseif data then
         buffer = buffer..data

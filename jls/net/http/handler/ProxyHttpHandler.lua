@@ -246,7 +246,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       return client:receiveResponseHeaders()
     end):next(function(remainingBuffer)
       local clientResponse = client:getResponse()
-      logger:fine('client status code is %d, remaining buffer #%d', clientResponse:getStatusCode(), remainingBuffer and #remainingBuffer or 0)
+      logger:fine('client status code is %d, remaining buffer #%l', clientResponse:getStatusCode(), remainingBuffer)
       response:setStatusCode(clientResponse:getStatusCode())
       local respHdrs = HttpHeaders:new()
       respHdrs:addHeadersTable(clientResponse:getHeadersTable())

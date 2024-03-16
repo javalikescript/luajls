@@ -139,7 +139,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
       if err then
         return cb(err)
       end
-      logger:finer('connect() %s:%s => #%s', addr, port, #res)
+      logger:finer('connect() %s:%s => #%l', addr, port, res)
       local ccb, i = nil, 0
       -- try to connect to each translated/resolved address using the first succesful one
       ccb = function(connectErr)
@@ -277,7 +277,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
         logger:fine('getaddrinfo %s:%s in error, %s', node, port, err)
         return cb(err)
       end
-      logger:finer('getaddrinfo %s:%s => #%d', node, port, #res)
+      logger:finer('getaddrinfo %s:%s => #%l', node, port, res)
       local ai = res[1]
       local bindErr
       local p = port or ai.port or 0

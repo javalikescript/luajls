@@ -76,7 +76,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
   end
 
   function headerStreamHandler:read(stream, buffer)
-    logger:finer('read(?, #%s)', buffer and #buffer)
+    logger:finer('read(?, #%l)', buffer)
     if self.onCompleted then
       error('Read in progress')
     end

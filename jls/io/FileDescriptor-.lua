@@ -135,9 +135,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
       self.fd:seek('set', offset)
     end
     if type(data) == 'string' then
-      if logger:isLoggable(logger.DEBUG) then
-        logger:debug('writing #%d', #data)
-      end
+      logger:debug('writing #%l', data)
       local status, err = self.fd:write(data)
       if not status then
         return status, err

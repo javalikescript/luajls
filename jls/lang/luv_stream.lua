@@ -41,7 +41,7 @@ return {
     return status, err
   end,
   write = function(stream, data, callback)
-    logger:finest('write(%s, %s)', stream, data and #data)
+    logger:finest('write(%s, %l)', stream, data)
     local cb, d = Promise.ensureCallback(callback)
     local req, err
     if stream then

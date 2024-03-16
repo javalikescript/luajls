@@ -34,7 +34,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function blockStreamHandler:onData(data)
-    logger:finer('onData(#%s)', data and #data)
+    logger:finer('onData(#%l)', data)
     if data then
       self.buffer:append(data)
       local len = self.buffer:length()

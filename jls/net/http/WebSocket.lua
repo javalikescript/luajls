@@ -447,7 +447,7 @@ return class.create(function(webSocket)
   end
 
   function webSocket:onReadFrame(fin, opcode, payload, rsv)
-    logger:finer('onReadFrame(%s, %s, %s, %s)', fin, opcode, #payload, rsv)
+    logger:finer('onReadFrame(%s, %s, %l, %s)', fin, opcode, payload, rsv)
     local appData = self:handleExtension(fin, opcode, payload, rsv)
     if not appData then
       self:raiseError('unsupported extension, '..tostring(rsv))

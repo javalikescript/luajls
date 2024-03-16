@@ -135,7 +135,7 @@ return class.create(function(worker, _, Worker)
     if not messages then
       return
     end
-    logger:finer('worker post %d pending messages', #messages)
+    logger:finer('worker post %l pending messages', messages)
     local promises = {}
     for _, message in ipairs(messages) do
       local p = self:postMessage(message)

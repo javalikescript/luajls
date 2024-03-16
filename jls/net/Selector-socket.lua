@@ -147,7 +147,7 @@ return require('jls.lang.class').create(function(selector)
     local context = self.contt[socket]
     if context and context.mode & MODE_SEND == MODE_SEND then
       if logger:isLoggable(logger.FINE) then
-        logger:fine('close() defer to select, writet: #%s', #context.writet)
+        logger:fine('close() defer to select, writet: #%l', context.writet)
         if logger:isLoggable(logger.FINER) and #context.writet > 0 and not socket.sendto then
           local wf = context.writet[1]
           logger:finer('to send %s/%s buffer: "%s"', wf.position, wf.length, wf.buffer)
@@ -169,9 +169,7 @@ return require('jls.lang.class').create(function(selector)
   end
 
   function selector:select(timeout)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('select(%ss) recvt: %s sendt: %s', timeout, #self.recvt, #self.sendt)
-    end
+    logger:finer('select(%ss) recvt: %l sendt: %l', timeout, self.recvt, self.sendt)
     local canrecvt, cansendt, selectErr = luaSocketLib.select(self.recvt, self.sendt, timeout)
     if selectErr then
       logger:finer('select error "%s"', selectErr)
@@ -180,9 +178,7 @@ return require('jls.lang.class').create(function(selector)
       end
       return nil, selectErr
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('canrecvt: %s cansendt: %s', #canrecvt, #cansendt)
-    end
+    logger:finer('canrecvt: %l cansendt: %l', canrecvt, cansendt)
     -- process canrecvt sockets
     for _, socket in ipairs(canrecvt) do
       local context = self.contt[socket]
@@ -205,9 +201,7 @@ return require('jls.lang.class').create(function(selector)
           if content then
             context.streamHandler:onData(content, addr)
           elseif recvErr then
-            if logger:isLoggable(logger.FINE) then
-              logger:fine('receive error: "%s", content #%s", partial #%s', recvErr, content and #content, partial and #partial)
-            end
+            logger:fine('receive error: "%s", content #%l", partial #%l', recvErr, content, partial)
             if partial and #partial > 0 then
               context.streamHandler:onData(partial)
             else

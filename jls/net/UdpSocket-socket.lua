@@ -107,7 +107,7 @@ return require('jls.lang.class').create(function(udpSocket)
   end
 
   function udpSocket:send(data, addr, port, callback)
-    logger:finer('send(%s)', data and #data)
+    logger:finer('send(%l)', data)
     local cb, d = Promise.ensureCallback(callback)
     self:create(addr)
     if self.nds then

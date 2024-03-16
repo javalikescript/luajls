@@ -63,7 +63,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:write(data, callback)
-    logger:finer('write(%s)', data and #data)
+    logger:finer('write(%l)', data)
     local cb, d = Promise.ensureCallback(callback)
     local req, err
     if self.tcp then

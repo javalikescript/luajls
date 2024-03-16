@@ -581,7 +581,7 @@ return class.create(function(httpClient)
   end
 
   function httpClient:receiveResponseBody(buffer)
-    logger:finest('receiveResponseBody(%s)', buffer and #buffer)
+    logger:finest('receiveResponseBody(%l)', buffer)
     local connection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
     local connectionClose
     if connection then

@@ -100,9 +100,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
   end
 
   function coroutineScheduler:runOnce(noWait)
-    if logger:isLoggable(logger.FINEST) then
-      logger:finest('runOnce(%s) #%d', noWait, #self.schedules)
-    end
+    logger:finest('runOnce(%s) #%l', noWait, self.schedules)
     local startTime = sysLib.timems()
     local currentTime = startTime
     local nextTime = startTime + self.maxSleep

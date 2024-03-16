@@ -379,7 +379,7 @@ local Scheduler = class.create(function(scheduler)
     if not from then
       from = plusMilliseconds(to, -1)
     end
-    logger:finest('runBetween(%s, %s) #%d', from, to, #self.schedules)
+    logger:finest('runBetween(%s, %s) #%l', from, to, self.schedules)
     local nearest
     for _, t in ipairs(self.schedules) do
       local date = from

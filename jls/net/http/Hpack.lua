@@ -731,7 +731,7 @@ return class.create(function(hpack)
       end
       logger:finer('decoded header (0x%02x) "%s" = "%s"', b, name, value)
     end
-    logger:fine('decoded headers, indexes %d %d', #self.indexes, self.indexSize)
+    logger:fine('decoded headers, indexes %l %d', self.indexes, self.indexSize)
     return offset
   end
 
@@ -787,7 +787,7 @@ return class.create(function(hpack)
         end
       end
     end
-    logger:fine('encoded headers, indexes %d %d', #self.indexes, self.indexSize)
+    logger:fine('encoded headers, indexes %l %d', self.indexes, self.indexSize)
     --logger:finest('headers: %s', hex:encode(table.concat(parts)))
     return table.concat(parts)
   end
