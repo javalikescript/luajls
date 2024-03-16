@@ -127,7 +127,7 @@ local function log(logger, level, message, ...)
   local n = select('#', ...)
   if type(message) == 'string' then
     if n > 0 and string_find(message, '%', 1, true) then
-      if string_find(message, '%%[tTxX]') then
+      if string_find(message, '%%[ltTxX]') then -- cdiuoxXaAfeEgGpqs
         local args = {...}
         local i = 0
         message = string.gsub(message, '%%(.)', function(s)
@@ -139,10 +139,21 @@ local function log(logger, level, message, ...)
             if s == 't' or s == 'T' then
               args[i] = format_t(args[i], s == 'T')
               return '%s'
+            elseif s == 'l' then
+              local v = args[i]
+              if type(v) == 'string' or type(v) == 'table' then
+                args[i] = #v
+              else
+                args[i] = type(v)
+              end
+              return '%s'
             elseif s == 'x' or s == 'X' then
               local v = args[i]
               if type(v) == 'string' then
                 args[i] = string.gsub(v, '.', s == 'X' and ctoH or ctoh)
+                return '%s'
+              elseif v == nil then
+                args[i] = 'nil'
                 return '%s'
               end
             end
@@ -277,7 +288,10 @@ local Logger = require('jls.lang.class').create(function(logger)
   end
 
   --- Logs the specified message with the specified level.
-  -- When message is a string then additional arguments are formatted using string.format
+  -- When the message is a string then additional arguments are formatted using `string.format`.
+  -- The specifier `t` or `T` stringifies the table argument.
+  -- The specifier `l` formats a string or a table argument to its size.
+  -- The specifier `x` or `X` formats a string argument to hexadecimal.
   -- @param level The log level.
   -- @param message The log message.
   function logger:log(level, message, ...)
