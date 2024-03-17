@@ -38,6 +38,7 @@ function dns.getInterfaceAddresses(family)
   family = family or 'inet'
   local ips = {}
   local addresses = lib.interface_addresses()
+  logger:fine('interface_addresses() => %t', addresses)
   -- eth0 Ethernet Wi-Fi
   for name, addresse in pairs(addresses) do
     for _, info in ipairs(addresse) do

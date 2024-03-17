@@ -78,6 +78,10 @@ local CONFIG_SCHEMA = {
       default = 'client',
       enum = {'client', 'server'}
     },
+    address = {
+      title = 'The IP address to bind the sender',
+      type = 'string'
+    },
     mdns = {
       title = 'Multicast DNS',
       type = 'object',
@@ -195,6 +199,14 @@ local config = tables.createArgumentTable(system.getArguments(), {
 
 logger:setLevel(config['log-level'])
 
+local addresses
+if config.address then
+  addresses = {config.address}
+else
+  addresses = dns.getInterfaceAddresses()
+  logger:info('Interface addresses: %t', addresses)
+end
+
 if config.protocol == 'SSDP' then
   local ssdpAddress = config.ssdp.address
   local ssdpPort = config.ssdp.port
@@ -212,8 +224,7 @@ if config.protocol == 'SSDP' then
     request:setHeader('MX', tostring(searchTimeout))
     local locations = {}
     local presentations = {}
-    local sender = UdpSocket:new()
-    sender:receiveStart(function(err, data)
+    local function onReceived(err, data)
       if data then
         logger:fine('received data: "%s"', data)
         local response = HttpMessage:new()
@@ -241,24 +252,30 @@ if config.protocol == 'SSDP' then
       elseif err then
         print('receive error', err)
       else
-        print('receive no data')
+        logger:fine('receive no data')
       end
-    end)
-    local data = Http1.toString(request)
-    local timer
-    local start = system.currentTime()
-    timer = event:setInterval(function()
-      local duration = system.currentTime() - start
-      if duration > config.timeout then
-        event:clearInterval(timer)
-        sender:close()
-      elseif duration % 30 < maxTimeout then
-        logger:info('sending...')
-        sender:send(data, ssdpAddress, ssdpPort):catch(function(reason)
-          print('error while sending', reason)
-        end)
-      end
-    end, 1000)
+    end
+    for _, address in ipairs(addresses) do
+      local sender = UdpSocket:new()
+      sender:bind(address, 0)
+      logger:fine('sender bound to %s', address)
+      sender:receiveStart(onReceived)
+      local data = Http1.toString(request)
+      local timer
+      local start = system.currentTime()
+      timer = event:setInterval(function()
+        local duration = system.currentTime() - start
+        if duration > config.timeout then
+          event:clearInterval(timer)
+          sender:close()
+        elseif duration % 30 < maxTimeout then
+          logger:info('sending...')
+          sender:send(data, ssdpAddress, ssdpPort):catch(function(reason)
+            print('error while sending', reason)
+          end)
+        end
+      end, 1000)
+    end
   elseif config.mode == 'server' then
     local descriptionLocation = config.description
     if not descriptionLocation then
@@ -326,6 +343,7 @@ if config.protocol == 'SSDP' then
 
     local receiver = UdpSocket:new()
     receiver:bind('0.0.0.0', ssdpPort, {reuseaddr = true})
+    logger:fine('receiver is %s', receiver)
     receiver:joinGroup(ssdpAddress, '0.0.0.0')
     receiver:receiveStart(function(err, data, addr)
       if err then
@@ -375,12 +393,9 @@ elseif config.protocol == 'mDNS' then
     end
   end
   if config.mode == 'client' then
-    local sender = UdpSocket:new()
-    sender:receiveStart(function(err, data, addr)
+    local function onReceived(err, data, addr)
       if data then
-        if logger:isLoggable(logger.FINE) then
-          logger:fine('received data: (%d) %s', #data, hex:encode(data))
-        end
+        logger:fine('received data: (%l) %x %t', #data, data, addr)
         local _, message = pcall(dns.decodeMessage, data)
         logger:fine('message: %t', message)
         if message.id == id then
@@ -396,7 +411,7 @@ elseif config.protocol == 'mDNS' then
       else
         print('receive no data')
       end
-    end)
+    end
     print(string.format('Sending mDNS question name "%s" type %s with id %d', config.mdns.name, config.mdns.type, id))
     local message = {
       id = id,
@@ -411,14 +426,20 @@ elseif config.protocol == 'mDNS' then
     if logger:isLoggable(logger.FINE) then
       logger:fine('sending data: (%d) %s', #data, hex:encode(data))
     end
-    sender:send(data, mdnsAddress, mdnsPort):next(function()
-      event:setTimeout(function()
+    for _, address in ipairs(addresses) do
+      local sender = UdpSocket:new()
+      sender:bind(address, 0)
+      logger:fine('sender bound to %s', address)
+      sender:receiveStart(onReceived)
+      sender:send(data, mdnsAddress, mdnsPort):next(function()
+        event:setTimeout(function()
+          sender:close()
+        end, config.timeout * 1000 + 500)
+      end, function(reason)
+        print('error while sending', reason)
         sender:close()
-      end, config.timeout * 1000 + 500)
-    end, function(reason)
-      print('error while sending', reason)
-      sender:close()
-    end)
+      end)
+    end
   elseif config.mode == 'server' then
     local receiver = UdpSocket:new()
     receiver:bind('0.0.0.0', mdnsPort, {reuseaddr = true})
