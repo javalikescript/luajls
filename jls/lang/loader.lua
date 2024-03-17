@@ -324,9 +324,10 @@ end
 -- If no resource is found, or if there is any error loading the resource, then an error is raised.
 -- If `package.resource[name]` returns a function, then it is called to get the resource with the name as parameter.
 -- @tparam string name the name of the resource to load using slash as separator, for example "a/b.json"
+-- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @treturn string the resource
 -- @function loadResource
-local function loadResource(name)
+local function loadResource(name, try)
   logger:fine('loadResource("%s")', name)
   if type(package.resource) == 'table' then
     local r = package.resource[name]
@@ -342,11 +343,20 @@ local function loadResource(name)
     n, e = name, ''
   end
   local ep = string.gsub(package.path, '%.lua', e)
-  local p = assert(package.searchpath(n, ep, '/'))
-  local fd = assert(io.open(p, 'rb'))
-  local r = fd:read('*a')
-  fd:close()
-  return r
+  local p, err = package.searchpath(n, ep, '/')
+  if p then
+    local fd
+    fd, err = io.open(p, 'rb')
+    if fd then
+      local r = fd:read('*a')
+      fd:close()
+      return r
+    end
+  end
+  if try then
+    return nil, err
+  end
+  error(err)
 end
 
 local function appendLuaPath(name)

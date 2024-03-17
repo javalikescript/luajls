@@ -29,8 +29,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(res
     if path == '' or string.sub(path, -1) == '/' then
       path = path..self.defaultFile
     end
-    local status, resource = pcall(loader.loadResource, self.prefix..path)
-    if status then
+    local resource = loader.loadResource(self.prefix..path, true)
+    if resource then
       response:setStatusCode(HTTP_CONST.HTTP_OK, 'OK')
       response:setContentType(FileHttpHandler.guessContentType(path))
       response:setCacheControl(true)

@@ -90,6 +90,8 @@ function TestLoader:test_loadResource()
   lu.assertEquals(loader.loadResource('b'), 'b:b')
   lu.assertEquals(loader.loadResource('res_test.txt'), 'c')
   package.resource = nil
+  lu.assertNil(loader.loadResource('a', true))
+  lu.assertFalse(pcall(loader.loadResource, 'a'))
 end
 
 os.exit(lu.LuaUnit.run())
