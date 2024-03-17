@@ -74,10 +74,8 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   -- @function FileHttpHandler:new
   function fileHttpHandler:initialize(rootFile, permissions, filename)
     self.rootFile = File.asFile(rootFile)
-    if filename then
-      if type(filename) == 'string' and filename ~= '' then
-        self.defaultFile = filename
-      end
+    if type(filename) == 'string' and filename ~= '' then
+      self.defaultFile = filename
     else
       self.defaultFile = 'index.html'
     end
