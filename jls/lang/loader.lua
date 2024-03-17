@@ -341,9 +341,8 @@ local function loadResource(name)
   if not n then
     n, e = name, ''
   end
-  local nn = string.gsub(n, '/', '.')
   local ep = string.gsub(package.path, '%.lua', e)
-  local p = assert(package.searchpath(nn, ep))
+  local p = assert(package.searchpath(n, ep, '/'))
   local fd = assert(io.open(p, 'rb'))
   local r = fd:read('*a')
   fd:close()
