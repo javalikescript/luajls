@@ -165,7 +165,7 @@ end, function(WebView)
     end)
     event:loop() -- wait for connection
     if not channel then
-      error('Unable to connect WebView thread on "%s"', channelName)
+      error('Unable to connect WebView thread on "'..tostring(channelName)..'"')
     end
     local webview = class.makeInstance(WebView)
     webview._channel = channel
@@ -239,7 +239,7 @@ end, function(WebView)
     end)
     event:loop() -- wait for connection
     if not channel then
-      error('Unable to connect WebView thread on "%s"', channelName)
+      error('Unable to connect WebView thread on "'..tostring(channelName)..'"')
     end
     webviewLib.callback(wv, function(message)
       channel:writeMessage(message, nil, false)

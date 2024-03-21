@@ -48,7 +48,7 @@ return class.create(function(worker, _, Worker)
     end)
     event:loop() -- wait for connection
     if not channel then
-      error('Unable to connect thread channel "%s"', channelName)
+      error('Unable to connect thread channel "'..tostring(channelName)..'"')
     end
     logger:finer('Thread channel "%s" connected', channelName)
     local fn, err = load(chunk, nil, 'b')
