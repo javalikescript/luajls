@@ -164,4 +164,11 @@ function Tests:test_applyConfig()
   reset()
 end
 
+function Tests:test_getConfig()
+  local l = Logger:new()
+  lu.assertNil(l:getConfig())
+  l:applyConfig('info;a.b=fine')
+  lu.assertEquals(l:getConfig(), '.*:INFO,a.b:FINE')
+end
+
 os.exit(lu.LuaUnit.run())

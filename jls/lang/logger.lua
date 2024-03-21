@@ -404,6 +404,17 @@ local Logger = require('jls.lang.class').create(function(logger)
     end
   end
 
+  function logger:getConfig()
+    if not self.levels then
+      return nil
+    end
+    local configs = {}
+    for _, li in ipairs(self.levels) do
+      table.insert(configs, li.pattern..':'..levelToString(li.level))
+    end
+    return table.concat(configs, ',')
+  end
+
   -- shortcuts
   for k, v in pairs(LEVEL) do
     logger[k] = v
