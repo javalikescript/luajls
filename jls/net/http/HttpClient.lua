@@ -128,6 +128,26 @@ return class.create(function(httpClient)
     end
   end
 
+  function httpClient:getUrl()
+    local url = 'http'
+    if self.isSecure then
+      url = url..'s'
+    end
+    url = url..'://'
+    if self.host then
+      url = url..self.host
+    else
+      url = url..'localhost'
+    end
+    if self.port then
+      url = url..self.port
+    end
+    if self.file then
+      url = url..self.file
+    end
+  return url
+  end
+
   function httpClient:getTcpClient()
     return self.tcpClient
   end

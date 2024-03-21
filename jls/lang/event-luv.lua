@@ -13,7 +13,7 @@ return class.create(function(event)
     local args = table.pack(...)
     local timer = luvLib.new_timer()
     timer:start(timeoutMs, repeatMs, function()
-      if not repeatMs or repeatMs <= 0 then
+      if repeatMs <= 0 then
         timer:close()
       end
       local status, err = Exception.pcall(callback, table.unpack(args, 1, args.n))
