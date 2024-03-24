@@ -139,4 +139,8 @@ function Test_stringify_parse()
   lu.assertEquals(json.stringify(json.parse(s)), s)
 end
 
+function Test_require()
+  lu.assertEquals(json.require('tests/res_test.json'), {a = 'Hi', b = 1})
+end
+
 os.exit(lu.LuaUnit.run())

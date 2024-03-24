@@ -2,10 +2,11 @@
 -- @module jls.util.json
 -- @pragma nostrip
 
-local jsonLib = require('jls.lang.loader').requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
+local loader = require('jls.lang.loader')
+local jsonLib = loader.requireOne('jls.util.json-cjson', 'jls.util.json-dkjson', 'jls.util.json-lunajson')
 local StringBuffer = require('jls.lang.StringBuffer')
 local List = require('jls.util.List')
-local Map = require("jls.util.Map")
+local Map = require('jls.util.Map')
 
 local json = {
   decode = jsonLib.decode,
@@ -168,16 +169,11 @@ function json.stringify(value, space, lenient)
 end
 
 --- Loads the JSON resource for the specified name.
--- See Lua require and package.searchpath.
+-- See @{jls.lang.loader|loader} loadResource function.
 -- @tparam string name the JSON name.
--- @tparam[opt] string path the search path, defaults to package.path.
 -- @return the JSON value.
-function json.require(name, path)
-  local File = require('jls.io.File')
-  local jsonpath = path or string.gsub(package.path, '%.lua', '.json')
-  local filepath = assert(package.searchpath(name, jsonpath))
-  local file = File:new(filepath)
-  return json.decode(file:readAll())
+function json.require(name)
+  return json.decode(loader.loadResource(name))
 end
 
 return json
