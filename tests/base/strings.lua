@@ -123,6 +123,7 @@ function Test_strip()
   lu.assertEquals(strings.strip(' Hi'), 'Hi')
   lu.assertEquals(strings.strip('Hi '), 'Hi')
   lu.assertEquals(strings.strip(' Hi '), 'Hi')
+  lu.assertEquals(strings.strip('  Hello world !   '), 'Hello world !')
 end
 
 os.exit(lu.LuaUnit.run())

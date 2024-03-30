@@ -16,11 +16,9 @@ return require('jls.lang.class').create('jls.net.http.HttpFilter', function(filt
     local ll = exchange:getRequest():getHeader('jls-logger-level')
     if ll then
       local config = rootLogger:getConfig()
-      rootLogger:cleanConfig()
-      rootLogger:applyConfig(ll)
+      rootLogger:setConfig(ll)
       exchange:onClose():next(function()
-        rootLogger:cleanConfig()
-        rootLogger:applyConfig(config)
+        rootLogger:setConfig(config)
       end)
     end
   end

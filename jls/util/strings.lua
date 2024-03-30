@@ -247,6 +247,7 @@ function strings.trim(value)
   if value == nil then
     return nil
   end
+  -- white-space characters: space, form-feed '\f', newline '\n', carriage return '\r', horizontal tab '\t', and vertical tab '\v'.
   return (string.gsub(string.gsub(value, '^%s+', ''), '%s+$', ''))
 end
 

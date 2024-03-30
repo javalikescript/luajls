@@ -116,7 +116,7 @@ function Tests:test_levels()
   end
 end
 
-function Tests:test_applyConfig()
+function Tests:test_setConfig()
   local l_a, l_b, l_c
   local function reset(a, b, c)
     l_a = Logger:new(a)
@@ -143,23 +143,27 @@ function Tests:test_applyConfig()
   reset()
   check()
 
-  l_a:applyConfig()
+  l_a:setConfig()
   check()
   reset()
 
-  l_a:applyConfig('fine')
+  l_a:setConfig('fine')
   check(Logger.LEVEL.FINE, Logger.LEVEL.FINE, Logger.LEVEL.FINE)
   reset()
 
-  l_a:applyConfig('a=fine')
+  l_a:setConfig('a=fine')
   check(nil, Logger.LEVEL.FINE, Logger.LEVEL.FINE)
   reset()
 
-  l_a:applyConfig('a.c=fine')
+  l_a:setConfig('a.c=fine')
   check(nil, nil, Logger.LEVEL.FINE)
   reset()
 
-  l_a:applyConfig('info;a.b=fine')
+  l_a:setConfig('info;a.b=fine')
+  check(Logger.LEVEL.INFO, Logger.LEVEL.FINE, Logger.LEVEL.INFO)
+  reset()
+
+  l_a:setConfig(' info ; a.b =  fine ')
   check(Logger.LEVEL.INFO, Logger.LEVEL.FINE, Logger.LEVEL.INFO)
   reset()
 end
@@ -167,8 +171,8 @@ end
 function Tests:test_getConfig()
   local l = Logger:new()
   lu.assertNil(l:getConfig())
-  l:applyConfig('info;a.b=fine')
-  lu.assertEquals(l:getConfig(), '.*:INFO,a.b:FINE')
+  l:setConfig('info;a.b=fine')
+  lu.assertEquals(l:getConfig(), 'INFO,a.b:FINE')
 end
 
 os.exit(lu.LuaUnit.run())
