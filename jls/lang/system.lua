@@ -64,6 +64,44 @@ function system.isWindows()
   return isWindowsOS
 end
 
+local hasConsole = not win32Lib or type(win32Lib.HasConsoleWindow) ~= 'function' or win32Lib.HasConsoleWindow()
+
+--- Returns a table containing an entry for each argument name, see @{jls.util.tables}.
+-- @tparam[opt] table options the options.
+-- @tparam[opt] string arguments the command line containing the arguments.
+-- @treturn table the arguments as a table.
+function system.createArgumentTable(options, arguments)
+  local tables = require('jls.util.tables')
+  if not hasConsole then
+    options = options or {}
+    local lines = {}
+    options.println = function(...)
+      table.insert(lines, table.concat({...}, '\t'))
+    end
+    options.exit = function(code)
+      win32Lib.MessageBox(table.concat(lines, '\n'), string.format('Exit(%s)', code or 0))
+      os.exit(code)
+    end
+  end
+  return tables.createArgumentTable(arguments or system.getArguments(), options)
+end
+
+if not hasConsole then
+  -- Provides fallback to console
+  local c = string.upper(string.sub(os.getenv('JLS_SYSTEM_CONSOLE') or '', 1, 1))
+  if c == 'A' and type(win32Lib.RedirectStdConsole) == 'function' then
+    win32Lib.AllocConsole()
+    win32Lib.AttachConsole(win32Lib.GetCurrentProcessId())
+    win32Lib.RedirectStdConsole()
+  elseif c ~= 'N' and type(win32Lib.OutputDebugString) == 'function' then
+    local Logger = require('jls.lang.logger'):getClass()
+    local debug, format = win32Lib.OutputDebugString, string.format
+    Logger.setLogRecorder(function(logger, time, level, message)
+      debug(format('%s [%s] %s', logger.name, level, message))
+    end)
+  end
+end
+
 --- Returns the arguments used when calling the Lua standalone executable.
 -- @treturn table The arguments.
 function system.getArguments()
@@ -72,7 +110,21 @@ function system.getArguments()
     local luvitProcess = process
     local shiftArguments = require('jls.lang.shiftArguments')
     if win32Lib then
-      system.arguments = shiftArguments({win32Lib.GetCommandLineArguments()})
+      local arguments = {win32Lib.GetCommandLineArguments()}
+      local maybeLua = true
+      if arg then
+        local n = 0
+        while arg[n] do
+          n = n - 1
+        end
+        maybeLua = (#arg - n) == #arguments
+      end
+      if maybeLua then
+        system.arguments = shiftArguments(arguments)
+      else
+        arguments[0] = table.remove(arguments, 1)
+        system.arguments = arguments
+      end
     elseif arg then -- arg is nil in a thread
       system.arguments = arg
     elseif luvitProcess and type(luvitProcess.argv) == 'table' then

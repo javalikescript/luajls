@@ -171,9 +171,13 @@ end
 --- Loads the JSON resource for the specified name.
 -- See @{jls.lang.loader|loader} loadResource function.
 -- @tparam string name the JSON name.
+-- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @return the JSON value.
-function json.require(name)
-  return json.decode(loader.loadResource(name))
+function json.require(name, try)
+  local value = loader.loadResource(name, try)
+  if value then
+    return json.decode(value)
+  end
 end
 
 return json

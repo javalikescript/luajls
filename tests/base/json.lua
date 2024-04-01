@@ -141,6 +141,7 @@ end
 
 function Test_require()
   lu.assertEquals(json.require('tests/res_test.json'), {a = 'Hi', b = 1})
+  lu.assertNil(json.require('tests/not_a_file.json', true))
 end
 
 os.exit(lu.LuaUnit.run())

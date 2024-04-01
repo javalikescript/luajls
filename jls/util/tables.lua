@@ -1030,18 +1030,22 @@ local function loadJsonFile(path)
   local file = File:new(path)
   if file:exists() then
     local json = require('jls.util.json')
-    return json.decode(file:readAll())
+    local status, value = pcall(json.decode, file:readAll())
+    if status then
+      return value
+    end
   end
 end
 
 local function loadIfString(name)
   if type(name) == 'string' then
-    local path = package.searchpath(name, string.gsub(package.path, '%.lua', '.json'))
-    print('loadIfString', name, path)
-    if path then
-      return loadJsonFile(path)
+    local json = require('jls.util.json')
+    local content = json.require(name, true)
+    if content then
+      return content
     end
-    return require('jls.lang.loader').load(name, package.path)
+    local loader = require('jls.lang.loader')
+    return loader.load(name, package.path, true)
   end
   return name
 end
@@ -1070,6 +1074,8 @@ function tables.createArgumentTable(arguments, options)
   local separator = options.separator or ARGUMENT_PATH_SEPARATOR
   local emptyPath = options.emptyPath or ARGUMENT_DEFAULT_PATH
   local aliases = options.aliases or {}
+  local println = options.println or print
+  local exit = options.exit or os.exit
   local t = {}
   local name = emptyPath
   local schema = loadIfString(options.schema)
@@ -1130,8 +1136,8 @@ function tables.createArgumentTable(arguments, options)
       end
       local status, result = pcall(configLoader, configPath)
       if not status then
-        print('Invalid configuration file "'..configPath..'", '..tostring(result))
-        os.exit(1)
+        println('Invalid configuration file "'..configPath..'", '..tostring(result))
+        exit(1)
       end
       if result then
         tables.merge(t, result, true)
@@ -1146,19 +1152,19 @@ function tables.createArgumentTable(arguments, options)
   -- Display help
   if options.helpPath and tables.getPath(t, options.helpPath, nil, separator) == true then
     if options.help then
-      print(options.help)
+      println(options.help)
     end
     if schema then
       local schemaPaths = tables.mapSchemasByPath(schema, '', separator)
       local buffer = StringBuffer:new()
       if schema.title then
-        print(tostring(schema.title))
+        println(tostring(schema.title))
       end
       if schema.description then
-        print(tostring(schema.description))
+        println(tostring(schema.description))
       end
       local aliasMap = Map.reverse(aliases)
-      print('Arguments:')
+      println('Arguments:')
       for path, s in Map.spairs(schemaPaths) do
         buffer:append('  ')
         local alias = aliasMap[path]
@@ -1182,28 +1188,28 @@ function tables.createArgumentTable(arguments, options)
           buffer:append(': ', tostring(s.title))
         end
         if s.description then
-          print(buffer:toString())
+          println(buffer:toString())
           buffer:clear():append('  ', '  ', tostring(s.description))
         end
-        print(buffer:toString())
+        println(buffer:toString())
         buffer:clear()
       end
     end
     if defaultValues then
-      print('Default values:')
+      println('Default values:')
       local valuesByPath = tables.mapValuesByPath(defaultValues, '', separator)
       for path, v in Map.spairs(valuesByPath) do
-        print('  '..'--'..string.sub(path, 2)..' ='..tostring(v))
+        println('  '..'--'..string.sub(path, 2)..' ='..tostring(v))
       end
     end
-    os.exit(0)
+    exit(0)
   end
   -- Validate using schema and add schema default values
   if schema then
     local st, serr = tables.getSchemaValue(schema, t, true)
     if serr then
-      print(serr)
-      os.exit(22)
+      println(serr)
+      exit(22)
     elseif type(st) == 'table' then
       t = st
     end

@@ -1,6 +1,10 @@
--- shift an argument table to be compatible with standalone lua or luvit
--- Before running any code, lua collects all command-line arguments in a global table called arg.
--- The script name goes to index 0, the first argument after the script name goes to index 1, and so on.
+--[[
+shift an argument table to be compatible with standalone lua or luvit
+Before running any code, lua collects all command-line arguments in a global table called arg.
+The script name goes to index 0, the first argument after the script name goes to index 1, and so on.
+When there is no script, the executable goes to index 0, Lua options goes to index 1, and so on.
+In order to pass arguments, a script has to be provided, it could be the null device `/dev/null` or `NUL`.
+]]
 return function(args, init)
   if type(args) ~= 'table' then
     return {}
