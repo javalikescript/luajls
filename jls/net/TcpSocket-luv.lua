@@ -216,7 +216,6 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
 
   function tcpSocket:bindThenListen(addr, port, backlog)
     logger:finer('bindThenListen(%s, %s, %s)', addr, port, backlog)
-    local server = self
     local tcp = luvLib.new_tcp()
     -- to disable dual-stack support and use only IPv6: {ipv6only = true}
     local _, err = tcp:bind(addr, port)
@@ -234,7 +233,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
           logger:warn('listen accept error %s', r)
           c:close()
         else
-          server:handleAccept(c)
+          self:handleAccept(c)
         end
       end
     end)

@@ -124,18 +124,35 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     return self.tcp:setoption('keepalive', on)
   end
 
-  function tcpSocket:bindThenListen(addr, port, backlog)
-    logger:fine('bindThenListen(%s, %s, %s)', addr, port, backlog)
-    local tcp, err = luaSocketLib.bind(addr, port, backlog)
+  function tcpSocket:bindThenListen(ai, port, backlog)
+    logger:fine('bindThenListen(%t, %s, %s)', ai, port, backlog)
+    local tcp, err, status
+    if ai.family == 'inet' then
+      tcp, err = luaSocketLib.tcp4()
+    else
+      tcp, err = luaSocketLib.tcp6()
+    end
     if tcp then
-      tcp:settimeout(0) -- do not block
-      local server = self
-      self.selector:register(tcp, Selector.MODE_RECV, function()
-        local c = tcp:accept()
-        if c then
-          server:handleAccept(c)
+      tcp:setoption('reuseaddr', true)
+      status, err = tcp:bind(ai.addr, port)
+      if status then
+        status, err = tcp:listen(backlog)
+        if status then
+          tcp:settimeout(0) -- do not block
+          self.selector:register(tcp, Selector.MODE_RECV, function()
+            local c = tcp:accept()
+            if c then
+              self:handleAccept(c)
+            end
+          end)
+        else
+          tcp:close()
+          tcp = nil
         end
-      end)
+      else
+        tcp:close()
+        tcp = nil
+      end
     end
     return tcp, err
   end
@@ -155,7 +172,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     if not err then
       local ai = infos[1]
       local p = port or 0
-      self.tcp, err = self:bindThenListen(ai.addr, p, backlog)
+      self.tcp, err = self:bindThenListen(ai, p, backlog)
       if not err and isWindowsOS then
         local ai2 = nil
         for _, r in ipairs(infos) do
@@ -168,7 +185,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
           if p == 0 then
             p = select(2, self.tcp:getsockname())
           end
-          self.tcp2, err = self:bindThenListen(ai2.addr, p, backlog)
+          self.tcp2, err = self:bindThenListen(ai2, p, backlog)
           if err then
             logger:warn('second bindThenListen() in error, %s', err)
             self.tcp:close()
