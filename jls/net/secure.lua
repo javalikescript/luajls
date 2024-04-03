@@ -454,24 +454,19 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   function secureTcpSocket:onHandshakeCompleted(client)
   end
 
-  function secureTcpSocket:handleAccept()
-    local tcp = self:tcpAccept()
-    if tcp then
-      logger:finer('handleAccept() accepting %s', tcp)
-      local client = SecureTcpSocket:new(tcp)
-      client:sslInit(true, self:getSecureContext())
-      self:onHandshakeStarting(client)
-      client:startHandshake():next(function()
-        logger:finer('handleAccept() handshake completed for %s', tcp)
-        self:onHandshakeCompleted(client)
-        self:onAccept(client)
-      end, function(reason)
-        client:close()
-        logger:fine('handleAccept() handshake error, %s', reason)
-      end)
-    else
-      logger:fine('handleAccept() error')
-    end
+  function secureTcpSocket:handleAccept(tcp)
+    logger:finer('handleAccept() accepting %s', tcp)
+    local client = SecureTcpSocket:new(tcp)
+    client:sslInit(true, self:getSecureContext())
+    self:onHandshakeStarting(client)
+    client:startHandshake():next(function()
+      logger:finer('handleAccept() handshake completed for %s', tcp)
+      self:onHandshakeCompleted(client)
+      self:onAccept(client)
+    end, function(reason)
+      client:close()
+      logger:fine('handleAccept() handshake error, %s', reason)
+    end)
   end
 
 end)

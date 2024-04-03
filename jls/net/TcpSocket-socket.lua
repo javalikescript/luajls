@@ -38,11 +38,26 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   function tcpSocket:close(callback)
     logger:finer('close()')
     local cb, d = Promise.ensureCallback(callback)
-    local socket = self.tcp
-    if socket then
+    local tcp = self.tcp
+    if tcp then
       self.tcp = nil
-      self.selector:close(socket, cb)
-    else
+      local tcp2 = self.tcp2
+      if tcp2 then
+        self.tcp2 = nil
+        self.selector:close(tcp, function(err)
+          if err then
+            self.selector:close(tcp2)
+            if cb then
+              cb(err)
+            end
+          else
+            self.selector:close(tcp2, cb)
+          end
+        end)
+      else
+        self.selector:close(tcp, cb)
+      end
+    elseif cb then
       cb()
     end
     return d
@@ -109,41 +124,67 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     return self.tcp:setoption('keepalive', on)
   end
 
-  function tcpSocket:bind(addr, port, backlog, callback)
-    logger:finer('bind(%s, %s)', addr, port)
-    if not addr or addr == '0.0.0.0' or addr == '::' then
-      addr = '*'
-    end
-    local cb, d = Promise.ensureCallback(callback)
+  function tcpSocket:bindThenListen(addr, port, backlog)
+    logger:fine('bindThenListen(%s, %s, %s)', addr, port, backlog)
     local tcp, err = luaSocketLib.bind(addr, port, backlog)
-    if err then
-      cb(err)
-      return d
+    if tcp then
+      tcp:settimeout(0) -- do not block
+      local server = self
+      self.selector:register(tcp, Selector.MODE_RECV, function()
+        local c = tcp:accept()
+        if c then
+          server:handleAccept(c)
+        end
+      end)
     end
-    tcp:settimeout(0) -- do not block
-    -- TODO Bind on IPv4 and IPv6
-    self.tcp = tcp
-    local server = self
-    self.selector:register(self.tcp, Selector.MODE_RECV, function()
-      server:handleAccept()
-    end)
-    cb()
+    return tcp, err
+  end
+
+  local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
+
+  function tcpSocket:bind(addr, port, backlog, callback)
+    if type(backlog) ~= 'number' then
+      backlog = 32
+    end
+    logger:finer('bind(%s, %s, %d)', addr, port, backlog)
+    if not addr or addr == '::' or addr == '*' then
+      addr = '0.0.0.0'
+    end
+    local infos, err = luaSocketLib.dns.getaddrinfo(addr)
+    local cb, d = Promise.ensureCallback(callback)
+    if not err then
+      local ai = infos[1]
+      local p = port or 0
+      self.tcp, err = self:bindThenListen(ai.addr, p, backlog)
+      if not err and isWindowsOS then
+        local ai2 = nil
+        for _, r in ipairs(infos) do
+          if r.family ~= ai.family then
+            ai2 = r
+            break
+          end
+        end
+        if ai2 then
+          if p == 0 then
+            p = select(2, self.tcp:getsockname())
+          end
+          self.tcp2, err = self:bindThenListen(ai2.addr, p, backlog)
+          if err then
+            logger:warn('second bindThenListen() in error, %s', err)
+            self.tcp:close()
+            self.tcp = nil
+          end
+        end
+      end
+    end
+    cb(err)
     return d
   end
 
-  function tcpSocket:handleAccept()
-    local tcp = self:tcpAccept()
-    if tcp then
-      logger:finer('accepting %s', tcp)
-      local client = TcpSocket:new(tcp)
-      self:onAccept(client)
-    else
-      logger:finer('accept error')
-    end
-  end
-
-  function tcpSocket:tcpAccept()
-    return self.tcp:accept()
+  function tcpSocket:handleAccept(tcp)
+    logger:finer('accepting %s', tcp)
+    local client = TcpSocket:new(tcp)
+    self:onAccept(client)
   end
 
   function tcpSocket:onAccept(client)

@@ -1,6 +1,7 @@
 local lu = require('luaunit')
 
 local TcpSocket = require('jls.net.TcpSocket')
+local dns = require('jls.net.dns')
 local StreamHandler = require('jls.io.StreamHandler')
 local Promise = require('jls.lang.Promise')
 
@@ -78,6 +79,61 @@ function Test_TcpClient_TcpServer_table()
     lu.fail('Timeout reached')
   end
   lu.assertEquals(table.concat(u), 'Received: Hello, My name is John\n')
+end
+
+function Test_TcpClient_TcpServer_dual()
+  local function send(data, host, port)
+    --print('send', data, 'on', host, port)
+    local client = TcpSocket:new()
+    return client:connect(host, port):next(function(client)
+      return client:write(data)
+    end):finally(function()
+      client:close()
+    end)
+  end
+  local host = 'localhost'
+  local t = {}
+  local server = TcpSocket:new()
+  local port, infos
+  dns.getAddressInfo(host):next(function(l)
+    infos = l
+    if #infos == 2 then
+      function server:onAccept(client)
+        client:readStart(StreamHandler:new(function(_, data)
+          if data then
+            table.insert(t, data)
+          else
+            client:close()
+          end
+        end))
+      end
+      return server:bind(host, 0)
+    end
+    t = nil
+  end):next(function()
+    port = select(2, server:getLocalName())
+    return send('1\n', infos[1].addr, port)
+  end):next(function()
+    return send('2\n', infos[2].addr, port)
+  end):catch(function(reason)
+    print('error', reason)
+  end):finally(function()
+    server:close()
+  end)
+  if not loop(function()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  if t then
+    lu.assertEquals(t, {'1\n', '2\n'})
+  else
+    print('/!\\ skipping test as '..host..' resolves to '..tostring(#infos)..' addresses')
+    for i, info in ipairs(infos) do
+      print('', i, info.addr, info.family)
+    end
+    lu.success()
+  end
 end
 
 function Test_Async()

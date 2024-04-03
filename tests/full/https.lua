@@ -22,13 +22,13 @@ local opensslLib = require('openssl')
 local genCertificateAndPKey = loader.load('tests.genCertificateAndPKey')
 local CACERT_PEM, PKEY_PEM = genCertificateAndPKey()
 
-local TEST_PORT = 3002
+local TEST_HOST, TEST_PORT = '127.0.0.1', 3002
 
 local function createHttpsClient(headers, method)
   headers = headers or {}
   logger:fine('createHttpsClient()')
   local client = HttpClient:new({
-    url = 'https://127.0.0.1:'..tostring(TEST_PORT)..'/',
+    url = string.format('https://%s:%d/', TEST_HOST, TEST_PORT),
     method = method or 'GET',
     checkHost = false,
     headers = headers
@@ -289,7 +289,7 @@ function Test_HttpsClientServerConnectionCloseAfterHandshake()
   end):next(function(s)
     server = s
     client = secure.TcpSocket:new()
-    client:connect('localhost', TEST_PORT):next(function()
+    client:connect(TEST_HOST, TEST_PORT):next(function()
       logger:info('client connected')
       return client:close()
     end):next(function()
@@ -315,7 +315,7 @@ if canResetConnection() then
     end):next(function(s)
       server = s
       client = createSecureTcpClient()
-      client:connect('localhost', TEST_PORT):next(function()
+      client:connect(TEST_HOST, TEST_PORT):next(function()
         logger:info('client connected')
         resetConnection(client, true, false)
         logger:info('client reset')

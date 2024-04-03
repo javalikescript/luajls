@@ -215,7 +215,6 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   end
 
   function tcpSocket:bindThenListen(addr, port, backlog)
-    backlog = backlog or 32
     logger:finer('bindThenListen(%s, %s, %s)', addr, port, backlog)
     local server = self
     local tcp = luvLib.new_tcp()
@@ -225,9 +224,19 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
       tcp:close()
       return nil, err
     end
-    _, err = tcp:listen(backlog, function(err)
-      assert(not err, err) -- TODO Handle errors
-      server:handleAccept()
+    _, err = tcp:listen(backlog, function(e)
+      if e then
+        logger:warn('listen error %s', e)
+      else
+        local c = luvLib.new_tcp()
+        local r = tcp:accept(c)
+        if r < 0 then
+          logger:warn('listen accept error %s', r)
+          c:close()
+        else
+          server:handleAccept(c)
+        end
+      end
     end)
     if err then
       tcp:close()
@@ -236,24 +245,10 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     return tcp
   end
 
-  function tcpSocket:handleAccept()
-    local tcp = self:tcpAccept()
-    if tcp then
-      logger:finer('accepting %s', self)
-      local client = TcpSocket:new(tcp)
-      self:onAccept(client)
-    else
-      logger:finer('accept error')
-    end
-  end
-
-  function tcpSocket:tcpAccept()
-    if self.tcp then
-      local tcp = luvLib.new_tcp()
-      self.tcp:accept(tcp)
-      logger:finer('accept() %s', self)
-      return tcp
-    end
+  function tcpSocket:handleAccept(tcp)
+    logger:finer('accepting %s', self)
+    local client = TcpSocket:new(tcp)
+    self:onAccept(client)
   end
 
   --- Binds this server to the specified address and port number.
@@ -272,13 +267,13 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     logger:finer('bind(%s, %s)', node, port)
     local cb, d = Promise.ensureCallback(callback)
     -- FIXME getaddrinfo does not have a port argument
-    luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, res)
+    luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, infos)
       if err then
         logger:fine('getaddrinfo %s:%s in error, %s', node, port, err)
         return cb(err)
       end
-      logger:finer('getaddrinfo %s:%s => #%l', node, port, res)
-      local ai = res[1]
+      logger:finer('getaddrinfo %s:%s => #%l', node, port, infos)
+      local ai = infos[1]
       local bindErr
       local p = port or ai.port or 0
       self.tcp, bindErr = self:bindThenListen(ai.addr, p, backlog)
@@ -290,7 +285,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
       -- see https://stackoverflow.com/questions/37729475/create-dual-stack-socket-on-all-loopback-interfaces-on-windows
       if isWindowsOS then
         local ai2 = nil
-        for _, r in ipairs(res) do
+        for _, r in ipairs(infos) do
           if r.family ~= ai.family then
             ai2 = r
             break

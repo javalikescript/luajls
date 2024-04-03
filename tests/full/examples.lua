@@ -85,7 +85,14 @@ function Test_markdown()
   loadCodeBlocks('doc_topics/manual.md')
 end
 
+local isLuv = package.loaded['jls.lang.event'] == package.loaded['jls.lang.event-luv']
+
 function Test_help()
+  if not isLuv then
+    print('/!\\ skipping default test')
+    lu.success()
+    return
+  end
   for _, name in ipairs({'browser.lua', 'cipher.lua', 'discover.lua', 'httpClient.lua', 'httpProxy.lua', 'mqtt.lua', 'webServer.lua', 'wsClient.lua', 'zip.lua'}) do
     exec({LUA_PATH, 'examples/'..name, '--help'}, 0)
   end

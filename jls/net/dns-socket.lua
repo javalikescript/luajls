@@ -3,7 +3,7 @@ local class = require('jls.lang.class')
 
 return {
   getaddrinfo = function(node, callback)
-    local addrinfo, err = lib.getaddrinfo(node);
+    local addrinfo, err = lib.getaddrinfo(node)
     callback(err, addrinfo)
   end,
   getnameinfo = function(addr, callback)
