@@ -28,13 +28,12 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     local request = self:getRequest()
     if request then
       local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
-      local path = request:getTargetPath()
       local statusCode = '?'
       local response = self:getResponse()
       if response then
         statusCode = response:getStatusCode()
       end
-      return string.format('httpExchange: %p; %s %s %s %s=> %s', self, request:getMethod(), path, request:getVersion(), hostport and '('..hostport..') ' or '', statusCode)
+      return string.format('httpExchange: %p; %s %s %s %s=> %s', self, request:getMethod(), request:getTarget(), request:getVersion(), hostport and '('..hostport..') ' or '', statusCode)
     end
     return string.format('httpExchange: %p', self)
   end
