@@ -38,23 +38,23 @@ end
 
 --- Returns the current time in seconds.
 -- The time is given as the number of seconds since the Epoch, 1970-01-01 00:00:00 +0000 (UTC).
--- @return the current time in seconds.
+-- @return the current time in seconds
 -- @function system.currentTime
 system.currentTime = os.time
 
 --- Returns the current time in milliseconds.
--- @return The current time in milliseconds.
+-- @return The current time in milliseconds
 -- @function system.currentTimeMillis
 system.currentTimeMillis = sysLib.timems
 
 --- Causes the program to sleep.
--- @param millis The length of time to sleep in milliseconds.
+-- @param millis The length of time to sleep in milliseconds
 -- @function system.sleep
 system.sleep = sysLib.sleep
 
 --- Gets a specific environnement property.
--- @param name The name of the property to get.
--- @return The environnement property.
+-- @param name The name of the property to get
+-- @return The environnement property
 -- @function system.getenv
 system.getenv = os.getenv
 
@@ -67,9 +67,9 @@ end
 local hasConsole = not win32Lib or type(win32Lib.HasConsoleWindow) ~= 'function' or win32Lib.HasConsoleWindow()
 
 --- Returns a table containing an entry for each argument name, see @{jls.util.tables}.
--- @tparam[opt] table options the options.
--- @tparam[opt] string arguments the command line containing the arguments.
--- @treturn table the arguments as a table.
+-- @tparam[opt] table options the options
+-- @tparam[opt] string arguments the command line containing the arguments
+-- @treturn table the arguments as a table
 function system.createArgumentTable(options, arguments)
   local tables = require('jls.util.tables')
   if not hasConsole then
@@ -103,7 +103,7 @@ if not hasConsole then
 end
 
 --- Returns the arguments used when calling the Lua standalone executable.
--- @treturn table The arguments.
+-- @treturn table The arguments
 function system.getArguments()
   if not system.arguments then
     ---@diagnostic disable-next-line: undefined-global
@@ -144,7 +144,7 @@ function system.getLibraryExtension()
 end
 
 -- Returns the command line corresponding to the specified arguments.
--- @tparam table args Array of strings specifying the command-line arguments.
+-- @tparam table args Array of strings specifying the command-line arguments
 -- @treturn string the command line
 -- @function system.currentTime
 system.formatCommandLine = require('jls.lang.formatCommandLine')
@@ -155,7 +155,7 @@ system.formatCommandLine = require('jls.lang.formatCommandLine')
 -- @param env Array of key=values specifying the environment strings.
 -- If undefined, the new process inherits the environment of the parent process.
 -- @param dir The working directory of the subprocess, or undefined
--- if the subprocess should inherit the working directory of the current process.
+-- if the subprocess should inherit the working directory of the current process
 -- @treturn jls.lang.ProcessHandle a handle of the new process
 -- @function system.exec
 loader.lazyMethod(system, 'exec', function(ProcessBuilder, Path)
@@ -179,10 +179,10 @@ end, 'jls.lang.ProcessBuilder', 'jls.io.Path')
 --- Executes the specified command line in a separate thread.
 -- The promise will be rejected if the process exit code is not zero.
 -- The error is a table with a code and a kind fields.
--- @tparam string command The command-line to execute.
--- @tparam[opt] boolean anyCode true to resolve the promise with any exit code.
--- @tparam[opt] function callback an optional callback function to use in place of promise.
--- @treturn jls.lang.Promise a promise that resolves once the command has been executed.
+-- @tparam string command The command-line to execute
+-- @tparam[opt] boolean anyCode true to resolve the promise with any exit code
+-- @tparam[opt] function callback an optional callback function to use in place of promise
+-- @treturn jls.lang.Promise a promise that resolves once the command has been executed
 -- @function system.execute
 loader.lazyMethod(system, 'execute', function(Promise, Thread)
   local function applyExecuteCallback(cb, anyCode, status, kind, code)
@@ -228,6 +228,10 @@ loader.lazyMethod(system, 'execute', function(Promise, Thread)
   end
 end, 'jls.lang.Promise', 'jls.lang.Thread')
 
+--- Returns the executable path based on the `PATH` environment variable.
+-- @tparam string name The executable name, without the extension `.exe`
+-- @treturn string the executable path or nil
+-- @function system.findExecutablePath
 loader.lazyMethod(system, 'findExecutablePath', function(File, strings)
   return function(name)
     if isWindowsOS then
@@ -269,7 +273,7 @@ function system.addShutdownHook(fn)
 end
 
 --- Terminates the program and returns a value to the OS.
--- @param code The exit code to return to the OS.
+-- @param code The exit code to return to the OS
 function system.exit(code)
   runShutdownHooks()
   return os.exit(code, true)
@@ -281,7 +285,7 @@ function system.gc()
 end
 
 --- Forcibly terminates the program and returns a value to the OS.
--- @param code The exit code to return to the OS.
+-- @param code The exit code to return to the OS
 function system.halt(code)
   runShutdownHooks()
   return os.exit(code, false)

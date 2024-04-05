@@ -1,5 +1,5 @@
 --- Provide message digest algorithm functionality.
--- Available algorithms are SHA-1, MD5, CRC32.
+-- Available algorithms are `SHA-1`, `MD5`, `CRC32`.
 -- @module jls.util.MessageDigest
 -- @pragma nostrip
 
@@ -29,20 +29,20 @@ end)
 return class.create(function(messageDigest, _, MessageDigest)
 
   --- Updates the digest using the specified string.
-  -- @tparam string m a message to update the digest.
-  -- @treturn MessageDigest this message digest instance.
+  -- @tparam string m a message to update the digest
+  -- @treturn MessageDigest this message digest instance
   -- @function messageDigest:update
 
   --- Completes and returns the digest.
-  -- @treturn string the message digest result.
+  -- @treturn string the message digest result
   -- @function messageDigest:digest
 
   --- Resets this MessageDigest.
-  -- @treturn MessageDigest this message digest instance.
+  -- @treturn MessageDigest this message digest instance
   -- @function messageDigest:reset
 
   --- Returns the name of the algorithm.
-  -- @treturn string the name of the algorithm.
+  -- @treturn string the name of the algorithm
   -- @function messageDigest:getAlgorithm
 
   -- for compatibility, the methods above should be removed
@@ -86,7 +86,7 @@ return class.create(function(messageDigest, _, MessageDigest)
 end, function(MessageDigest)
 
   --- Returns the MessageDigest corresponding to the specified algorithm.
-  -- @tparam string alg The name of the algorithm.
+  -- @tparam string alg The name of the algorithm
   -- @return The MessageDigest class
   function MessageDigest.getMessageDigest(alg)
     local a = string.lower(string.gsub(alg, '[%s%-]', ''))
@@ -103,7 +103,7 @@ end, function(MessageDigest)
   end
 
   --- Creates a new MessageDigest.
-  -- @tparam string alg The name of the algorithm.
+  -- @tparam string alg The name of the algorithm
   -- @treturn MessageDigest a new MessageDigest
   -- @usage
   --local md = MessageDigest.getInstance('MD5')

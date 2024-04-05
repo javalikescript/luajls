@@ -1,5 +1,5 @@
 --- Represents an encoder/decoder for string or stream.
--- Available codecs are base64, deflate, gzip, hex.
+-- Available codecs are `base64`, `deflate`, `gzip`, `hex`.
 -- @module jls.util.Codec
 -- @pragma nostrip
 
@@ -33,16 +33,16 @@ end)
 return class.create(function(codec)
 
   --- Decodes the specified string.
-  -- @tparam string value the data to decode.
-  -- @treturn string the decoded string.
+  -- @tparam string value the data to decode
+  -- @treturn string the decoded string
   -- @raise codec dependent message in case of decoding failure
   function codec:decode(value)
     return value
   end
 
   --- Encodes the specified string.
-  -- @tparam string value the data to encode.
-  -- @treturn string the encoded string.
+  -- @tparam string value the data to encode
+  -- @treturn string the encoded string
   -- @raise codec dependent message in case of encoding failure
   function codec:encode(value)
     return value
@@ -73,7 +73,7 @@ return class.create(function(codec)
   end
 
   --- Returns the name of the codec.
-  -- @treturn string the name of the codec.
+  -- @treturn string the name of the codec
   function codec:getName()
     return self.name or class.getName(self:getClass()) or 'Codec'
   end
@@ -81,14 +81,14 @@ return class.create(function(codec)
 end, function(Codec)
 
   --- Returns the Codec class corresponding to the specified name.
-  -- @tparam string name The name of the codec.
+  -- @tparam string name The name of the codec
   -- @return The Codec class
   function Codec.getCodec(name)
     return require('jls.util.cd.'..string.lower(string.gsub(name, '[%s%-]', '')))
   end
 
   --- Returns a new Codec.
-  -- @tparam string name The name of the codec.
+  -- @tparam string name The name of the codec
   -- @treturn Codec a new Codec
   -- @usage
   --local codec = Codec.getInstance('Base64')

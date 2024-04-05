@@ -146,7 +146,7 @@ end)
 local HttpContext
 
 --[[-- An HTTP server.
-The basic HTTP 1.1 server implementation.
+The basic HTTP server implementation.
 @usage
 local event = require('jls.lang.event')
 local HttpServer = require('jls.net.http.HttpServer')
@@ -185,8 +185,8 @@ local HttpServer = class.create(function(httpServer)
   -- The path is a Lua pattern that match the full path, take care of escaping the magic characters ^$()%.[]*+-?.
   -- You could use the @{jls.util.strings}.escape() function.
   -- The path is absolute and starts with a slash '/'.
-  -- @tparam string path The path of the context.
-  -- @param handler The @{jls.net.http.HttpHandler|handler} or a handler function.
+  -- @tparam string path The path of the context
+  -- @param handler The @{jls.net.http.HttpHandler|handler} or a handler function.  
   --   The function takes one argument which is the @{HttpExchange} and will be called when the body is available.
   -- @return the new context
   function httpServer:createContext(path, handler, ...)
@@ -208,7 +208,7 @@ local HttpServer = class.create(function(httpServer)
 
   --- Adds the specified contexts.
   -- It could be a mix of contexts or pair of path, handler to create.
-  -- @tparam table contexts The contexts to add.
+  -- @tparam table contexts The contexts to add
   -- @return the new context
   function httpServer:addContexts(contexts)
     for _, context in ipairs(contexts) do
@@ -440,11 +440,11 @@ local HttpServer = class.create(function(httpServer)
   end
 
   --- Binds this server to the specified address and port number.
-  -- @tparam[opt] string node the address, the address could be an IP address or a host name.
-  -- @tparam[opt] number port the port number, 0 to let the system automatically choose a port, default is 80.
-  -- @tparam[opt] number backlog the accept queue size, default is 32.
-  -- @tparam[opt] function callback an optional callback function to use in place of promise.
-  -- @treturn jls.lang.Promise a promise that resolves once the server is bound.
+  -- @tparam[opt] string node the address, the address could be an IP address or a host name
+  -- @tparam[opt] number port the port number, 0 to let the system automatically choose a port, default is 80
+  -- @tparam[opt] number backlog the accept queue size, default is 32
+  -- @tparam[opt] function callback an optional callback function to use in place of promise
+  -- @treturn jls.lang.Promise a promise that resolves once the server is bound
   -- @usage
   --local s = HttpServer:new()
   --s:bind('127.0.0.1', 80)
@@ -483,8 +483,8 @@ local HttpServer = class.create(function(httpServer)
 
   --- Closes this server.
   -- This method will close the pending client connections and contexts.
-  -- @tparam[opt] function callback an optional callback function to use in place of promise.
-  -- @treturn jls.lang.Promise a promise that resolves once the server is closed.
+  -- @tparam[opt] function callback an optional callback function to use in place of promise
+  -- @treturn jls.lang.Promise a promise that resolves once the server is closed
   function httpServer:close(callback)
     local cb, d = Promise.ensureCallback(callback)
     self.tcpServer:close(function(err)
@@ -555,8 +555,8 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
   -- The handler will be called when the request headers have been received if specified.
   -- The handler will be called when the body has been received if no response has been set.
   -- @tparam string path the context path
-  -- @tparam[opt] function handler the context handler
-  --   the function takes one argument which is an @{HttpExchange}.
+  -- @tparam[opt] function handler the context handler,
+  --   the function takes one argument which is an @{HttpExchange}
   -- @function HttpContext:new
   function httpContext:initialize(path, handler)
     if type(path) == 'string' then
@@ -588,7 +588,7 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
   end
 
   --- Returns the context path.
-  -- @treturn string the context path.
+  -- @treturn string the context path
   function httpContext:getPath()
     return string.sub(self.pattern, 2, -2)
   end
@@ -652,7 +652,7 @@ HttpContext = class.create(function(httpContext, _, HttpContext)
   end
 
   --- Returns the captured values of the specified path.
-  -- @treturn string the first captured value or the whole path, nil if the path does not match.
+  -- @treturn string the first captured value or the whole path, nil if the path does not match
   function httpContext:getArguments(path)
     return string.match(path, self.pattern)
   end

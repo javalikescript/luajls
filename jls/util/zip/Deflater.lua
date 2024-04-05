@@ -17,7 +17,7 @@ return require('jls.lang.class').create(function(deflater)
 
   --- Creates a new Deflater with the specified compression level and window bits.
   -- @function Deflater:new
-  -- @tparam number compressionLevel the compression level from 1-9, from BEST_SPEED to BEST_COMPRESSION
+  -- @tparam number compressionLevel the compression level from 1-9, from `BEST_SPEED` to `BEST_COMPRESSION`
   -- @tparam number windowBits the window bits
   function deflater:initialize(compressionLevel, windowBits)
     self:reset(compressionLevel, windowBits)

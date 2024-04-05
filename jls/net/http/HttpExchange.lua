@@ -40,7 +40,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
 
   --- Returns the HTTP context.
   -- Only available during the request handling
-  -- @treturn HttpContext the HTTP context.
+  -- @treturn HttpContext the HTTP context
   function httpExchange:getContext()
     return self.context
   end
@@ -50,7 +50,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns the HTTP session.
-  -- @treturn HttpSession the HTTP session.
+  -- @treturn HttpSession the HTTP session
   function httpExchange:getSession()
     return self.session
   end
@@ -60,38 +60,38 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns the HTTP request.
-  -- @treturn HttpMessage the HTTP request.
+  -- @treturn HttpMessage the HTTP request
   function httpExchange:getRequest()
     return self.request
   end
 
   --- Returns the HTTP response.
-  -- @treturn HttpMessage the HTTP response.
+  -- @treturn HttpMessage the HTTP response
   function httpExchange:getResponse()
     return self.response
   end
 
   --- Returns the HTTP request method.
-  -- @treturn string the HTTP method.
+  -- @treturn string the HTTP method
   function httpExchange:getRequestMethod()
     return self.request:getMethod()
   end
 
   --- Returns the HTTP request headers.
-  -- @treturn HttpHeaders the HTTP request.
+  -- @treturn HttpHeaders the HTTP request
   function httpExchange:getRequestHeaders()
     --return self.request
     return HttpHeaders:new(self.request:getHeadersTable())
   end
 
   --- Returns the captured values of the request target path using the context path.
-  -- @treturn string the first captured value, nil if there is no captured value.
+  -- @treturn string the first captured value, nil if there is no captured value
   function httpExchange:getRequestArguments()
     return self.context:getArguments(self:getRequest():getTargetPath())
   end
 
   --- Returns the request path as replaced by the context.
-  -- @treturn string the request path.
+  -- @treturn string the request path
   function httpExchange:getRequestPath()
     return self.context:replacePath(self:getRequest():getTargetPath())
   end
@@ -101,7 +101,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns the request query parameters as a table.
-  -- @treturn table the query parameters.
+  -- @treturn table the query parameters
   function httpExchange:getSearchParams()
     local args = {}
     for part in strings.parts(self:getRequest():getTargetQuery(), '&', true) do
@@ -128,7 +128,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Returns a promise that resolves once the exchange is closed.
-  -- @treturn jls.lang.Promise a promise that resolves once the exchange is closed.
+  -- @treturn jls.lang.Promise a promise that resolves once the exchange is closed
   function httpExchange:onClose()
     if not self.closePromise then
       self.closePromise, self.closeCallback = Promise.createWithCallback()
@@ -145,9 +145,9 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   end
 
   --- Sets the status code for the response.
-  -- @tparam number status the status code.
-  -- @tparam[opt] string reason the reason phrase.
-  -- @tparam[opt] string body the response body.
+  -- @tparam number status the status code
+  -- @tparam[opt] string reason the reason phrase
+  -- @tparam[opt] string body the response body
   function httpExchange:setResponseStatusCode(status, reason, body)
     self.response:setStatusCode(status, reason)
     if body then
@@ -155,7 +155,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     end
   end
 
-  --- Applies the connection header and returns true if keep alive applies.
+  -- Applies the connection header and returns true if keep alive applies.
   -- Use the response connection header if any or the request one if any
   -- otherwise default to close in version 1.0 and keep-alive in 1.1.
   -- @treturn boolean true if keep alive applies to the response
@@ -290,8 +290,8 @@ end, function(HttpExchange)
 
   --- Updates the response with the OK status code, 200.
   -- @tparam HttpExchange exchange ongoing HTTP exchange
-  -- @tparam[opt] string body the response content.
-  -- @tparam[opt] string contentType the response content type.
+  -- @tparam[opt] string body the response content
+  -- @tparam[opt] string contentType the response content type
   function HttpExchange.ok(exchange, body, contentType)
     updateResponseFor(exchange, HTTP_CONST.HTTP_OK, nil, body)
     if type(contentType) == 'string' then
@@ -301,14 +301,14 @@ end, function(HttpExchange)
 
   --- Updates the response with the status code Bad Request, 400.
   -- @tparam HttpExchange exchange ongoing HTTP exchange
-  -- @tparam[opt] string reason the response reason phrase.
+  -- @tparam[opt] string reason the response reason phrase
   function HttpExchange.badRequest(exchange, reason)
     updateResponseFor(exchange, HTTP_CONST.HTTP_BAD_REQUEST, reason)
   end
 
   --- Updates the response with the status code Forbidden, 403.
   -- @tparam HttpExchange exchange ongoing HTTP exchange
-  -- @tparam[opt] string reason the response reason phrase.
+  -- @tparam[opt] string reason the response reason phrase
   function HttpExchange.forbidden(exchange, reason)
     updateResponseFor(exchange, HTTP_CONST.HTTP_FORBIDDEN, reason)
   end
@@ -327,7 +327,7 @@ end, function(HttpExchange)
 
   --- Updates the response with the status code Internal Server Error, 500.
   -- @tparam HttpExchange exchange ongoing HTTP exchange
-  -- @tparam[opt] string reason the response reason phrase.
+  -- @tparam[opt] string reason the response reason phrase
   function HttpExchange.internalServerError(exchange, reason)
     exchange:getResponse():setVersion(HTTP_CONST.VERSION_1_0)
     updateResponseFor(exchange, HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, reason)
