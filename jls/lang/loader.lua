@@ -19,12 +19,27 @@ local function tryRequire(name)
 end
 
 --- Requires the specified Lua modules.
+-- You could pass the module names as arguments with the optional try mode as first argument.
 -- @tparam table names the list of the modules to load
 -- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @return the loaded modules or nil values
 -- @function requireList
-local function requireList(names, try)
+local function requireList(names, try, ...)
   local modules = {}
+  local t = type(names)
+  if t ~= 'table' then
+    if t == 'string' then
+      names, try = {names, try, ...}, false
+    elseif t == 'boolean' then
+      names, try = try, names
+      t = type(names)
+      if t == 'string' then
+        names = {names, ...}
+      elseif t ~= 'table' then
+        error('Invalid arguments')
+      end
+    end
+  end
   for i, name in ipairs(names) do
     if try then
       modules[i] = tryRequire(name)
