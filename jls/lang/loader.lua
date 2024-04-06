@@ -45,7 +45,7 @@ end
 
 local NOT_LOADED = {}
 
---- Returns a funtion that will try to require the specified Lua module only once.
+-- Returns a funtion that will try to require the specified Lua module only once.
 -- @tparam string name the name of the module to load
 -- @treturn funtion a function that will return the specified module or nil if an error occured
 -- @function singleRequirer
@@ -61,8 +61,8 @@ local function singleRequirer(name)
 end
 
 -- Builds a function by requiring its dependencies on first call.
--- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found.
--- @treturn funtion the function returned by the providerFn parameter.
+-- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found
+-- @treturn funtion the function returned by the providerFn parameter
 -- @function lazyFunction
 local function lazyFunction(providerFn, ...)
   local fn, names
@@ -77,24 +77,26 @@ local function lazyFunction(providerFn, ...)
 end
 
 --- Adds a method by requiring its dependencies on first call.
--- Lazy method allows cycling dependencies.
+-- Lazy method allows cycling dependencies between modules.
 -- The module method will be replaced on the first call, caching the boot method works but is not recommended.
--- @tparam table m the module owning the method
--- @tparam string key the method name
--- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found.
--- @treturn funtion the function returned by the providerFn parameter.
+-- @tparam table mod the module owning the method
+-- @tparam string name the method name
+-- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found
+-- @param[opt] ... a list of module names to require and pass to the provider function
+-- @treturn funtion the function returned by the providerFn parameter
 -- @function lazyMethod
-local function lazyMethod(m, key, providerFn, ...)
-  if type(m) ~= 'table' or type(key) ~= 'string' or type(providerFn) ~= 'function' then
+local function lazyMethod(mod, name, providerFn, ...)
+  if type(mod) ~= 'table' or type(name) ~= 'string' or type(providerFn) ~= 'function' then
     error('invalid arguments')
   end
-  local fn, names
-  names = {...}
-  m[key] = function(...)
+  local fn, modnames
+  modnames = {...}
+  mod[name] = function(...)
     if not fn then
-      fn = providerFn(requireList(names))
-      m[key] = fn
-      names, m, key, providerFn = nil, nil, nil, nil
+      fn = providerFn(requireList(modnames))
+      mod[name] = fn
+      -- cleanup
+      modnames, mod, name, providerFn = nil, nil, nil, nil
     end
     return fn(...)
   end
@@ -155,7 +157,7 @@ The order is: the first already loaded module then
 the first module whose name ends by an already loaded module.
 If no module could be loaded then an error is raised.
 If there is only one module then the base module shall be the same.
-@param ... the ordered names of the module eligible to load
+@tparam string ... the ordered names of the module eligible to load
 @return the loaded module
 @function requireOne
 @usage
@@ -209,6 +211,8 @@ local function requireOne(...)
 end
 
 --- Requires the Lua object specified by its path.
+-- If the full path cannot be required then each part of the path, separated by a dot '.',
+-- is required and the remaining part of the path are accessed in the module table.
 -- @tparam string path the pathname of the module to load
 -- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @return the loaded module
@@ -247,7 +251,7 @@ local function requireByPath(path, try)
   error(modOrErr)
 end
 
---- Unloads the specified Lua module.
+-- Unloads the specified Lua module.
 -- The module is removed from the loaded modules and will be loaded again on a require.
 -- This is not the opposite of the require and bad things could happen.
 -- @tparam string name the name of the module to unload
@@ -257,7 +261,7 @@ local function unload(name)
   package.loaded[name] = nil
 end
 
---[[-- Unloads all the specified Lua modules.
+--[[ Unloads all the specified Lua modules.
 @tparam string pattern the pattern of the module names to unload
 @function unloadAll
 @usage
@@ -273,9 +277,9 @@ end
 
 --- Loads a module using a specific path.
 -- @tparam string name the name of the module to load
--- @tparam[opt] string path the path of the module to load, could be package.path
+-- @tparam[opt] string path the path of the module to load, could be `package.path`
 -- @tparam[opt] boolean try true to return nil in place of raising an error
--- @tparam[opt] boolean asRequire true to be compatible with require by using package.loaded
+-- @tparam[opt] boolean asRequire true to be compatible with require by using `package.loaded`
 -- @return the loaded module or nil if an error occured
 -- @function load
 local function load(name, path, try, asRequire)
@@ -323,7 +327,7 @@ end
 -- A resource is data accessible in the Lua path or in the table `package.resource`.
 -- If no resource is found, or if there is any error loading the resource, then an error is raised.
 -- If `package.resource[name]` returns a function, then it is called to get the resource with the name as parameter.
--- @tparam string name the name of the resource to load using slash as separator, for example "a/b.json"
+-- @tparam string name the name of the resource to load using slash as separator, for example "`a/b.json`"
 -- @tparam[opt] boolean try true to return nil in place of raising an error
 -- @treturn string the resource
 -- @function loadResource

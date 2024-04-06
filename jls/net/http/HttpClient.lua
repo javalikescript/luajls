@@ -37,7 +37,6 @@ local function sendRequest(tcpClient, request)
     return Http1.writeBody(tcpClient, request)
   end)
 end
-local getSecure = require('jls.lang.loader').singleRequirer('jls.net.secure')
 local function getHostHeader(host, port)
   if port then
     return host..':'..tostring(port)
@@ -526,8 +525,11 @@ return class.create(function(httpClient)
     local isSecure = isUrlSecure(url)
     local host = url:getHost()
     local port = url:getPort()
-    if isSecure and getSecure() then
-      self.tcpClient = getSecure().TcpSocket:new()
+    if isSecure then
+      if not secure then
+        secure = require('jls.net.secure')
+      end
+      self.tcpClient = secure.TcpSocket:new()
       self.tcpClient:sslInit(false, self.secureContext or SECURE_CONTEXT)
     else
       self.tcpClient = TcpSocket:new()
