@@ -23,6 +23,8 @@ The luajls library provides abstraction interfaces for general-purpose scripting
     * @{manual.md.Namespace_and_Modules|Namespace and Modules}
     * @{manual.md.Object_Oriented_Programming|Object Oriented Programming}
     * @{manual.md.Exception|Exception}
+    * @{manual.md.Modules_and_Resources|Modules and Resources}
+    * @{manual.md.Logging|Logging}
     * @{manual.md.Concurrent_Programming|Concurrent Programming}
 * Data Storage and Transformation
     * @{manual.md.File_System|File System}

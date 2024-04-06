@@ -212,6 +212,52 @@ An exception may have a cause, allowing to preserve this information when you do
 Additionnaly, it is possible to create specialized sub class of exception.
 
 
+## Modules and Resources
+
+The loader module provides functions to help loading modules and resources.
+
+The function `lazyMethod` allows to defer the declaration of a function.
+This enables to create module method that will require its dependencies on the first call.
+It allows indirect cycling dependencies between modules.
+
+The function `loadResource` allows to retrieve the content of a file in the Lua path or in the table `package.resource`.
+A resource is a read-only data string required by the application at runtime.
+A resource name uses the slash '/' as separator and has an extension, for example "`a/b.json`".
+The resource could be located with the Lua script and bundled using package as with `package.preload`.
+
+The function `requireOne` allows to require the first available module.
+This enables to support multiple implementations of a module.
+
+
+## Logging
+
+The logger module provides the root logger instance.
+The logger helps to debug and troubleshoot by recording execution information.
+
+The logging levels are `ERROR`, `WARN`, `INFO`, `CONFIG`, `DEBUG`, `FINE`, `FINER`, `FINEST`.
+The log information consists in a message string, additional arguments could be passed to be formated in the message as for `string.format`.
+
+```lua
+local logger = require('jls.lang.logger')
+logger:info('Hello from %s !', 'Lua')
+```
+
+It is recommended to use a logger instance for each module using the module name as logger name.
+
+```lua
+local logger = require('jls.lang.logger'):get(...) -- require will pass the module name
+logger:info('Some usefull information message')
+```
+
+You can condition the creation of the message by the logger level.
+
+```lua
+if logger:isLoggable(logger.FINE) then
+  logger:fine('Some fine message %s', costlyMethod())
+end
+```
+
+
 ## Concurrent Programming
 
 ### Event Loop
