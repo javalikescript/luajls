@@ -94,9 +94,7 @@ function Test_TcpClient_TcpServer_dual()
   local host = 'localhost'
   local t = {}
   local server = TcpSocket:new()
-  local port, infos
-  dns.getAddressInfo(host):next(function(l)
-    infos = l
+  dns.getAddressInfo(host):next(function(infos)
     if #infos == 2 then
       function server:onAccept(client)
         client:readStart(StreamHandler:new(function(_, data)
@@ -107,14 +105,18 @@ function Test_TcpClient_TcpServer_dual()
           end
         end))
       end
-      return server:bind(host, 0)
+      local port
+      return server:bind(host, 0):next(function()
+        port = select(2, server:getLocalName())
+        return send('1\n', infos[1].addr, port)
+      end):next(function()
+        return send('2\n', infos[2].addr, port)
+      end)
+    end
+    for i, info in ipairs(infos) do
+      print('', i, info.addr, info.family)
     end
     t = nil
-  end):next(function()
-    port = select(2, server:getLocalName())
-    return send('1\n', infos[1].addr, port)
-  end):next(function()
-    return send('2\n', infos[2].addr, port)
   end):catch(function(reason)
     print('error', reason)
   end):finally(function()
@@ -128,10 +130,7 @@ function Test_TcpClient_TcpServer_dual()
   if t then
     lu.assertEquals(t, {'1\n', '2\n'})
   else
-    print('/!\\ skipping test as '..host..' resolves to '..tostring(#infos)..' addresses')
-    for i, info in ipairs(infos) do
-      print('', i, info.addr, info.family)
-    end
+    print('/!\\ skipping test as '..host..' does not resolve to 2 addresses')
     lu.success()
   end
 end
