@@ -66,27 +66,25 @@ end
 function Test_read()
   local part1, part2 = 'Hello', ' world!'
   local data1, data2, data3
-  local errors = {}
+  local err = nil
   TMP_FILE:write(part1..part2)
   local fd = FileDescriptor.openSync(TMP_FILENAME, 'r')
   lu.assertNotNil(fd)
-  fd:read(#part1, function(err, d)
-    table.insert(errors, err)
+  fd:read(#part1):next(function(d)
     data1 = d
-  end)
-  fd:read(1024, function(err, d)
-    table.insert(errors, err)
+    return fd:read(1024)
+  end):next(function(d)
     data2 = d
-  end)
-  fd:read(1024, function(err, d)
-    table.insert(errors, err)
+    return fd:read(1024)
+  end):next(function(d)
     data3 = d
+  end):catch(function(reason)
+    err = reason
   end)
-  --require('jls.lang.event'):loop()
   loop()
   fd:closeSync()
   TMP_FILE:delete()
-  lu.assertEquals(errors, {})
+  lu.assertNil(err)
   lu.assertEquals(data1, part1)
   lu.assertEquals(data2, part2)
   lu.assertNil(data3)
