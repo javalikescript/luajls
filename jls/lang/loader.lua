@@ -378,10 +378,42 @@ local function loadResource(name, try)
   error(err)
 end
 
-local function appendLuaPath(name)
-  if not string.find(package.path, name) then
-    package.path = package.path..';'..name
+local function findPath(name, path, sep)
+  path = path or package.path
+  sep = sep or string.sub(package.config, 3, 3)
+  local i, j
+  i = 0
+  while true do
+    i, j = string.find(path, name, i + 1, true)
+    if i then
+      if (i == 1 or string.sub(path, i - 1, i - 1) == sep) and (j == #path or string.sub(path, j + 1, j + 1) == sep) then
+        return i, j
+      end
+    else
+      break
+    end
   end
+end
+
+local function addLuaPath(name)
+  if not findPath(name) then
+    package.path = package.path..';'..name
+    return true
+  end
+  return false
+end
+
+local function removeLuaPath(name)
+  local i, j = findPath(name)
+  if i then
+    if i > 2 then
+      package.path = string.sub(package.path, 1, i - 2)..string.sub(package.path, j + 1)
+    else
+      package.path = string.sub(package.path, j + 2)
+    end
+    return true
+  end
+  return false
 end
 
 local BASE_LUA_PATH = package.path
@@ -410,6 +442,8 @@ return {
   unloadAll = unloadAll,
   load = load,
   loadResource = loadResource,
-  appendLuaPath = appendLuaPath,
+  findPath = findPath,
+  addLuaPath = addLuaPath,
+  removeLuaPath = removeLuaPath,
   resetLuaPath = resetLuaPath,
 }
