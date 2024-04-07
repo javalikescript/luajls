@@ -29,7 +29,7 @@ local CONFIG_SCHEMA = {
     ['bind-address'] = {
       title = 'The binding address, use :: to bind on any',
       type = 'string',
-      default = '127.0.0.1'
+      default = 'localhost'
     },
     port = {
       type = 'integer',
