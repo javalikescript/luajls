@@ -10,13 +10,37 @@ TestLoader = {}
 
 function TestLoader:setUp()
   package.resource = nil
-  loader.appendLuaPath('tests/?.lua')
+  loader.addLuaPath('tests/?.lua')
   loader.unload(TEST_MODULE_NAME)
   loader.unload(TEST_2_MODULE_NAME)
 end
 
 function TestLoader:tearDown()
   loader.resetLuaPath()
+end
+
+function TestLoader:test_findPath()
+  lu.assertEvalToFalse(loader.findPath('a', ''))
+  lu.assertEvalToTrue(loader.findPath('a', 'a'))
+  lu.assertEvalToTrue(loader.findPath('b', 'a;b'))
+  lu.assertEvalToTrue(loader.findPath('b', 'a;b;c'))
+  lu.assertEvalToFalse(loader.findPath('b', 'a;bb;c'))
+  lu.assertEvalToTrue(loader.findPath('b', 'a;bb;b;c'))
+  lu.assertEvalToTrue(loader.findPath('b', 'b;c'))
+end
+
+function TestLoader:test_addLuaPath()
+  package.path = 'a;b;c'
+  loader.addLuaPath('b')
+  lu.assertEquals(package.path, 'a;b;c')
+  loader.addLuaPath('d')
+  lu.assertEquals(package.path, 'a;b;c;d')
+  loader.removeLuaPath('b')
+  lu.assertEquals(package.path, 'a;c;d')
+  loader.removeLuaPath('d')
+  lu.assertEquals(package.path, 'a;c')
+  loader.removeLuaPath('a')
+  lu.assertEquals(package.path, 'c')
 end
 
 function TestLoader:test_tryRequire()
@@ -83,6 +107,7 @@ function TestLoader:test_lazyFunction()
 end
 
 function TestLoader:test_loadResource()
+  loader.addLuaPath('?.lua')
   lu.assertEquals(loader.loadResource('res_test.txt'), 'Resource content')
   lu.assertEquals(loader.loadResource('tests/res_test.txt'), 'Resource content')
   package.resource = {a = 'a content', b = function(n) return 'b:'..n end, ['res_test.txt'] = 'c'}

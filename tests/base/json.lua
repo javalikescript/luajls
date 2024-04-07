@@ -1,5 +1,6 @@
 local lu = require('luaunit')
 
+local loader = require('jls.lang.loader')
 local json = require('jls.util.json')
 local Map = require('jls.util.Map')
 local List = require('jls.util.List')
@@ -140,8 +141,10 @@ function Test_stringify_parse()
 end
 
 function Test_require()
+  loader.addLuaPath('?.lua')
   lu.assertEquals(json.require('tests/res_test.json'), {a = 'Hi', b = 1})
   lu.assertNil(json.require('tests/not_a_file.json', true))
+  loader.resetLuaPath()
 end
 
 os.exit(lu.LuaUnit.run())
