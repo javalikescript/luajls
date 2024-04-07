@@ -128,7 +128,7 @@ return class.create(function(promise, _, Promise)
 --[[--
 Creates a promise.
 @function Promise:new
-@tparam function executor A function that is passed with the arguments resolve and reject.
+@tparam function executor A function that is passed with the arguments resolve and reject
 @usage
 Promise:new(function(resolve, reject)
   -- call resolve(value) or reject(reason)
@@ -156,7 +156,7 @@ or returns any other value, then returns a resolved Promise.
  This function has one argument, the fulfillment value.
 @tparam[opt] function onRejected A Function called when the Promise is rejected.
  This function has one argument, the rejection reason.
-@treturn Promise A new promise.
+@treturn Promise A new promise
 ]]
 function promise:next(onFulfilled, onRejected)
   local p = Promise:new()
@@ -179,8 +179,8 @@ end
 -- promise resolving to the return value of the callback if it is called,
 -- or to its original fulfillment value if the promise is instead fulfilled.
 --
--- @tparam function onRejected A Function called when the Promise is rejected.
--- @treturn Promise A new promise.
+-- @tparam function onRejected A Function called when the Promise is rejected
+-- @treturn Promise A new promise
 function promise:catch(onRejected)
   return self:next(nil, onRejected)
 end
@@ -194,8 +194,8 @@ end
 -- In case of error or returning a rejected promise in the finally callback,
 -- the returned promise will be rejected.
 --
--- @tparam function onFinally A Function called when the Promise is either fulfilled or rejected.
--- @treturn Promise A new promise.
+-- @tparam function onFinally A Function called when the Promise is either fulfilled or rejected
+-- @treturn Promise A new promise
 function promise:finally(onFinally)
   return self:next(function(value)
     local result = onFinally()
@@ -221,8 +221,8 @@ end
 -- iterable argument have fulfilled or rejects as soon as one of the
 -- promises in the iterable argument rejects.
 --
--- @tparam table promises The promises list.
--- @treturn Promise A promise.
+-- @tparam table promises The promises list
+-- @treturn Promise A promise
 function Promise.all(promises)
   return Promise:new(function(resolve, reject)
     local count = #promises
@@ -308,8 +308,8 @@ end
 -- promises in the iterable fulfills or rejects, with the value or reason
 -- from that promise.
 --
--- @tparam table promises The promises list.
--- @treturn Promise A promise.
+-- @tparam table promises The promises list
+-- @treturn Promise A promise
 function Promise.race(promises)
   return Promise:new(function(resolve, reject)
     for _, p in ipairs(promises) do
@@ -320,8 +320,8 @@ end
 
 --- Returns a Promise object that is rejected with the given reason.
 --
--- @param reason The reason for the rejection.
--- @treturn Promise A rejected promise.
+-- @param reason The reason for the rejection
+-- @treturn Promise A rejected promise
 function Promise.reject(reason)
   local p = Promise:new()
   applyPromise(p, reason, REJECTED)
@@ -333,8 +333,8 @@ end
 -- promise will "follow" that thenable, adopting its eventual state;
 -- otherwise the returned promise will be fulfilled with the value.
 --
--- @param value The resolving value.
--- @treturn Promise A resolved promise.
+-- @param value The resolving value
+-- @treturn Promise A resolved promise
 function Promise.resolve(value)
   if Promise:isInstance(value) then
     return value
@@ -403,9 +403,9 @@ The `await` function can only be called on the `async` function body not in a ca
 
 Prior Lua 5.2 and LuaJIT you cannot yield when having a C function between yield and resume.
 
-@tparam function fn the async function to call.
-@param[opt] ... the optional parameters to pass to the function after the `await` function.
-@treturn Promise a promise that resolves once the coroutine ends.
+@tparam function fn The async function to call
+@param[opt] ... The optional parameters to pass to the function after the `await` function
+@treturn Promise A promise that resolves once the coroutine ends
 @usage
 local Promise = require('jls.lang.Promise')
 local HttpClient = require('jls.net.http.HttpClient')
@@ -452,20 +452,22 @@ function Promise.async(fn, ...)
 end
 
 --- Return true if the specified value is a promise.
--- @param promise The value to test.
--- @treturn boolean true if the specified value is a promise.
+-- @param promise The value to test
+-- @treturn boolean true if the specified value is a promise
 -- @function Promise.isPromise
 Promise.isPromise = isPromise
 
 --- Returns a new promise and its associated callback.
--- @treturn Promise a new promise.
--- @treturn function the associated callback.
+-- @treturn Promise A new promise
+-- @treturn function The associated callback
 -- @usage
--- local promise, cb = Promise.createWithCallback()
-function Promise.createWithCallback()
+-- local promise, cb = Promise.withCallback()
+function Promise.withCallback()
   local p = Promise:new()
   return p, asCallback(p)
 end
+
+Promise.createWithCallback = Promise.withCallback
 
 function Promise.createWeakWithCallback(prepare)
   local p = Promise:new()
@@ -479,10 +481,19 @@ function Promise.createWeakWithCallback(prepare)
   return p
 end
 
-function Promise.createWithCallbacks()
+--- Returns a new promise and two functions to resolve or reject it.
+-- @treturn Promise A new promise
+-- @treturn function The function that resolves the promise
+-- @treturn function The function that rejects the promise
+-- @usage
+-- local promise, resolve, reject = Promise.withResolvers()
+function Promise.withResolvers()
   local p = Promise:new()
   return p, asCallbacks(p)
 end
+
+-- deprecated, to remove
+Promise.createWithCallbacks = Promise.withResolvers
 
 function Promise.newCallback(executor)
   local p = Promise:new()
@@ -492,9 +503,9 @@ end
 
 --- Returns the specified callback if any or a callback and its associated promise.
 -- This function helps to create asynchronous functions with an optional ending callback parameter.
--- @param callback An optional existing callback or false to indicate that no promise is expected.
--- @treturn function the callback.
--- @treturn Promise an associated promise if necessary.
+-- @param callback An optional existing callback or false to indicate that no promise is expected
+-- @treturn function The callback
+-- @treturn Promise An associated promise if necessary
 -- @usage function readAsync(callback)
 --   local cb, promise = Promise.ensureCallback(callback)
 --   -- call cb(nil, value) on success or cb(reason) on error
