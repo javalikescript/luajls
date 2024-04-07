@@ -263,7 +263,7 @@ function stopServer(e) {
 }
 ]]
 
-local stopPromise, stopCallback = Promise.createWithCallback()
+local stopPromise, stopCallback = Promise.withCallback()
 
 local httpServer = HttpServer:new()
 httpServer:bind(config['bind-address'], config.port):next(function()

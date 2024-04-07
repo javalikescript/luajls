@@ -365,7 +365,7 @@ end, function(WebView)
         tUrl.path = wsPath
         options.data = Url.format(tUrl)
         local wsCb
-        wsPromise, wsCb = Promise.createWithCallback()
+        wsPromise, wsCb = Promise.withCallback()
         httpServer:createContext(strings.escape(wsPath), Map.assign(WebSocket.UpgradeHandler:new(), {
           onOpen = function(_, webSocket, exchange)
             wsCb(nil, webSocket)

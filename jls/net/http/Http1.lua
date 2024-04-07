@@ -154,7 +154,7 @@ Http1.BODY_BLOCK_SIZE = 2 << 14
 
 function Http1.writeBody(tcp, message)
   logger:finer('writeBody()')
-  local pr, cb = Promise.createWithCallback()
+  local pr, cb = Promise.withCallback()
   local len = 0
   message:setBodyStreamHandler(StreamHandler:new(function(err, data)
     if err then

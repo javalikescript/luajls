@@ -467,6 +467,7 @@ function Promise.withCallback()
   return p, asCallback(p)
 end
 
+-- deprecated, to remove
 Promise.createWithCallback = Promise.withCallback
 
 function Promise.createWeakWithCallback(prepare)

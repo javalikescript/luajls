@@ -101,7 +101,7 @@ end, function(HttpHandler)
       condition = table.remove(handlers, 1)
     end
     return HttpHandler:new(function(_, exchange)
-      local p, cb = Promise.createWithCallback()
+      local p, cb = Promise.withCallback()
       chainHandlers(handlers, condition, exchange, 1, cb)
       return p
     end)

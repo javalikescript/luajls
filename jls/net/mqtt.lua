@@ -429,7 +429,7 @@ local MqttClient = class.create(MqttClientBase, function(mqttClient, super)
     if reg then
       return reg.promise
     end
-    local promise, cb = Promise.createWithCallback()
+    local promise, cb = Promise.withCallback()
     self.regPacketIds[packetId] = {
       cb = cb,
       promise = promise,

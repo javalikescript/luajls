@@ -130,7 +130,7 @@ return class.create(function(channel, _, Channel)
   -- @treturn jls.lang.Promise a promise that resolves once the channel is closed.
   function channel:onClose()
     if not self.closePromise then
-      self.closePromise, self.closeCallback = Promise.createWithCallback()
+      self.closePromise, self.closeCallback = Promise.withCallback()
     end
     return self.closePromise
   end

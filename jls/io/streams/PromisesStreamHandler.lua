@@ -33,7 +33,7 @@ return require('jls.lang.class').create(StreamHandler, function(promisesStreamHa
       end
     else
       local apply
-      promise, apply = Promise.createWithCallback()
+      promise, apply = Promise.withCallback()
       promise._apply = apply
       self.list[index] = promise
     end

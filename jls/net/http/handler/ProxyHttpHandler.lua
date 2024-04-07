@@ -237,7 +237,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       local drsh = request:getBodyStreamHandler()
       drsh:setStreamHandler(clientRequest:getBodyStreamHandler())
     end)
-    local pr, cb = Promise.createWithCallback()
+    local pr, cb = Promise.withCallback()
     client:connect():next(function()
       logger:finer('client connected')
       return client:sendRequest() -- TODO switch to fetch

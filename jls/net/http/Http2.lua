@@ -358,7 +358,7 @@ return class.create(function(http2)
     self.pingMap = {}
     self.pingIndex = 0
     self.settingAcks = {}
-    self.initialSettingsPromise, self.initialSettingsCb = Promise.createWithCallback()
+    self.initialSettingsPromise, self.initialSettingsCb = Promise.withCallback()
   end
 
   function http2:toString()
@@ -495,7 +495,7 @@ return class.create(function(http2)
     local pingData = string.format('%04x%04x', math.random(0, max - 1), self.pingIndex)
     logger:fine('sendPing() "%s"', pingData)
     return self:sendFrame(FRAME.PING, 0, 0, pingData):next(function()
-      local p, cb = Promise.createWithCallback()
+      local p, cb = Promise.withCallback()
       self.pingMap[pingData] = {cb = cb, time = os.time()}
       return p
     end)

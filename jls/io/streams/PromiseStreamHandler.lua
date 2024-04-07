@@ -19,7 +19,7 @@ return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, func
   end
 
   function promiseStreamHandler:reset()
-    self.promise, self.promiseCallback = Promise.createWithCallback()
+    self.promise, self.promiseCallback = Promise.withCallback()
     self.size = 0
   end
 

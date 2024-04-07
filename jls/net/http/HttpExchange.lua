@@ -122,7 +122,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       self.request:bufferBody()
     end
     if not self.requestBodyPromise then
-      self.requestBodyPromise, self.requestBodyCallback = Promise.createWithCallback()
+      self.requestBodyPromise, self.requestBodyCallback = Promise.withCallback()
     end
     return self.requestBodyPromise
   end
@@ -131,7 +131,7 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
   -- @treturn jls.lang.Promise a promise that resolves once the exchange is closed
   function httpExchange:onClose()
     if not self.closePromise then
-      self.closePromise, self.closeCallback = Promise.createWithCallback()
+      self.closePromise, self.closeCallback = Promise.withCallback()
     end
     return self.closePromise
   end

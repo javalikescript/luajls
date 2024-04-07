@@ -314,7 +314,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     if not self.ssl then
       self:sslInit(false)
     end
-    local promise, resolutionCallback = Promise.createWithCallback()
+    local promise, resolutionCallback = Promise.withCallback()
     if startData and #startData > 0 and self.inMem:write(startData) then
       local handshakeCompleted = false
       self:sslDoHandshake(function(err)

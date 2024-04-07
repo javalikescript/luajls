@@ -238,7 +238,7 @@ return class.create(function(httpClient)
     function stream:onEndHeaders()
       super.onEndHeaders(self)
       local response = self.message
-      local promise, cb = Promise.createWithCallback()
+      local promise, cb = Promise.withCallback()
       response.consume = function()
         return promise
       end
@@ -291,7 +291,7 @@ return class.create(function(httpClient)
       local stream = Stream:new(http2, http2:nextStreamId(), response)
       http2:registerStream(stream)
       -- TODO shall we override response:close()?
-      local promise, cb = Promise.createWithCallback()
+      local promise, cb = Promise.withCallback()
       stream.endHeadersCallback = cb
       stream.client = client
       stream.options = options
@@ -369,7 +369,7 @@ return class.create(function(httpClient)
       end
       local queuePromise = self.queuePromise or Promise.resolve()
       local queueNext
-      self.queuePromise, queueNext = Promise.createWithCallback()
+      self.queuePromise, queueNext = Promise.withCallback()
       return queuePromise:next(function()
         return self:connectV2() -- we stick to HTTP/1
       end):next(function()

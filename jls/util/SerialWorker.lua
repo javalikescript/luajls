@@ -123,7 +123,7 @@ return class.create(function(serialWorker)
       sh = StreamHandler.ensureStreamHandler(sh)
     end
     local message = string.pack('>Bs4s4', flags, payload, chunk or '')
-    local promise, cb = Promise.createWithCallback()
+    local promise, cb = Promise.withCallback()
     local work = {
       message = message,
       cb = cb,

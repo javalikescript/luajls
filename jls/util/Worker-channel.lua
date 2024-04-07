@@ -151,7 +151,7 @@ return class.create(function(worker, _, Worker)
       logger:finer('postMessage() add to pending messages')
       table.insert(self.pendingMessages, message)
       if not self.postMessagePromise then
-        self.postMessagePromise, self.postMessageCallback = Promise.createWithCallback()
+        self.postMessagePromise, self.postMessageCallback = Promise.withCallback()
       end
       return self.postMessagePromise
     end

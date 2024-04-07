@@ -50,7 +50,7 @@ local Stream = class.create(Http2.Stream, function(stream, super)
     end
     local request = self.message
     local exchange = self.exchange
-    local promise, cb = Promise.createWithCallback()
+    local promise, cb = Promise.withCallback()
     request.consume = function()
       return promise
     end
@@ -385,7 +385,7 @@ local HttpServer = class.create(function(httpServer)
       self.pendings[client] = nil
       local request = exchange:getRequest()
       local promise
-      promise, callback = Promise.createWithCallback()
+      promise, callback = Promise.withCallback()
       request.consume = function()
         return promise
       end
