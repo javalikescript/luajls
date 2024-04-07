@@ -22,10 +22,10 @@ return require('jls.lang.class').create(function(event)
 
   --[[--
   Registers a timer which executes a function once after the timer expires.
-  @tparam function callback A function that is executed once after the timer expires.
-  @tparam[opt=0] number delayMs The time, in milliseconds, the timer should wait before the specified function is executed.
-  @param[opt] ... the parameters to pass when calling the function.
-  @return An opaque value identifying the timer that can be used to cancel it.
+  @tparam function callback A function that is executed once after the timer expires
+  @tparam[opt=0] number delayMs The time, in milliseconds, the timer should wait before the specified function is executed
+  @param[opt] ... The parameters to pass when calling the function
+  @return An opaque value identifying the timer that can be used to cancel it
   @usage
   event:setTimeout(function()
     -- something that have to be done once in 1 second
@@ -49,9 +49,9 @@ return require('jls.lang.class').create(function(event)
 
   --[[--
   Registers a timer which executes a function repeatedly with a fixed time delay between each execution.
-  @tparam function callback A function that is executed repeatedly.
-  @tparam number delayMs The time, in milliseconds, the timer should wait between to execution.
-  @return An opaque value identifying the timer that can be used to cancel it.
+  @tparam function callback A function that is executed repeatedly
+  @tparam number delayMs The time, in milliseconds, the timer should wait between to execution
+  @return An opaque value identifying the timer that can be used to cancel it
   @usage
   local intervalId
   intervalId = event:setInterval(function()
@@ -73,13 +73,13 @@ return require('jls.lang.class').create(function(event)
   end
 
   --- Unregisters a timer.
-  -- @param timer the timer as returned by the setTimeout or setInterval method.
+  -- @param timer The timer as returned by the setTimeout or setInterval method.
   -- @function event:clearInterval
   event.clearInterval = event.clearTimeout
 
   -- Returns true if the specified timer id is still registered.
-  -- @param timer the timer as returned by the setTimeout or setInterval method.
-  -- @treturn boolean true if the specified timer id is still registered.
+  -- @param timer The timer as returned by the setTimeout or setInterval method
+  -- @treturn boolean true if the specified timer id is still registered
   function event:hasTimer(timer)
     return self.scheduler:isScheduled(timer)
   end
@@ -87,9 +87,9 @@ return require('jls.lang.class').create(function(event)
   -- Registers a timer which executes a function until completion.
   -- A negative delay indicate that the task is able to wait, the callback will receive the maximum delay,
   -- the maximum delay could be 0 when the task should not wait.
-  -- @tparam function callback A function that is executed repeatedly.
-  -- @tparam[opt] number delayMs The time, in milliseconds, the timer should wait between two executions.
-  -- @return An opaque value identifying the timer that can be used to cancel it.
+  -- @tparam function callback A function that is executed repeatedly
+  -- @tparam[opt] number delayMs The time, in milliseconds, the timer should wait between two executions
+  -- @return An opaque value identifying the timer that can be used to cancel it
   function event:setTask(callback, delayMs)
     logger:debug('setTask(%s, %s)', callback, delayMs)
     if type(delayMs) ~= 'number' then
@@ -113,8 +113,8 @@ return require('jls.lang.class').create(function(event)
   end
 
   -- Sets the timer daemon flag.
-  -- @param timer the timer as returned by the setTimeout or setInterval method.
-  -- @tparam[opt=false] boolean daemon true to indicate this timer is a daemon.
+  -- @param timer The timer as returned by the setTimeout or setInterval method
+  -- @tparam[opt=false] boolean daemon true to indicate this timer is a daemon
   function event:daemon(timer, daemon)
     if type(timer) == 'table' and type(timer.daemon) == 'boolean' then
       timer.daemon = daemon
@@ -132,7 +132,7 @@ return require('jls.lang.class').create(function(event)
   end
 
   --- Indicates whether or not this event has at least one registered event.
-  -- @treturn boolean true when this event has something to do.
+  -- @treturn boolean true when this event has something to do
   function event:loopAlive()
     return self.scheduler:hasSchedule()
   end

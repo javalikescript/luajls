@@ -27,10 +27,10 @@ return class.create(function(exception, _, Exception)
   --- Creates a new Exception.
   -- The stack is removed from the message.
   -- The stack trace and the name will be generated automatically.
-  -- @param[opt] message the exception message.
-  -- @param[opt] cause the exception cause.
-  -- @tparam[opt] string stack the exception stack.
-  -- @tparam[opt] string name the exception name.
+  -- @param[opt] message The exception message
+  -- @param[opt] cause The exception cause
+  -- @tparam[opt] string stack The exception stack
+  -- @tparam[opt] string name The exception name
   -- @function Exception:new
   function exception:initialize(message, cause, stack, name)
     if type(name) == 'string' then
@@ -53,20 +53,20 @@ return class.create(function(exception, _, Exception)
 
   --- Returns the message of this exception.
   -- The message is the error object passed to the error function.
-  -- @return the message of this exception possibly nil.
+  -- @return The message of this exception possibly nil
   function exception:getMessage()
     return self.message
   end
 
   --- Returns the cause of this exception.
-  -- @return the cause of this exception if any or nil.
+  -- @return The cause of this exception if any or nil
   function exception:getCause()
     return self.cause
   end
 
   --- Returns the stack of this exception.
   -- A traceback of the call stack when this exception was created and thrown
-  -- @treturn string the stack of this exception.
+  -- @treturn string The stack of this exception
   function exception:getStackTrace()
     return self.stack
   end
@@ -78,7 +78,7 @@ return class.create(function(exception, _, Exception)
 
   -- Returns the string representation of this exception.
   -- It includes the name, message, stack and cause.
-  -- @treturn string the string representation of this exception.
+  -- @treturn string The string representation of this exception
   function exception:toString()
     local s = self:getName()..': '..tostring(self.message)..'\n'..self.stack
     if self.cause ~= nil then
@@ -110,8 +110,8 @@ return class.create(function(exception, _, Exception)
   end
 
   --- Returns the message of the specified value if it is an exception or the specified value itself.
-  -- @param e the exception or error message.
-  -- @return the message of the exception possibly nil.
+  -- @param e The exception or error message
+  -- @return The message of the exception possibly nil
   function Exception.getMessage(e)
     if Exception:isInstance(e) then
       return e:getMessage()
@@ -128,10 +128,10 @@ return class.create(function(exception, _, Exception)
   end
 
   --- Calls the specified function with the given arguments in protected mode.
-  -- @tparam function fn the function to call in protected mode.
-  -- @param[opt] ... the arguments to call the function with.
-  -- @treturn boolean true if the call succeeds without errors.
-  -- @return the returned values of the call or the Exception in case of error.
+  -- @tparam function fn The function to call in protected mode
+  -- @param[opt] ... The arguments to call the function with
+  -- @treturn boolean true if the call succeeds without errors
+  -- @return The returned values of the call or the Exception in case of error
   function Exception.pcall(fn, ...)
     return xpcall(fn, handleError, ...)
   end
@@ -144,9 +144,9 @@ return class.create(function(exception, _, Exception)
   end
 
   --- Calls the specified function with the given arguments in protected mode.
-  -- @tparam function fn the function to call in protected mode.
-  -- @param[opt] ... the arguments to call the function with.
-  -- @return the returned values of the call or nil plus the Exception in case of error.
+  -- @tparam function fn The function to call in protected mode
+  -- @param[opt] ... The arguments to call the function with
+  -- @return The returned values of the call or nil plus the Exception in case of error
   function Exception.try(fn, ...)
     return fail(xpcall(fn, handleError, ...))
   end

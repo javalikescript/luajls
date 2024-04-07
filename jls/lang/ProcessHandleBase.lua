@@ -31,18 +31,19 @@ return class.create(function(processHandle)
   end
 
   --- Returns the Process ID for this process.
-  -- @return the Process ID for this process.
+  -- @return The Process ID for this process
   function processHandle:getPid()
     return self.pid
   end
 
   --- Returns true if this process is alive.
+  -- @treturn boolean true if this process is alive
   function processHandle:isAlive()
     return false
   end
 
   --- Returns a promise that resolves once this process is terminated.
-  -- @treturn jls.lang.Promise a promise that resolves once this process is terminated.
+  -- @treturn jls.lang.Promise A promise that resolves once this process is terminated
   function processHandle:ended()
     if self.code then
       Promise.resolve(self.code)
@@ -63,21 +64,21 @@ return class.create(function(processHandle)
 end, function(ProcessHandle)
 
   --- Returns a new ProcessHandle with the specified Process ID.
-  -- @tparam number pid the process identifier.
-  -- @return a new ProcessHandle with the specified Process ID.
+  -- @tparam number pid The process identifier
+  -- @return A new ProcessHandle with the specified Process ID
   function ProcessHandle.of(pid)
     return ProcessHandle:new(pid)
   end
 
   --- Returns the Process ID of the current process.
-  -- @treturn number the Process ID of the current process.
+  -- @treturn number The Process ID of the current process
   -- @function ProcessHandle.getCurrentPid
   ProcessHandle.getCurrentPid = class.notImplementedFunction
 
   ProcessHandle.getPid = ProcessHandle.getCurrentPid
 
   --- Returns the current executable path.
-  -- @treturn string the current executable path.
+  -- @treturn string The current executable path
   function ProcessHandle.getExecutablePath()
     return EXECUTABLE_PATH
   end

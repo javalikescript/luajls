@@ -64,7 +64,7 @@ end)
 return class.create(function(thread)
 
   --- Creates a new Thread.
-  -- @tparam[opt] function fn the function to execute in this thread.
+  -- @tparam[opt] function fn The function to execute in this thread.
   -- The function will receive the arguments passed in the start call and may return a single value.
   -- If the returned value is a promise then the event loop is called until the promise completes.
   -- Errors if any are wrapped into exceptions.
@@ -74,7 +74,7 @@ return class.create(function(thread)
   end
 
   -- Sets this Thread function.
-  -- @tparam[opt] function fn the function to execute in this thread.
+  -- @tparam[opt] function fn The function to execute in this thread
   function thread:setFunction(fn)
     if self.t then
       error('thread is runnning')
@@ -124,19 +124,19 @@ return class.create(function(thread)
   --- Starts this Thread.
   -- The arguments will be passed to the thread function.
   -- If the thread is already running then nothing is done.
-  -- @param[opt] ... The thread function arguments.
-  -- @treturn jls.lang.Thread this thread.
+  -- @param[opt] ... The thread function arguments
+  -- @treturn jls.lang.Thread This thread
   -- @function thread:start
   thread.start = class.notImplementedFunction
 
   --- Returns a promise that resolves once this thread is terminated.
-  -- @treturn jls.lang.Promise a promise that resolves once this thread is terminated.
+  -- @treturn jls.lang.Promise A promise that resolves once this thread is terminated
   function thread:ended()
     return self._endPromise or Promise.reject()
   end
 
   --- Returns true if this thread is alive.
-  -- @treturn boolean true if this thread is alive.
+  -- @treturn boolean true if this thread is alive
   function thread:isAlive()
     return self.t ~= nil
   end

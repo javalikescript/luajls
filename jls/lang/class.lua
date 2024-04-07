@@ -55,8 +55,8 @@ end
 
 --[[--
 Returns the class of the specified instance.
-@param instance The instance to get the class from.
-@return the class of the specified class or nil if there is no such class.
+@param instance The instance to get the class from
+@return The class of the specified class or nil if there is no such class
 @function getClass
 @usage
 local Vehicle = require('jls.lang.class').create()
@@ -76,8 +76,8 @@ end
 --[[--
 Returns a copy of the specified instance.
 This method performs a shallow copy, field-by-field copy, not a deep copy.
-@param instance the instance to clone.
-@return a copy of the specified instance, or nil if the instance has no class.
+@param instance The instance to clone
+@return A copy of the specified instance, or nil if the instance has no class
 @function cloneInstance
 @usage
 local Vehicle = require('jls.lang.class').create()
@@ -101,9 +101,9 @@ end
 
 --[[--
 Creates a new instance of the specified class.
-@param class the class to instantiate.
-@param ... parameters passed to the initialize method.
-@return a new instance
+@param class The class to instantiate
+@param ... The parameters passed to the initialize method
+@return A new instance
 @function newInstance
 @usage
 local Vehicle = require('jls.lang.class').create(function(vehicle)
@@ -125,8 +125,8 @@ end
 
 --[[--
 Returns the name of the specified class.
-@param class the class to look for.
-@treturn string the class name or nil if the class is not in package.loaded
+@param class The class to look for
+@treturn string The class name or nil if the class is not found in `package.loaded`
 @function getName
 ]]
 local function getName(class)
@@ -140,9 +140,9 @@ end
 
 --[[--
 Indicates whether or not the specified subclass is the same or a sub class of the specified class.
-@param class The class to check with.
-@param subclass The class to be checked.
-@return true if the subclass is the same or a sub class of the class, false otherwise.
+@param class The class to check with
+@param subclass The class to be checked
+@return true if the subclass is the same or a sub class of the class, false otherwise
 @function isAssignableFrom
 @usage
 local class = require('jls.lang.class')
@@ -162,8 +162,8 @@ end
 
 --[[--
 Returns true if the specified value is a class.
-@param value The class to check.
-@return true if the specified value is a class, false otherwise.
+@param value The class to check
+@return true if the specified value is a class, false otherwise
 @function isClass
 ]]
 local function isClass(value)
@@ -175,9 +175,9 @@ end
 
 --[[--
 Indicates whether or not the specified instance is an instance of the specified class.
-@param class The class to check with.
-@param instance The instance to be checked.
-@return true if the instance is an instance of the class, false otherwise.
+@param class The class to check with
+@param instance The instance to be checked
+@return true if the instance is an instance of the class, false otherwise
 @function isInstance
 @usage
 local Vehicle = require('jls.lang.class').create()
@@ -190,9 +190,9 @@ end
 
 --[[--
 Returns an instance of the specified class.
-@param class The class from which an instance is expected.
-@param ... The instance to be checked or the creation parameters.
-@return an instance.
+@param class The class from which an instance is expected
+@param ... The instance to be checked or the creation parameters
+@return An instance
 @function asInstance
 ]]
 local function asInstance(class, ...)
@@ -230,10 +230,10 @@ local ClassMetaTable = {
 Implements the specified class by setting its prototype and class methods.
 The following methods are automatically set in the metatable:
 `equals` as `__eq`, `length` as `__len`, `pairs` as `__pairs`, `toString` as `__tostring`.
-@param class The class to implement.
+@param class The class to implement
 @tparam[opt] function defineInstanceFn An optional function that will be called with the class prototype to implement
 @tparam[opt] function defineClassFn An optional function that will be called with the class
-@return the class
+@return The class
 @function define
 @usage
 local class = require('jls.lang.class')
@@ -283,9 +283,9 @@ end
 --[[--
 Modifies the specified instance.
 This method allows to override class methods for a specific instance.
-@param instance the instance to modify.
-@tparam function fn the function that will be called with the instance and its prototype
-@return the modified instance
+@param instance The instance to modify
+@tparam function fn The function that will be called with the instance and its prototype
+@return The modified instance
 @function modifyInstance
 ]]
 local function modifyInstance(instance, fn)
@@ -303,7 +303,7 @@ The class has a @{newInstance|new} method to create new instance and a @{isInsta
 @param[opt] super An optional base class to inherit from, could be the class name as a string
 @tparam[opt] function defineInstanceFn An optional function that will be called with the class prototype
 @tparam[optchain] function defineClassFn An optional function that will be called with the class
-@return a new class
+@return A new class
 @function create
 @usage
 local Vehicle = class.create()

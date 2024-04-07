@@ -40,8 +40,8 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Creates a new ProcessBuilder.
   -- @function ProcessBuilder:new
-  -- @tparam string ... the process executable path and arguments
-  -- @return a new ProcessBuilder
+  -- @tparam string ... The process executable path and arguments
+  -- @return A new ProcessBuilder
   -- @usage
   --local pb = ProcessBuilder:new('ls', '-ltr')
   --pb:start()
@@ -51,8 +51,8 @@ return require('jls.lang.class').create(function(processBuilder)
 
   --- Sets the process executable path and arguments.
   -- With no parameter the function returns the process executable path and arguments.
-  -- @tparam string ... the process executable path and arguments as strings
-  -- @return this ProcessBuilder
+  -- @tparam string ... The process executable path and arguments as strings
+  -- @return This ProcessBuilder
   function processBuilder:command(...)
     local argCount = select('#', ...)
     if argCount == 0 then
@@ -67,42 +67,42 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
   --- Returns the process working directory.
-  -- @treturn string the process working directory or nil.
+  -- @treturn string The process working directory or nil
   function processBuilder:getDirectory()
     return self.dir
   end
 
   --- Sets the process working directory.
-  -- @tparam string dir the process working directory.
-  -- @return this ProcessBuilder
+  -- @tparam string dir The process working directory
+  -- @return This ProcessBuilder
   function processBuilder:setDirectory(dir)
     self.dir = dir
     return self
   end
 
   --- Returns the process environment.
-  -- @treturn table the process environment.
+  -- @treturn table The process environment
   function processBuilder:getEnvironment()
     return self.env
   end
 
   --- Sets the process environment.
-  -- @tparam table env the process environment.
-  -- @return this ProcessBuilder
+  -- @tparam table env The process environment
+  -- @return This ProcessBuilder
   function processBuilder:setEnvironment(env)
     self.env = env
     return self
   end
 
   --- Returns the process standard input redirection.
-  -- @return the redirection
+  -- @return The redirection
   function processBuilder:getRedirectInput()
     return self.stdin
   end
 
   --- Redirects the process standard input.
-  -- @param[opt] fd the file descriptor or pipe to redirect from.
-  -- @return this ProcessBuilder
+  -- @param[opt] fd The file descriptor or pipe to redirect from
+  -- @return This ProcessBuilder
   -- @usage
   --pb:setRedirectInput(system.input)
   function processBuilder:setRedirectInput(fd)
@@ -111,15 +111,15 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
   --- Returns the process standard output redirection.
-  -- @return the redirection
+  -- @return The redirection
   function processBuilder:getRedirectOutput()
     return self.stdout
   end
 
   --- Redirects the process standard output.
   -- If not provided, the standard output will be discarded, redirected to null.
-  -- @param[opt] fd the file descriptor or pipe to redirect to.
-  -- @return this ProcessBuilder
+  -- @param[opt] fd The file descriptor or pipe to redirect to
+  -- @return This ProcessBuilder
   -- @usage
   --local fd = FileDescriptor.openSync(tmpFile, 'w')
   --local pb = ProcessBuilder:new({'lua', '-e', 'io.write("Hello")'})
@@ -137,8 +137,8 @@ return require('jls.lang.class').create(function(processBuilder)
   end
 
   --- Redirects the process standard error.
-  -- @param[opt] fd the file descriptor or pipe to redirect to.
-  -- @return this ProcessBuilder
+  -- @param[opt] fd The file descriptor or pipe to redirect to
+  -- @return This ProcessBuilder
   -- @usage
   --local pb = ProcessBuilder:new({'lua', '-e', 'io.stderr:write("Hello")'})
   --local pipe = Pipe:new()

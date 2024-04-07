@@ -377,7 +377,7 @@ local Logger = require('jls.lang.class').create(function(logger)
 
   --- Sets the specified logger level configuration.
   -- The configuration is a list of comma separated values of module name and associated level.
-  -- The configuration is applied in the specified order.
+  -- The configuration is applied in the specified order on this logger and all its sub loggers.
   -- @tparam string config The log configuration.
   function logger:setConfig(config)
     local levels = {}
