@@ -322,6 +322,19 @@ function Test_any_empty()
   lu.assertTrue(rejected)
 end
 
+function Test_any_rejected()
+  local result
+  Promise.any({Promise.reject(3), Promise.resolve(5)}):next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 5)
+  local rejected = false
+  Promise.any({Promise.reject(3), Promise.reject(5)}):catch(function(value)
+    rejected = true
+  end)
+  lu.assertTrue(rejected)
+end
+
 function Test_allSettled_resolved()
   local deferred1, promise1 = deferPromise()
   local deferred2, promise2 = deferPromise()
@@ -334,7 +347,7 @@ function Test_allSettled_resolved()
   deferred2.resolve('Success 2')
   lu.assertFalse(resolution)
   deferred1.resolve('Success 1')
-  lu.assertEquals(resolution, {{status="fulfilled", value="Success 1"}, {status="fulfilled", value="Success 2"}})
+  lu.assertEquals(resolution, {{status='fulfilled', value='Success 1'}, {status='fulfilled', value='Success 2'}})
 end
 
 function Test_allSettled_empty()
@@ -344,6 +357,14 @@ function Test_allSettled_empty()
     resolution = value
   end)
   lu.assertEquals(resolution, {})
+end
+
+function Test_allSettled_rejected()
+  local resolution = false
+  Promise.allSettled({Promise.reject(3), Promise.resolve(5)}):next(function(value)
+    resolution = value
+  end)
+  lu.assertEquals(resolution, {{status='rejected', reason=3}, {status='fulfilled', value=5}})
 end
 
 function Test_race_resolved()
@@ -437,6 +458,9 @@ function Test_finally()
   local function return3()
     return 3
   end
+  local function returnPromised3()
+    return Promise.resolve(3)
+  end
   local function captureResult(value)
     result = value
   end
@@ -460,6 +484,11 @@ function Test_finally()
   end):catch(captureResult)
   lu.assertNotNil(result)
   lu.assertEquals(result:getMessage(), {3})
+
+  Promise.resolve(2):finally(returnPromised3):next(captureResult)
+  lu.assertEquals(result, 2)
+  Promise.reject(2):finally(returnPromised3):next(captureResult)
+  lu.assertEquals(result, 2)
 end
 
 function Test_uncaucht()
@@ -481,6 +510,36 @@ function Test_uncaucht()
   lu.assertNotNil(unaucht)
   lu.assertEquals(unaucht:getMessage(), 'Houla')
   Promise.onUncaughtError()
+end
+
+function Test_Promise_resolve()
+  local result
+  Promise.resolve({
+    next = function(_, fn)
+      fn(3)
+    end
+  }):next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 3)
+  Promise.resolve({
+    next = function(_, _, fn)
+      fn(5)
+    end
+  }):next(nil, function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 5)
+end
+
+function Test_withResolvers()
+  local p, resolve, reject = Promise.withResolvers()
+  local result
+  p:next(function(value)
+    result = value
+  end)
+  resolve(3)
+  lu.assertEquals(result, 3)
 end
 
 os.exit(lu.LuaUnit.run())

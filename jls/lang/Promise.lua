@@ -57,28 +57,28 @@ end
 
 local function applyPromiseHandlerDo(promise, handler)
   local status, result = true, NO_VALUE
-  local state = promise._state
+  local state, pres = promise._state, promise._result
   if state == FULFILLED then
     if type(handler.onFulfilled) == 'function' then
-      status, result = protectedCall(handler.onFulfilled, promise._result)
+      status, result = protectedCall(handler.onFulfilled, pres)
     end
   elseif state == REJECTED then
     if type(handler.onRejected) == 'function' then
-      status, result = protectedCall(handler.onRejected, promise._result)
+      status, result = protectedCall(handler.onRejected, pres)
     end
   elseif state == ERROR then
     if type(handler.onRejected) == 'function' then
-      promise._result.uncaught = false
-      status, result = protectedCall(handler.onRejected, promise._result.message)
+      pres.uncaught = false
+      status, result = protectedCall(handler.onRejected, pres.message)
     end
   else
-    error('Invalid promise state ('..tostring(state)..')')
+    error('Invalid promise state ('..tostring(state)..')') -- cannot happen, internal error
   end
   if status then
     if result == NO_VALUE then
       -- If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1
       -- If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1
-      applyPromise(handler.promise, promise._result, state)
+      applyPromise(handler.promise, pres, state)
     elseif result == promise then
       applyPromise(handler.promise, 'Invalid promise result', REJECTED)
     elseif isPromise(result) then

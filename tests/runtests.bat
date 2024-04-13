@@ -9,6 +9,8 @@ SET QUIET=no
 SET JLS_REQUIRES=
 SET JLS_LOGGER_LEVEL=
 SET REPLAY_LOGGER_LEVEL=warn
+SET COV=no
+SET OPTS=
 
 :args
 IF _%1==_ GOTO :main
@@ -20,6 +22,7 @@ IF %ARG%==-q SET QUIET=yes
 IF %ARG%==-a SET ALL=yes
 IF %ARG%==all SET ALL=yes
 IF %ARG%==-b SET BASE=yes
+IF %ARG%==-c SET COV=yes
 IF %ARG%==-l SET JLS_LOGGER_LEVEL=finest
 IF %ARG%==base SET BASE=yes
 IF %ARG%==luv SET JLS_REQUIRES=!socket,!lfs,!llthreads,!win32,!winapi,!luachild
@@ -38,10 +41,16 @@ IF %VERBOSE%==yes (
   ECHO   LUA_CPATH=%LUA_CPATH%
 )
 
+IF %COV%==yes (
+  ECHO Coverage enabled
+  DEL /Q luacov.stats.out
+  SET OPTS=-lluacov
+)
+
 IF %ALL%==yes GOTO :runall
 IF %BASE%==yes GOTO :runbase
 
-CALL :runtests
+CALL :runtests default
 GOTO :eof
 
 :runbase
@@ -58,17 +67,20 @@ GOTO :eof
 
 :runall
 SET JLS_REQUIRES=!socket,!lfs
-CALL :runtests
+CALL :runtests nosocket
 REM missing !zlib !openssl
 SET JLS_REQUIRES=!luv,!lxp,!cjson
-CALL :runtests
+CALL :runtests noluv
 SET JLS_LOGGER_LEVEL=finest
 SET JLS_REQUIRES=
-CALL :runtests
+CALL :runtests logs
 GOTO :eof
 
 :runtests
+IF %COV%==yes DEL /Q luacov.stats.out 1>NUL 2>NUL
 IF %VERBOSE%==yes ECHO JLS_REQUIRES=%JLS_REQUIRES%
+SET NAME=%1
+SET TIMESTAMP=%DATE:~6,4%%DATE:~3,2%%DATE:~0,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
 SET TESTCOUNT=0
 SET ERRORCOUNT=0
 SET LUA_CPATH_SAVED=%LUA_CPATH%
@@ -80,6 +92,11 @@ IF %ERRORCOUNT% NEQ 0 (
   ECHO %ERRORCOUNT%/%TESTCOUNT% files in error
 ) ELSE (
   ECHO %TESTCOUNT% files passed
+)
+IF %COV%==yes (
+  ECHO Generate coverage report luacov.report.%NAME%.%TIMESTAMP%.out
+  %LUA% ../luaclibs/luacov/src/bin/luacov jls
+  REN luacov.report.out luacov.report.%NAME%.%TIMESTAMP%.out
 )
 GOTO :eof
 
@@ -94,9 +111,9 @@ SET TEST_DIR=%1
 SET TEST_FILE=%2
 IF %VERBOSE%==yes ECHO   %TEST_FILE%
 IF %STDOUT%==yes (
-  %LUA% tests\%TEST_DIR%\%TEST_FILE%
+  %LUA% %OPTS% tests\%TEST_DIR%\%TEST_FILE%
 ) ELSE (
-  %LUA% tests\%TEST_DIR%\%TEST_FILE% 1>nul 2>nul
+  %LUA% %OPTS% tests\%TEST_DIR%\%TEST_FILE% 1>NUL 2>NUL
 )
 SET ERRLEV=%ERRORLEVEL%
 SET /a TESTCOUNT+=1
