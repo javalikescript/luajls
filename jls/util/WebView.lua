@@ -323,7 +323,22 @@ end, function(WebView)
     end
     thread:start(webviewLib.asstring(webview._webview), chunk, options.data)
     registerWebViewThread(thread, webview)
-    return Promise.resolve(webview)
+    local promise, resolve = Promise.withResolvers()
+    if type(webviewLib.initialized) == 'function' then
+      -- wait one second for webview initialization
+      local count = 10
+      local timer
+      timer = event:setInterval(function()
+        count = count - 1
+        if count <= 0 or webviewLib.initialized(webview._webview) then
+          event:clearTimeout(timer)
+          resolve(webview)
+        end
+      end, 100)
+    else
+      resolve(webview)
+    end
+    return promise
   end
 
   function WebView._threadWebSocketFunction(webview, wsUrl)
