@@ -325,16 +325,17 @@ end, function(WebView)
     registerWebViewThread(thread, webview)
     local promise, resolve = Promise.withResolvers()
     if type(webviewLib.initialized) == 'function' then
-      -- wait one second for webview initialization
-      local count = 10
+      -- wait for webview initialization
+      local ms = 0
+      local delayMs = 100
       local timer
       timer = event:setInterval(function()
-        count = count - 1
-        if count <= 0 or webviewLib.initialized(webview._webview) then
+        ms = ms + delayMs
+        if ms > 15000 or webviewLib.initialized(webview._webview) then
           event:clearTimeout(timer)
           resolve(webview)
         end
-      end, 100)
+      end, delayMs)
     else
       resolve(webview)
     end
