@@ -77,6 +77,7 @@ end)
 event:loop()
 ```
 
+
 ## How to install and use it?
 
 Just drop the *jls* folder in your Lua path.
@@ -86,20 +87,17 @@ Optional dependencies are C-based or plain Lua modules such as *luafilesystem*, 
 By example, the file system manipulation requires one of the *luafilesystem* or the *luv* dependent module.
 The recommended dependency is *luv* as it will provide you a uniform support of the *io*, *lang* and *net* packages.
 
+Executable files:
+* The [release](https://github.com/javalikescript/luajls/releases/latest) assets contain archives with all the required libraries.  
+The default, *shared*, archive contains the Lua interpreter, the C modules as shared libraries and the Lua modules.
+The *static* archive contains a single executable with all the required dependencies.  
+* luajls is available on winget  
+`winget install luajls`
+* luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescript/luajls).
+
 As luajls is composed of Lua modules, you need to adapt the environment variables *LUA_PATH* and *LUA_CPATH* to include the luajls home directory.
 
 Lua, luajls and all the dependencies are available in the [Lua C libraries repository](https://github.com/javalikescript/luaclibs).
-
-The release assets contain archives with all the required libraries.
-The default, *shared*, archive contains the Lua interpreter, the C modules as shared libraries and the Lua modules.
-The *static* archive contains a single executable with all the required dependencies.
-
-luajls is available on winget 
-```sh
-winget install luajls
-```
-
-luajls is also available on [LuaRocks](https://luarocks.org/modules/javalikescript/luajls).
 
 
 ## What are the supported Lua versions?

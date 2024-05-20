@@ -222,7 +222,7 @@ end
 -- promises in the iterable argument rejects.
 --
 -- @tparam table promises The promises list
--- @treturn Promise A promise
+-- @treturn Promise A promise resolving to the table of resolved values
 function Promise.all(promises)
   return Promise:new(function(resolve, reject)
     local count = #promises
