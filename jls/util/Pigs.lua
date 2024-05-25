@@ -1,5 +1,7 @@
+
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
+local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local StreamHandler = require('jls.io.StreamHandler')
@@ -42,13 +44,22 @@ local PUD = {
   UP = 2,
 }
 
+local NTFY_FLAGS = {
+  EVENT = 1 << 7,
+  ALIVE = 1 << 6,
+  WDOG = 1 << 5,
+}
+
+local CMD_FORMAT = 'I4I4I4I4' -- cmd, p1, p2, p3/res
+local REPORT_FORMAT = 'I2I2I4I4' -- seqno, flags, tick, level
+
 return class.create(function(pigs)
 
   function pigs:initialize(port, addr)
     self.queue = {}
     self.index = 1
     self.dqIndex = 1
-    self.format = '<I4I4I4I4' -- TODO detect endianness
+    self.endian = '='
     self.addr = addr or 'localhost'
     self.port = port or 8888
   end
@@ -58,25 +69,29 @@ return class.create(function(pigs)
     if self.client then
       return Promise.resolve()
     end
-    logger:fine('connect(%s, %s)', self.addr, self.port)
+    logger:fine('connecting to %s:%s', self.addr, self.port)
+    local format = self.endian..CMD_FORMAT
     self.client = TcpSocket:new()
     return self.client:connect(self.addr, self.port):next(function()
       logger:fine('connected')
+      if not self.client then
+        return Promise.reject()
+      end
       self.client:readStart(StreamHandler.block(function(err, data)
-        logger:fine('read %s, %x', err, data)
+        logger:fine('socket read %s, %x', err, data)
         if err then
           self:close(err)
         elseif data then
           local cb = self.queue[self.dqIndex]
           self.queue[self.dqIndex] = nil
           self.dqIndex = self.dqIndex + 1
-          local cmd, p1, p2, res = string.unpack(self.format, data)
-          logger:fine('recv: %s, %s, %s', cmd, p1, p2, res)
+          local cmd, p1, p2, res = string.unpack(format, data)
+          logger:fine('socket recv: %s, %s, %s', cmd, p1, p2, res)
           cb(nil, res)
         else
           self:close()
         end
-      end, string.packsize(self.format)))
+      end, string.packsize(format)))
     end)
   end
 
@@ -92,18 +107,42 @@ return class.create(function(pigs)
     end
   end
 
+  function pigs:enqueueCallback()
+    local promise, cb = Promise.withCallback()
+    self.queue[self.index] = cb
+    self.index = self.index + 1
+    return promise
+  end
+
   function pigs:send(cmd, p1, p2)
-    local data = string.pack(self.format, cmd, p1 or 0, p2 or 0, 0)
+    local data = string.pack(self.endian..CMD_FORMAT, cmd, p1 or 0, p2 or 0, 0)
     logger:fine('send(%s, %s, %s)', cmd, p1, p2)
     return self:connect():next(function()
       logger:fine('write(%x)', data)
       return self.client:write(data)
     end):next(function()
-      local promise, cb = Promise.withCallback()
-      self.queue[self.index] = cb
-      self.index = self.index + 1
-      return promise
+      return self:enqueueCallback()
     end)
+  end
+
+  function pigs:readStartPipe(pipe, cb)
+    local reportFormat = self.endian..REPORT_FORMAT
+    pipe:readStart(StreamHandler.block(function(err, data)
+      logger:fine('pipe read %s, %x', err, data)
+      if err then
+        pipe:readStop()
+        cb(err)
+      elseif data then
+        local seqno, flags, tick, level = string.unpack(reportFormat, data)
+        logger:fine('pipe report: %s, %s, %s, %s', seqno, flags, tick, level)
+        if flags == 0 then
+          cb(nil, level, seqno, tick, flags)
+        end
+      else
+        pipe:readStop()
+        cb('closed')
+      end
+    end, string.packsize(reportFormat)))
   end
 
 end, function(Pigs)
@@ -111,5 +150,7 @@ end, function(Pigs)
   Pigs.CMD = CMD
   Pigs.MODES = MODES
   Pigs.PUD = PUD
+  Pigs.CMD_FORMAT = CMD_FORMAT
+  Pigs.REPORT_FORMAT = REPORT_FORMAT
 
 end)
