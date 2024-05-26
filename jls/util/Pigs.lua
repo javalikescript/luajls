@@ -15,6 +15,8 @@ local CMD = {
   PWM = 5,
   PRS = 6,
   PFS = 7,
+  BR1 = 10,
+  BR2 = 11,
   PRG = 22,
   PFG = 23,
   PRRG = 24,
@@ -66,14 +68,18 @@ return class.create(function(pigs)
 
   function pigs:connect()
     logger:finer('connect()')
+    if self.connectPromise then
+      return self.connectPromise
+    end
     if self.client then
       return Promise.resolve()
     end
     logger:fine('connecting to %s:%s', self.addr, self.port)
     local format = self.endian..CMD_FORMAT
     self.client = TcpSocket:new()
-    return self.client:connect(self.addr, self.port):next(function()
+    self.connectPromise = self.client:connect(self.addr, self.port):next(function()
       logger:fine('connected')
+      self.connectPromise = nil
       if not self.client then
         return Promise.reject()
       end
@@ -93,6 +99,7 @@ return class.create(function(pigs)
         end
       end, string.packsize(format)))
     end)
+    return self.connectPromise
   end
 
   function pigs:close(reason)
@@ -136,7 +143,7 @@ return class.create(function(pigs)
         local seqno, flags, tick, level = string.unpack(reportFormat, data)
         logger:fine('pipe report: %s, %s, %s, %s', seqno, flags, tick, level)
         if flags == 0 then
-          cb(nil, level, seqno, tick, flags)
+          cb(nil, level, tick, seqno)
         end
       else
         pipe:readStop()

@@ -229,23 +229,40 @@ return class.create(function(gpio)
     end
     local channels = {...}
     local bits = 0
-    for _, channel in ipairs(channels) do
+    local lastTicks = {}
+    for i, channel in ipairs(channels) do
       bits = bits | (1 << channel)
+      lastTicks[i] = 0
     end
     if bits == 0 then
       return self:closePipeNotify()
     end
+    local lastLevel = 0
+    self.pigs:send(Pigs.CMD.BR1):next(function(level)
+      logger:fine('bank 1 level is 0x%x', level)
+      lastLevel = level
+    end)
     logger:fine('begin notify on 0x%x', bits)
     return self:openPipeNotify():next(function()
       return self.pigs:send(Pigs.CMD.NB, self.nh, bits)
     end):next(function()
-      self.pigs:readStartPipe(self.np, function(err, level)
+      self.pigs:readStartPipe(self.np, function(err, level, tick, seqno)
         if err then
           self:closeNotify()
         elseif level then
-          for _, channel in ipairs(channels) do
-            local value = (level & (1 << channel)) ~= 0
-            fn(channel, value)
+          local changedLevel = level ~ lastLevel
+          lastLevel = level
+          for i, channel in ipairs(channels) do
+            local channelBit = 1 << channel
+            if (changedLevel & channelBit) ~= 0 then
+              local lastTick = lastTicks[i]
+              lastTicks[i] = tick
+              if lastTick > tick then
+                lastTick = 0
+              end
+              local value = (level & channelBit) ~= 0
+              fn(channel, value, tick - lastTick)
+            end
           end
         else
           self:closeNotify()
