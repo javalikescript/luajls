@@ -250,6 +250,8 @@ local Logger = require('jls.lang.class').create(function(logger)
     if type(name) == 'string' then
       if not self.loggerMap then
         self.loggerMap = {}
+        -- allow loggers to be collected using weak values
+        setmetatable(self.loggerMap, {__mode = 'v'})
       end
       local lgr = self.loggerMap[name]
       if lgr then
@@ -359,12 +361,10 @@ local Logger = require('jls.lang.class').create(function(logger)
     end
   end
 
-  function logger:propagateLevel(level, force)
+  function logger:propagateLevel(level)
     if self.loggerMap then
       for _, lgr in pairs(self.loggerMap) do
-        if force or level < lgr:getLevel() then
-          lgr:setLevel(level)
-        end
+        lgr:setLevel(level)
       end
     end
   end
@@ -372,7 +372,7 @@ local Logger = require('jls.lang.class').create(function(logger)
   -- for compatibility, to remove
   function logger:cleanConfig()
     self.levels = nil
-    self:propagateLevel(self.level, true)
+    self:propagateLevel(self.level)
   end
 
   --- Sets the specified logger level configuration.
@@ -401,7 +401,7 @@ local Logger = require('jls.lang.class').create(function(logger)
       self.levels = levels
     else
       self.levels = nil
-      self:propagateLevel(DEFAULT_LEVEL, true)
+      self:propagateLevel(DEFAULT_LEVEL)
     end
   end
 
