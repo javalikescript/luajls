@@ -148,7 +148,7 @@ Promise.async(function(await)
 
   if options.out.headers then
     local lines = {}
-    table.insert(lines, response:getLine())
+    table.insert(lines, response:formatLine())
     for name, value in pairs(response:getHeadersTable()) do
       table.insert(lines, '\t'..name..': '..tostring(value))
     end

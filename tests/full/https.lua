@@ -345,7 +345,7 @@ function No_Test_HttpsClientOnline()
       sh = StreamHandler.std
     end
     response:setBodyStreamHandler(sh)
-    sh:onData(response:getLine())
+    sh:onData(response:formatLine())
     return client:consume()
   end):next(function()
     logger:finer('closing client')

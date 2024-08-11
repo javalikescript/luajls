@@ -10,6 +10,7 @@ local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
+local Url = require('jls.net.Url')
 
 --- The HttpMessage class represents the base class for HTTP request and HTTP response.
 -- This class inherits from @{HttpHeaders}.
@@ -22,7 +23,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     super.initialize(self)
     self.body = ''
     self.bodyStreamHandler = StreamHandler.null
-    self.line = ''
     self.version = HttpMessage.CONST.VERSION_1_1
   end
 
@@ -34,25 +34,20 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return type(self.statusCode) == 'number'
   end
 
-  function httpMessage:getLine()
-    if self.line == '' then
-      if self:isRequest() then
-        self.line = self.method..' '..self.target..' '..self:getVersion()
-      elseif self:isResponse() then
-        self.line = self:getVersion()..' '..tostring(self.statusCode)..' '..(self.reasonPhrase or '')
-      else
-        error('invalid message')
-      end
+  function httpMessage:formatLine()
+    if self:isRequest() then
+      return self.method..' '..self.target..' '..self:getVersion()
+    elseif self:isResponse() then
+      return self:getVersion()..' '..tostring(self.statusCode)..' '..(self.reasonPhrase or '')
     end
-    return self.line
+    error('invalid message')
   end
 
-  function httpMessage:setLine(line)
+  function httpMessage:parseLine(line)
     -- see https://tools.ietf.org/html/rfc7230#section-3.1.1
-    self.line = tostring(line)
     -- clean request and response fields
     self.method = nil
-    self.target = nil
+    self:setTarget(nil)
     self.statusCode = nil
     self.reasonPhrase = nil
     self.version = nil
@@ -87,7 +82,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       error('Invalid HTTP version, '..version)
     end
     self.version = version
-    self.line = ''
     return self
   end
 
@@ -113,7 +107,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     if type(reason) == 'string' then
       self.reasonPhrase = reason
     end
-    self.line = ''
     return self
   end
 
@@ -121,7 +114,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     if type(reason) == 'string' then
       self.reasonPhrase = reason
     end
-    self.line = ''
   end
 
   function httpMessage:setContentType(value)
@@ -173,7 +165,6 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   -- @tparam string value the method.
   function httpMessage:setMethod(value)
     self.method = string.upper(value)
-    self.line = ''
   end
 
   --- Returns this HTTP request target.
@@ -186,15 +177,49 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   -- @tparam string value the target.
   function httpMessage:setTarget(value)
     self.target = value
-    self.line = ''
+    self.searchParams = nil
+    self.targetPath = nil
+    self.targetQuery = nil
   end
 
   function httpMessage:getTargetPath()
-    return string.gsub(self.target, '%?.*$', '')
+    if not self.targetPath then
+      self.targetPath = string.gsub(self.target, '%?.*$', '')
+    end
+    return self.targetPath
   end
 
   function httpMessage:getTargetQuery()
-    return string.gsub(self.target, '^[^%?]*%??', '')
+    if not self.targetQuery then
+      self.targetQuery = string.gsub(self.target, '^[^%?]*%??', '')
+    end
+    return self.targetQuery
+  end
+
+  local function decodeParam(value)
+    return Url.decodePercent((string.gsub(value, '%+', ' ')))
+  end
+
+  local function cut(value, sep, init, plain)
+    local p = string.find(value, sep, init, plain)
+    if p then
+      return string.sub(value, 1, p - 1), string.sub(value, p + 1)
+    end
+    return value
+  end
+
+  function httpMessage:getSearchParams()
+    if not self.searchParams then
+      local args = {}
+      for part in strings.parts(self:getTargetQuery(), '&', true) do
+        local name, value = cut(part, '=', 1, true)
+        if value then
+          args[decodeParam(name)] = decodeParam(value)
+        end
+      end
+      self.searchParams = args
+    end
+    return self.searchParams
   end
 
   function httpMessage:getIfModifiedSince()
@@ -221,7 +246,11 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:getContentType()
-    return self:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
+    local value = self:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
+    if value then
+      return cut(value, ';', 1, true)
+    end
+    return value
   end
 
   --- Returns the stream handler associated to the body.

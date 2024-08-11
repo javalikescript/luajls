@@ -595,7 +595,7 @@ return class.create(function(httpClient)
           end)
         end
       end
-      self.response:setLine(response:getLine())
+      self.response:parseLine(response:formatLine())
       self.response:setHeadersTable(response:getHeadersTable())
       self:processResponseHeaders()
       return remainingBuffer

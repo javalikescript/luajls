@@ -52,7 +52,7 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
     else
       if self.firstLine then
         self.firstLine = false
-        if not self.message:setLine(line) then
+        if not self.message:parseLine(line) then
           self:onError('Bad HTTP start line "'..line..'"', 400)
         end
       else

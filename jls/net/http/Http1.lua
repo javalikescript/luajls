@@ -57,7 +57,7 @@ function Http1.readHeader(tcp, message, buffer)
 end
 
 function Http1.writeHeaders(tcp, message, callback)
-  local buffer = StringBuffer:new(message:getLine(), '\r\n')
+  local buffer = StringBuffer:new(message:formatLine(), '\r\n')
   message:appendHeaders(buffer):append('\r\n')
   logger:finer('writeHeaders() "%s"', buffer)
   -- TODO write StringBuffer

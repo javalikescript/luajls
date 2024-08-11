@@ -710,15 +710,34 @@ function Test_HttpClientServer_keep_alive()
   lu.assertEquals(count, 2)
 end
 
+local function getMessage(resource)
+  local message = HttpMessage:new()
+  message:parseLine('GET '..resource..' HTTP/1.1')
+  return message
+end
+
 local function getSearchParams(resource)
-  local exchange = HttpExchange:new()
-  exchange:getRequest():setLine('GET '..resource..' HTTP/1.1')
-  return exchange:getSearchParams()
+  return getMessage(resource):getSearchParams()
+end
+
+local function getTargetQuery(resource)
+  return getMessage(resource):getTargetQuery()
 end
 
 function Test_HttpMessage_getSearchParams()
   lu.assertEquals(getSearchParams('/search?a=b&c=a+name'), { a = 'b', c = 'a name' })
   lu.assertEquals(getSearchParams('/search?q=a%2Bname'), { q = 'a+name' })
+  lu.assertEquals(getSearchParams('/search?query'), {})
+  lu.assertEquals(getSearchParams('/search?'), {})
+  lu.assertEquals(getSearchParams('/search'), {})
+end
+
+function Test_HttpMessage_getTargetQuery()
+  lu.assertEquals(getTargetQuery('/search?a=b&c=a+name'), 'a=b&c=a+name')
+  lu.assertEquals(getTargetQuery('/search?q=a%2Bname'), 'q=a%2Bname')
+  lu.assertEquals(getTargetQuery('/search?query'), 'query')
+  lu.assertEquals(getTargetQuery('/search?'), '')
+  lu.assertEquals(getTargetQuery('/search'), '')
 end
 
 os.exit(lu.LuaUnit.run())

@@ -7,7 +7,6 @@ local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local Url = require('jls.net.Url')
 local List = require('jls.util.List')
 local strings = require('jls.util.strings')
 local HTTP_CONST = HttpMessage.CONST
@@ -96,23 +95,10 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self.context:replacePath(self:getRequest():getTargetPath())
   end
 
-  local function decodeParam(value)
-    return Url.decodePercent((string.gsub(value, '%+', ' ')))
-  end
-
   --- Returns the request query parameters as a table.
   -- @treturn table the query parameters
   function httpExchange:getSearchParams()
-    local args = {}
-    for part in strings.parts(self:getRequest():getTargetQuery(), '&', true) do
-      local p = string.find(part, '=', 1, true)
-      if p then
-        local name = string.sub(part, 1, p - 1)
-        local value = string.sub(part, p + 1)
-        args[decodeParam(name)] = decodeParam(value)
-      end
-    end
-    return args
+    return self:getRequest():getSearchParams()
   end
 
   -- TODO Remove as deprecated in favor of request:consume()
