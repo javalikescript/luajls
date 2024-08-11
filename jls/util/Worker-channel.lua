@@ -18,7 +18,7 @@ local function postMessage(channel, message)
   return channel:writeMessage(json.encode(message), MT_JSON)
 end
 
-local function newThreadChannel(fn, data, scheme)
+local function newThreadChannel(fn, data, scheme, receive)
   local chunk = string.dump(fn)
   logger:finest('newThreadChannel() code >>%s<<', chunk)
   local jsonData = data and json.encode(data) or nil
@@ -31,7 +31,7 @@ local function newThreadChannel(fn, data, scheme)
   local acceptPromise = channelServer:acceptAndClose()
   return channelServer:bind(nil, scheme):next(function()
     local channelName = channelServer:getName()
-    thread:start(channelName, chunk, jsonData):ended():next(function()
+    thread:start(channelName, chunk, jsonData, receive):ended():next(function()
       logger:finer('thread ended')
     end)
     return acceptPromise
@@ -40,7 +40,7 @@ end
 
 return class.create(function(worker, _, Worker)
 
-  function Worker.initializeWorkerThread(channelName, chunk, jsonData)
+  function Worker.initializeWorkerThread(channelName, chunk, jsonData, receive)
     local channel = Channel:new()
     channel:connect(channelName):catch(function(reason)
       logger:fine('Unable to connect thread channel due to %s', reason)
@@ -54,7 +54,9 @@ return class.create(function(worker, _, Worker)
     local fn, err = load(chunk, nil, 'b')
     if fn then
       local data = jsonData and json.decode(jsonData) -- TODO protect
-      local status, e = Exception.pcall(fn, Worker:new(nil, nil, nil, channel), data)
+      local w = class.makeInstance(Worker)
+      w:initializeChannel(channel, receive)
+      local status, e = Exception.pcall(fn, w, data)
       if status then
         logger:finer('initialized')
       else
@@ -67,26 +69,30 @@ return class.create(function(worker, _, Worker)
     end
   end
 
-  function worker:initialize(workerFn, workerData, scheme, channel)
+  function worker:initialize(workerFn, workerData, scheme, disableReceive)
     if type(workerFn) == 'function' then
       self.pendingMessages = {}
-      newThreadChannel(workerFn, workerData, scheme):next(function(ch)
+      newThreadChannel(workerFn, workerData, scheme, not disableReceive):next(function(ch)
         self._channel = ch
         self:resume()
         --ch:onClose():next(function() self:close() end)
       end)
-    elseif channel then
-      self._channel = channel
-      channel:receiveStart(function(payload, messageType)
-        self:handleMessage(payload, messageType)
-      end)
-      function self:postMessage(message)
-        return postMessage(channel, message)
-      end
-      --channel:onClose():next(function() wkr:close() end)
     else
       error('Invalid arguments')
     end
+  end
+
+  function worker:initializeChannel(channel, receive)
+    self._channel = channel
+    if receive then
+      channel:receiveStart(function(payload, messageType)
+        self:handleMessage(payload, messageType)
+      end)
+    end
+    function self:postMessage(message)
+      return postMessage(channel, message)
+    end
+    --channel:onClose():next(function() wkr:close() end)
   end
 
   function worker:handleMessage(payload, messageType)
