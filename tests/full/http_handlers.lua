@@ -76,6 +76,12 @@ local function close(...)
 end
 
 local function createRouterHandler(users)
+  local function greetings(_, user)
+    if user then
+      return 'Hello '..user.firstname
+    end
+    return 'User not found'
+  end
   return RouterHttpHandler:new({
     users = {
       [''] = function(exchange)
@@ -86,26 +92,30 @@ local function createRouterHandler(users)
         exchange:setAttribute('user', users[userId])
       end,
       ['{userId}'] = {
-        ['(user)?method=GET'] = function(exchange, user)
+        ['(user)?method=GET'] = function(_, user)
           return user
         end,
-        ['(userId, requestJson)?method=POST,PUT&Content-Type=application/json'] = function(exchange, userId, requestJson)
+        ['(userId, requestJson)?method=POST,PUT&:Content-Type^=application/json'] = function(_, userId, requestJson)
           users[userId] = requestJson
         end,
-        ['(userId, requestXml)?method=POST,PUT&Content-Type=text/xml'] = function(exchange, userId, requestXml)
+        ['(userId, requestXml)?method=POST,PUT&:Content-Type^=text/xml'] = function(_, userId, requestXml)
           users[userId] = requestXml and requestXml.attr
         end,
         -- will be available at /rest/users/{userId}/greetings
-        ['greetings(user)?method=GET'] = function(exchange, user)
-          if user then
-            return 'Hello '..user.firstname
-          end
-          return 'User not found'
-        end,
+        ['greetings(user)?method=GET'] = greetings,
       },
     },
-    delay = function(exchange)
-      return Promise:new(function(resolve, reject)
+    ['query-filter?query=test'] = function()
+      return 'query test'
+    end,
+    ['query-param-filter?q:a=test'] = function()
+      return 'query param test'
+    end,
+    ['query-param-capture(query_param_value)?q:a+=query_param_value'] = function(_, value)
+      return 'query param is '..tostring(value)
+    end,
+    delay = function()
+      return Promise:new(function(resolve)
         event:setTimeout(function()
           resolve('delay done')
         end, 100)
@@ -126,10 +136,12 @@ function Test_rest()
     url = 'http://127.0.0.1:'..tostring(port)
     httpClient = HttpClient:new(url)
   end):next(function()
+    return fetch(httpClient, '/foo', {}, responses)
+  end):next(function()
     return fetch(httpClient, '/users/foo', {
       method = 'PUT',
       headers = {
-        ['Content-Type'] = 'application/json',
+        ['Content-Type'] = 'application/json; charset=utf-8',
       },
       body = '{"firstname": "John"}',
     }, responses)
@@ -148,6 +160,14 @@ function Test_rest()
   end):next(function()
     return fetch(httpClient, '/users', {}, responses)
   end):next(function()
+    return fetch(httpClient, '/query-filter?test', {}, responses)
+  end):next(function()
+    return fetch(httpClient, '/query-param-filter?a=test', {}, responses)
+  end):next(function()
+    return fetch(httpClient, '/query-param-filter?a=no', {}, responses)
+  end):next(function()
+    return fetch(httpClient, '/query-param-capture?a=hi', {}, responses)
+  end):next(function()
     return fetch(httpClient, '/delay', {}, responses)
   end):catch(function(reason)
     print('Unexpected error', reason)
@@ -159,12 +179,17 @@ function Test_rest()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(#responses, 6)
+  lu.assertEquals(#responses, 11)
+  lu.assertEquals(shift(responses):getStatusCode(), 404)
   lu.assertEquals(shift(responses):getStatusCode(), 200)
   lu.assertEquals(shift(responses):getStatusCode(), 200)
   lu.assertEquals(shift(responses):getBody(), 'Hello Sally')
   lu.assertEquals(shift(responses):getBody(), '{"firstname":"John"}')
   lu.assertEquals(shift(responses):getBody(), '{"bar":{"firstname":"Sally"},"foo":{"firstname":"John"}}')
+  lu.assertEquals(shift(responses):getBody(), 'query test')
+  lu.assertEquals(shift(responses):getBody(), 'query param test')
+  lu.assertEquals(shift(responses):getStatusCode(), 404)
+  lu.assertEquals(shift(responses):getBody(), 'query param is hi')
   lu.assertEquals(shift(responses):getBody(), 'delay done')
 end
 

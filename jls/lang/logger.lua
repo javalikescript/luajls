@@ -284,7 +284,7 @@ local Logger = require('jls.lang.class').create(function(logger)
   end
 
   --- Logs the specified message with the specified level.
-  -- When the message is a string then additional arguments are formatted using `string.format`.
+  -- When the message is a string then additional arguments are formatted using `string.format` with the following additional specifiers.
   -- The specifier `t` or `T` stringifies the table argument.
   -- The specifier `l` formats a string or a table argument to its size.
   -- The specifier `x` or `X` formats a string argument to hexadecimal.
