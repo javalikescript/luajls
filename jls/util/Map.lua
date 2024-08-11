@@ -111,7 +111,7 @@ end
 local function reverse(m)
   local t = {}
   for k, v in pairs(m) do
-    if t[v] then
+    if t[v] ~= nil then
       error('Duplicated value "'..tostring(v)..'"')
     end
     t[v] = k

@@ -227,4 +227,10 @@ function Test_filter()
   lu.assertEquals(List.filter({1, 2, 3, 4}, f), {2, 4})
 end
 
+function Test_asSet()
+  lu.assertEquals(List.asSet({}), {})
+  lu.assertEquals(List.asSet({'a', 'b'}), {a = 'a', b = 'b'})
+  lu.assertEquals(List.asSet({'a', 'b'}, true), {a = true, b = true})
+end
+
 os.exit(lu.LuaUnit.run())

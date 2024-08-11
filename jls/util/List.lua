@@ -299,6 +299,24 @@ return require('jls.lang.class').create(function(list, _, List)
     return table.concat(l, sep, i, j)
   end
 
+  -- Returns a set with all the values of the specified list as keys.
+  -- @param[opt] value The value to assign to all keys.
+  -- @treturn table a set with all values as keys.
+  function list:asSet(value)
+    local s = {}
+    for _, k in ipairs(self) do
+      if s[k] ~= nil then
+        error('Duplicated key "'..tostring(k)..'"')
+      end
+      if value == nil then
+        s[k] = k
+      else
+        s[k] = value
+      end
+    end
+    return s
+  end
+
 
   List.indexOf = indexOf
 
@@ -345,6 +363,8 @@ return require('jls.lang.class').create(function(list, _, List)
   -- @treturn string a string with all values joined.
   -- @function List.join
   List.join = List.prototype.join
+
+  List.asSet = List.prototype.asSet
 
   List.shift = List.prototype.shift
 
