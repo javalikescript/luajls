@@ -3,31 +3,31 @@ local class = require('jls.lang.class')
 local bufferLib = require('buffer')
 assert(bufferLib._VERSION >= '0.3', 'bad buffer lib version '..tostring(bufferLib._VERSION))
 
-return class.create(function(memory)
+return class.create(function(buffer)
 
-  function memory:initialize(buffer, size)
-    if type(buffer) ~= 'userdata' then
-      error('invalid buffer type '..type(buffer))
+  function buffer:initialize(value, size)
+    if type(value) ~= 'userdata' then
+      error('invalid buffer type '..type(value))
     end
     if size == nil then
-      size = bufferLib.len(buffer)
+      size = bufferLib.len(value)
     end
     if math.type(size) ~= 'integer' or size <= 0 then
       error('invalid size '..tostring(size))
     end
-    self.buffer = buffer
+    self.buffer = value
     self.size = size
   end
 
-  function memory:length()
+  function buffer:length()
     return self.size
   end
 
-  function memory:get(from, to)
+  function buffer:get(from, to)
     return bufferLib.sub(self.buffer, from, to or self.size)
   end
 
-  function memory:set(value, offset, from, to)
+  function buffer:set(value, offset, from, to)
     offset = offset or 1
     from = from or 1
     to = to or #value
@@ -39,30 +39,30 @@ return class.create(function(memory)
     end
   end
 
-  function memory:getBytes(from, to)
+  function buffer:getBytes(from, to)
     return bufferLib.byte(self.buffer, from, to)
   end
 
-  function memory:setBytes(at, ...)
+  function buffer:setBytes(at, ...)
     bufferLib.byteset(self.buffer, at, ...)
   end
 
-  function memory:toPointer()
-    return bufferLib.topointer(self.buffer), self.size
+  function buffer:toReference()
+    return bufferLib.toreference(self.buffer, nil, 'jls.lang.Buffer')
   end
 
-  function memory:toString()
+  function buffer:toString()
     return bufferLib.sub(self.buffer, 1, self.size)
   end
 
-end, function(Memory)
+end, function(Buffer)
 
-  function Memory.allocate(size)
-    return Memory:new(bufferLib.new(size))
+  function Buffer.allocate(sizeOrData)
+    return Buffer:new(bufferLib.new(sizeOrData))
   end
 
-  function Memory.fromPointer(pointer, size)
-    return Memory:new(bufferLib.frompointer(pointer), size)
+  function Buffer.fromReference(reference)
+    return Buffer:new(bufferLib.fromreference(reference, nil, 'jls.lang.Buffer'))
   end
 
 end)
