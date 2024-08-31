@@ -182,8 +182,8 @@ function Test_getName()
   lu.assertNil(class.getName({}))
 end
 
-function Test_decorations()
-  local Car = class.create(function(pt)
+local function createDecoratedClass()
+  return class.create(function(pt)
     function pt:initialize(name)
       self.name = name or ''
     end
@@ -197,6 +197,10 @@ function Test_decorations()
       return self.name == c.name
     end
   end)
+end
+
+function Test_decorations()
+  local Car = createDecoratedClass()
   local aCar = Car:new('ami')
   lu.assertEquals(tostring(aCar), 'ami')
   local anotherCar = Car:new('friend')
@@ -215,6 +219,29 @@ function Test_decorations()
 
   lu.assertFalse('bmi' == bCar)
   lu.assertFalse(bCar == 'bmi')
+end
+
+function Test_decorations_inheritance()
+  local Car = createDecoratedClass()
+  local Van = class.create(Car)
+  local aVan = Van:new('ami')
+  lu.assertEquals(tostring(aVan), 'ami')
+end
+
+function Test_finalize_gc()
+  local count = 0
+  local Object = class.create(function(pt)
+    function pt:finalize()
+      count = count + 1
+    end
+  end)
+  lu.assertEquals(count, 0)
+  local object = Object:new()
+  lu.assertNotNil(object)
+  lu.assertEquals(count, 0)
+  object = nil
+  collectgarbage('collect')
+  lu.assertEquals(count, 1)
 end
 
 os.exit(lu.LuaUnit.run())

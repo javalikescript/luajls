@@ -207,7 +207,9 @@ end
 
 -- The __len metamethod is available since Lua 5.2
 local MetatableKeys = {
+  __close = 'cease',
   __eq = 'equals',
+  __gc = 'finalize',
   __len = 'length',
   __pairs = 'pairs',
   __tostring = 'toString'
@@ -226,10 +228,20 @@ local ClassMetaTable = {
   __index = ClassIndex
 }
 
+local function decorate(metatable, prototype)
+  for key, name in pairs(MetatableKeys) do
+    local value = prototype[name]
+    if type(value) == 'function' then
+      metatable[key] = value
+    end
+  end
+end
+
 --[[--
 Implements the specified class by setting its prototype and class methods.
 The following methods are automatically set in the metatable:
-`equals` as `__eq`, `length` as `__len`, `pairs` as `__pairs`, `toString` as `__tostring`.
+`cease` as `__close`, `equals` as `__eq`, `finalize` as `__gc`, `length` as `__len`, `pairs` as `__pairs`, `toString` as `__tostring`.
+The metatable methods cannot be redefined.
 @param class The class to implement
 @tparam[opt] function defineInstanceFn An optional function that will be called with the class prototype to implement
 @tparam[opt] function defineClassFn An optional function that will be called with the class
@@ -262,20 +274,19 @@ john:getName() -- Returns 'john'
 User:getDefaultHeight() -- Returns 1.75
 ]]
 local function defineClass(class, defineInstanceFn, defineClassFn)
+  local super = class.super
+  if super then
+    decorate(class.metatable, super.prototype)
+  end
   if type(defineInstanceFn) == 'function' then
     -- prototype, superprototype, class, superclass
-    defineInstanceFn(class.prototype, class.super and class.super.prototype, class, class.super)
+    defineInstanceFn(class.prototype, super and super.prototype, class, super)
     -- decorate the class with well known methods
-    for key, name in pairs(MetatableKeys) do
-      local value = class.prototype[name]
-      if type(value) == 'function' then
-        class.metatable[key] = value
-      end
-    end
+    decorate(class.metatable, class.prototype)
   end
   if type(defineClassFn) == 'function' then
     -- class, superclass
-    defineClassFn(class, class.super)
+    defineClassFn(class, super)
   end
   return class
 end
