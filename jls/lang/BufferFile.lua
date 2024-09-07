@@ -1,12 +1,9 @@
 local class = require('jls.lang.class')
 
-return class.create(function(buffer)
+return class.create('jls.lang.Buffer', function(buffer)
 
   function buffer:initialize(size, name, preserve)
-    if math.type(size) ~= 'integer' or size <= 0 then
-      error('invalid size '..tostring(size))
-    end
-    self.size = size or 0
+    self.size = size
     self.name = name or string.format('.%s-%p.tmp', 'jls.lang.Buffer', self)
     self.file = assert(io.open(self.name, preserve and 'r+b' or 'w+b'))
     if not preserve then
@@ -63,19 +60,10 @@ return class.create(function(buffer)
     return self.name..'#'..tostring(self.size)
   end
 
-  function buffer:toString()
-    return self:get()
-  end
-
 end, function(Buffer)
 
-  function Buffer.allocate(sizeOrData)
-    if type(sizeOrData) == 'string' then
-      local buffer = Buffer:new(#sizeOrData)
-      buffer:set(sizeOrData)
-      return buffer
-    end
-    return Buffer:new(sizeOrData)
+  function Buffer.allocate(size)
+    return Buffer:new(size)
   end
 
   function Buffer.fromReference(reference)

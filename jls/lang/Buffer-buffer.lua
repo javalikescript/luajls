@@ -1,20 +1,11 @@
 local class = require('jls.lang.class')
 
 local bufferLib = require('buffer')
-assert(bufferLib._VERSION >= '0.3', 'bad buffer lib version '..tostring(bufferLib._VERSION))
+assert(type(bufferLib.toreference) == 'function', 'bad buffer lib version '..tostring(bufferLib._VERSION))
 
-return class.create(function(buffer)
+return class.create('jls.lang.Buffer', function(buffer)
 
   function buffer:initialize(value, size)
-    if type(value) ~= 'userdata' then
-      error('invalid buffer type '..type(value))
-    end
-    if size == nil then
-      size = bufferLib.len(value)
-    end
-    if math.type(size) ~= 'integer' or size <= 0 then
-      error('invalid size '..tostring(size))
-    end
     self.buffer = value
     self.size = size
   end
@@ -51,18 +42,15 @@ return class.create(function(buffer)
     return bufferLib.toreference(self.buffer, nil, 'jls.lang.Buffer')
   end
 
-  function buffer:toString()
-    return bufferLib.sub(self.buffer, 1, self.size)
-  end
-
 end, function(Buffer)
 
-  function Buffer.allocate(sizeOrData)
-    return Buffer:new(bufferLib.new(sizeOrData))
+  function Buffer.allocate(size)
+    return Buffer:new(bufferLib.new(size), size)
   end
 
   function Buffer.fromReference(reference)
-    return Buffer:new(bufferLib.fromreference(reference, nil, 'jls.lang.Buffer'))
+    local buffer, size = bufferLib.fromreference(reference, nil, 'jls.lang.Buffer')
+    return Buffer:new(buffer, size)
   end
 
 end)

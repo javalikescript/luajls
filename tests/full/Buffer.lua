@@ -10,7 +10,7 @@ end
 function Test_buffer_from_string()
   local buffer = Buffer.allocate('Hello')
   lu.assertEquals(buffer:length(), 5)
-  lu.assertEquals(buffer:toString(), 'Hello')
+  lu.assertEquals(buffer:get(), 'Hello')
 end
 
 function Test_buffer_bytes()

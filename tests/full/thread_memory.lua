@@ -8,17 +8,17 @@ local loop = require('jls.lang.loopWithTimeout')
 
 -- Indicate to a polling thread that it must terminate
 function Test_thread_buffer()
-  local buffer = Buffer.allocate(1)
+  local buffer = Buffer.allocate(1, 'global')
   buffer:setBytes(1, 0)
   lu.assertEquals(buffer:getBytes(), 0)
   local result = nil
-  Thread:new(function(l)
-    local Mem = require('jls.lang.Buffer')
+  Thread:new(function(ref)
+    local Buf = require('jls.lang.Buffer')
     local sys = require('jls.lang.system')
-    local mem = Mem.fromReference(l, 1)
+    local buf = Buf.fromReference(ref, 'global')
     local n = 0
     while true do
-      local v = mem:getBytes()
+      local v = buf:getBytes()
       n = n + 1
       if v ~= 0 then
         return n
@@ -65,6 +65,7 @@ function Test_thread_lock()
   if not loop() then
     lu.fail('Timeout reached')
   end
+  lock:finalize()
   lu.assertNotNil(result)
   lu.assertEquals(result, 'tryLock=false')
   lu.assertTrue(ms >= 400) -- may fail
