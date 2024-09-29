@@ -103,7 +103,7 @@ end, function(FileStreamHandler)
   -- @return a promise that resolves once the file has been fully read.
   local function readFd(fd, sh, offset, length, size, callback)
     logger:finer('readFd(?, ?, %s, %s, %s)', offset, length, size)
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     if not size then
       size = FileStreamHandler.DEFAULT_BLOCK_SIZE
     end

@@ -144,7 +144,7 @@ return class.create(function(pipe, _, Pipe)
     local cb, d = Promise.ensureCallback(callback)
     if self.fd then
       luvLib.shutdown(self.fd, cb)
-    else
+    elseif cb then
       cb()
     end
     return d

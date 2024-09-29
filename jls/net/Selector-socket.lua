@@ -1,5 +1,6 @@
 local luaSocketLib = require('socket')
 
+local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
 local loader = require('jls.lang.loader')
 local event = loader.requireOne('jls.lang.event-')
@@ -22,14 +23,12 @@ local function log(message, ...)
   end
 end
 
-local function emptyFunction() end
-
 local BUFFER_SIZE = 2048
 
 local MODE_RECV = 1
 local MODE_SEND = 2
 
-return require('jls.lang.class').create(function(selector)
+return class.create(function(selector)
 
   function selector:initialize()
     self.contt = {}
@@ -58,7 +57,7 @@ return require('jls.lang.class').create(function(selector)
       context.ip = ip
       computedMode = computedMode | MODE_RECV
     end
-    if writeData and writeCallback then
+    if writeData then
       if not (socket.sendto) ~= not (ip and port) then
         error('missing or unexpected ip for socket')
       end
@@ -72,7 +71,7 @@ return require('jls.lang.class').create(function(selector)
       end
       wf = {
         buffer = writeData,
-        callback = writeCallback,
+        callback = writeCallback or class.emptyFunction,
         ip = ip,
         port = port,
         length = #writeData,
@@ -153,7 +152,7 @@ return require('jls.lang.class').create(function(selector)
           logger:finer('to send %s/%s buffer: "%s"', wf.position, wf.length, wf.buffer)
         end
       end
-      context.closeCallback = callback or emptyFunction
+      context.closeCallback = callback or class.emptyFunction
     else
       self:unregisterAndClose(socket)
       if callback then

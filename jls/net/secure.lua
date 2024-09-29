@@ -188,12 +188,10 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
 
   function secureTcpSocket:close(callback)
     logger:finer('close()')
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     super.close(self, function(err)
       self:sslShutdown()
-      if cb then
-        cb(err)
-      end
+      cb(err)
     end)
     return d
   end
@@ -237,11 +235,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     if #chunks > 0 then
       return super.write(self, chunks, callback)
     end
-    local cb, d = Promise.ensureCallback(callback)
-    if cb then
-      cb()
-    end
-    return d
+    return Promise.applyCallback(callback)
   end
 
   function secureTcpSocket:sslDoHandshake(callback)

@@ -486,7 +486,7 @@ local HttpServer = class.create(function(httpServer)
   -- @tparam[opt] function callback an optional callback function to use in place of promise
   -- @treturn jls.lang.Promise a promise that resolves once the server is closed
   function httpServer:close(callback)
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     self.tcpServer:close(function(err)
       local pendings = self.pendings
       self.pendings = {}
@@ -506,9 +506,7 @@ local HttpServer = class.create(function(httpServer)
       for _, filter in ipairs(filters) do
         filter:close()
       end
-      if cb then
-        cb(err)
-      end
+      cb(err)
     end)
     return d
   end

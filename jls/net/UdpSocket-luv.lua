@@ -133,7 +133,7 @@ return require('jls.lang.class').create(function(udpSocket)
     local cb, d = Promise.ensureCallback(callback)
     if self.nds then
       self.nds:send(data, addr, port, cb)
-    else
+    elseif cb then
       cb('closed')
     end
     return d

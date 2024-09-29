@@ -53,13 +53,6 @@ return require('jls.lang.class').create(function(fileDescriptor)
 
   function fileDescriptor:close(callback)
     local cb, d = Promise.ensureCallback(callback)
-    -- luvLib.fs_fsync(self.fd, function(err)
-    --   if err then
-    --     cb(err)
-    --   else
-    --     luvLib.fs_close(self.fd, cb)
-    --   end
-    -- end)
     luvLib.fs_close(self.fd, cb)
     return d
   end
@@ -72,7 +65,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
 
   function fileDescriptor:stat(callback)
     local cb, d = Promise.ensureCallback(callback)
-    luvLib.fs_fstat(self.fd, function (err, st)
+    luvLib.fs_fstat(self.fd, cb and function(err, st)
       cb(err, adaptStat(st))
     end)
     return d
@@ -86,7 +79,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
       offset = -1 -- use offset by default
     end
     local cb, d = Promise.ensureCallback(callback)
-    local status, err = luvLib.fs_read(self.fd, size, offset, function(err, data)
+    local status, err = luvLib.fs_read(self.fd, size, offset, cb and function(err, data)
       if err then
         cb(err)
       else
@@ -97,7 +90,7 @@ return require('jls.lang.class').create(function(fileDescriptor)
         end
       end
     end)
-    if not status then
+    if not status and cb then
       cb(err or 'fs_read')
     end
     return d
@@ -129,7 +122,7 @@ end, function(FileDescriptor)
   function FileDescriptor.open(path, mode, callback)
     mode = mode or 'r'
     local cb, d = Promise.ensureCallback(callback)
-    luvLib.fs_open(Path.asNormalizedPath(path), mode, OPEN_MODE, function(err, fd)
+    luvLib.fs_open(Path.asNormalizedPath(path), mode, OPEN_MODE, cb and function(err, fd)
       if fd and not err then
         cb(nil, FileDescriptor:new(fd))
       else

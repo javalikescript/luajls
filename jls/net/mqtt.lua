@@ -251,14 +251,12 @@ local MqttClientBase = class.create(function(mqttClientBase)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('write() "%s"', Codec.encode('hex', data))
     end
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     self.tcpClient:write(data, function(err)
       if err then
         self:raiseError(err)
       end
-      if cb then
-        cb(err)
-      end
+      cb(err)
     end)
     return d
   end

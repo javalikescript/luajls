@@ -67,19 +67,15 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
     logger:finer('connect(%s, %s)', addr, port)
     local tcp, err = luaSocketLib.connect(addr or '127.0.0.1', port)
     self.tcp = tcp
-    local cb, d = Promise.ensureCallback(callback)
     if err then
       logger:finer('connect(%s, %s) error => "%s"', addr, port, err)
-      cb(err)
-    else
-      cb(nil, self)
     end
-    return d, err
+    return Promise.applyCallback(callback, err, self), err
   end
 
   function tcpSocket:write(data, callback)
     logger:finer('write(%l)', data)
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     local req, err
     if self.tcp then
       req = self.selector:register(self.tcp, nil, nil, data, cb)
@@ -168,7 +164,6 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
       addr = '0.0.0.0'
     end
     local infos, err = luaSocketLib.dns.getaddrinfo(addr)
-    local cb, d = Promise.ensureCallback(callback)
     if not err then
       local ai = infos[1]
       local p = port or 0
@@ -194,8 +189,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
         end
       end
     end
-    cb(err)
-    return d
+    return Promise.applyCallback(callback, err)
   end
 
   function tcpSocket:handleAccept(tcp)

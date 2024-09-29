@@ -67,7 +67,7 @@ end
 function Http1.readBody(tcp, message, buffer, callback)
   logger:finest('readBody()')
   local bsh = message:getBodyStreamHandler()
-  local cb, promise = Promise.ensureCallback(callback)
+  local cb, promise = Promise.ensureCallback(callback, true)
   local chunkFinder = nil
   local transferEncoding = message:getHeader(HttpMessage.CONST.HEADER_TRANSFER_ENCODING)
   if transferEncoding then
@@ -178,12 +178,8 @@ local WritableBuffer = class.create(function(writableBuffer)
     self.buffer = StringBuffer:new()
   end
   function writableBuffer:write(data, callback)
-    local cb, d = Promise.ensureCallback(callback)
     self.buffer:append(data)
-    if cb then
-      cb()
-    end
-    return d
+    return Promise.applyCallback(callback)
   end
   function writableBuffer:getStringBuffer()
     return self.buffer

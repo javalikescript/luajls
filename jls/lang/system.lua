@@ -203,7 +203,7 @@ loader.lazyMethod(system, 'execute', function(Promise, Thread)
       anyCode = false
     end
     -- TODO We may use a serial worker to avoid creating a thread for each execution
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     if Thread then
       Thread:new(function(cmd)
         -- Windows uses 32-bit unsigned integers as exit codes

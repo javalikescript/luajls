@@ -100,22 +100,26 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   -- @treturn jls.lang.Promise a promise that resolves once the socket is closed.
   function tcpSocket:close(callback)
     logger:finer('close()')
-    local tcp = self.tcp
+    local tcp, tcp2 = self.tcp, self.tcp2
     self.tcp = nil
-    if self.tcp2 then
-      local tcp2 = self.tcp2
-      self.tcp2 = nil
+    self.tcp2 = nil
+    if tcp2 then
       local cb, d = Promise.ensureCallback(callback)
-      close(tcp, function(err)
-        if err then
-          tcp2:close(false)
-          if cb then
+      if cb then
+        close(tcp, function(err)
+          if err then
+            tcp2:close()
             cb(err)
+          else
+            tcp2:close(cb)
           end
-        else
-          tcp2:close(cb)
+        end)
+      else
+        if tcp then
+          tcp:close()
         end
-      end)
+        tcp2:close()
+      end
       return d
     end
     return close(tcp, callback)
@@ -132,7 +136,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
   function tcpSocket:connect(addr, port, callback)
     logger:finer('connect(%s, %s, ...)', addr, port)
     local client = self
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     -- family and protocol: inet inet6 unix ipx netlink x25 ax25 atmpvc appletalk packet
     -- socktype: stream dgram seqpacket raw rdm
     luvLib.getaddrinfo(addr, port, {family = 'unspec', socktype = 'stream'}, function(err, res)
@@ -264,7 +268,7 @@ return require('jls.lang.class').create(function(tcpSocket, _, TcpSocket)
       backlog = 32
     end
     logger:finer('bind(%s, %s)', node, port)
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     -- FIXME getaddrinfo does not have a port argument
     luvLib.getaddrinfo(node, port, {family = 'unspec', socktype = 'stream'}, function(err, infos)
       if err then

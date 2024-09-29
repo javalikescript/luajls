@@ -108,7 +108,7 @@ return require('jls.lang.class').create(function(udpSocket)
 
   function udpSocket:send(data, addr, port, callback)
     logger:finer('send(%l)', data)
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     self:create(addr)
     if self.nds then
       self.selector:register(self.nds, nil, nil, data, cb, addr, port)
@@ -120,7 +120,7 @@ return require('jls.lang.class').create(function(udpSocket)
 
   function udpSocket:close(callback)
     logger:finer('close()')
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     local nds = self.nds
     self.nds = false
     if nds then

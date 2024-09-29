@@ -489,14 +489,12 @@ return class.create(function(webSocket)
     if logger:isLoggable(logger.FINEST) then
       logger:finest('sendFrame() %s', Codec.encode('hex', frame))
     end
-    local cb, d = Promise.ensureCallback(callback)
+    local cb, d = Promise.ensureCallback(callback, true)
     self.tcp:write(frame, function(err)
       if err then
         self:raiseError(err)
       end
-      if cb then
-        cb(err)
-      end
+      cb(err)
     end)
     return d
   end
