@@ -542,4 +542,64 @@ function Test_withResolvers()
   lu.assertEquals(result, 3)
 end
 
+function Test_ensureCallback()
+  local cb, p
+  local fn = function() end
+
+  cb, p = Promise.ensureCallback(fn)
+  lu.assertIs(cb, fn)
+  lu.assertNil(p)
+
+  cb, p = Promise.ensureCallback(false)
+  lu.assertNil(cb)
+  lu.assertNil(p)
+
+  cb, p = Promise.ensureCallback(false, true)
+  lu.assertNotNil(cb)
+  lu.assertNil(p)
+
+  cb, p = Promise.ensureCallback()
+  lu.assertEquals(type(cb), 'function')
+  lu.assertTrue(Promise:isInstance(p))
+end
+
+function Test_applyCallback()
+  local reason, value, p
+  local cb = function(r, v)
+    reason, value = r, v
+  end
+  local captureValue = function(v)
+    value = v
+  end
+  local captureReason = function(r)
+    reason = r
+  end
+
+  reason, value = nil, nil
+  p = Promise.applyCallback(nil, nil, 'success')
+  lu.assertTrue(Promise:isInstance(p))
+  p:next(captureValue, captureReason)
+  lu.assertNil(reason)
+  lu.assertEquals(value, 'success')
+
+  reason, value = nil, nil
+  p = Promise.applyCallback(nil, 'ouch')
+  lu.assertTrue(Promise:isInstance(p))
+  p:next(captureValue, captureReason)
+  lu.assertEquals(reason, 'ouch')
+  lu.assertNil(value)
+
+  reason, value = nil, nil
+  p = Promise.applyCallback(cb, nil, 'success')
+  lu.assertNil(p)
+  lu.assertNil(reason)
+  lu.assertEquals(value, 'success')
+
+  reason, value = nil, nil
+  p = Promise.applyCallback(cb, 'ouch')
+  lu.assertNil(p)
+  lu.assertEquals(reason, 'ouch')
+  lu.assertNil(value)
+end
+
 os.exit(lu.LuaUnit.run())

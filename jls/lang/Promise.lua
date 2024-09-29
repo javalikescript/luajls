@@ -55,6 +55,24 @@ local function isPromise(promise)
   return type(promise) == 'table' and type(promise.next) == 'function'
 end
 
+local function asCallback(promise)
+  return function(reason, value)
+    if reason then
+      applyPromise(promise, reason, REJECTED)
+    else
+      applyPromise(promise, value, FULFILLED)
+    end
+  end
+end
+
+local function asCallbacks(promise)
+  return function(value)
+    applyPromise(promise, value, FULFILLED)
+  end, function(reason)
+    applyPromise(promise, reason, REJECTED)
+  end
+end
+
 local function applyPromiseHandlerDo(promise, handler)
   local status, result = true, NO_VALUE
   local state, pres = promise._state, promise._result
@@ -86,11 +104,7 @@ local function applyPromiseHandlerDo(promise, handler)
       -- TODO: If calling then throws an exception e,
       -- If resolvePromise or rejectPromise have been called, ignore it.
       -- Otherwise, reject promise with e as the reason.
-      result:next(function(value)
-        applyPromise(handler.promise, value, FULFILLED)
-      end, function(reason)
-        applyPromise(handler.promise, reason, REJECTED)
-      end)
+      result:next(asCallbacks(handler.promise))
     else
       -- If either onFulfilled or onRejected returns a value then run the Promise Resolution Procedure
       -- Note: the value could be nil even if it is not specified
@@ -103,24 +117,6 @@ local function applyPromiseHandlerDo(promise, handler)
 end
 
 applyPromiseHandler = applyPromiseHandlerDo
-
-local function asCallback(promise)
-  return function(reason, value)
-    if reason then
-      applyPromise(promise, reason, REJECTED)
-    else
-      applyPromise(promise, value, FULFILLED)
-    end
-  end
-end
-
-local function asCallbacks(promise)
-  return function(value)
-    applyPromise(promise, value, FULFILLED)
-  end, function(reason)
-    applyPromise(promise, reason, REJECTED)
-  end
-end
 
 --- A promise represents the completion (or failure) of an asynchronous operation, and its resulting value (or error).
 -- @type Promise
@@ -341,11 +337,7 @@ function Promise.resolve(value)
   end
   local p = Promise:new()
   if isPromise(value) then
-    value:next(function(result)
-      applyPromise(p, result, FULFILLED)
-    end, function(reason)
-      applyPromise(p, reason, REJECTED)
-    end)
+    value:next(asCallbacks(p))
   else
     applyPromise(p, value, FULFILLED)
   end
@@ -502,37 +494,66 @@ function Promise.newCallback(executor)
   return p
 end
 
---- Returns the specified callback if any or a callback and its associated promise.
+--- Returns the specified callback, if any, or a callback and its associated promise.
 -- This function helps to create asynchronous functions with an optional ending callback parameter.
--- @param callback An optional existing callback or false to indicate that no promise is expected
+-- @param[opt] callback An optional existing callback or false to indicate that no promise is expected
+-- @tparam[opt] boolean fallback true to indicate that a callback return value is always expected
 -- @treturn function The callback
--- @treturn Promise An associated promise if necessary
+-- @treturn Promise An associated promise, if necessary
 -- @usage function readAsync(callback)
 --   local cb, promise = Promise.ensureCallback(callback)
 --   -- call cb(nil, value) on success or cb(reason) on error
 --   return promise
 -- end
-function Promise.ensureCallback(callback)
-  if type(callback) == 'function' then
+function Promise.ensureCallback(callback, fallback)
+  if callback == nil then
+    local p, cb = Promise.createWithCallback()
+    return cb, p
+  elseif type(callback) == 'function' then
     return callback, nil
   elseif callback == false then
+    if fallback then
+      return class.emptyFunction, nil
+    end
     return nil, nil
-  elseif callback ~= nil then
-    error('invalid callback')
   end
-  local p, resolutionCallback = Promise.createWithCallback()
-  return resolutionCallback, p
+  error('invalid callback')
 end
 
-function Promise.callbackToNext(callback)
+--- Applies the specified callback, if any, with the reason or value.
+-- If there is no callback then a promise is returned which is either resolved or rejected.
+-- @param[opt] callback An optional existing callback or false to indicate that no promise is expected
+-- @param[opt] reason The error or nil if there is no error
+-- @param[opt] value The resolving value
+-- @treturn Promise A promise, if necessary
+function Promise.applyCallback(callback, reason, value)
   if callback == nil then
-    return nil, nil
+    if reason ~= nil then
+      return Promise.reject(reason)
+    end
+    return Promise.resolve(value)
+  elseif type(callback) == 'function' then
+    callback(reason, value)
+    return
+  elseif callback == false then
+    return
   end
-  return function(value)
-    return callback(nil, value)
-  end, function(reason)
-    return callback(reason or 'unknown reason')
+  error('invalid callback')
+end
+
+--- Returns the arguments to build the next promise based on the specified callback.
+-- @tparam[opt] function callback The callback
+-- @treturn function The resolution function
+-- @treturn function The rejection function
+function Promise.callbackToNext(callback)
+  if type(callback) == 'function' then
+    return function(value)
+      return callback(nil, value)
+    end, function(reason)
+      return callback(reason or 'unknown reason')
+    end
   end
+  return nil, nil
 end
 
 function Promise.setProtectedCall(value)
