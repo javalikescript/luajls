@@ -34,10 +34,9 @@ return class.create(function(serialWorker)
   function serialWorker:initialize()
     self.worker = Worker:new(function(...)
       require('jls.util.SerialWorker')._initWorker(...)
-    end)
-    self.worker.onMessage = function(_, response)
+    end, nil, function(_, response)
       self:onWorkerMessage(response)
-    end
+    end)
     self.workCallback = false
     self.workStreamHandler = false
     self.works = {}

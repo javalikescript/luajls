@@ -118,6 +118,7 @@ return class.create(function(thread)
         logger:fine('Thread function upvalues (%s, ...) will be nil', name)
       end
     end
+    logger:fine('package path: "%s", cpath: "%s"', package.path, package.cpath)
     return CHUNK_MAIN, package.path, package.cpath, preloads, string.dump(self.fn), ...
   end
 

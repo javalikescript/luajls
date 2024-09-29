@@ -13,10 +13,15 @@ return class.create(ThreadBase, function(thread)
     self._endPromise = Promise:new(function(resolve, reject)
       self._async = luvLib.new_async(function(status, value, kind)
         ThreadBase._apply(resolve, reject, status, value, kind)
-        self._async:close()
-        self.t:join()
+        local a, t = self._async, self.t
         self._async = nil
         self.t = nil
+        if a then
+          a:close()
+        end
+        if t then
+          t:join()
+        end
       end)
     end)
     self.t = luvLib.new_thread(self:_arg(self._async, ...))
