@@ -66,9 +66,17 @@ return class.create(function(pigs)
     self.port = port or 8888
   end
 
+  local function nextIndex(index)
+    if index > 1000 then
+      logger:fine('reset index')
+      return 1
+    end
+    return index + 1
+  end
+
   function pigs:connect()
-    logger:finer('connect()')
     if self.connectPromise then
+      logger:finest('connect() in progress')
       return self.connectPromise
     end
     if self.client then
@@ -84,17 +92,22 @@ return class.create(function(pigs)
         return Promise.reject()
       end
       self.client:readStart(StreamHandler.block(function(err, data)
-        logger:fine('socket read %s, %x', err, data)
+        logger:finest('socket read %s, %x', err, data)
         if err then
           self:close(err)
         elseif data then
+          local cmd, p1, p2, res = string.unpack(format, data)
+          logger:finer('socket recv #%d: %s, %s, %s', self.dqIndex, cmd, p1, p2, res)
           local cb = self.queue[self.dqIndex]
           self.queue[self.dqIndex] = nil
-          self.dqIndex = self.dqIndex + 1
-          local cmd, p1, p2, res = string.unpack(format, data)
-          logger:fine('socket recv: %s, %s, %s', cmd, p1, p2, res)
-          cb(nil, res)
+          self.dqIndex = nextIndex(self.dqIndex)
+          if cb then
+            cb(nil, res)
+          else
+            self:close('invalid queue index')
+          end
         else
+          logger:finer('socket recv no data')
           self:close()
         end
       end, string.packsize(format)))
@@ -103,11 +116,13 @@ return class.create(function(pigs)
   end
 
   function pigs:close(reason)
-    logger:finer('close()')
+    logger:finest('close()')
     if self.client then
+      logger:fine('close(%s)', reason)
       self.client:close()
       self.client = nil
-      for _, cb in ipairs(self.queue) do
+      for index, cb in pairs(self.queue) do
+        logger:finer('closing queue #%d', index)
         cb(reason or 'closed')
       end
       self.queue = {}
@@ -117,35 +132,43 @@ return class.create(function(pigs)
   function pigs:enqueueCallback()
     local promise, cb = Promise.withCallback()
     self.queue[self.index] = cb
-    self.index = self.index + 1
+    logger:finer('enqueueCallback() #%d', self.index)
+    self.index = nextIndex(self.index)
     return promise
   end
 
-  function pigs:send(cmd, p1, p2)
-    local data = string.pack(self.endian..CMD_FORMAT, cmd, p1 or 0, p2 or 0, 0)
-    logger:fine('send(%s, %s, %s)', cmd, p1, p2)
+  function pigs:send(cmd, p1, p2, p3)
+    local data = string.pack(self.endian..CMD_FORMAT, cmd, p1 or 0, p2 or 0, p3 or 0)
+    logger:fine('send(%s, %s, %s, %s)', cmd, p1, p2, p3)
     return self:connect():next(function()
-      logger:fine('write(%x)', data)
+      logger:finest('write(%x)', data)
       return self.client:write(data)
     end):next(function()
-      return self:enqueueCallback()
+      local promise = self:enqueueCallback()
+      promise:catch(function(reason)
+        logger:fine('send(%s, %s, %s, %s) fails due to %s', cmd, p1, p2, p3, reason)
+      end)
+      return promise
     end)
   end
 
   function pigs:readStartPipe(pipe, cb)
+    logger:finer('readStartPipe()')
     local reportFormat = self.endian..REPORT_FORMAT
     pipe:readStart(StreamHandler.block(function(err, data)
-      logger:fine('pipe read %s, %x', err, data)
+      logger:finest('pipe read %s, %x', err, data)
       if err then
+        logger:fine('pipe read err %s', err)
         pipe:readStop()
         cb(err)
       elseif data then
         local seqno, flags, tick, level = string.unpack(reportFormat, data)
-        logger:fine('pipe report: %s, %s, %s, %s', seqno, flags, tick, level)
+        logger:finer('pipe report: %s, %s, %s, %s', seqno, flags, tick, level)
         if flags == 0 then
           cb(nil, level, tick, seqno)
         end
       else
+        logger:fine('pipe read no data')
         pipe:readStop()
         cb('closed')
       end
