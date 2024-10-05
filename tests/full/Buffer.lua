@@ -32,4 +32,14 @@ function Test_buffer_reference()
   lu.assertEquals(lb:get(1, 5), 'Hello')
 end
 
+function Test_buffer_view()
+  local buffer = Buffer.allocate(10)
+  buffer:set('          ')
+  local vb = buffer:view(3, 7)
+  lu.assertEquals(vb:length(), 5)
+  lu.assertEquals(vb:get(), '     ')
+  vb:set('Hello')
+  lu.assertEquals(buffer:get(), '  Hello   ')
+end
+
 os.exit(lu.LuaUnit.run())

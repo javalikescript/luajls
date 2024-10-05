@@ -4,6 +4,8 @@
 
 local class = require('jls.lang.class')
 
+local BufferView
+
 --- The Buffer class.
 -- @type Buffer
 return class.create(function(buffer)
@@ -45,6 +47,14 @@ return class.create(function(buffer)
   -- @treturn string a reference for this buffer
   -- @function buffer:toReference
   buffer.toReference = class.notImplementedFunction
+
+  --- Returns a view on a sub part of this buffer.
+  -- @tparam[opt] number from The start position, default to 1
+  -- @tparam[opt] number to The end position included, default to this buffer size
+  -- @return The buffer view
+  function buffer:view(from, to)
+    return BufferView:new(self, from, to)
+  end
 
 end, function(Buffer)
 
@@ -97,5 +107,35 @@ end, function(Buffer)
     end
     return getClassName(mode).fromReference(reference, mode)
   end
+
+  BufferView = class.create(Buffer, function(buffer)
+
+    function buffer:initialize(value, from, to)
+      self.buffer = value
+      self.offset = (from or 1) - 1
+      self.size = (to or value:length()) - self.offset
+    end
+
+    function buffer:length()
+      return self.size
+    end
+
+    function buffer:get(from, to)
+      return self.buffer:get(self.offset + (from or 1), self.offset + (to or self.size))
+    end
+
+    function buffer:set(value, offset, from, to)
+      self.buffer:set(value, self.offset + (offset or 1), from, to)
+    end
+
+    function buffer:getBytes(from, to)
+      return self.buffer:getBytes(self.offset + (from or 1), self.offset + (to or from or 1))
+    end
+
+    function buffer:setBytes(at, ...)
+      self.buffer:setBytes(self.offset + (at or 1), ...)
+    end
+
+  end)
 
 end)
