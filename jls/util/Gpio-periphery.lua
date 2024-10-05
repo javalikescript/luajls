@@ -178,7 +178,8 @@ return class.create('jls.util.GpioBase', function(gpio, super)
       logger:fine('received from worker')
       fn(nil, message)
     end, {
-      disableReceive = true
+      disableReceive = true,
+      scheme = 'ring'
     })
     self.worker = worker
     return Promise.resolve()
@@ -203,16 +204,16 @@ end, function(Gpio)
         if e then
           logger:fine('pin %d, edge: %s', button.line, e.edge)
           local lastTimestamp = lastTimestamps[button.line]
-          lastTimestamps[button.line] = e.timestamp
-          if not lastTimestamp or lastTimestamp > e.timestamp then
+          local timestamp = e.timestamp // 1000 -- ns to µs
+          lastTimestamps[button.line] = timestamp
+          if not lastTimestamp or lastTimestamp > timestamp then
             lastTimestamp = 0
           end
           worker:postMessage({
             num = button.line,
             value = e.edge == 'rising',
-            edge = e.edge,
-            delay = e.timestamp - lastTimestamp,
-            timestamp = e.timestamp
+            delay = timestamp - lastTimestamp,
+            timestamp = timestamp
           })
         end
       end

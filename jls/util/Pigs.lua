@@ -162,6 +162,7 @@ return class.create(function(pigs)
         pipe:readStop()
         cb(err)
       elseif data then
+        -- see https://abyz.me.uk/rpi/pigpio/cif.html#gpioNotifyBegin
         local seqno, flags, tick, level = string.unpack(reportFormat, data)
         logger:finer('pipe report: %s, %s, %s, %s', seqno, flags, tick, level)
         if flags == 0 then

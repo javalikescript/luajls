@@ -236,9 +236,8 @@ return class.create('jls.util.GpioBase', function(gpio, super)
               fn(nil, {
                 num = line,
                 value = value,
-                edge = value and 'rising' or 'falling',
                 delay = tick - lastTick,
-                timestamp = tick,
+                timestamp = tick, -- µs
               })
             end
           end
