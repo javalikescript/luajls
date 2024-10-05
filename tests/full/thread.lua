@@ -138,4 +138,55 @@ function Test_preload()
   lu.assertEquals(result, 'test+test 2')
 end
 
+function Test_resolveUpValues()
+  local a, b = 'Hi', 3
+  local fn = function(value)
+    --print('fn', a, b, value)
+    return a, b, value
+  end
+  local rfn = Thread.resolveUpValues(fn)
+  lu.assertEquals({fn(12)}, {'Hi', 3, 12})
+  lu.assertEquals({rfn(12)}, {'Hi', 3, 12})
+  a, b = 'Oh', 34
+  lu.assertEquals({fn(12)}, {'Oh', 34, 12})
+  lu.assertEquals({rfn(12)}, {'Hi', 3, 12})
+end
+
+function Test_resolveUpValues_with_env()
+  local a, b = 'Hi', 3
+  local fn = function(value)
+    return a, b, math.type(value)
+  end
+  local rfn = Thread.resolveUpValues(fn)
+  a, b = 'Oh', 34
+  lu.assertEquals({rfn(12)}, {'Hi', 3, 'integer'})
+end
+
+function Test_resolveUpValues_with_require()
+  local fn = function()
+    return type(Thread)
+  end
+  local rfn = Thread.resolveUpValues(fn)
+  local m = Thread
+  lu.assertEquals(fn(), 'table')
+  Thread = nil
+  lu.assertEquals(fn(), 'nil')
+  lu.assertEquals(rfn(), 'table')
+  Thread = m
+end
+
+function Test_resolveUpValues_identity()
+  local fn = function()
+    return 1 + 2
+  end
+  local rfn = Thread.resolveUpValues(fn)
+  lu.assertEquals(rfn, fn)
+
+  fn = function()
+    return print('Hello')
+  end
+  rfn = Thread.resolveUpValues(fn)
+  lu.assertEquals(rfn, fn)
+end
+
 os.exit(lu.LuaUnit.run())

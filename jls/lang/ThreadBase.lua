@@ -22,41 +22,51 @@ do
   end
 end
 
-local CHUNK_MAIN = string.dump(function(path, cpath, preloads, ...)
+local CHUNK_MAIN = string.dump(function(sargs, ...)
+  -- for 5.1 direct compatibility
+  ---@diagnostic disable-next-line: deprecated
+  local len, loadstr = string.len, loadstring or load
+  local p = 1
+  local path, cpath, slen = string.match(sargs, '^([^\23]*)\23([^\23]*)\23(%d+)\23', p)
+  if not path then
+    return false, 'corrupted args'
+  end
+  p = p + len(path) + 1 + len(cpath) + 1 + len(slen) + 1
+  local pp = p + tonumber(slen)
+  if string.byte(sargs, pp) ~= 23 then
+    return false, 'corrupted args'
+  end
+  local chunk = string.sub(sargs, p, pp)
+  p = pp + 1
   if path then
     package.path = path
   end
   if cpath then
     package.cpath = cpath
   end
-  if preloads then
-    -- for 5.1 direct compatibility
-    ---@diagnostic disable-next-line: deprecated
-    local len, loadstr = string.len, loadstring or load
-    local p, l = 1, len(preloads) - 5
-    while p < l do
-      local name, slen = string.match(preloads, '^([^%c]+)\23([1-9]%d*)\23', p)
-      if name then
-        p = p + len(name) + 1 + len(slen) + 1
-        local pp = p + tonumber(slen)
-        if string.byte(preloads, pp) ~= 23 then
-          break
-        end
-        local chunk = string.sub(preloads, p, pp)
-        p = pp + 1
-        local fn = loadstr(chunk, name)
-        if fn then
-          package.preload[name] = fn
-        else
-          break
-        end
+  local l = len(sargs) - 5
+  while p < l do
+    path, slen = string.match(sargs, '^([^\23]+)\23(%d+)\23', p)
+    if path then
+      p = p + len(path) + 1 + len(slen) + 1
+      pp = p + tonumber(slen)
+      if string.byte(sargs, pp) ~= 23 then
+        break
+      end
+      local dump = string.sub(sargs, p, pp)
+      p = pp + 1
+      local fn = loadstr(dump, path)
+      if fn then
+        package.preload[path] = fn
       else
         break
       end
+    else
+      break
     end
   end
   local th = require('jls.lang.Thread')
-  return th._main(...)
+  return th._main(chunk, ...)
 end)
 
 --- A Thread class.
@@ -94,23 +104,25 @@ return class.create(function(thread)
   function thread:_arg(...)
     -- Lua static uses package.searchers to provide bundled modules
     -- C modules will not be available
-    local preloads
+    local chunk = string.dump(self.fn)
+    local targs = {}
+    table.insert(targs, package.path or '')
+    table.insert(targs, package.cpath or '')
+    table.insert(targs, #chunk)
+    table.insert(targs, chunk)
     if self.preloads then
-      local t = {}
       for name, fn in pairs(package.preload) do
         local status, dump = pcall(string.dump, fn)
         if status and dump then
-          table.insert(t, name)
-          table.insert(t, #dump)
-          table.insert(t, dump)
+          table.insert(targs, name)
+          table.insert(targs, #dump)
+          table.insert(targs, dump)
         end
       end
-      if #t > 0 then
-        table.insert(t, '')
-        preloads = table.concat(t, '\23')
-        logger:fine('preload size is %d', #preloads) -- 530k for jls
-      end
     end
+    table.insert(targs, '')
+    local sargs = table.concat(targs, '\23')
+    logger:fine('args size is %d', #sargs) -- 530k for jls
     -- check if the function has upvalues
     if logger:isLoggable(logger.FINE) then
       local name = debug and debug.getupvalue(self.fn, 2)
@@ -119,7 +131,8 @@ return class.create(function(thread)
       end
     end
     logger:fine('package path: "%s", cpath: "%s"', package.path, package.cpath)
-    return CHUNK_MAIN, package.path, package.cpath, preloads, string.dump(self.fn), ...
+    assert(1 + select('#', ...) <= 9, 'too many thread argument')
+    return CHUNK_MAIN, sargs, ...
   end
 
   --- Starts this Thread.
@@ -205,6 +218,58 @@ end, function(Thread)
     else
       reject(value)
     end
+  end
+
+  --- Returns the specified function without upvalues.
+  -- The upvalues are replaced by their current litteral value or the corresponding required module.
+  -- @tparam function fn The function to resolve
+  -- @treturn function the function without upvalue
+  function Thread.resolveUpValues(fn)
+    local identity = true
+    local lines = {'return function(...)', ''}
+    for i = 1, 250 do
+      local name, value = debug.getupvalue(fn, i)
+      if not name then
+        break
+      end
+      logger:finest('upvalue %d: %s', i, name)
+      if name == '' or name == '?' then
+        error('upvalue not available')
+      end
+      if name == '_ENV' then
+        table.insert(lines, string.format('debug.setupvalue(f, %d, _G)', i))
+      elseif value ~= nil then
+        identity = false
+        local tvalue = type(value)
+        if tvalue == 'boolean' or tvalue == 'number' or tvalue == 'string' then
+          table.insert(lines, string.format('debug.setupvalue(f, %d, %q)', i, value))
+        elseif tvalue == 'table' or tvalue == 'function' or tvalue == 'userdata' then
+          local found
+          for n, m in pairs(package.loaded) do
+            if m == value then
+              table.insert(lines, string.format('debug.setupvalue(f, %d, require("%s"))', i, n))
+              found = true
+              break
+            end
+          end
+          if not found then
+            error('unsupported upvalue')
+          end
+        else
+          error('unsupported upvalue type')
+        end
+      end
+    end
+    if identity then
+      return fn
+    end
+    local chunk = string.dump(fn)
+    lines[2] = string.format('local f = load(%q, nil, "b")', chunk)
+    table.insert(lines, 'return f(...)')
+    table.insert(lines, 'end')
+    local body = table.concat(lines, '\n')
+    logger:finest('resolved function with: -->%s<--', body)
+    return load(body, nil, 't')()
   end
 
 end)
