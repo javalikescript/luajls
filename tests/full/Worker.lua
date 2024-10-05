@@ -12,7 +12,6 @@ local function assertPostReceive(withData, options)
     f = function(w, d)
       local logr = require('jls.lang.logger')
       local sys = require('jls.lang.system')
-      local evt = require('jls.lang.event')
       local suffix = d and tostring(d) or '-'
       local message = 'Hi '..suffix
       if w:isConnected() then
@@ -86,6 +85,56 @@ end
 
 function Test_ring_with_data()
   assertPostReceive(true, {scheme = 'ring', disableReceive = true})
+end
+
+local function assertMultiplePostReceive(options)
+  local count = 0
+  options = options or {}
+  logger:info('initializing worker options: %t', options)
+  local w = Worker:new(function(w, d)
+    local logr = require('jls.lang.logger')
+    local sys = require('jls.lang.system')
+    for i = 1, 100 do
+      if w:isConnected() then
+        w:postMessage('message '..i..' -----------')
+      else
+        break
+      end
+    end
+    w:postMessage('close')
+    sys.sleep(100)
+    logr:info('ending worker')
+  end, nil, function(self, message)
+    logger:info('received from worker "%s"', message)
+    if message == 'close' then
+      self:close()
+    else
+      count = count + 1
+    end
+  end, options)
+  logger:info('looping')
+  if not loop(function()
+    w:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  lu.assertEquals(count, 100)
+end
+
+function Test_multi()
+  assertMultiplePostReceive()
+end
+
+function Test_multi_tcp()
+  assertMultiplePostReceive({scheme = 'tcp'})
+end
+
+function Test_multi_disable_receive()
+  assertMultiplePostReceive({disableReceive = true})
+end
+
+function Test_multi_ring()
+  assertMultiplePostReceive({scheme = 'ring', disableReceive = true, size = 1024})
 end
 
 os.exit(lu.LuaUnit.run())
