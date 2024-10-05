@@ -4,23 +4,22 @@ local logger = require('jls.lang.logger')
 local Worker = require('jls.util.Worker')
 local loop = require('jls.lang.loopWithTimeout')
 
-local function assertPostReceive(withData, scheme, disableReceive)
+local function assertPostReceive(withData, options)
   local received = nil
+  options = options or {}
   local f
-  if disableReceive and not scheme then
+  if options.disableReceive then
     f = function(w, d)
       local logr = require('jls.lang.logger')
       local sys = require('jls.lang.system')
-      logr:info('initializing worker %s receive disabled', withData)
+      local evt = require('jls.lang.event')
       local suffix = d and tostring(d) or '-'
       local message = 'Hi '..suffix
       if w:isConnected() then
         logr:info('worker is connected')
         w:postMessage(message)
         logr:info('posted in worker "%s"', message)
-        while w:isConnected() and not w._remote do
-          sys.sleep(100)
-        end
+        sys.sleep(100)
       else
         logr:info('not connected')
       end
@@ -29,7 +28,6 @@ local function assertPostReceive(withData, scheme, disableReceive)
   else
     f = function(w, d)
       local logr = require('jls.lang.logger')
-      logr:info('initializing worker %s, %s, %s', withData, scheme, disableReceive)
       local suffix = d and (', '..tostring(d)) or ''
       function w:onMessage(message)
         logr:info('received in worker "%s"', message)
@@ -39,13 +37,14 @@ local function assertPostReceive(withData, scheme, disableReceive)
       end
     end
   end
+  logger:info('initializing worker withData: %s, options: %t', withData, options)
   local w = Worker:new(f, withData and 'cheers' or nil, function(self, message)
     logger:info('received from worker "%s"', message)
     received = message
     self:close()
-  end, {scheme = scheme, disableReceive = disableReceive})
-  if not disableReceive then
-    logger:info('posting')
+  end, options)
+  if not options.disableReceive then
+    logger:info('posting to worker')
     w:postMessage('John')
   end
   logger:info('looping')
@@ -54,7 +53,7 @@ local function assertPostReceive(withData, scheme, disableReceive)
   end) then
     lu.fail('Timeout reached')
   end
-  if disableReceive then
+  if options.disableReceive then
     lu.assertEquals(received, withData and 'Hi cheers' or 'Hi -')
   else
     lu.assertEquals(received, withData and 'Hi John, cheers' or 'Hi John')
@@ -70,15 +69,23 @@ function Test_default_with_data()
 end
 
 function Test_TCP()
-  assertPostReceive(false, 'tcp')
+  assertPostReceive(false, {scheme = 'tcp'})
 end
 
 function Test_disable_receive()
-  assertPostReceive(false, nil, true)
+  assertPostReceive(false, {disableReceive = true})
 end
 
 function Test_disable_receive_with_data()
-  assertPostReceive(true, nil, true)
+  assertPostReceive(true, {disableReceive = true})
+end
+
+function Test_ring()
+  assertPostReceive(false, {scheme = 'ring', disableReceive = true})
+end
+
+function Test_ring_with_data()
+  assertPostReceive(true, {scheme = 'ring', disableReceive = true})
 end
 
 os.exit(lu.LuaUnit.run())

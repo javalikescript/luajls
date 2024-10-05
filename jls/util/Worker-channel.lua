@@ -7,6 +7,8 @@ local Thread = require('jls.lang.Thread')
 local Channel = require('jls.util.Channel')
 local json = require('jls.util.json')
 local Buffer = require('jls.lang.Buffer')
+local system = require('jls.lang.system')
+local RingBuffer = require('jls.util.RingBuffer')
 
 local loader = require('jls.lang.loader')
 local luvLib = loader.tryRequire('luv')
@@ -17,36 +19,15 @@ local MT_ERROR = Channel.MESSAGE_ID_USER + 2
 
 local EINPROGRESS = 115
 
-local function postMessage(channel, message)
-  if type(message) == 'string' then
-    return channel:writeMessage(message, MT_STRING)
-  end
-  return channel:writeMessage(json.encode(message), MT_JSON)
-end
-
-local function newThreadChannel(chunk, jsonData, scheme, receive)
-  local thread = Thread:new(function(...)
-    require('jls.util.Worker-channel').initializeWorkerThread(...)
-    require('jls.lang.event'):loop()
-  end)
-  logger:finer('newThreadChannel()')
-  local channelServer = Channel:new()
-  local acceptPromise = channelServer:acceptAndClose()
-  return channelServer:bind(nil, scheme):next(function()
-    local channelName = channelServer:getName()
-    thread:start(channelName, chunk, jsonData, receive):ended():next(function()
-      logger:finer('thread ended')
-    end)
-    return acceptPromise
-  end)
-end
-
 local AsyncChannel = class.create(function(channel)
 
-  function channel:initialize(async, buffer, thread)
+  function channel:initialize(async, buffer, thread, ring, timeout)
+    logger:fine('AsyncChannel:new(%s, %s, %s, %s)', async, buffer, thread, ring)
     self.async = async
     self.buffer = buffer
     self.thread = thread
+    self.ring = ring
+    self.timeout = timeout or 15000
   end
 
   function channel:close(callback)
@@ -81,61 +62,99 @@ local AsyncChannel = class.create(function(channel)
 
   function channel:writeMessage(payload, id, callback)
     local status, err
-    if self.async and not self.thread then
-      status, err = self.async:send(payload, id)
+    if self.async and self.ring then
+      local endTime, delay
+      while true do
+        status = self.ring:enqueue(payload, id)
+        if status then
+          logger:finer('message queued to buffer ring')
+          break
+        end
+        local t = system.currentTimeMillis()
+        if endTime == nil then
+          endTime = t + self.timeout
+          delay = 100
+        end
+        if t >= endTime then
+          break
+        end
+        logger:finer('no space on buffer ring, sleeping %d ms', delay)
+        system.sleep(delay)
+        if delay < 3000 then
+          delay = delay * 2
+        end
+      end
       if status then
-        return Promise.applyCallback(callback)
+        status, err = self.async:send()
+        if status then
+          return Promise.applyCallback(callback)
+        end
+      else
+        err = 'not enough space in ring buffer'
       end
     end
+    logger:fine('asyncChannel:writeMessage() fails due to %s', err)
     return Promise.applyCallback(callback, err or 'cannot write message')
   end
 
 end)
 
-return class.create(function(worker, _, Worker)
-
-  local function setupWorkerThread(channel, chunk, jsonData, receive)
-    logger:fine('setupWorkerThread()')
-    local fn, err = load(chunk, nil, 'b')
-    if fn then
-      local w = class.makeInstance(Worker)
-      local data = jsonData and json.decode(jsonData) -- TODO protect
-      w:initializeChannel(channel, receive)
-      local status, e = Exception.pcall(fn, w, data)
-      if status then
-        logger:finer('initialized')
-      else
-        logger:fine('initialization failure, %s', e)
-        channel:writeMessage('Initialization failure, "'..tostring(e)..'"', MT_ERROR)
-      end
-    else
-      logger:fine('fail to load chunk, %s', err)
-      channel:writeMessage('Unable to load chunk due to "'..tostring(err)..'"', MT_ERROR)
-    end
+local function postMessage(channel, message)
+  if type(message) == 'string' then
+    return channel:writeMessage(message, MT_STRING)
   end
+  return channel:writeMessage(json.encode(message), MT_JSON)
+end
 
-  function Worker.initializeAsyncWorkerThread(async, chunk, jsonData, ref)
-    local buffer
-    if ref then
-      buffer = Buffer.fromReference(ref, 'global')
-    end
-    local channel = AsyncChannel:new(async, buffer)
-    setupWorkerThread(channel, chunk, jsonData, false)
-  end
-
-  function Worker.initializeWorkerThread(channelName, chunk, jsonData, receive)
-    local channel = Channel:new()
-    channel:connect(channelName):catch(function(reason)
-      logger:fine('Unable to connect thread channel due to %s', reason)
-      channel = nil
+local function newThreadChannel(chunk, jsonData, options)
+  local thread = Thread:new(function(...)
+    require('jls.util.Worker-channel').initializeWorkerThread(...)
+    require('jls.lang.event'):loop()
+  end)
+  logger:finer('newThreadChannel()')
+  local channelServer = Channel:new()
+  local acceptPromise = channelServer:acceptAndClose()
+  return channelServer:bind(nil, options.scheme):next(function()
+    local channelName = channelServer:getName()
+    thread:start(channelName, chunk, jsonData, not options.disableReceive):ended():next(function()
+      logger:finer('thread ended')
     end)
-    event:loop() -- wait for connection
-    if not channel then
-      error('Unable to connect thread channel "'..tostring(channelName)..'"')
+    return acceptPromise
+  end)
+end
+
+local function newThreadAsyncChannel(chunk, jsonData, options)
+  local ring = RingBuffer.SyncRingBuffer:new(options.size or 4096)
+  local channel
+  ---@diagnostic disable-next-line: need-check-nil
+  local async = luvLib.new_async(function()
+    logger:finer('async received')
+    local handleMessageFn = channel and channel.handleMessageFn
+    if handleMessageFn then
+      while true do
+        local payload, id = ring:dequeue()
+        if payload then
+          logger:finer('handling message from queue')
+          handleMessageFn(payload, id)
+        else
+          break
+        end
+      end
     end
-    logger:finer('Thread channel "%s" connected', channelName)
-    setupWorkerThread(channel, chunk, jsonData, receive)
-  end
+  end)
+  local buffer = Buffer.allocate(1, 'global')
+  buffer:setBytes(1, EINPROGRESS)
+  local thread = Thread:new(function(...)
+    require('jls.util.Worker-channel').initializeAsyncWorkerThread(...)
+    require('jls.lang.event'):loop()
+  end)
+  channel = AsyncChannel:new(async, buffer, thread)
+  thread:start(async, chunk, jsonData, buffer:toReference(), ring:toReference())
+  return Promise.resolve(channel)
+end
+
+
+return class.create(function(worker)
 
   function worker:initialize(workerFn, workerData, onMessage, options)
     if type(workerFn) ~= 'function' then
@@ -152,24 +171,10 @@ return class.create(function(worker, _, Worker)
     logger:finest('Worker:new() code >>%s<<', chunk)
     local jsonData = workerData and json.encode(workerData) or nil
     local p
-    if options.disableReceive and luvLib and not options.scheme then
-      local async = luvLib.new_async(function(...)
-        logger:fine('async received')
-        local ch = self._channel
-        local handleMessageFn = ch and ch.handleMessageFn
-        if handleMessageFn then
-          handleMessageFn(...)
-        end
-      end)
-      local buffer = Buffer.allocate(1, 'global')
-      buffer:setBytes(1, EINPROGRESS)
-      local thread = Thread:new(function(...)
-        require('jls.util.Worker-channel').initializeAsyncWorkerThread(...)
-        require('jls.lang.event'):loop()
-      end):start(async, chunk, jsonData, buffer:toReference())
-      p = Promise.resolve(AsyncChannel:new(async, buffer, thread))
+    if options.disableReceive and options.scheme == 'ring' and luvLib then
+      p = newThreadAsyncChannel(chunk, jsonData, options)
     else
-      p = newThreadChannel(chunk, jsonData, options.scheme, not options.disableReceive)
+      p = newThreadChannel(chunk, jsonData, options)
     end
     p:next(function(ch)
       self._channel = ch
@@ -179,6 +184,7 @@ return class.create(function(worker, _, Worker)
   end
 
   function worker:initializeChannel(channel, receive)
+    logger:finer('initializeChannel() receive: %s', receive)
     self._channel = channel
     if receive then
       channel:receiveStart(function(payload, messageType)
@@ -281,6 +287,56 @@ return class.create(function(worker, _, Worker)
       self._channel = nil
       channel:close(false)
     end
+  end
+
+end, function(Worker)
+
+  local function setupWorkerThread(channel, chunk, jsonData, receive)
+    logger:fine('setupWorkerThread()')
+    local fn, err = load(chunk, nil, 'b')
+    if fn then
+      local w = class.makeInstance(Worker)
+      local data = jsonData and json.decode(jsonData) -- TODO protect
+      w:initializeChannel(channel, receive)
+      local status, e = Exception.pcall(fn, w, data)
+      if status then
+        logger:finer('initialized')
+      else
+        logger:fine('initialization failure, %s', e)
+        channel:writeMessage('Initialization failure, "'..tostring(e)..'"', MT_ERROR)
+      end
+    else
+      logger:fine('fail to load chunk, %s', err)
+      channel:writeMessage('Unable to load chunk due to "'..tostring(err)..'"', MT_ERROR)
+    end
+  end
+
+  function Worker.initializeAsyncWorkerThread(async, chunk, jsonData, bufferRef, ringRef)
+    local buffer, ring
+    if bufferRef then
+      buffer = Buffer.fromReference(bufferRef, 'global')
+    end
+    if ringRef then
+      ring = RingBuffer.SyncRingBuffer.fromReference(ringRef)
+    else
+      logger:warn('no ring reference provided')
+    end
+    local channel = AsyncChannel:new(async, buffer, nil, ring)
+    setupWorkerThread(channel, chunk, jsonData, false)
+  end
+
+  function Worker.initializeWorkerThread(channelName, chunk, jsonData, receive)
+    local channel = Channel:new()
+    channel:connect(channelName):catch(function(reason)
+      logger:fine('Unable to connect thread channel due to %s', reason)
+      channel = nil
+    end)
+    event:loop() -- wait for connection
+    if not channel then
+      error('Unable to connect thread channel "'..tostring(channelName)..'"')
+    end
+    logger:finer('Thread channel "%s" connected', channelName)
+    setupWorkerThread(channel, chunk, jsonData, receive)
   end
 
 end)
