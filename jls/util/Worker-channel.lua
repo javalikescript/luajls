@@ -33,7 +33,7 @@ local AsyncChannel = class.create(function(channel)
   function channel:close(callback)
     local async, buffer, thread = self.async, self.buffer, self.thread
     self:initialize()
-    if async then
+    if async and not async:is_closing() then
       async:close()
     end
     if buffer then
@@ -63,6 +63,9 @@ local AsyncChannel = class.create(function(channel)
   function channel:writeMessage(payload, id, callback)
     local status, err
     if self.async and self.ring then
+      if self.async:is_closing() then
+        return Promise.applyCallback(callback, 'closed')
+      end
       local endTime, delay
       while true do
         status = self.ring:enqueue(payload, id)
