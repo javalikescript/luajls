@@ -31,8 +31,9 @@ local AsyncChannel = class.create(function(channel)
   end
 
   function channel:close(callback)
+    logger:fine('asyncChannel:close()')
     local async, buffer, thread = self.async, self.buffer, self.thread
-    self:initialize()
+    self.async, self.thread = nil, nil
     if async and not async:is_closing() then
       async:close()
     end

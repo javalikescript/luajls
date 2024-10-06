@@ -122,7 +122,7 @@ return class.create(function(thread)
     end
     table.insert(targs, '')
     local sargs = table.concat(targs, '\23')
-    logger:fine('args size is %d', #sargs) -- 530k for jls
+    logger:finer('thread %p args size is %d', self, #sargs) -- 530k for jls
     -- check if the function has upvalues
     if logger:isLoggable(logger.FINE) then
       local name = debug and debug.getupvalue(self.fn, 2)
@@ -130,7 +130,7 @@ return class.create(function(thread)
         logger:fine('Thread function upvalues (%s, ...) will be nil', name)
       end
     end
-    logger:fine('package path: "%s", cpath: "%s"', package.path, package.cpath)
+    logger:finer('package path: "%s", cpath: "%s"', package.path, package.cpath)
     assert(1 + select('#', ...) <= 9, 'too many thread argument')
     return CHUNK_MAIN, sargs, ...
   end
@@ -157,9 +157,12 @@ return class.create(function(thread)
 
   --- Blocks until this thread terminates.
   function thread:join()
-    if self.t then
-      self.t:join()
+    local t = self.t
+    if t then
+      logger:fine('joining thread %p - %p', self, t)
       self.t = nil
+      t:join()
+      logger:fine('thread %p - %p joined', self, t)
     end
   end
 
