@@ -173,7 +173,7 @@ return class.create('jls.util.GpioBase', function(gpio, super)
     end, {
       chip = self.chip,
       gpios = gpios,
-      timeout = 5000
+      timeout = 3000
     }, function(_, message)
       logger:fine('received from worker')
       fn(nil, message)
@@ -201,19 +201,18 @@ end, function(Gpio)
       logger:finer('GPIO polled %l', eventButtons)
       for _, button in ipairs(eventButtons) do
         local e = button:read_event()
-        if e then
+        if e and e.edge == 'falling' or e.edge == 'rising' then
           logger:fine('pin %d, edge: %s', button.line, e.edge)
           local lastTimestamp = lastTimestamps[button.line]
           local timestamp = e.timestamp // 1000 -- ns to µs
           lastTimestamps[button.line] = timestamp
           if not lastTimestamp or lastTimestamp > timestamp then
-            lastTimestamp = 0
+            lastTimestamp = timestamp
           end
           worker:postMessage({
             num = button.line,
             value = e.edge == 'rising',
             delay = timestamp - lastTimestamp,
-            timestamp = timestamp
           })
         end
       end

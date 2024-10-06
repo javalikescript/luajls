@@ -230,14 +230,13 @@ return class.create('jls.util.GpioBase', function(gpio, super)
               local lastTick = lastTicks[i]
               lastTicks[i] = tick
               if lastTick > tick then
-                lastTick = 0
+                lastTick = tick
               end
               local value = (level & lineBit) ~= 0
               fn(nil, {
                 num = line,
                 value = value,
-                delay = tick - lastTick,
-                timestamp = tick, -- µs
+                delay = tick - lastTick, -- µs
               })
             end
           end
