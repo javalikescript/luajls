@@ -154,6 +154,7 @@ return class.create(function(gpio)
   --- Starts reading changes on pins.
   -- The function is called with two arguments, error and message.
   -- The message is a table containing the field: num, value, delay.
+  -- Corresponding to the pin number, the pin value as a boolean, the delay since last change in milli-seconds.
   -- @tparam function fn The function to call on pin value modification
   -- @tparam number ... The pin numbers to monitor for modification
   -- @treturn jls.lang.Promise A promise

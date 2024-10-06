@@ -1,5 +1,5 @@
 --- Represents a circular buffer maintaining a queue of data.
--- @module jls.lang.Buffer
+-- @module jls.util.RingBuffer
 -- @pragma nostrip
 
 local class = require('jls.lang.class')

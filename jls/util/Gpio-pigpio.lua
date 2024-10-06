@@ -1,9 +1,3 @@
---- Manages the Raspberry Pi General Purpose Input Outputs (GPIO).
--- The GPIO channels are identified by their Broadcom number.
--- The [pigpio](https://abyz.me.uk/rpi/pigpio/pigpiod.html) implementation expects the daemon to be available at localhost:8888.
--- @module jls.util.Gpio
--- @pragma nostrip
-
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
@@ -191,11 +185,6 @@ return class.create('jls.util.GpioBase', function(gpio, super)
     end)
   end
 
-  --- Starts notifications.  
-  -- Note: Notifications require the `luv` module.
-  -- @tparam function fn The function to call on channel modification
-  -- @tparam number ... The channels to monitor for modification
-  -- @treturn jls.lang.Promise A promise
   function gpio:readStart(fn, ...)
     logger:finer('readStart()')
     local lines = self:getStartList(fn, ...)
