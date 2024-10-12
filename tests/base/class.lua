@@ -156,6 +156,9 @@ function Test_define()
       self.amount = self.amount - debitAmount
     end
   end)
+  function Account:getName()
+    return 'Account'
+  end
   local LimitedAccount = class.create(Account, function(pt, super)
     function pt:debit(debitAmount)
       if self.amount - debitAmount > 0 then
@@ -175,11 +178,33 @@ function Test_define()
   aLimitedAccount:debit(100)
   lu.assertEquals(anAccount.amount, -77)
   lu.assertEquals(aLimitedAccount.amount, 23)
+  lu.assertNil(LimitedAccount:getName())
 end
+
+local TEST_CLASS_NAME = 'tests.MyClass'
+assert(package.loaded[TEST_CLASS_NAME] == nil)
 
 function Test_getName()
   lu.assertEquals(class.getName(class), 'jls.lang.class')
   lu.assertNil(class.getName({}))
+  local MyInnerClass = {}
+  package.loaded[TEST_CLASS_NAME] = {MyInnerClass = MyInnerClass}
+  lu.assertEquals(class.getName(MyInnerClass), TEST_CLASS_NAME..'$MyInnerClass')
+  package.loaded[TEST_CLASS_NAME] = nil
+end
+
+function Test_byName()
+  lu.assertEquals(class.byName('jls.lang.class'), class)
+  lu.assertFalse(pcall(class.byName, TEST_CLASS_NAME))
+  local MyInnerClass = {MySubInnerClass = {}}
+  package.loaded[TEST_CLASS_NAME] = {MyInnerClass = MyInnerClass}
+  local status, m = pcall(class.byName, TEST_CLASS_NAME..'$MyInnerClass')
+  local status2, m2 = pcall(class.byName, TEST_CLASS_NAME..'$MyInnerClass.MySubInnerClass')
+  package.loaded[TEST_CLASS_NAME] = nil
+  lu.assertTrue(status)
+  lu.assertEquals(m, MyInnerClass)
+  lu.assertTrue(status2)
+  lu.assertEquals(m2, MyInnerClass.MySubInnerClass)
 end
 
 local function createDecoratedClass()

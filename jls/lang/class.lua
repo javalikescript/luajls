@@ -125,17 +125,56 @@ end
 
 --[[--
 Returns the name of the specified class.
+This is a default and best effort implementation, edge case should override it at class level.
 @param class The class to look for
 @treturn string The class name or nil if the class is not found in `package.loaded`
 @function getName
 ]]
 local function getName(class)
+  -- some class are loaded twice under different names
   for name, c in pairs(package.loaded) do
-    if c == class then
+    if c == class and not string.find(name, '-', 1, true) then
       return name
     end
   end
+  for name, m in pairs(package.loaded) do
+    if m == class and string.find(name, '-', 1, true) then
+      return name
+    end
+    if type(m) == 'table' then
+      for field, c in pairs(m) do
+        if c == class then
+          return name..'$'..field
+        end
+      end
+    end
+  end
   return nil
+end
+
+--[[--
+Returns the class for the specified name.
+A class defined in a module field uses a dollar sign `$` to separate the package name and the field name.
+@tparam string name The class name to look for
+@return The class or nil if the class cannot be found
+@function byName
+]]
+local function byName(name)
+  local modname, path = string.match(name, '^([^%$]+)%$(.+)$')
+  if modname then
+    local m = require(modname)
+    for field in string.gmatch(path, '[^%.]*') do
+      m = type(m) == 'table' and m[field]
+      if not m then
+        break
+      end
+    end
+    if m then
+      return m
+    end
+    error('class '..name..' not found')
+  end
+  return require(name)
 end
 
 --[[--
@@ -167,8 +206,11 @@ Returns true if the specified value is a class.
 @function isClass
 ]]
 local function isClass(value)
-  if type(value) == 'table' and type(value.new) == 'function' and value.prototype then
-    return true
+  if type(value) == 'table' then
+    local mt = getmetatable(value)
+    if mt and type(value.new) == 'function' and value.prototype then
+      return true
+    end
   end
   return false
 end
@@ -217,6 +259,7 @@ local MetatableKeys = {
 
 local ClassIndex = {
   new = newInstance,
+  -- Could be named getClassName to avoid collision
   getName = getName,
   isAssignableFrom = isAssignableFrom,
   --as = asInstance,
@@ -354,6 +397,12 @@ local function createClass(super, defineInstanceFn, defineClassFn)
     end
     -- let the new class inherit from the base class
     setmetatable(class, super.classMetaTable)
+    -- check and restore class fields which are not inherited
+    for k, v in pairs(ClassIndex) do
+      if super[k] ~= v then
+        class[k] = v
+      end
+    end
     -- let the new prototype inherit from the base class prototype
     setmetatable(prototype, super.metatable)
   else
@@ -380,6 +429,7 @@ return {
   modifyInstance = modifyInstance,
   asInstance = asInstance,
   getName = getName,
+  byName = byName,
   isClass = isClass,
   notImplementedFunction = notImplementedFunction
 }
