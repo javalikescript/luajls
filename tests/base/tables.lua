@@ -255,6 +255,21 @@ function Test_stringify()
   lu.assertEquals(tables.stringify(List:new()), '{}')
 end
 
+function Test_stringify_lenient()
+  local f = function() end
+  local u = io.stdout
+  local t = {a = 1, f = f, u = u, z = 'z'}
+  t.t = t
+  local l = {1, f, nil, u, 'z'}
+  l[3] = l
+  local tt = {a = 1, [f] = 2, [u] = 3, z = 'z'}
+  lu.assertEquals(tables.stringify(f, nil, true), 'nil')
+  lu.assertEquals(tables.stringify(u, nil, true), 'nil')
+  lu.assertEquals(tables.stringify(t, nil, true), '{a=1,f=nil,t={},u=nil,z="z",}')
+  lu.assertEquals(tables.stringify(l, nil, true), '{1,nil,{},nil,"z",}')
+  lu.assertEquals(tables.stringify(tt, nil, true), '{a=1,z="z",}')
+end
+
 local function getSchemaValueOrFail(schema, value, translateValues)
   local result, err = tables.getSchemaValue(schema, value, translateValues)
   if err then

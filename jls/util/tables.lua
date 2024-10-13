@@ -107,7 +107,7 @@ function tables.stringify(value, space, lenient)
     if valueType == 'table' then
       if stack[val] then
         if lenient then
-          sb:append('"_0_CYCLE"')
+          sb:append('{}')
           return
         end
         --print('buffer:', sb:toString())
@@ -133,17 +133,20 @@ function tables.stringify(value, space, lenient)
           end
           -- The order in which the indices are enumerated is not specified
           for k, v in Map.spairs(m) do
-            sb:append(subPrefix)
-            if tables.isName(k) then
-              sb:append(k)
-            else
-              sb:append('[')
-              stringify(k, subPrefix)
-              sb:append(']')
+            local tk = type(k)
+            if not lenient or tk == 'boolean' or tk == 'number' or tk == 'string' or tk == 'table' then
+              sb:append(subPrefix)
+              if tables.isName(k) then
+                sb:append(k)
+              else
+                sb:append('[')
+                stringify(k, subPrefix)
+                sb:append(']')
+              end
+              sb:append(equal)
+              stringify(v, subPrefix)
+              sb:append(',', newline)
             end
-            sb:append(equal)
-            stringify(v, subPrefix)
-            sb:append(',', newline)
           end
         end
         sb:append(prefix, '}')
@@ -155,7 +158,7 @@ function tables.stringify(value, space, lenient)
       sb:append(tostring(val))
     else
       if lenient then
-        sb:append(string.format('%q', tostring(val)))
+        sb:append('nil')
       else
         error('invalid type '..valueType)
       end
