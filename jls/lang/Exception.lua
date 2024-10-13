@@ -5,6 +5,14 @@
 
 local class = require('jls.lang.class')
 
+local serialization
+do
+  local status, m = pcall(require, 'jls.lang.serialization')
+  if status then
+    serialization = m
+  end
+end
+
 --- The Exception class.
 -- @type Exception
 return class.create(function(exception, _, Exception)
@@ -30,7 +38,6 @@ return class.create(function(exception, _, Exception)
   -- @param[opt] message The exception message
   -- @param[opt] cause The exception cause
   -- @tparam[opt] string stack The exception stack
-  -- @tparam[opt] string name The exception name
   -- @function Exception:new
   function exception:initialize(message, cause, stack, name)
     if type(name) == 'string' then
@@ -47,6 +54,7 @@ return class.create(function(exception, _, Exception)
     self.message = cleanMessage(message, self.stack)
   end
 
+  -- TODO Remove name
   function exception:getName()
     return self.name or class.getName(self:getClass()) or 'Exception'
   end
@@ -88,6 +96,14 @@ return class.create(function(exception, _, Exception)
     return s
   end
 
+  function exception:serialize()
+    return serialization.serialize(self.name, self.stack, self.cause, self.message)
+  end
+
+  function exception:deserialize(s)
+    self.name, self.stack, self.cause, self.message = serialization.deserialize(s, 'string|nil', 'string|nil', 'string|nil', 'string|nil')
+  end
+
   function exception:toJSON()
     return {
       name = self:getName(),
@@ -107,6 +123,10 @@ return class.create(function(exception, _, Exception)
 
   function Exception.error(message)
     error(message, 0)
+  end
+
+  function Exception:getName()
+    return 'jls.lang.Exception'
   end
 
   --- Returns the message of the specified value if it is an exception or the specified value itself.

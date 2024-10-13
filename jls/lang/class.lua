@@ -88,6 +88,7 @@ local function cloneInstance(instance)
   local class = getClass(instance)
   if class then
     local newInstance = makeInstance(class)
+    -- TODO use serialization
     for k, v in pairs(instance) do
       newInstance[k] = v
     end
