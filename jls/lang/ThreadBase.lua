@@ -10,17 +10,10 @@ The _package_ curent values _path_, _cpath_ and _preload_ are transfered to the 
 ]]
 
 local class = require('jls.lang.class')
+local serialization = require('jls.lang.serialization')
 local logger = require('jls.lang.logger'):get(...)
 local Exception = require('jls.lang.Exception')
 local Promise = require('jls.lang.Promise')
-
-local tables
-do
-  local status, m = pcall(require, 'jls.util.tables')
-  if status then
-    tables = m
-  end
-end
 
 local CHUNK_MAIN = string.dump(function(sargs, ...)
   -- for 5.1 direct compatibility
@@ -38,12 +31,8 @@ local CHUNK_MAIN = string.dump(function(sargs, ...)
   end
   local chunk = string.sub(sargs, p, pp)
   p = pp + 1
-  if path then
-    package.path = path
-  end
-  if cpath then
-    package.cpath = cpath
-  end
+  package.path = path
+  package.cpath = cpath
   local l = len(sargs) - 5
   while p < l do
     path, slen = string.match(sargs, '^([^\23]+)\23(%d+)\23', p)
@@ -105,24 +94,24 @@ return class.create(function(thread)
     -- Lua static uses package.searchers to provide bundled modules
     -- C modules will not be available
     local chunk = string.dump(self.fn)
-    local targs = {}
-    table.insert(targs, package.path or '')
-    table.insert(targs, package.cpath or '')
-    table.insert(targs, #chunk)
-    table.insert(targs, chunk)
+    local opts = {}
+    table.insert(opts, package.path or '') -- We could check os.getfenv('LUA_PATH')
+    table.insert(opts, package.cpath or '')
+    table.insert(opts, #chunk)
+    table.insert(opts, chunk)
     if self.preloads then
       for name, fn in pairs(package.preload) do
         local status, dump = pcall(string.dump, fn)
         if status and dump then
-          table.insert(targs, name)
-          table.insert(targs, #dump)
-          table.insert(targs, dump)
+          table.insert(opts, name)
+          table.insert(opts, #dump)
+          table.insert(opts, dump)
         end
       end
     end
-    table.insert(targs, '')
-    local sargs = table.concat(targs, '\23')
-    logger:finer('thread %p args size is %d', self, #sargs) -- 530k for jls
+    table.insert(opts, '')
+    local sopts = table.concat(opts, '\23')
+    logger:finer('thread %p args size is %d', self, #sopts) -- 530k for jls
     -- check if the function has upvalues
     if logger:isLoggable(logger.FINE) then
       local name = debug and debug.getupvalue(self.fn, 2)
@@ -132,7 +121,17 @@ return class.create(function(thread)
     end
     logger:finer('package path: "%s", cpath: "%s"', package.path, package.cpath)
     assert(1 + select('#', ...) <= 9, 'too many thread argument')
-    return CHUNK_MAIN, sargs, ...
+    local args = table.pack(...)
+    local sargs = {}
+    for i = 1, args.n do
+      local v = args[i]
+      if type(v) == 'table' then
+        sargs[i] = serialization.serialize(v)
+      else
+        sargs[i] = v
+      end
+    end
+    return CHUNK_MAIN, sopts, table.unpack(sargs, 1, args.n)
   end
 
   --- Starts this Thread.
@@ -168,13 +167,27 @@ return class.create(function(thread)
 
 end, function(Thread)
 
-  function Thread._main(chunk, ...)
+  local function main(chunk, ...)
     local fn = load(chunk, nil, 'b')
-    local status, v, e = Exception.pcall(fn, ...)
-    if status and v == nil and e then
-      status, v = false, e
+    local sargs = table.pack(...)
+    local args = {}
+    for i = 1, sargs.n do
+      local v = sargs[i]
+      if type(v) == 'string' then
+        local status, r = pcall(serialization.deserialize, v, '?')
+        if not status then
+          return false, r
+        end
+        args[i] = r
+      else
+        args[i] = v
+      end
     end
-    if status and Promise.isPromise(v) then
+    local status, v, e = Exception.pcall(fn, table.unpack(args, 1, sargs.n))
+    if status and v == nil and e then
+      return false, e
+    end
+    if Promise.isPromise(v) then
       local eventStatus, event = pcall(require, 'jls.lang.event')
       if eventStatus then
         local p = v
@@ -189,32 +202,22 @@ end, function(Thread)
         status, v = false, 'no event loop to fulfill promise'
       end
     end
-    local vt
-    local t = type(v)
-    if t ~= 'nil' and t ~= 'string' and t ~= 'number' and t ~= 'boolean' then
-      if t == 'table' and tables then
-        if Exception:isInstance(v) then
-          v = v:toJSON()
-          vt = 2
-        else
-          vt = 1
-        end
-        v = tables.stringify(v, nil, true)
-      else
-        vt = 0
-        v = tostring(v)
-      end
-    end
-    return status, v, vt
+    return status, v
   end
 
-  function Thread._apply(resolve, reject, status, value, kind)
-    logger:fine('Thread function done: %s, "%s", %s', status, value, kind)
-    if type(kind) == 'number' and kind > 0 and tables then
-      value = tables.parse(value)
-      if kind == 2 then
-        value = Exception.fromJSON(value)
-      end
+  function Thread._main(...)
+    local status, v = main(...)
+    local t = type(v)
+    if t ~= 'nil' and t ~= 'string' and t ~= 'number' and t ~= 'boolean' then
+      v = serialization.serialize(v)
+    end
+    return status, v
+  end
+
+  function Thread._apply(resolve, reject, status, value)
+    logger:fine('Thread function done: %s, "%s"', status, value)
+    if type(value) == 'string' then
+      value = serialization.deserialize(value, '?')
     end
     if status then
       resolve(value)
@@ -226,7 +229,7 @@ end, function(Thread)
   --- Returns the specified function without upvalues.
   -- The upvalues are replaced by their current litteral value or the corresponding required module.
   -- @tparam function fn The function to resolve
-  -- @treturn function the function without upvalue
+  -- @treturn function the function with an empty closure
   function Thread.resolveUpValues(fn)
     local identity = true
     local lines = {'return function(...)', ''}

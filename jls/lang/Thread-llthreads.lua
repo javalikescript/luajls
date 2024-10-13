@@ -32,12 +32,12 @@ return class.create(ThreadBase, function(thread, super)
             if t:alive() then
               return true
             end
-            local ok, status, value, kind = t:join()
+            local ok, status, value = t:join()
             self._endPromise = nil
             if not ok then
-              status, value, kind = false, 'unable to join thread properly', nil
+              status, value = false, 'unable to join thread properly'
             end
-            ThreadBase._apply(resolve, reject, status, value, kind)
+            ThreadBase._apply(resolve, reject, status, value)
             self.t = nil
             return false
           end)

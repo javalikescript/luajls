@@ -189,4 +189,22 @@ function Test_resolveUpValues_identity()
   lu.assertEquals(rfn, fn)
 end
 
+function Test_thread_resolveUpValues()
+  local result = nil
+  local value = 'Hello !'
+  local t = Thread:new(Thread.resolveUpValues(function()
+    return tostring(value)..'-'..type(Thread)
+  end))
+  value = ''
+  t:start():ended():next(function(res)
+    result = res
+  end, onThreadError)
+  lu.assertNil(result)
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
+  --print(result)
+  lu.assertEquals(result, 'Hello !-table')
+end
+
 os.exit(lu.LuaUnit.run())

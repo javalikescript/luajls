@@ -11,8 +11,8 @@ return class.create(ThreadBase, function(thread)
       return self
     end
     self._endPromise = Promise:new(function(resolve, reject)
-      self._async = luvLib.new_async(function(status, value, kind)
-        ThreadBase._apply(resolve, reject, status, value, kind)
+      self._async = luvLib.new_async(function(status, value)
+        ThreadBase._apply(resolve, reject, status, value)
         local async, t = self._async, self.t
         self._async = nil
         self.t = nil
