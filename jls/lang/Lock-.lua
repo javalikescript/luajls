@@ -90,17 +90,13 @@ return class.create(function(lock)
     return softLock(self.file, getId(self), true)
   end
 
-  function lock:toReference()
+  function lock:serialize()
     return self.name
   end
 
-end, function(Lock)
-
-  function Lock.fromReference(name)
-    local lock = class.makeInstance(Lock)
-    lock.name = name
-    lock.file = io.open(name, 'r+')
-    return lock
+  function lock:deserialize(s)
+    self.name = s
+    self.file = io.open(s, 'r+')
   end
 
 end)

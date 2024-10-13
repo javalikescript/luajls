@@ -1,4 +1,5 @@
 local class = require('jls.lang.class')
+local serialization = require('jls.lang.serialization')
 
 return class.create('jls.lang.Buffer', function(buffer)
 
@@ -44,35 +45,20 @@ return class.create('jls.lang.Buffer', function(buffer)
     self.file:flush()
   end
 
-  function buffer:getBytes(from, to)
-    self.file:seek('set')
-    local s = self.file:read(self.size)
-    return string.byte(s, from, to)
+  function buffer:serialize()
+    return serialization.serialize(self.size, self.name)
   end
 
-  function buffer:setBytes(at, ...)
-    self.file:seek('set', (at or 1) - 1)
-    self.file:write(string.char(...))
-    self.file:flush()
-  end
-
-  function buffer:toReference()
-    return self.name..'#'..tostring(self.size)
+  function buffer:deserialize(s)
+    local size, name = serialization.deserialize(s, 'number', 'string')
+    assert(string.match(s, '^%.[%w%.]+-%x+%.tmp$'), 'invalid name')
+    self:initialize(size, name, true)
   end
 
 end, function(Buffer)
 
   function Buffer.allocate(size)
     return Buffer:new(size)
-  end
-
-  function Buffer.fromReference(reference)
-    local name, id, size = string.match(reference, '^%.([%w%.]+)(-%x+%.tmp)#(%d+)$')
-    local sz = tonumber(size)
-    if name ~= 'jls.lang.Buffer' or not sz then
-      error('invalid reference '..reference)
-    end
-    return Buffer:new(sz, '.'..name..id, true)
   end
 
 end)

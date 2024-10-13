@@ -1,10 +1,9 @@
 --- Represents a byte array to store temporary data.
+-- Data could be get or set using byte or byte array as string.
 -- @module jls.lang.Buffer
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
-
-local BufferView
 
 --- The Buffer class.
 -- @type Buffer
@@ -26,7 +25,7 @@ return class.create(function(buffer)
   -- @param value The value to set in this buffer, could be a buffer or a string
   -- @tparam[opt] number offset The position in this buffer to set, default to 1
   -- @tparam[opt] number from The start position in the value, default to 1
-  -- @tparam[opt] number to The end position in the value included, default to this buffer size
+  -- @tparam[opt] number to The end position in the value included, default to the length of the value
   -- @function buffer:set
   buffer.set = class.notImplementedFunction
 
@@ -34,31 +33,33 @@ return class.create(function(buffer)
   -- @tparam[opt] number from The start position, default to 1
   -- @tparam[opt] number to The end position included, default to from
   -- @return The bytes at the specified position
-  -- @function buffer:getBytes
-  buffer.getBytes = class.notImplementedFunction
+  function buffer:getBytes(from, to)
+    local s = self:get(from or 1, to or self:length())
+    return string.byte(s, 1, #s)
+  end
 
   --- Sets the bytes at the specified position.
   -- @tparam number at The position in this buffer to set, default to 1
   -- @param ... The bytes
-  -- @function buffer:setBytes
-  buffer.setBytes = class.notImplementedFunction
-
-  --- Returns a reference for this buffer.
-  -- @treturn string a reference for this buffer
-  -- @function buffer:toReference
-  buffer.toReference = class.notImplementedFunction
+  function buffer:setBytes(at, ...)
+    self:set(at or 1, string.char(...))
+  end
 
   --- Returns a view on a sub part of this buffer.
   -- @tparam[opt] number from The start position, default to 1
   -- @tparam[opt] number to The end position included, default to this buffer size
   -- @return The buffer view
   function buffer:view(from, to)
+    local BufferView = require('jls.lang.BufferView')
+    if BufferView:isInstance(self) then
+      return BufferView:new(self.buffer, self.offset + (from or 1), self.offset + (to or self.size))
+    end
     return BufferView:new(self, from, to)
   end
 
 end, function(Buffer)
 
-  local function getClassName(mode)
+  local function byName(mode)
     if mode == 'local' then
       return require('jls.lang.BufferLocal')
     elseif mode == 'global' then
@@ -88,54 +89,7 @@ end, function(Buffer)
     if mode == nil then
       mode = 'local'
     end
-    return getClassName(mode).allocate(size, mode)
+    return byName(mode).allocate(size, mode)
   end
-
-  --- Returns the buffer represented by the specified reference.
-  -- @tparam string reference the reference
-  -- @tparam[opt] string mode the mode of buffer
-  -- @return The referenced buffer
-  function Buffer.fromReference(reference, mode)
-    if mode == nil then
-      local status, b
-      for _, m in ipairs({'local', 'global', 'shared'}) do
-        status, b = pcall(Buffer.fromReference, reference, m)
-        if status then
-          return b
-        end
-      end
-    end
-    return getClassName(mode).fromReference(reference, mode)
-  end
-
-  BufferView = class.create(Buffer, function(buffer)
-
-    function buffer:initialize(value, from, to)
-      self.buffer = value
-      self.offset = (from or 1) - 1
-      self.size = (to or value:length()) - self.offset
-    end
-
-    function buffer:length()
-      return self.size
-    end
-
-    function buffer:get(from, to)
-      return self.buffer:get(self.offset + (from or 1), self.offset + (to or self.size))
-    end
-
-    function buffer:set(value, offset, from, to)
-      self.buffer:set(value, self.offset + (offset or 1), from, to)
-    end
-
-    function buffer:getBytes(from, to)
-      return self.buffer:getBytes(self.offset + (from or 1), self.offset + (to or from or 1))
-    end
-
-    function buffer:setBytes(at, ...)
-      self.buffer:setBytes(self.offset + (at or 1), ...)
-    end
-
-  end)
 
 end)

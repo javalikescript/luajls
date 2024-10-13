@@ -12,10 +12,8 @@ function Test_thread_buffer()
   buffer:setBytes(1, 0)
   lu.assertEquals(buffer:getBytes(), 0)
   local result = nil
-  Thread:new(function(ref)
-    local Buf = require('jls.lang.Buffer')
+  Thread:new(function(buf)
     local sys = require('jls.lang.system')
-    local buf = Buf.fromReference(ref, 'global')
     local n = 0
     while true do
       local v = buf:getBytes()
@@ -25,7 +23,7 @@ function Test_thread_buffer()
       end
       sys.sleep(50)
     end
-  end):start(buffer:toReference()):ended():next(function(res)
+  end):start(buffer):ended():next(function(res)
     result = res
   end)
   lu.assertNil(result)
@@ -42,16 +40,14 @@ function Test_thread_lock()
   local lock = Lock:new()
   lock:lock()
   local result = nil
-  Thread:new(function(p)
-    local Lck = require('jls.lang.Lock')
+  Thread:new(function(lck)
     local sys = require('jls.lang.system')
-    local lck = Lck.fromReference(p)
     local tr = lck:tryLock()
     lck:lock()
     sys.sleep(200)
     lck:unlock()
     return string.format('tryLock=%s', tr)
-  end):start(lock:toReference()):ended():next(function(res)
+  end):start(lock):ended():next(function(res)
     result = res
   end)
   lu.assertNil(result)

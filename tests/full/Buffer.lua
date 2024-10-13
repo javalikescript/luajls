@@ -1,6 +1,8 @@
 local lu = require('luaunit')
 
 local Buffer = require('jls.lang.Buffer')
+local BufferView = require('jls.lang.BufferView')
+local serialization = require('jls.lang.serialization')
 
 function Test_buffer_from_size()
   local buffer = Buffer.allocate(10)
@@ -25,9 +27,9 @@ function Test_buffer_string()
   lu.assertEquals(buffer:get(1, 5), 'Hello')
 end
 
-function Test_buffer_reference()
+function Test_buffer_serialization()
   local buffer = Buffer.allocate(10)
-  local lb = Buffer.fromReference(buffer:toReference())
+  local lb = serialization.deserialize(serialization.serialize(buffer))
   lb:set('Hello')
   lu.assertEquals(lb:get(1, 5), 'Hello')
 end
@@ -39,6 +41,20 @@ function Test_buffer_view()
   lu.assertEquals(vb:length(), 5)
   lu.assertEquals(vb:get(), '     ')
   vb:set('Hello')
+  lu.assertEquals(vb:get(), 'Hello')
+  lu.assertEquals(buffer:get(), '  Hello   ')
+end
+
+function Test_buffer_view_serialization()
+  local buffer = Buffer.allocate(10)
+  buffer:set('          ')
+  local vb = buffer:view(3, 7)
+  vb = serialization.deserialize(serialization.serialize(vb))
+  lu.assertTrue(BufferView:isInstance(vb))
+  lu.assertEquals(vb:length(), 5)
+  lu.assertEquals(vb:get(), '     ')
+  vb:set('Hello')
+  lu.assertEquals(vb:get(), 'Hello')
   lu.assertEquals(buffer:get(), '  Hello   ')
 end
 

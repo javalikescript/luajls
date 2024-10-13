@@ -1,20 +1,11 @@
---- Represents a circular buffer maintaining a queue of data.
--- @module jls.util.RingBuffer
--- @pragma nostrip
-
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
-local Buffer = require('jls.lang.Buffer')
-local Lock = require('jls.lang.Lock')
+local serialization = require('jls.lang.serialization')
 
---- The RingBuffer class.
--- @type RingBuffer
-return class.create(function(ringBuffer)
+return class.create('jls.util.Queue', function(ringBuffer)
 
-  local NEXT_FORMAT = 'I4I4'
-  local NEXT_SIZE = string.packsize(NEXT_FORMAT)
-  local HEADER_FORMAT = 'BI3'
-  local HEADER_SIZE = string.packsize(HEADER_FORMAT)
+  local NEXT_SIZE = string.packsize('I4I4')
+  local HEADER_SIZE = string.packsize('I3')
 
   local function get(buffer, length, pos, size)
     local to = pos + size - 1
@@ -51,36 +42,22 @@ return class.create(function(ringBuffer)
   end
 
   local function getFirstNext(self)
-    local first, next = string.unpack(NEXT_FORMAT, self.buffer:get(1, NEXT_SIZE))
+    local first, next = string.unpack('I4I4', self.buffer:get(1, NEXT_SIZE))
     --logger:finer('getFirstNext() => %d, %d', first, next)
     return first, next
   end
 
   local function setFirstNext(self, first, next)
     --logger:finer('setFirstNext(%d, %d)', first, next)
-    self.buffer:set(string.pack(NEXT_FORMAT, first, next), 1)
+    self.buffer:set(string.pack('I4I4', first, next), 1)
   end
 
-  --- Creates a new RingBuffer.
-  -- @param The buffer size
-  -- @function RingBuffer:new
-  function ringBuffer:initialize(size)
-    if type(size) == 'number' then
-      self.buffer = Buffer.allocate(size or 1024, 'global')
-    elseif Buffer:isInstance(size) then
-      assert(size > NEXT_SIZE + HEADER_SIZE)
-      self.buffer = size
-    else
-      error('invalid argument')
-    end
+  function ringBuffer:initialize(buffer)
+    self.buffer = buffer
     setFirstNext(self, NEXT_SIZE + 1, NEXT_SIZE + 1)
   end
 
-  --- Adds the specified data to the queue.
-  -- @tparam string data The start data to add
-  -- @tparam[opt] number id An optional byte, defaults to 0
-  -- @treturn boolean true if the data has been added
-  function ringBuffer:enqueue(data, id)
+  function ringBuffer:enqueue(data)
     assert(type(data) == 'string', 'invalid data type')
     local length = self.buffer:length()
     local size = #data
@@ -95,91 +72,33 @@ return class.create(function(ringBuffer)
       assert(NEXT_SIZE + HEADER_SIZE + size < length, 'data too large')
       return false
     end
-    local header = string.pack(HEADER_FORMAT, id or 0, size)
+    local header = string.pack('I3', size)
     next = set(self.buffer, length, next, header, HEADER_SIZE)
     next = set(self.buffer, length, next, data, size)
     setFirstNext(self, first, next)
     return true
   end
 
-  --- Removes and returns the first data of the queue.
-  -- @treturn string The first data or nil if there is nothing in the queue
-  -- @treturn number The optional byte associated to the data
   function ringBuffer:dequeue()
     local length = self.buffer:length()
-    local data, id, size
+    local data, size
     local first, next = getFirstNext(self)
     if first ~= next then
       data, first = get(self.buffer, length, first, HEADER_SIZE)
-      id, size = string.unpack(HEADER_FORMAT, data)
+      size = string.unpack('I3', data)
       assert(size < length, 'corrupted size')
       data, first = get(self.buffer, length, first, size)
       setFirstNext(self, first, next)
     end
-    return data, id
+    return data
   end
 
-  function ringBuffer:toReference()
-    return self.buffer:toReference()
+  function ringBuffer:serialize()
+    return serialization.serialize(self.buffer)
   end
 
-end, function(RingBuffer)
-
-  local SyncRingBuffer = class.create(RingBuffer, function(ringBuffer, super)
-
-    function ringBuffer:initialize(size)
-      super.initialize(self, size)
-      self.lock = Lock:new()
-    end
-
-    function ringBuffer:enqueue(data, id)
-      local lock = self.lock
-      lock:lock()
-      local status, result = pcall(super.enqueue, self, data, id)
-      lock:unlock()
-      if status then
-        return result
-      end
-      error(result)
-    end
-
-    function ringBuffer:dequeue()
-      local lock = self.lock
-      lock:lock()
-      local status, data, id = pcall(super.dequeue, self)
-      lock:unlock()
-      if status then
-        return data, id
-      end
-      error(data)
-    end
-
-    function ringBuffer:toReference()
-      return string.pack('xs2s2', self.buffer:toReference(), self.lock:toReference())
-    end
-
-  end)
-
-  function SyncRingBuffer.fromReference(reference)
-    local bufferRef, lockRef = string.unpack('xs2s2', reference)
-    local bufferQueue = class.makeInstance(SyncRingBuffer)
-    bufferQueue.buffer = Buffer.fromReference(bufferRef)
-    bufferQueue.lock = Lock.fromReference(lockRef)
-    logger:finer('fromReference(%s) => %s, %s', reference, bufferQueue.buffer, bufferQueue.lock)
-    return bufferQueue
-  end
-
-  --- A synchronized ring buffer class.
-  RingBuffer.SyncRingBuffer = SyncRingBuffer
-
-  --- Returns the ring buffer represented by the specified reference.
-  -- @tparam string reference the reference
-  -- @return The referenced buffer
-  function RingBuffer.fromReference(reference)
-    local bufferQueue = class.makeInstance(RingBuffer)
-    bufferQueue.buffer = Buffer.fromReference(reference)
-    logger:finer('fromReference(%s) => %s', reference, bufferQueue.buffer)
-    return bufferQueue
+  function ringBuffer:deserialize(s)
+    self.buffer = serialization.deserialize(s, 'jls.lang.Buffer')
   end
 
 end)

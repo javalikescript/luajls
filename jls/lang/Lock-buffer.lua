@@ -43,25 +43,16 @@ return class.create(function(lock)
     return bufferLib.trylock(self.mutex)
   end
 
-  --- Returns a reference for this lock.
-  -- @treturn string a reference for this lock
-  function lock:toReference()
+  function lock:serialize()
     return bufferLib.toreference(self.mutex, nil, 'jls.lang.Lock')
   end
 
-end, function(Lock)
-
-  --- Returns a lock shared by the specified reference.
-  -- @tparam string reference the reference
-  -- @return The shared lock
-  function Lock.fromReference(reference)
-    local m = bufferLib.fromreference(reference, nil, 'jls.lang.Lock')
+  function lock:deserialize(s)
+    local m = bufferLib.fromreference(s, nil, 'jls.lang.Lock')
     if type(m) ~= 'userdata' then
-      error('invalid reference type '..type(reference))
+      error('invalid serialization value')
     end
-    local lock = class.makeInstance(Lock)
-    lock.mutex = m
-    return lock
+    self.mutex = m
   end
 
 end)
