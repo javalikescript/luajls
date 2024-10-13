@@ -243,6 +243,10 @@ return require('jls.lang.class').create(function(map, _, Map)
     return self.map
   end
 
+  function map:toJSON()
+    return self.map
+  end
+
   --- Sets all key-values of the specified tables to the target table.
   -- @tparam table target The table to update.
   -- @tparam table ... The tables to get key-values from.

@@ -109,6 +109,8 @@ function json.stringify(value, space, lenient)
       local size = -1
       if Map:isInstance(val) then
         val = val.map
+      elseif type(val.toJSON) == 'function' then
+        return stringify(val:toJSON(), prefix)
       elseif List:isInstance(val) then
         size = val:size()
       elseif next(val) ~= nil then -- empty tables are objects not arrays
@@ -116,7 +118,7 @@ function json.stringify(value, space, lenient)
       end
       if stack[val] then
         if lenient then
-          sb:append('"_0_CYCLE"')
+          sb:append('null')
           return
         end
         error('cycle detected')
@@ -140,26 +142,23 @@ function json.stringify(value, space, lenient)
         sb:append('{', newline)
         local firstValue = true
         for k, v in Map.spairs(val) do
-          if firstValue then
-            firstValue = false
-          else
-            sb:append(',', newline)
-          end
-          if type(k) ~= 'string' then
-            if lenient then
-              k = tostring(k)
+          if type(k) == 'string' then
+            if firstValue then
+              firstValue = false
             else
-              error('Invalid JSON key type '..type(k)..' ('..tostring(k)..')')
+              sb:append(',', newline)
             end
+            sb:append(subPrefix, '"', encodeString(k), '"', colon)
+            stringify(v, subPrefix)
+          elseif not lenient then
+            error('Invalid JSON key type '..type(k)..' ('..tostring(k)..')')
           end
-          sb:append(subPrefix, '"', encodeString(k), '"', colon)
-          stringify(v, subPrefix)
         end
         sb:append(newline, prefix, '}')
       end
       stack[val] = nil
     elseif lenient then
-      sb:append('"', encodeString(tostring(val)), '"')
+      sb:append('null')
     else
       error('Invalid JSON value type '..valueType..' ('..tostring(val)..')')
     end

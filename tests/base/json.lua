@@ -33,6 +33,21 @@ function Test_stringify()
   lu.assertEquals(json.stringify(nil), 'null')
 end
 
+function Test_stringify_lenient()
+  local f = function() end
+  local u = io.stdout
+  local t = {a = 1, f = f, u = u, z = 'z'}
+  t.t = t
+  local l = {1, f, nil, u, 'z'}
+  l[3] = l
+  local tt = {a = 1, [f] = 2, [u] = 3, z = 'z'}
+  lu.assertEquals(json.stringify(f, nil, true), 'null')
+  lu.assertEquals(json.stringify(u, nil, true), 'null')
+  lu.assertEquals(json.stringify(t, nil, true), '{"a":1,"f":null,"t":null,"u":null,"z":"z"}')
+  lu.assertEquals(json.stringify(l, nil, true), '[1,null,null,null,"z"]')
+  lu.assertEquals(json.stringify(tt, nil, true), '{"a":1,"z":"z"}')
+end
+
 function Test_list_with_hole()
   lu.assertFalse(pcall(json.stringify, {1, nil, 3}))
   lu.assertEquals(json.stringify({1, json.null, 3}), '[1,null,3]')
