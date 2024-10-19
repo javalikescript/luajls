@@ -77,7 +77,7 @@ local AsyncChannel = class.create(function(channel)
 
 end)
 
-local function newThreadChannel(chunk, sdata, options)
+local function newThreadChannel(chunk, data, options)
   local thread = Thread:new(function(...)
     require('jls.util.Worker-channel').initializeWorkerThread(...)
     require('jls.lang.event'):loop()
@@ -87,14 +87,14 @@ local function newThreadChannel(chunk, sdata, options)
   local acceptPromise = channelServer:acceptAndClose()
   return channelServer:bind(nil, options.scheme):next(function()
     local channelName = channelServer:getName()
-    thread:start(channelName, chunk, sdata, not options.disableReceive):ended():next(function()
+    thread:start(channelName, chunk, data, not options.disableReceive):ended():next(function()
       logger:finer('thread ended')
     end)
     return acceptPromise
   end)
 end
 
-local function newThreadAsyncChannel(chunk, sdata, options)
+local function newThreadAsyncChannel(chunk, data, options)
   local queue = Queue.block(Queue.share(Queue.ringBuffer(Buffer.allocate(options.ringSize or 4096, 'global'))))
   local channel
   ---@diagnostic disable-next-line: need-check-nil
@@ -120,7 +120,7 @@ local function newThreadAsyncChannel(chunk, sdata, options)
     require('jls.lang.event'):loop()
   end)
   channel = AsyncChannel:new(async, buffer, thread)
-  thread:start(async, chunk, sdata, buffer, queue)
+  thread:start(async, chunk, data, buffer, queue)
   return Promise.resolve(channel)
 end
 
@@ -140,12 +140,11 @@ return class.create(function(worker)
     self:pause()
     local chunk = string.dump(workerFn)
     logger:finest('Worker:new() code >>%s<<', chunk)
-    local sdata = workerData and serialization.serialize(workerData) or nil
     local p
     if options.disableReceive and options.ringSize and not options.scheme and luvLib then
-      p = newThreadAsyncChannel(chunk, sdata, options)
+      p = newThreadAsyncChannel(chunk, workerData, options)
     else
-      p = newThreadChannel(chunk, sdata, options)
+      p = newThreadChannel(chunk, workerData, options)
     end
     p:next(function(ch)
       self._channel = ch
@@ -250,30 +249,19 @@ return class.create(function(worker)
 
 end, function(Worker)
 
-  local function setupWorkerThread(channel, chunk, sdata, receive)
+  local function setupWorkerThread(channel, chunk, data, receive)
     logger:fine('setupWorkerThread()')
     local fn, err = load(chunk, nil, 'b')
     if fn then
       local w = class.makeInstance(Worker)
-      local status, data, e
-      if sdata then
-        status, data = pcall(serialization.deserialize, sdata, '?')
-      else
-        status = true
-      end
+      w:initializeChannel(channel, receive)
+      local status, e = Exception.pcall(fn, w, data)
       if status then
-        w:initializeChannel(channel, receive)
-        status, e = Exception.pcall(fn, w, data)
-        if status then
-          logger:finer('initialized')
-        else
-          logger:fine('initialization failure, %s', e)
-          --e = Exception:new('Initialization failure', err)
-          channel:writeMessage(serialization.serializeError(e))
-        end
+        logger:finer('initialized')
       else
-        logger:fine('serialization failure, %s', data)
-        channel:writeMessage(serialization.serializeError(data))
+        logger:fine('initialization failure, %s', e)
+        --e = Exception:new('Initialization failure', err)
+        channel:writeMessage(serialization.serializeError(e))
       end
     else
       logger:fine('fail to load chunk, %s', err)
@@ -282,12 +270,12 @@ end, function(Worker)
     end
   end
 
-  function Worker.initializeAsyncWorkerThread(async, chunk, sdata, buffer, queue)
+  function Worker.initializeAsyncWorkerThread(async, chunk, data, buffer, queue)
     local channel = AsyncChannel:new(async, buffer, nil, queue)
-    setupWorkerThread(channel, chunk, sdata, false)
+    setupWorkerThread(channel, chunk, data, false)
   end
 
-  function Worker.initializeWorkerThread(channelName, chunk, sdata, receive)
+  function Worker.initializeWorkerThread(channelName, chunk, data, receive)
     local channel = Channel:new()
     channel:connect(channelName):catch(function(reason)
       logger:fine('Unable to connect thread channel due to %s', reason)
@@ -298,7 +286,7 @@ end, function(Worker)
       error('Unable to connect thread channel "'..tostring(channelName)..'"')
     end
     logger:finer('Thread channel "%s" connected', channelName)
-    setupWorkerThread(channel, chunk, sdata, receive)
+    setupWorkerThread(channel, chunk, data, receive)
   end
 
 end)
