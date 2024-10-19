@@ -71,6 +71,8 @@ end
 --- Returns the JSON encoded string representing the specified value.
 -- When specifying space, the encoded string will includes new lines.
 -- Invalid value will raise an error if lenient mode is not enabled.
+-- A valid value is a number, string, boolean or table with no circular reference.
+-- If a table value has a `toJSON()` method then the result value is used.
 -- @param value The value to to convert to a JSON encoded string.
 -- @tparam[opt] number space The number of space characters to use as white space.
 -- @tparam[opt] boolean lenient true to convert invalid JSON keys or values using tostring.
