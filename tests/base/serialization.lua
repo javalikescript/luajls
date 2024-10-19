@@ -24,7 +24,9 @@ function Test_packv_unpackv()
 end
 
 local function assertSerDer(v, ...)
-  local r = serialization.deserialize(serialization.serialize(v), ...)
+  local s = serialization.serialize(v)
+  --print('serialize size', #s, 'stringify', #(require('jls.util.tables').stringify(v)))
+  local r = serialization.deserialize(s, ...)
   lu.assertEquals(r, v)
 end
 
@@ -73,7 +75,7 @@ function Test_serialize_deserialize_table()
   assertSerDer({}, 'table')
   assertSerDer({'a', 'b'}, 'table')
   assertSerDer({a = 1, b = 2}, 'table')
-  local t = {a = 1, b = true, c = 'Hi', d = {da = 2, db = false, dc = 'Hello', dd = {'a', 'b'}}}
+  local t = {a = 1, b = true, c = 'Hi', d = {da = 2, db = false, dc = 'Hello', dd = {'a', 'b'}}, e = ''}
   assertSerDer(t, 'table')
 end
 

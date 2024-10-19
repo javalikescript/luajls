@@ -80,11 +80,11 @@ function Test_disable_receive_with_data()
 end
 
 function Test_ring()
-  assertPostReceive(false, {scheme = 'ring', disableReceive = true})
+  assertPostReceive(false, {disableReceive = true, ringSize = 4096})
 end
 
 function Test_ring_with_data()
-  assertPostReceive(true, {scheme = 'ring', disableReceive = true})
+  assertPostReceive(true, {disableReceive = true, ringSize = 4096})
 end
 
 local function assertMultiplePostReceive(options)
@@ -134,7 +134,7 @@ function Test_multi_disable_receive()
 end
 
 function Test_multi_ring()
-  assertMultiplePostReceive({scheme = 'ring', disableReceive = true, size = 1024})
+  assertMultiplePostReceive({disableReceive = true, ringSize = 1024})
 end
 
 os.exit(lu.LuaUnit.run())

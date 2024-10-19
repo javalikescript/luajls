@@ -95,7 +95,7 @@ local function newThreadChannel(chunk, sdata, options)
 end
 
 local function newThreadAsyncChannel(chunk, sdata, options)
-  local queue = Queue.block(Queue.share(Queue.ringBuffer(Buffer.allocate(options.size or 4096, 'global'))))
+  local queue = Queue.block(Queue.share(Queue.ringBuffer(Buffer.allocate(options.ringSize or 4096, 'global'))))
   local channel
   ---@diagnostic disable-next-line: need-check-nil
   local async = luvLib.new_async(function()
@@ -142,7 +142,7 @@ return class.create(function(worker)
     logger:finest('Worker:new() code >>%s<<', chunk)
     local sdata = workerData and serialization.serialize(workerData) or nil
     local p
-    if options.disableReceive and options.scheme == 'ring' and luvLib then
+    if options.disableReceive and options.ringSize and not options.scheme and luvLib then
       p = newThreadAsyncChannel(chunk, sdata, options)
     else
       p = newThreadChannel(chunk, sdata, options)

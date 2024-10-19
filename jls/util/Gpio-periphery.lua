@@ -179,7 +179,7 @@ return class.create('jls.util.GpioBase', function(gpio, super)
       fn(nil, message)
     end, {
       disableReceive = true,
-      scheme = 'ring'
+      ringSize = 1024
     })
     self.worker = worker
     return Promise.resolve()
