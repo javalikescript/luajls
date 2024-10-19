@@ -806,6 +806,31 @@ require('jls.lang.event'):loop()
 ```
 
 
+### Resource Sharing
+
+The Lock class allows to restrict the execution of a section of code to one thread.
+It allows concurrent usage of a shared memory or shared resource.
+
+```lua
+local Lock = require('jls.lang.Lock')
+local lock = Lock:new()
+lock:lock()
+-- use a shared resource
+lock:unlock()
+```
+
+The Buffer class allows to store temporary data.
+A global buffer object can be serialized to allow sharing data between threads.
+
+```lua
+local Buffer = require('jls.lang.Buffer')
+local buffer = Buffer.allocate(10, 'global')
+buffer:set('Hello')
+print(buffer:get(1, 2))
+-- prints 'He'
+```
+
+
 # Utilities
 
 The library comes with various utilities.
@@ -891,6 +916,47 @@ local t = tables.parse('{a="Hi",b=2,c=true}')
 ## Data Exchange Formats
 
 The library contains various data exchange formats, such as JSON and XML.
+
+### Serialization
+
+The serialization transforms any value in a string.
+
+```lua
+local serialization = require('jls.lang.serialization')
+local s = serialization.serialize({aString = 'Hi', anInteger = 321, aNumber = 3.21, aBoolean = false})
+-- s is an opaque string
+local t = serialization.deserialize(s, 'table')
+-- t is the exact copy of the serialized table
+```
+
+Serialization allows to share objects, class instances, between Lua states.
+The class instances implementing a serialize method can be serialized.
+
+```lua
+local class = require('jls.lang.class')
+local serialization = require('jls.lang.serialization')
+local Object = class.create(function(object)
+  function object:initialize(value)
+    self.value = value
+  end
+  function object:getValue()
+    return self.value
+  end
+  function object:serialize(write)
+    write(self.value)
+  end
+  function object:deserialize(read)
+    self.value = read('string') -- assert the value is a string
+  end
+end)
+package.loaded['tests.Object'] = Object -- register the class
+local anObject = Object:new('Hello')
+local s = serialization.serialize(anObject)
+local sdObject = serialization.deserialize(s, 'tests.Object')
+print(sdObject:getValue())
+-- prints 'Hello'
+```
+
 
 ### JavaScript Object Notation (JSON)
 
