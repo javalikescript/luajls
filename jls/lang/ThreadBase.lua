@@ -125,7 +125,8 @@ return class.create(function(thread)
     local sargs = {}
     for i = 1, args.n do
       local v = args[i]
-      if type(v) == 'table' then
+      local tv = type(v)
+      if tv == 'table' or tv == 'string' then
         sargs[i] = serialization.serialize(v)
       else
         sargs[i] = v
