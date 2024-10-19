@@ -1,5 +1,4 @@
 local class = require('jls.lang.class')
-local serialization = require('jls.lang.serialization')
 local logger = require('jls.lang.logger'):get(...)
 local system = require('jls.lang.system')
 
@@ -37,12 +36,14 @@ return class.create('jls.util.Queue', function(queue)
     return self.queue:dequeue()
   end
 
-  function queue:serialize()
-    return serialization.serialize(self.queue, self.timeout)
+  function queue:serialize(write)
+    write(self.queue)
+    write(self.timeout)
   end
 
-  function queue:deserialize(s)
-    self.queue, self.timeout = serialization.deserialize(s, 'jls.util.Queue', 'number')
+  function queue:deserialize(read)
+    self.queue = read('jls.util.Queue')
+    self.timeout = read('number')
   end
 
 end)

@@ -43,12 +43,12 @@ return class.create(function(lock)
     return bufferLib.trylock(self.mutex)
   end
 
-  function lock:serialize()
-    return bufferLib.toreference(self.mutex, nil, 'jls.lang.Lock')
+  function lock:serialize(write)
+    write(bufferLib.toreference(self.mutex, nil, 'jls.lang.Lock'))
   end
 
-  function lock:deserialize(s)
-    local m = bufferLib.fromreference(s, nil, 'jls.lang.Lock')
+  function lock:deserialize(read)
+    local m = bufferLib.fromreference(read('string'), nil, 'jls.lang.Lock')
     if type(m) ~= 'userdata' then
       error('invalid serialization value')
     end

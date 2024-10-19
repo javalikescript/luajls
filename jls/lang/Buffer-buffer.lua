@@ -38,12 +38,12 @@ return class.create('jls.lang.Buffer', function(buffer)
     bufferLib.byteset(self.buffer, at, ...)
   end
 
-  function buffer:serialize()
-    return bufferLib.toreference(self.buffer, nil, 'jls.lang.Buffer')
+  function buffer:serialize(write)
+    write(bufferLib.toreference(self.buffer, nil, 'jls.lang.Buffer'))
   end
 
-  function buffer:deserialize(s)
-    self.buffer, self.size = bufferLib.fromreference(s, nil, 'jls.lang.Buffer')
+  function buffer:deserialize(read)
+    self.buffer, self.size = bufferLib.fromreference(read('string'), nil, 'jls.lang.Buffer')
   end
 
 end, function(Buffer)

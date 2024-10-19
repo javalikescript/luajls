@@ -111,6 +111,29 @@ function Test_clone()
   lu.assertEquals(aClonedCar:getColor(), 'blue')
 end
 
+function Test_clone_serder()
+  local Car = class.create(function(car)
+    function car:initialize(color)
+      self.color = color
+    end
+    function car:getColor()
+      return self.color
+    end
+      function car:serialize(write)
+      write(self.color..'(serialized)')
+    end
+    function car:deserialize(read)
+      self.color = read('string')
+    end
+  end)
+  package.loaded['tests.Car'] = Car
+  local aBlueCar = Car:new('blue')
+  local aClonedCar = class.cloneInstance(aBlueCar)
+  package.loaded['tests.Car'] = nil
+  lu.assertEquals(Car:isInstance(aClonedCar), true)
+  lu.assertEquals(aClonedCar:getColor(), 'blue(serialized)')
+end
+
 function Test_inheritance()
   local Account = class.create()
   function Account.prototype:initialize(amount)

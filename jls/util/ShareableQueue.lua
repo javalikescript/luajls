@@ -1,5 +1,4 @@
 local class = require('jls.lang.class')
-local serialization = require('jls.lang.serialization')
 local Lock = require('jls.lang.Lock')
 
 return class.create('jls.util.Queue', function(queue)
@@ -31,12 +30,14 @@ return class.create('jls.util.Queue', function(queue)
     error(data)
   end
 
-  function queue:serialize()
-    return serialization.serialize(self.queue, self.lock)
+  function queue:serialize(write)
+    write(self.queue)
+    write(self.lock)
   end
 
-  function queue:deserialize(s)
-    self.queue, self.lock = serialization.deserialize(s, 'jls.util.Queue', 'jls.lang.Lock')
+  function queue:deserialize(read)
+    self.queue = read('jls.util.Queue')
+    self.lock = read('jls.lang.Lock')
   end
 
 end)

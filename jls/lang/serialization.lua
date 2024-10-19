@@ -1,95 +1,179 @@
 --- Provides value serialization to string and deserialization from.
--- Serialization allows to share class instances between Lua states.
+-- Serialization allows to share objects, class instances, between Lua states.
 -- Some serialization implementation could bring restriction such as the same Lua state, process or OS.
 -- @module jls.lang.serialization
 -- @pragma nostrip
 
 local class = require('jls.lang.class')
 
--- We use a magic byte to avoid serializing 99% of string values
-local MARK = 26
+-- We use a magic byte to avoid serializing almost all single string values
+local MARK = '\026'
 
-local TYPE_MAP = {
-  ['nil'] = '0',
-  number = 'n',
-  string = 's',
-  boolean = 'b',
-  table = 't',
-}
-local T_MAP = {}
-for k, v in pairs(TYPE_MAP) do
-  T_MAP[v] = k
+-- Encodes a variable length unsigned integer.
+local function packv(i)
+  assert(i >= 0, 'unsigned integer out of bound')
+  if i <= 127 then
+    return string.char(i)
+  end
+  local l = {}
+  repeat
+    local b = 128 | (i & 127)
+    table.insert(l, b)
+    i = i >> 7
+  until i <= 127
+  table.insert(l, i)
+  return string.char(table.unpack(l))
+end
+
+-- Decodes a variable length unsigned integer.
+local function unpackv(s, pos)
+  local p = pos or 1
+  local d = 0
+  local i = 0
+  repeat
+    assert(d < 63, 'unsigned integer out of bound')
+    local b = string.byte(s, p)
+    assert(b, 'end of string')
+    p = p + 1
+    i = i | ((b & 127) << d)
+    d = d + 7
+  until b & 128 == 0
+  return i, p
 end
 
 --[[--
-Returns the serialized string corressponding to the specified values.  
-The class instances implementing a serialize method can be serialized.
+Returns the serialized string corresponding to the specified values.  
 The primitive types, boolean, number, string and nil can be serialized.
+The objects implementing a serialize method can be serialized.
 The tables containg serializable values can be serialized.
 @param ... the value to serialize
 @treturn string the serialized string
 @function serialize
 ]]
 local function serialize(...)
-  local n = select('#', ...)
+  local values = table.pack(...)
+  local n = values.n
   if n == 0 then
     return ''
   elseif n == 1 then
-    local value = ...
-    if type(value) == 'string' and string.byte(value) ~= MARK then
+    local value = values[1]
+    if type(value) == 'string' and string.sub(value, 1, 1) ~= MARK then
       return value
     end
   end
-  local values = table.pack(...)
-  local list = {string.char(MARK)}
-  for i = 1, values.n do
-    local value = values[i]
-    local name = type(value)
-    local rawValue
-    if name == 'table' then
-      local Class = class.getClass(value)
-      if Class then
-        name = assert(Class:getName(), 'no class name')
-        if type(value.serialize) ~= 'function' then
-          error('class "'..name..'" not serializable')
-        end
-        rawValue = value:serialize()
+  local list = {MARK}
+  local index = 2
+  local function write(value)
+    local t = type(value)
+    if t == 'nil' then
+      list[index] = '0'
+      index = index + 1
+    elseif t == 'boolean' then
+      list[index] = value and 'T' or 'F'
+      index = index + 1
+    elseif t == 'number' and math.type(value) == 'integer' then
+      if value >= 0 then
+        list[index] = 'I'
+        index = index + 1
+        list[index] = packv(value)
       else
-        assert(not getmetatable(value), 'table has metadata')
-        -- TODO optimize list
-        -- TODO detect cycle
-        local entries = {}
-        for k, v in pairs(value) do
-          table.insert(entries, string.pack('<s3s3', serialize(k), serialize(v)))
-        end
-        rawValue = table.concat(entries)
+        list[index] = 'i'
+        index = index + 1
+        list[index] = packv(-value)
       end
-    elseif name == 'nil' then
-      rawValue = ''
-    elseif name == 'number' or name == 'boolean' then
-      -- Lua uses 64-bit integers so 8 bytes, using string value is interesting up to 7 digits
-      rawValue = tostring(value)
-    elseif name == 'string' then
-      rawValue = value
+      index = index + 1
     else
-      error('invalid value type "'..name..'"')
+      local st
+      local typeIndex = index
+      index = index + 2 -- reserve 2 slots for short type and size
+      local size = 0
+      if t == 'string' then
+        st = 's'
+        size = #value
+        list[index] = value
+        index = index + 1
+      elseif t == 'number' then
+        -- TODO using string pack 'n' is problematic as unsupported in Lua 5.1
+        st = 'n'
+        local s = tostring(value)
+        size = #s
+        list[index] = s
+        index = index + 1
+      elseif t == 'table' then
+        -- TODO detect cycle
+        local Class = class.getClass(value)
+        if Class then
+          local classname = assert(Class:getName(), 'no class name')
+          if type(value.serialize) ~= 'function' then
+            error('class "'..classname..'" not serializable')
+          end
+          st = 'o'
+          list[index] = packv(#classname)
+          index = index + 1
+          list[index] = classname
+          index = index + 1
+          value:serialize(write)
+        else
+          assert(not getmetatable(value), 'table has metadata')
+          local s = 0
+          for _ in pairs(value) do
+            s = s + 1
+          end
+          if s == #value then
+            st = 'l'
+            for _, v in ipairs(value) do
+              write(v)
+            end
+          else
+            st = 't'
+            for k, v in pairs(value) do
+              write(k)
+              write(v)
+            end
+          end
+        end
+        for i = typeIndex + 2, index - 1 do
+          local v = list[i]
+          size = size + #v
+        end
+      else
+        error('invalid value type "'..t..'"')
+      end
+      list[typeIndex] = st
+      list[typeIndex + 1] = packv(size)
     end
-    -- TODO use variable length unsigned integer
-    table.insert(list, string.pack('<s1s3', TYPE_MAP[name] or name, rawValue))
+  end
+  for i = 1, n do
+    write(values[i])
   end
   return table.concat(list)
 end
 
 local function serializeError(message)
-  return string.pack('<Bs1s3', MARK, 'error', serialize(message))
+  local v = string.sub(serialize(nil, message), 3)
+  return MARK..'e'..packv(#v)..v
 end
 
-local function typeMatch(types, current)
-  if not types or types == '?' then
+local TYPE_MAP = {
+  ['0'] = 'nil',
+  T = 'boolean',
+  F = 'boolean',
+  n = 'number',
+  I = 'number',
+  i = 'number',
+  s = 'string',
+  t = 'table',
+  l = 'table',
+  e = 'error',
+  o = 'object',
+}
+
+local function typeMatch(types, value)
+  if types == '?' then
     return true
   end
   for t in string.gmatch(types, '[^|]*') do
-    if current == t then
+    if t == value then
       return true
     end
   end
@@ -111,22 +195,11 @@ local function classMatch(types, Class)
   return false
 end
 
-local function getType(pos, s)
-  if type(pos) ~= 'number' then
-    s = pos
-    pos = 1
-  end
-  if string.byte(s, pos) ~= MARK then
-    return 'string'
-  end
-  return (string.unpack('<s1', s, pos))
-end
-
 --[[--
-Returns the values corressponding to the specified serialized string.
+Returns the values read from the specified serialized string.
 @tparam[opt] number pos the optional position in the string value, default to 1
-@tparam string s the value to deserialize
-@tparam string .. the expected types or class names, defaults to any type, `?`, and any count
+@tparam string s the string value to deserialize
+@tparam string ... the expected types or class names, defaults to any type, `?` and any count
 @return the deserialized values
 @function deserialize
 ]]
@@ -140,79 +213,108 @@ local function deserialize(pos, ...)
     pos = 1
     types = table.pack(...)
   end
-  local len = #s
   local typesn = types.n
-  if string.byte(s, pos) ~= MARK then
+  if string.sub(s, pos, pos) ~= MARK then
     if typesn > 0 then
       if typesn ~= 1 then
         error('invalid values count 1, expected '..typesn)
       elseif not typeMatch(types[1], 'string') then
-        error('invalid single string, expected '..tostring(types[1]))
+        error('invalid type string, expected '..tostring(types[1]))
       end
     end
     return s
   end
+  local len = #s
   pos = pos + 1
-  local name, rawValue
+  local function read(exectedTypes)
+    if pos > len then
+      error('end of string')
+    end
+    local st = string.sub(s, pos, pos)
+    pos = pos + 1
+    local v
+    if st == '0' then
+      v = nil
+    elseif st == 'T' then
+      v = true
+    elseif st == 'F' then
+      v = false
+    elseif st == 'I' then
+      v, pos = unpackv(s, pos)
+    elseif st == 'i' then
+      v, pos = unpackv(s, pos)
+      v = -v
+    else
+      local size
+      size, pos = unpackv(s, pos)
+      local next = pos + size
+      local lend = next - 1
+      if lend > len then
+        error('end of string')
+      end
+      if st == 's' then
+        v = string.sub(s, pos, lend)
+      elseif st == 'n' then
+        v = tonumber(string.sub(s, pos, lend))
+      elseif st == 'e' then
+        error(read())
+      elseif st == 't' then
+        v = {}
+        while pos < next do
+          local k = read()
+          v[k] = read()
+        end
+      elseif st == 'l' then
+        v = {}
+        local i = 0
+        while pos < next do
+          i = i + 1
+          v[i] = read()
+        end
+      elseif st == 'o' then
+        local osize
+        osize, pos = unpackv(s, pos)
+        local classname = string.sub(s, pos, pos + osize - 1)
+        pos = pos + osize
+        if pos > len then
+          error('end of string')
+        end
+        local Class = assert(class.byName(classname), 'class not found')
+        v = class.makeInstance(Class)
+        if type(v.deserialize) ~= 'function' then
+          error('class "'..classname..'" not deserializable')
+        end
+        v:deserialize(read)
+        if classMatch(exectedTypes, Class) then
+          exectedTypes = nil
+        else
+          error('invalid type '..classname..', expected '..tostring(exectedTypes))
+        end
+      else
+        error('invalid short type '..st)
+      end
+      pos = next
+    end
+    if exectedTypes then
+      local t = TYPE_MAP[st]
+      if not typeMatch(exectedTypes, t) then
+        error('invalid type '..tostring(t)..', expected '..tostring(exectedTypes))
+      end
+    end
+    return v
+  end
   local list = {}
   local n = 0
-  while pos < len do
-    name, rawValue, pos = string.unpack('<s1s3', s, pos)
-    name = T_MAP[name] or name
+  while pos <= len do
     n = n + 1
-    local checkType
+    local exectedType
     if typesn > 0 then
       if n > typesn then
         break
       end
-      checkType = types[n]
+      exectedType = types[n]
     end
-    local value
-    if name == 'nil' then
-      assert(rawValue == '', 'invalid value')
-      value = nil
-    elseif name == 'string' then
-      value = rawValue
-    elseif name == 'number' then
-      value = tonumber(rawValue)
-    elseif name == 'boolean' then
-      if rawValue == 'true' then
-        value = true
-      elseif rawValue == 'false' then
-        value = false
-      else
-        error('invalid value')
-      end
-    elseif name == 'error' then
-      local message = deserialize(pos, rawValue, '?')
-      error(message)
-    elseif name == 'table' then
-      value = {}
-      local p, l = 1, #rawValue
-      local rk, rv
-      while p < l do
-        rk, rv, p = string.unpack('<s3s3', rawValue, p)
-        local k, v = deserialize(rk, 'number|string|boolean'), deserialize(rv, '?')
-        value[k] = v
-      end
-    else
-      local Class = assert(class.byName(name), 'class not found')
-      value = class.makeInstance(Class)
-      if type(value.deserialize) ~= 'function' then
-        error('class "'..name..'" not deserializable')
-      end
-      value:deserialize(rawValue)
-      if classMatch(checkType, Class) then
-        checkType = nil
-      else
-        error('invalid type '..name..', expected '..tostring(checkType))
-      end
-    end
-    if typeMatch(checkType, name) then
-      list[n] = value
-    else
-      error('invalid type '..name..', expected '..tostring(checkType))
-    end
+    list[n] = read(exectedType)
   end
   if typesn > 0 and n ~= typesn then
     error('invalid values count '..n..', expected '..typesn)
@@ -224,8 +326,9 @@ return {
   serialize = serialize,
   serializeError = serializeError,
   deserialize = deserialize,
-  getType = getType,
   typeMatch = typeMatch,
   classMatch = classMatch,
+  packv = packv,
+  unpackv = unpackv,
   MARK = MARK,
 }

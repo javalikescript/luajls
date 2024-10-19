@@ -5,14 +5,6 @@
 
 local class = require('jls.lang.class')
 
-local serialization
-do
-  local status, m = pcall(require, 'jls.lang.serialization')
-  if status then
-    serialization = m
-  end
-end
-
 --- The Exception class.
 -- @type Exception
 return class.create(function(exception, _, Exception)
@@ -96,12 +88,18 @@ return class.create(function(exception, _, Exception)
     return s
   end
 
-  function exception:serialize()
-    return serialization.serialize(self.name, self.stack, self.cause, self.message)
+  function exception:serialize(write)
+    write(self.message)
+    write(self.cause)
+    write(self.stack)
+    write(self.name)
   end
 
-  function exception:deserialize(s)
-    self.name, self.stack, self.cause, self.message = serialization.deserialize(s, 'string|nil', 'string|nil', 'string|nil', 'string|nil')
+  function exception:deserialize(read)
+    self.message = read('string|nil')
+    self.cause = read('string|nil')
+    self.stack = read('string|nil')
+    self.name = read('string|nil')
   end
 
   function exception:toJSON()

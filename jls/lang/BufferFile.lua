@@ -1,5 +1,4 @@
 local class = require('jls.lang.class')
-local serialization = require('jls.lang.serialization')
 
 return class.create('jls.lang.Buffer', function(buffer)
 
@@ -45,13 +44,14 @@ return class.create('jls.lang.Buffer', function(buffer)
     self.file:flush()
   end
 
-  function buffer:serialize()
-    return serialization.serialize(self.size, self.name)
+  function buffer:serialize(write)
+    write(self.size)
+    write(self.name)
   end
 
-  function buffer:deserialize(s)
-    local size, name = serialization.deserialize(s, 'number', 'string')
-    assert(string.match(s, '^%.[%w%.]+-%x+%.tmp$'), 'invalid name')
+  function buffer:deserialize(read)
+    local size, name = read('number'), read('string')
+    assert(string.match(name, '^%.[%w%.]+-%x+%.tmp$'), 'invalid name')
     self:initialize(size, name, true)
   end
 

@@ -75,7 +75,8 @@ end
 
 --[[--
 Returns a copy of the specified instance.
-This method performs a shallow copy, field-by-field copy, not a deep copy.
+This is a default and best effort implementation, edge case should override it at class level.
+This method uses serialization, if available, or performs a shallow, field-by-field, copy.
 @param instance The instance to clone
 @return A copy of the specified instance, or nil if the instance has no class
 @function cloneInstance
@@ -87,9 +88,16 @@ local carCopy = car:clone()
 local function cloneInstance(instance)
   local class = getClass(instance)
   if class then
+    if instance.serialize and instance.deserialize then
+      local serialization = require('jls.lang.serialization')
+      return serialization.deserialize(serialization.serialize(instance), '?')
+    end
     local newInstance = makeInstance(class)
-    -- TODO use serialization
     for k, v in pairs(instance) do
+      local t = type(k)
+      assert(t == 'number' or t == 'string' or t == 'boolean', 'cannot clone field key')
+      t = type(v)
+      assert(t == 'number' or t == 'string' or t == 'boolean', 'cannot clone field value')
       newInstance[k] = v
     end
     return newInstance

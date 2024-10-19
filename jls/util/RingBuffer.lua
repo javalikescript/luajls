@@ -1,6 +1,5 @@
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
-local serialization = require('jls.lang.serialization')
 
 return class.create('jls.util.Queue', function(ringBuffer)
 
@@ -93,12 +92,12 @@ return class.create('jls.util.Queue', function(ringBuffer)
     return data
   end
 
-  function ringBuffer:serialize()
-    return serialization.serialize(self.buffer)
+  function ringBuffer:serialize(write)
+    write(self.buffer)
   end
 
-  function ringBuffer:deserialize(s)
-    self.buffer = serialization.deserialize(s, 'jls.lang.Buffer')
+  function ringBuffer:deserialize(read)
+    self.buffer = read('jls.lang.Buffer')
   end
 
 end)

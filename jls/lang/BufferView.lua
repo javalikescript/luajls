@@ -1,5 +1,4 @@
 local class = require('jls.lang.class')
-local serialization = require('jls.lang.serialization')
 
 return class.create('jls.lang.Buffer', function(buffer)
 
@@ -29,12 +28,16 @@ return class.create('jls.lang.Buffer', function(buffer)
     self.buffer:setBytes(self.offset + (at or 1), ...)
   end
 
-  function buffer:serialize()
-    return serialization.serialize(self.buffer, self.offset, self.size)
+  function buffer:serialize(write)
+    write(self.buffer)
+    write(self.offset)
+    write(self.size)
   end
 
-  function buffer:deserialize(s)
-    self.buffer, self.offset, self.size = serialization.deserialize(s, 'jls.lang.Buffer', 'number', 'number')
+  function buffer:deserialize(read)
+    self.buffer = read('jls.lang.Buffer')
+    self.offset = read('number')
+    self.size = read('number')
   end
 
 end)

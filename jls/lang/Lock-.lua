@@ -90,13 +90,13 @@ return class.create(function(lock)
     return softLock(self.file, getId(self), true)
   end
 
-  function lock:serialize()
-    return self.name
+  function lock:serialize(w)
+    w(self.name)
   end
 
-  function lock:deserialize(s)
-    self.name = s
-    self.file = io.open(s, 'r+')
+  function lock:deserialize(r)
+    self.name = r('string')
+    self.file = io.open(self.name, 'r+')
   end
 
 end)
