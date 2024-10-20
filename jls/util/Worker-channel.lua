@@ -14,6 +14,7 @@ local luvLib = loader.tryRequire('luv')
 
 local EINPROGRESS = 115
 
+-- TODO Move in a dedicated module
 local AsyncChannel = class.create(function(channel)
 
   function channel:initialize(async, buffer, thread, queue)

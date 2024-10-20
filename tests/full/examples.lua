@@ -58,6 +58,7 @@ local function findCodeBlock(s, at)
   end
 end
 
+---@diagnostic disable-next-line: deprecated
 local loadstr = loadstring or load
 
 local function loadCodeBlocks(mdFilename)
@@ -73,6 +74,7 @@ local function loadCodeBlocks(mdFilename)
     if not code then
       break
     end
+    ---@diagnostic disable-next-line: redundant-parameter
     local fn, err = loadstr(code, mdFilename, 't')
     if not fn then
       lu.fail('Error while loading '..tostring(mdFilename)..' due to '..tostring(err))

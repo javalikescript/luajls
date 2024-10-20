@@ -34,7 +34,9 @@ return class.create(function(buffer)
   -- @tparam[opt] number to The end position included, default to from
   -- @return The bytes at the specified position
   function buffer:getBytes(from, to)
+    ---@diagnostic disable-next-line: redundant-parameter
     local s = self:get(from or 1, to or self:length())
+    ---@diagnostic disable-next-line: param-type-mismatch
     return string.byte(s, 1, #s)
   end
 
@@ -42,6 +44,7 @@ return class.create(function(buffer)
   -- @tparam number at The position in this buffer to set, default to 1
   -- @param ... The bytes
   function buffer:setBytes(at, ...)
+    ---@diagnostic disable-next-line: redundant-parameter
     self:set(string.char(...), at or 1)
   end
 
