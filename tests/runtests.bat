@@ -69,8 +69,9 @@ GOTO :eof
 SET JLS_REQUIRES=!socket,!lfs
 CALL :runtests nosocket
 REM missing !zlib !openssl
-SET JLS_REQUIRES=!luv,!lxp,!cjson
+SET JLS_REQUIRES=!luv,!lxp,!cjson,!buffer
 CALL :runtests noluv
+DEL .jls.*.tmp
 SET JLS_LOGGER_LEVEL=finest
 SET JLS_REQUIRES=
 CALL :runtests logs

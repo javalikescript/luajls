@@ -63,10 +63,10 @@ local function serialize(...)
   end
   local list = {MARK}
   local index = 2
-  local function write(value)
-    local t = type(value)
+  local function write(value, asType)
+    local t = asType or type(value)
     if t == 'nil' then
-      list[index] = '0'
+      list[index] = 'N'
       index = index + 1
     elseif t == 'boolean' then
       list[index] = value and 'T' or 'F'
@@ -86,19 +86,18 @@ local function serialize(...)
       local st
       local typeIndex = index
       index = index + 2 -- reserve 2 slots for short type and size
-      local size = 0
       if t == 'string' then
         st = 's'
-        size = #value
-        list[index] = value
+        list[index] = tostring(value)
         index = index + 1
       elseif t == 'number' then
         -- TODO using string pack 'n' is problematic as unsupported in Lua 5.1
         st = 'n'
-        local s = tostring(value)
-        size = #s
-        list[index] = s
+        list[index] = tostring(value)
         index = index + 1
+      elseif t == 'error' then
+        st = 'e'
+        write(value)
       elseif t == 'table' then
         -- TODO detect cycle
         local Class = class.getClass(value)
@@ -113,6 +112,10 @@ local function serialize(...)
           list[index] = classname
           index = index + 1
           value:serialize(write)
+        elseif type(value.serialize) == 'function' then
+          index = typeIndex -- discard reserved slots
+          value:serialize(write)
+          return
         else
           assert(not getmetatable(value), 'table has metadata')
           local s = 0
@@ -132,12 +135,13 @@ local function serialize(...)
             end
           end
         end
-        for i = typeIndex + 2, index - 1 do
-          local v = list[i]
-          size = size + #v
-        end
       else
         error('invalid value type "'..t..'"')
+      end
+      local size = 0
+      for i = typeIndex + 2, index - 1 do
+        local v = list[i]
+        size = size + #v
       end
       list[typeIndex] = st
       list[typeIndex + 1] = packv(size)
@@ -149,13 +153,23 @@ local function serialize(...)
   return table.concat(list)
 end
 
+--[[--
+Returns the serialized string corresponding to an error.  
+The deserialization will raise the specified error message.
+@param message the error message to serialize
+@treturn string the serialized string
+@function serializeError
+]]
 local function serializeError(message)
-  local v = string.sub(serialize(nil, message), 3)
-  return MARK..'e'..packv(#v)..v
+  return serialize({
+    serialize = function(_, write)
+      write(message, 'error')
+    end
+  })
 end
 
 local TYPE_MAP = {
-  ['0'] = 'nil',
+  N = 'nil',
   T = 'boolean',
   F = 'boolean',
   n = 'number',
@@ -233,7 +247,7 @@ local function deserialize(pos, ...)
     local st = string.sub(s, pos, pos)
     pos = pos + 1
     local v
-    if st == '0' then
+    if st == 'N' then
       v = nil
     elseif st == 'T' then
       v = true
