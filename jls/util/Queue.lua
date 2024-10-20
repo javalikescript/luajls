@@ -32,7 +32,7 @@ end, function(Queue)
     return ShareableQueue:new(queue)
   end
 
-  --- Returns a queue that blocks while data could be queued.
+  --- Returns a queue that blocks until data could be queued.
   -- @tparam jls.util.Queue queue The queue
   -- @tparam number timeout The max duration in milliseconds to wait for enqueue
   -- @treturn jls.util.Queue the blocking queue

@@ -830,6 +830,18 @@ print(buffer:get(1, 2))
 -- prints 'He'
 ```
 
+The Queue class allows to store temporary data in first-in first-out order.
+
+```lua
+local Buffer = require('jls.lang.Buffer')
+local Queue = require('jls.util.Queue')
+local buffer = Buffer.allocate(4096, 'global')
+local queue = Queue.block(Queue.share(Queue.ringBuffer(buffer)))
+queue:enqueue('Hello')
+print(queue:dequeue())
+-- prints 'Hello'
+```
+
 
 # Utilities
 
