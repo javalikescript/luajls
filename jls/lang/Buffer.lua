@@ -42,7 +42,7 @@ return class.create(function(buffer)
   -- @tparam number at The position in this buffer to set, default to 1
   -- @param ... The bytes
   function buffer:setBytes(at, ...)
-    self:set(at or 1, string.char(...))
+    self:set(string.char(...), at or 1)
   end
 
   --- Returns a view on a sub part of this buffer.
