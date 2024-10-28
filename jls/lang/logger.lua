@@ -93,7 +93,8 @@ local LOG_EOL = '\n'
 if string.sub(package.config, 1, 1) == '\\' then
   LOG_EOL = '\r\n'
 end
-local LOG_FORMAT = '%s %'..NAME_LEN..'.'..NAME_LEN..'s %-'..LEVEL_LEN..'s %s'..LOG_EOL
+local LOG_THREAD = os.getenv('JLS_LOGGER_THREAD') and string.format(' %p', coroutine.running()) or ''
+local LOG_FORMAT = '%s'..LOG_THREAD..' %'..NAME_LEN..'.'..NAME_LEN..'s %-'..LEVEL_LEN..'s %s'..LOG_EOL
 
 local function defaultLogRecorder(logger, time, level, message)
   LOG_FILE:write(string_format(LOG_FORMAT, os_date('%Y-%m-%dT%H:%M:%S', time), logger.sname, LEVEL_NAMES[level], message))
