@@ -10,19 +10,18 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
       error('read already started')
     end
     self.streamCallback = StreamHandler.ensureCallback(stream)
-    local waitAsync = luvLib.new_async(function(err)
-      if err then
-        if err == 'close' then
-          self.streamCallback()
-        else
-          logger:fine('Error while waiting serial data %s', err)
-          self.streamCallback(err)
-        end
+    local errAsync = luvLib.new_async(function(err)
+      if err == 'close' then
+        self.streamCallback()
       else
-        self:readAvailable(self.streamCallback)
+        logger:fine('Error while waiting serial data %s', err)
+        self.streamCallback(err or 'unknown error')
       end
     end)
-    self.waitThread = luvLib.new_thread(function(fd, async, path, cpath)
+    local waitAsync = luvLib.new_async(function()
+      self:readAvailable(self.streamCallback)
+    end)
+    self.waitThread = luvLib.new_thread(function(fd, async, asyncErr, path, cpath)
       package.path = path
       package.cpath = cpath
       local serialLib = require('serial')
@@ -31,7 +30,7 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
         local status, err = serialLib.waitDataAvailable(fd, 5000) -- will block
         if not status then
           if err ~= 'timeout' then
-            async:send(err or 'unknown error')
+            asyncErr:send(err or 'unknown error')
             break
           end
         else
@@ -40,7 +39,8 @@ return require('jls.lang.class').create('jls.io.SerialBase', function(serial)
         end
       end
       async:close()
-    end, self.fileDesc.fd, waitAsync, package.path, package.cpath)
+      asyncErr:close()
+    end, self.fileDesc.fd, waitAsync, errAsync, package.path, package.cpath)
   end
 
   function serial:readStop()
