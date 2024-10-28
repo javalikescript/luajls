@@ -16,7 +16,7 @@
 luajls is a set of Lua modules for developing stand-alone [Lua](https://www.lua.org/) applications.
 
 The modules provide general-purpose functions such as class definition and promise, to operating system abstractions such as file system and network access.
-The modules support asynchronous I/O based on event loops.
+The modules support asynchronous I/O based on an event loop.
 
 <img src="./luajls.svg" alt="luajls stands on the shoulders of giants">
 

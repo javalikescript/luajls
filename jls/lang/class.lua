@@ -35,7 +35,7 @@ local dave = User:new('Dave', 2012)
 
 local function emptyFunction(...) end
 
-local function notImplementedFunction()
+local function notImplementedFunction(...)
   error('This function is not implemented')
 end
 
