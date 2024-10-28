@@ -218,7 +218,9 @@ end, function(Thread)
   function Thread._apply(resolve, reject, status, value)
     logger:fine('Thread function done: %s, "%s"', status, value)
     if type(value) == 'string' then
-      value = serialization.deserialize(value, '?')
+      local s, v = pcall(serialization.deserialize, value, '?')
+      status = status and s
+      value = v
     end
     if status then
       resolve(value)
@@ -239,7 +241,7 @@ end, function(Thread)
       if not name then
         break
       end
-      logger:finest('upvalue %d: %s', i, name)
+      logger:finest('upvalue %d: "%s"', i, name)
       if name == '' or name == '?' then
         error('upvalue not available')
       end
@@ -254,13 +256,13 @@ end, function(Thread)
           local found
           for n, m in pairs(package.loaded) do
             if m == value then
-              table.insert(lines, string.format('debug.setupvalue(f, %d, require("%s"))', i, n))
+              table.insert(lines, string.format('debug.setupvalue(f, %d, (require("%s")))', i, n))
               found = true
               break
             end
           end
           if not found then
-            error('unsupported upvalue')
+            error('unsupported upvalue "'..name..'"')
           end
         else
           error('unsupported upvalue type')
