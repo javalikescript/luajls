@@ -241,6 +241,7 @@ end, function(HttpExchange)
     json = 'application/json',
     htm = 'text/html',
     html = 'text/html',
+    xhtml = 'application/xhtml+xml',
     mp4 = 'video/mp4',
     svg = 'image/svg+xml',
     txt = 'text/plain',

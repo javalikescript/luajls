@@ -29,7 +29,10 @@ return function(value)
       return setmetatable({
         _cleanmt = false,
         _metatable = mt,
-        _data = value
+        _data = value,
+        close = function()
+          error('cannot close async argument')
+        end
       }, ASYNC_MT)
     end
   end
