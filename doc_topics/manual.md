@@ -67,9 +67,9 @@ such as _getColor_, _setRegistrationYear_
 * Instances, variables and package names are also written in lower camel case,
 such as _myCar_, _aBus_
 * Constants are written in uppercase characters separated by underscores,
-such as *MAX_HEIGHT*
+such as _MAX\_HEIGHT_
 * Private fields and methods starts with an underscore,
-such as *_internal*
+such as _\_internal_
 * Acronyms are treated as normal words,
 such as _Html_, _Url_
 
@@ -914,10 +914,19 @@ print(date:toLocalDateTime():toISOString())
 
 The _tables_ module contains helper functions to manipulate Lua deep tables.
 
+```lua
+local tables = require('jls.util.tables')
+local t = {a = {b = 'A value'}}
+print(tables.getPath(t, '/a/b'))
+-- prints 'A value'
+tables.setPath(t, '/a/b', 'New value')
+-- t is {a = {b = 'New value'}}
+```
+
 It allows to serialize a Lua table into a string and materialize from.
 
 ```lua
-local tables = require("jls.util.tables")
+local tables = require('jls.util.tables')
 print(tables.stringify({a = "Hi"}))
 -- prints '{a="Hi",}'
 local t = tables.parse('{a="Hi",b=2,c=true}')
@@ -999,8 +1008,7 @@ local t = xml.decode('<a><b c="c">A value</b></a>')
 -- t contains {name = 'a', {name = 'b', attr = {c = 'c'}, 'A value'}}
 ```
 
-
-## Abstract Syntax Tree (AST)
+### Abstract Syntax Tree (AST)
 
 The _ast_ module allows to parse and generate Lua code.
 

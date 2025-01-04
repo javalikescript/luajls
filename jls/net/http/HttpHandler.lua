@@ -136,15 +136,18 @@ end, function(HttpHandler)
   --[[-- Creates a router HTTP handler.
   This handler helps to expose REST APIs.
   
-  The `handlers` consists in a deep table of functions representing the resource paths.
-  By default the request body is processed and the JSON value is available with the attribute `requestJson`.
+  The `handlers` consists in a deep table of functions representing the resource paths, each table key represents a path component.
+  The remainging path is available with the attribute `path`.  
+  The function returned value is used for the HTTP response. A table will be returned as a JSON value.
+  The returned value could also be the result of a @{jls.lang.Promise}.  
+  By default the request body is processed, a JSON value is available with the attribute `requestJson`, an XML value is available with the attribute `requestXml`.
 
-  The function returned value is used for the HTTP response.
-  A table will be returned as a JSON value.
-  The returned value could also be a @{jls.lang.Promise}.
-
-  An empty string is used as table key for the root resource.
-  The special table key `{name}` is used to match any key and provide the value in the attribue `name`.
+  Path component details:  
+  An empty string is used as path component for the root resource.  
+  The path component `{abc}` is used to match any value and to provide it in the attribute `abc`.  
+  The path component `{+}` is used to process any value without resolving the path.  
+  The path component could be followed by parenthesis to pass the corresponding exchange attributes as function arguments.  
+  The path component could be followed by a question mark '`?`' to filter by the request method or header values.  
   
   @tparam table handlers the path handlers as a Lua table.
   @treturn HttpHandler a HttpHandler.

@@ -305,44 +305,10 @@ end
 -- @type RouterHttpHandler
 return class.create(HttpHandler, function(routerHttpHandler, _, RouterHttpHandler)
 
-  --[[--
-Creates a Router @{HttpHandler}.
-This handler helps to expose REST APIs.
-The handlers consists in a deep table of functions representing the resource paths.
-The remainging path is available with the attribute "path".
-By default the request body is processed and JSON value is available with the attribute "requestJson", XML value is available with the attribute "requestXml".
-The function returned value is used for the HTTP response. A table will be returned as a JSON value. The returned value could also be a promise.
-An empty string is used as table key for the root resource.
-The special table key "{name}" is used to match any key and provide the value in the attribue "name".
-@tparam table handlers the Router path handlers as a Lua table.
-@tparam[opt] table attributes exchange attributes.
-@tparam[opt] boolean noBody true to indicate the body should not be consumed.
-@usage
-local users = {}
-httpServer:createContext('/(.*)', RouterHttpHandler:new({
-  users = {
-    [''] = function(exchange)
-      return users
-    end,
-    -- additional handler
-    ['{+}?method=GET'] = function(exchange, userId)
-      exchange:setAttribute('user', users[userId])
-    end,
-    ['{userId}'] = {
-      ['(user)?method=GET'] = function(exchange, user)
-        return user
-      end,
-      ['(userId, requestJson)?method=POST,PUT'] = function(exchange, userId, requestJson)
-        users[userId] = requestJson
-      end,
-      -- will be available at /rest/users/{userId}/greetings
-      ['greetings(user)?method=GET'] = function(exchange, user)
-        return 'Hello '..user.firstname
-      end
-    },
-  }
-}))
-  --]]
+  --- Creates a Router @{HttpHandler}.
+  -- @tparam table handlers the Router path handlers as a Lua table.
+  -- @tparam[opt] table attributes exchange attributes.
+  -- @tparam[opt] boolean noBody true to indicate the request body should not be consumed.
   function routerHttpHandler:initialize(handlers, attributes, noBody)
     self.handlers = prepareHandlers(handlers or {})
     if type(attributes) == 'table' then
