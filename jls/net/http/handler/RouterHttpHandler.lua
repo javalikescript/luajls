@@ -77,7 +77,6 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
     elseif filter.op == '|' then
       return filter.values[value] ~= nil
     elseif filter.op == '+' then
-      exchange:setAttribute(filter.value, value)
       return true
     end
     return false
@@ -92,6 +91,18 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
     return true
   end
 
+  local function captureValue(exchange, filter, value)
+    if filter.op == '+' then
+      exchange:setAttribute(filter.value, value)
+    end
+  end
+
+  local function captureValues(exchange, filterMap, valueMap)
+    for name, filter in pairs(filterMap) do
+      captureValue(exchange, filter, valueMap[name])
+    end
+  end
+
   local function acceptRequest(exchange, info)
     if info.method and not acceptValue(exchange, info.method, exchange:getRequest():getMethod()) then
       return false
@@ -104,6 +115,19 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
     end
     if info.param and not acceptValues(exchange, info.param, exchange:getRequest():getSearchParams()) then
       return false
+    end
+    -- the request is accepted then capture the values
+    if info.method then
+      captureValue(exchange, info.method, exchange:getRequest():getMethod())
+    end
+    if info.query then
+      captureValue(exchange, info.query, exchange:getRequest():getTargetQuery())
+    end
+    if info.header then
+      captureValues(exchange, info.header, exchange:getRequest():getHeadersTable())
+    end
+    if info.param then
+      captureValues(exchange, info.param, exchange:getRequest():getSearchParams())
     end
     return true
   end
