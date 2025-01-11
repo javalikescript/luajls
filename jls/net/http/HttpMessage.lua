@@ -196,28 +196,9 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return self.targetQuery
   end
 
-  local function decodeParam(value)
-    return Url.decodePercent((string.gsub(value, '%+', ' ')))
-  end
-
-  local function cut(value, sep, init, plain)
-    local p = string.find(value, sep, init, plain)
-    if p then
-      return string.sub(value, 1, p - 1), string.sub(value, p + 1)
-    end
-    return value
-  end
-
   function httpMessage:getSearchParams()
     if not self.searchParams then
-      local args = {}
-      for part in strings.parts(self:getTargetQuery(), '&', true) do
-        local name, value = cut(part, '=', 1, true)
-        if value then
-          args[decodeParam(name)] = decodeParam(value)
-        end
-      end
-      self.searchParams = args
+      self.searchParams = Url.queryToMap(self:getTargetQuery())
     end
     return self.searchParams
   end
@@ -248,7 +229,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   function httpMessage:getContentType()
     local value = self:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
     if value then
-      return cut(value, ';', 1, true)
+      return strings.cut(value, ';', 1, true)
     end
     return value
   end

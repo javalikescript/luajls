@@ -326,12 +326,19 @@ function Test_mapToQuery()
   lu.assertEquals(Url.mapToQuery({}), '')
   lu.assertEquals(Url.mapToQuery({a='b'}), 'a=b')
   lu.assertEquals(Url.mapToQuery({a='b', c='d'}), 'a=b&c=d')
+  lu.assertEquals(Url.mapToQuery({a='b', c=1}), 'a=b&c=1')
+  lu.assertEquals(Url.mapToQuery({a='b', c=true}), 'a=b&c')
+  lu.assertEquals(Url.mapToQuery({a='b', c={'d','e'}}), 'a=b&c=d&c=e')
+  lu.assertEquals(Url.mapToQuery({a='b c+d'}), 'a=b+c%2Bd')
 end
 
 function Test_queryToMap()
   lu.assertEquals(Url.queryToMap(''), {})
   lu.assertEquals(Url.queryToMap('a=b'), {a='b'})
   lu.assertEquals(Url.queryToMap('a=b&c=d'), {a='b', c='d'})
+  lu.assertEquals(Url.queryToMap('a=b&c'), {a='b', c=true})
+  lu.assertEquals(Url.queryToMap('a=b&c=d&c=e'), {a='b', c={'d','e'}})
+  lu.assertEquals(Url.queryToMap('a=b+c%2Bd'), {a='b c+d'})
 end
 
 function _Test_encode_decode_perf()

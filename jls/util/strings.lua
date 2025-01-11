@@ -76,11 +76,7 @@ function strings.parts(value, pattern, plain)
   error('invalid argument')
 end
 
---- Returns a list of strings cut with the same size.
--- @tparam number size The size to cut.
--- @tparam string value The string to split.
--- @treturn table a list of strings cut at each pattern.
-function strings.cut(size, value) -- TODO value should come first
+local function cut(size, value)
   local list = {}
   local index = 1
   while index < #value do
@@ -88,6 +84,24 @@ function strings.cut(size, value) -- TODO value should come first
     index = index + size
   end
   return list
+end
+
+-- Returns the strings before and after the pattern.
+-- @tparam string value The string to cut
+-- @tparam string pattern The pattern to find
+-- @tparam number init The start position
+-- @tparam boolean plain true to turn off the pattern matching
+-- @treturn string the strings before the pattern
+-- @treturn string the strings after the pattern
+function strings.cut(value, pattern, init, plain)
+  if type(value) ~= 'string' then
+    return cut(value, pattern) -- deprecated, to remove
+  end
+  local s, e = string.find(value, pattern, init, plain)
+  if s then
+    return string.sub(value, 1, s - 1), string.sub(value, e + 1)
+  end
+  return value
 end
 
 --[[

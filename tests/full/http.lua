@@ -725,9 +725,9 @@ local function getTargetQuery(resource)
 end
 
 function Test_HttpMessage_getSearchParams()
-  lu.assertEquals(getSearchParams('/search?a=b&c=a+name'), { a = 'b', c = 'a name' })
-  lu.assertEquals(getSearchParams('/search?q=a%2Bname'), { q = 'a+name' })
-  lu.assertEquals(getSearchParams('/search?query'), {})
+  lu.assertEquals(getSearchParams('/search?a=b&c=a+name'), {a='b', c='a name'})
+  lu.assertEquals(getSearchParams('/search?q=a%2Bname'), {q='a+name'})
+  lu.assertEquals(getSearchParams('/search?query'), {query=true})
   lu.assertEquals(getSearchParams('/search?'), {})
   lu.assertEquals(getSearchParams('/search'), {})
 end

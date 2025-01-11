@@ -252,6 +252,39 @@ return require('jls.lang.class').create(function(url, _, Url)
     return buffer
   end
 
+  local function encodePercentChar(c)
+    return string.format('%%%02X', string.byte(c))
+  end
+
+  local function encodePercent(value, pattern)
+    return (string.gsub(value, pattern, encodePercentChar))
+  end
+
+  local function decodeParam(value)
+    return Url.decodePercent((string.gsub(value, '%+', ' ')))
+  end
+
+  local function encodeParam(value)
+    return (string.gsub(encodePercent(value, '[^%a%d%-%._~ ]'), ' ', '+'))
+  end
+
+  local function appendQueryValue(buffer, key, value)
+    if type(value) == 'table' then
+      for i, v in ipairs(value) do
+        if i > 1 then
+          buffer:append('&')
+        end
+        appendQueryValue(buffer, key, v)
+      end
+    elseif type(value) == 'string' then
+      buffer:append(key, '=', encodeParam(value))
+    elseif type(value) == 'number' then
+      buffer:append(key, '=', value)
+    elseif type(value) == 'boolean' then
+      buffer:append(key)
+    end
+  end
+
   local function appendQueryValues(buffer, keyValues, prefix)
     local needAmp = false
     for key, value in Map.spairs(keyValues) do
@@ -263,7 +296,7 @@ return require('jls.lang.class').create(function(url, _, Url)
         end
         needAmp = true
       end
-      buffer:append(Url.encodeURIComponent(key), '=', Url.encodeURIComponent(value))
+      appendQueryValue(buffer, encodeParam(key), value)
     end
     return buffer
   end
@@ -302,10 +335,24 @@ return require('jls.lang.class').create(function(url, _, Url)
   -- @treturn table the query map.
   function Url.queryToMap(query)
     local map = {}
-    for _, keyValue in ipairs(strings.split(query, '&', true)) do
-      local key, value = string.match(keyValue, '([^=]+)=(.+)')
+    for part in strings.parts(query, '&', true) do
+      local key, value = string.match(part, '^([^=]+)=(.*)$')
       if key then
-        map[Url.decodePercent(key)] = Url.decodePercent(value)
+        key = decodeParam(key)
+        value = decodeParam(value)
+      else
+        key = decodeParam(part)
+        value = true
+      end
+      local v = map[key]
+      if v then
+        if type(v) == 'table' then
+          table.insert(v, value)
+        else
+          map[key] = {v, value}
+        end
+      else
+        map[key] = value
       end
     end
     return map
@@ -319,14 +366,6 @@ return require('jls.lang.class').create(function(url, _, Url)
       return formatHttp(tUrl):toString()
     end
     return formatCommon(tUrl):toString()
-  end
-
-  local function encodePercentChar(c)
-    return string.format('%%%02X', string.byte(c))
-  end
-
-  local function encodePercent(value, pattern)
-    return (string.gsub(value, pattern, encodePercentChar))
   end
 
   function Url.encodeURIComponent(value)
