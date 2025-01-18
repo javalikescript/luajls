@@ -330,7 +330,8 @@ return require('jls.lang.class').create(function(url, _, Url)
     return appendQueryValues(StringBuffer:new(), keyValues):toString()
   end
 
-  --- Returns the map containing the key value pairs from the specified query.
+  --- Returns the map containing the key values pairs from the specified query.
+  -- Key and values are strings, a key could map a single string or a list of string in a table.
   -- @tparam string query the query.
   -- @treturn table the query map.
   function Url.queryToMap(query)

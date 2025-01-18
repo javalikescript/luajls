@@ -84,8 +84,24 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
 
   local function acceptValues(exchange, filterMap, valueMap)
     for name, filter in pairs(filterMap) do
-      if not acceptValue(exchange, filter, valueMap[name]) then
+      local value = valueMap[name]
+      if value == nil then
         return false
+      elseif type(value) == 'table' then
+        local accepted = false
+        for _, v in ipairs(value) do
+          if acceptValue(exchange, filter, v) then
+            accepted = true
+            break
+          end
+        end
+        if not accepted then
+          return true
+        end
+      else
+        if not acceptValue(exchange, filter, value) then
+          return false
+        end
       end
     end
     return true

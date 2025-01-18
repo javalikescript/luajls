@@ -203,6 +203,14 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return self.searchParams
   end
 
+  function httpMessage:getSearchParam(name)
+    local value = self:getSearchParams()[name]
+    if type(value) == 'table' then
+      return table.unpack(value)
+    end
+    return value
+  end
+
   function httpMessage:getIfModifiedSince()
     local value = self:getHeader('If-Modified-Since')
     if type(value) == 'string' then
