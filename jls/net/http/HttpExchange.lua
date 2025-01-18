@@ -231,23 +231,26 @@ end, function(HttpExchange)
 
   HttpExchange.CONTENT_TYPES = {
     bin = 'application/octet-stream',
+    csv = 'text/csv',
     css = 'text/css',
+    epub = 'application/epub+zip',
     gif = 'image/gif',
     ico = 'image/vnd.microsoft.icon',
-    --ico = 'image/x-icon',
     jpeg = 'image/jpeg',
     jpg = 'image/jpeg',
-    js = 'application/javascript',
+    js = 'text/javascript',
+    mjs = 'text/javascript',
     json = 'application/json',
     htm = 'text/html',
     html = 'text/html',
     xhtml = 'application/xhtml+xml',
     mp4 = 'video/mp4',
+    pdf = 'application/pdf',
+    png = 'image/png',
     svg = 'image/svg+xml',
     txt = 'text/plain',
     woff = 'font/woff',
     xml = 'text/xml',
-    pdf = 'application/pdf',
   }
 
   HttpExchange.REASONS = {

@@ -58,6 +58,8 @@ return require('jls.lang.class').create(function(path, _, Path)
     return (string.gsub(self.npath, '^.*[/\\]', '', 1))
   end
 
+  --- Returns the file extension, the suffix after the last dot '.'.
+  -- @treturn string the extension of the file or nil.
   function path:getExtension()
     return Path.extractExtension(self:getName())
   end
