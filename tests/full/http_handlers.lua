@@ -111,8 +111,11 @@ local function createRouterHandler(users)
     ['query-param-filter?q:a=test'] = function()
       return 'query param test'
     end,
-    ['query-param-capture(query_param_value)?q:a+=query_param_value'] = function(_, value)
-      return 'query param is '..tostring(value)
+    ['query-param-capture(p1, p2)?q:a+=p1&q:b-=p2'] = function(_, p1, p2)
+      if p2 then
+        return 'query params are '..tostring(p1)..' and '..tostring(p2)
+      end
+      return 'query param is '..tostring(p1)
     end,
     delay = function()
       return Promise:new(function(resolve)
@@ -168,6 +171,8 @@ function Test_rest()
   end):next(function()
     return fetch(httpClient, '/query-param-capture?a=hi', {}, responses)
   end):next(function()
+    return fetch(httpClient, '/query-param-capture?a=hi&b=Yo', {}, responses)
+  end):next(function()
     return fetch(httpClient, '/delay', {}, responses)
   end):catch(function(reason)
     print('Unexpected error', reason)
@@ -179,7 +184,7 @@ function Test_rest()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(#responses, 11)
+  lu.assertEquals(#responses, 12)
   lu.assertEquals(shift(responses):getStatusCode(), 404)
   lu.assertEquals(shift(responses):getStatusCode(), 200)
   lu.assertEquals(shift(responses):getStatusCode(), 200)
@@ -190,6 +195,7 @@ function Test_rest()
   lu.assertEquals(shift(responses):getBody(), 'query param test')
   lu.assertEquals(shift(responses):getStatusCode(), 404)
   lu.assertEquals(shift(responses):getBody(), 'query param is hi')
+  lu.assertEquals(shift(responses):getBody(), 'query params are hi and Yo')
   lu.assertEquals(shift(responses):getBody(), 'delay done')
 end
 

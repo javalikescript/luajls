@@ -62,22 +62,26 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
 
   -- see https://www.w3.org/TR/2018/REC-selectors-3-20181106/#attribute-substrings
   -- '^=' begins with, '$=' ends with, '*=' contains, '~=' contains a whitespace-separated
-  -- '|=' in list, '/=' match pattern, '+=' capture
+  -- '|=' in list, '/=' match pattern, '+=' capture, '-=' optional capture
   local function acceptValue(exchange, filter, value)
-    if filter.op == '' then
+    if filter.op == '=' then
       return value == filter.value
-    elseif filter.op == '*' then
-      return string.find(value, filter.value, 1, true)
-    elseif filter.op == '/' then
-      return string.find(value, filter.value)
-    elseif filter.op == '^' then
-      return strings.startsWith(value, filter.value)
-    elseif filter.op == '$' then
-      return strings.endsWith(value, filter.value)
-    elseif filter.op == '|' then
-      return filter.values[value] ~= nil
-    elseif filter.op == '+' then
+    elseif filter.op == '-' then
       return true
+    elseif value then
+      if filter.op == '*' then
+        return string.find(value, filter.value, 1, true)
+      elseif filter.op == '/' then
+        return string.find(value, filter.value)
+      elseif filter.op == '^' then
+        return strings.startsWith(value, filter.value)
+      elseif filter.op == '$' then
+        return strings.endsWith(value, filter.value)
+      elseif filter.op == '|' then
+        return filter.values[value] ~= nil
+      elseif filter.op == '+' then
+        return true
+      end
     end
     return false
   end
@@ -85,9 +89,7 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
   local function acceptValues(exchange, filterMap, valueMap)
     for name, filter in pairs(filterMap) do
       local value = valueMap[name]
-      if value == nil then
-        return false
-      elseif type(value) == 'table' then
+      if type(value) == 'table' then
         local accepted = false
         for _, v in ipairs(value) do
           if acceptValue(exchange, filter, v) then
@@ -108,7 +110,7 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
   end
 
   local function captureValue(exchange, filter, value)
-    if filter.op == '+' then
+    if filter.op == '+' or filter.op == '-' then
       exchange:setAttribute(filter.value, value)
     end
   end
@@ -197,12 +199,12 @@ local function prepareHandlers(handlers)
         path = p
         for part in strings.parts(q, '&', true) do
           local filter
-          local filterKey, filterValue = string.match(part, '^([^=]+)=(.*)$')
+          local filterKey, filterValue = string.match(part, '^([^=]+=?)=(.*)$')
           local filterOp = string.sub(filterKey, -1)
-          if string.find('*^$|/+', filterOp, 1, true) then
+          if string.find('=*^$|/+-', filterOp, 1, true) then
             filterKey = string.sub(filterKey, 1, -2)
           else
-            filterOp = ''
+            filterOp = '='
           end
           filterKey = strings.trim(filterKey)
           filterValue = strings.trim(filterValue)
@@ -227,13 +229,16 @@ local function prepareHandlers(handlers)
             if group == 'header' then
               subKey = string.lower(subKey)
             end
+            if values[subKey] then
+              error('duplicated filter key "'..subKey..'"')
+            end
             values[subKey] = filter
             order = order + 1
           elseif ROUTER_FILTERS[filterKey] then
-            if filterKey == 'method' and filterOp == '' then
+            if filterKey == 'method' and filterOp == '=' then
               filter.op = '|'
               filter.values = List.asSet(strings.split(filterValue, ',', true))
-            elseif filterKey == 'order' and filterOp == '' then
+            elseif filterKey == 'order' and filterOp == '=' then
               filter = tonumber(filterValue)
             end
             info[filterKey] = filter
