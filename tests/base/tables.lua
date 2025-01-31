@@ -279,6 +279,15 @@ local function getSchemaValueOrFail(schema, value, translateValues)
   return result
 end
 
+local function getSchemaValueError(schema, value)
+  local result, err = tables.getSchemaValue(schema, value)
+  if result or not err then
+    lu.fail('error expected')
+    return
+  end
+  return err
+end
+
 function Test_getSchemaValue_simple()
   lu.assertEquals(getSchemaValueOrFail({type = 'integer'}, 0), 0)
   lu.assertEquals(getSchemaValueOrFail({type = 'integer'}, 1), 1)
@@ -339,6 +348,19 @@ function Test_getSchemaValue_object()
     {name = 'Tea', count = 2, available = false})
   lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Cup'}, true), {name = 'Cup', count = 1, available = false})
   lu.assertEquals(getSchemaValueOrFail(schema, {}, true), {name = 'Def', count = 1, available = false})
+  getSchemaValueError(schema, {name = {}})
+end
+
+function Test_getSchemaValue_object_additionalProperties()
+  local schema = {
+    type = 'object',
+    additionalProperties = {
+      type = 'number'
+    }
+  }
+  lu.assertEquals(getSchemaValueOrFail(schema, {}), {})
+  lu.assertEquals(getSchemaValueOrFail(schema, {a = 1}), {a = 1})
+  getSchemaValueError(schema, {name = 'one'})
 end
 
 function Test_getSchemaValue_allOf()

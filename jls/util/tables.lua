@@ -896,42 +896,45 @@ local function getSchemaValue(rootSchema, schema, value, populate, onError, path
     else
       return nil, onError('INCOMPATIBLE_VALUE_TYPE', schema, value, path)
     end
-    if not populate then
-      return value
-    end
     local t = {}
     if schemaType == 'array' then
       local itemSchema = schema.items
-      if itemSchema then
-        for i, v in ipairs(value) do
-          local sv, err = getSchemaValue(rootSchema, itemSchema, v, true, onError, path..'['..tostring(i)..']')
+      for i, v in ipairs(value) do
+        if itemSchema then
+          local sv, err = getSchemaValue(rootSchema, itemSchema, v, populate, onError, path..'['..tostring(i)..']')
           if err then
             return nil, err
           end
           t[i] = sv
+        else
+          t[i] = v
         end
-      else
-        return value
       end
     else -- object
-      local propSchema = schema.properties
-      if propSchema then
-        for k, v in pairs(value) do
-          local propertySchema = propSchema[k]
-          if propertySchema then
-            local sp = tostring(k)
-            if path ~= '' then
-              sp = path..'.'..sp
-            end
-            local sv, err = getSchemaValue(rootSchema, propertySchema, v, true, onError, sp)
-            if err then
-              return nil, err
-            end
-            t[k] = sv
-          else
-            t[k] = v
+      local addPropSchema
+      if type(schema.additionalProperties) == 'table' then
+        addPropSchema = schema.additionalProperties
+      elseif not schema.properties then
+        return value -- there is nothing much we can do
+      end
+      local propSchema = schema.properties or {}
+      for k, v in pairs(value) do
+        local propertySchema = propSchema[k] or addPropSchema
+        if propertySchema then
+          local sp = tostring(k)
+          if path ~= '' then
+            sp = path..'.'..sp
           end
+          local sv, err = getSchemaValue(rootSchema, propertySchema, v, populate, onError, sp)
+          if err then
+            return nil, err
+          end
+          t[k] = sv
+        else
+          t[k] = v
         end
+      end
+      if populate then
         for k, ps in pairs(propSchema) do
           if value[k] == nil then
             local propertySchema = unrefSchema(rootSchema, ps)
@@ -940,15 +943,16 @@ local function getSchemaValue(rootSchema, schema, value, populate, onError, path
             elseif propertySchema.const ~= nil then
               t[k] = propertySchema.const
             elseif propertySchema.type == 'object' then
-              t[k] = getSchemaValue(rootSchema, propertySchema, {}, true, returnNil, path)
+              t[k] = getSchemaValue(rootSchema, propertySchema, {}, populate, returnNil, path)
             end
           end
         end
-      else
-        return value
       end
     end
-    return t
+    if populate then
+      return t
+    end
+    return value
   end
   -- parsing simple types
   local valueType = type(value)
