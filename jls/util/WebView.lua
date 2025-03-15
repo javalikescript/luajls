@@ -275,7 +275,7 @@ end, function(WebView)
       thread:start(webviewLib.asstring(wv), channelName)
       registerWebViewThread(thread, webview)
       webview._webview = wv
-      return acceptPromise
+      return acceptPromise -- FIXME after accept the webview is not yet initialized
     end):next(function(channel)
       webview._channel = channel
       channel:receiveStart(function(message)

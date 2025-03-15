@@ -26,7 +26,8 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
     logger:finest('onData("%s")', line)
     if not self.onCompleted then
       if line then
-        logger:warn('HeaderStreamHandler received data after read completed')
+        -- SLA TODO decrease log level and/or check data
+        logger:warn('HeaderStreamHandler received data after read completed (%s)', line)
         --error('Data after read completed')
       end
       return
