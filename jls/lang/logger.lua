@@ -392,15 +392,16 @@ local Logger = require('jls.lang.class').create(function(logger)
         end
       end
     end
-    if next(levels) then
+    if levels[1] then
       if self.loggerMap then
         for name, lgr in pairs(self.loggerMap) do
           lgr:setLevel(getLevelByName(levels, name) or DEFAULT_LEVEL)
         end
       end
-      self:setLevel(getLevelByName(levels, self.name or '') or DEFAULT_LEVEL)
+      self.level = parseLevel(getLevelByName(levels, self.name or '') or DEFAULT_LEVEL)
       self.levels = levels
     else
+      self.level = DEFAULT_LEVEL
       self.levels = nil
       self:propagateLevel(DEFAULT_LEVEL)
     end
