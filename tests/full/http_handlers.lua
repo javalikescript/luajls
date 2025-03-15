@@ -76,13 +76,17 @@ local function close(...)
 end
 
 local function createRouterHandler(users)
-  local function greetings(_, user)
-    if user then
-      return 'Hello '..user.firstname
-    end
-    return 'User not found'
-  end
   return RouterHttpHandler:new({
+    user = {
+      ['{+user}?method=GET'] = function(_, userId)
+        return users[userId]
+      end,
+      ['{*}'] = {
+        ['(user)?method=GET'] = function(_, user)
+          return user
+        end
+      }
+    },
     users = {
       [''] = function(exchange)
         return users
@@ -102,7 +106,12 @@ local function createRouterHandler(users)
           users[userId] = requestXml and requestXml.attr
         end,
         -- will be available at /rest/users/{userId}/greetings
-        ['greetings(user)?method=GET'] = greetings,
+        ['greetings(user)?method=GET'] = function(_, user)
+          if user then
+            return 'Hello '..user.firstname
+          end
+          return 'User not found'
+        end
       },
     },
     ['query-filter?query=test'] = function()
@@ -134,46 +143,55 @@ function Test_rest()
   local httpServer = HttpServer:new()
   httpServer:createContext('/(.*)', createRouterHandler(users))
   local httpClient
+  local fetchCount = 0
+  local function addFetch(resource, options)
+    fetchCount = fetchCount + 1
+    return fetch(httpClient, resource, options, responses)
+  end
   httpServer:bind('::', 0):next(function()
     local port = select(2, httpServer:getAddress())
     url = 'http://127.0.0.1:'..tostring(port)
     httpClient = HttpClient:new(url)
   end):next(function()
-    return fetch(httpClient, '/foo', {}, responses)
+    return addFetch('/foo')
   end):next(function()
-    return fetch(httpClient, '/users/foo', {
+    return addFetch('/user/foo')
+  end):next(function()
+    return addFetch('/users/foo', {
       method = 'PUT',
       headers = {
         ['Content-Type'] = 'application/json; charset=utf-8',
       },
       body = '{"firstname": "John"}',
-    }, responses)
+    })
   end):next(function()
-    return fetch(httpClient, '/users/bar', {
+    return addFetch('/users/bar', {
       method = 'PUT',
       headers = {
         ['Content-Type'] = 'text/xml',
       },
       body = '<user firstname="Sally" />',
-    }, responses)
+    })
   end):next(function()
-    return fetch(httpClient, '/users/bar/greetings', {}, responses)
+    return addFetch('/users/bar/greetings')
   end):next(function()
-    return fetch(httpClient, '/users/foo', {}, responses)
+    return addFetch('/users/foo')
   end):next(function()
-    return fetch(httpClient, '/users', {}, responses)
+    return addFetch('/user/foo')
   end):next(function()
-    return fetch(httpClient, '/query-filter?test', {}, responses)
+    return addFetch('/users')
   end):next(function()
-    return fetch(httpClient, '/query-param-filter?a=test', {}, responses)
+    return addFetch('/query-filter?test')
   end):next(function()
-    return fetch(httpClient, '/query-param-filter?a=no', {}, responses)
+    return addFetch('/query-param-filter?a=test')
   end):next(function()
-    return fetch(httpClient, '/query-param-capture?a=hi', {}, responses)
+    return addFetch('/query-param-filter?a=no')
   end):next(function()
-    return fetch(httpClient, '/query-param-capture?a=hi&b=Yo', {}, responses)
+    return addFetch('/query-param-capture?a=hi')
   end):next(function()
-    return fetch(httpClient, '/delay', {}, responses)
+    return addFetch('/query-param-capture?a=hi&b=Yo')
+  end):next(function()
+    return addFetch('/delay')
   end):catch(function(reason)
     print('Unexpected error', reason)
   end):finally(function()
@@ -184,11 +202,13 @@ function Test_rest()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(#responses, 12)
+  lu.assertEquals(#responses, fetchCount)
+  lu.assertEquals(shift(responses):getStatusCode(), 404)
   lu.assertEquals(shift(responses):getStatusCode(), 404)
   lu.assertEquals(shift(responses):getStatusCode(), 200)
   lu.assertEquals(shift(responses):getStatusCode(), 200)
   lu.assertEquals(shift(responses):getBody(), 'Hello Sally')
+  lu.assertEquals(shift(responses):getBody(), '{"firstname":"John"}')
   lu.assertEquals(shift(responses):getBody(), '{"firstname":"John"}')
   lu.assertEquals(shift(responses):getBody(), '{"bar":{"firstname":"Sally"},"foo":{"firstname":"John"}}')
   lu.assertEquals(shift(responses):getBody(), 'query test')
@@ -205,6 +225,11 @@ function Test_file()
   local url
   local content = '123456789 123456789 123456789 Hello World !'
   local httpClient
+  local fetchCount = 0
+  local function addFetch(resource, options)
+    fetchCount = fetchCount + 1
+    return fetch(httpClient, resource, options, responses)
+  end
   local httpServer = HttpServer:new()
   httpServer:createContext('/(.*)', FileHttpHandler:new(tmpDir, 'rwl'))
   httpServer:bind('::', 0):next(function()
@@ -212,43 +237,43 @@ function Test_file()
     url = 'http://127.0.0.1:'..tostring(port)
     httpClient = HttpClient:new(url)
   end):next(function()
-    return fetch(httpClient, '/file.txt', {}, responses)
+    return addFetch('/file.txt')
   end):next(function()
-    return fetch(httpClient, '/file.txt', { method = 'PUT', body = content, }, responses)
+    return addFetch('/file.txt', { method = 'PUT', body = content, })
   end):next(function()
-    return fetch(httpClient, '/file.txt', {}, responses)
+    return addFetch('/file.txt')
   end):next(function()
-    return fetch(httpClient, '/file.txt', {
+    return addFetch('/file.txt', {
       headers = {
         ['If-Modified-Since'] = Date:new(system.currentTimeMillis() + 60000):toRFC822String(true),
       }
-    }, responses)
+    })
   end):next(function()
-    return fetch(httpClient, '/file.txt', {
+    return addFetch('/file.txt', {
       headers = {
         ['If-Modified-Since'] = Date:new(system.currentTimeMillis() - 60000):toRFC822String(true),
       }
-    }, responses)
+    })
   end):next(function()
-    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=0-' } }, responses)
+    return addFetch('/file.txt', { headers = { Range = 'bytes=0-' } })
   end):next(function()
-    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=0-9' } }, responses)
+    return addFetch('/file.txt', { headers = { Range = 'bytes=0-9' } })
   end):next(function()
-    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=4-5' } }, responses)
+    return addFetch('/file.txt', { headers = { Range = 'bytes=4-5' } })
   end):next(function()
-    return fetch(httpClient, '/file.txt', { headers = { Range = 'bytes=20-' } }, responses)
+    return addFetch('/file.txt', { headers = { Range = 'bytes=20-' } })
   end):next(function()
-    return fetch(httpClient, '/file.txt', { headers = { destination = url..'/file-new.txt' }, method = 'MOVE' }, responses)
+    return addFetch('/file.txt', { headers = { destination = url..'/file-new.txt' }, method = 'MOVE' })
   end):next(function()
-    return fetch(httpClient, '/file.txt', {}, responses)
+    return addFetch('/file.txt')
   end):next(function()
-    return fetch(httpClient, '/file-new.txt', {}, responses)
+    return addFetch('/file-new.txt')
   end):next(function()
-    return fetch(httpClient, '/file-new.txt', { method = 'HEAD' }, responses)
+    return addFetch('/file-new.txt', { method = 'HEAD' })
   end):next(function()
-    return fetch(httpClient, '/file-new.txt', { method = 'DELETE' }, responses)
+    return addFetch('/file-new.txt', { method = 'DELETE' })
   end):next(function()
-    return fetch(httpClient, '/file-new.txt', {}, responses)
+    return addFetch('/file-new.txt')
   end):catch(function(reason)
     print('Unexpected error', reason)
   end):finally(function()
@@ -259,7 +284,7 @@ function Test_file()
   end) then
     lu.fail('Timeout reached')
   end
-  lu.assertEquals(#responses, 15)
+  lu.assertEquals(#responses, fetchCount)
   assertReponse(shift(responses), 404)
   assertReponse(shift(responses), 200) -- PUT
   assertReponse(shift(responses), 200, content)

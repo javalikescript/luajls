@@ -161,6 +161,7 @@ local RouteHttpHandler = class.create(HttpHandler, function(routeHttpHandler)
           end
           count = #info.args
         end
+        -- TODO use pcall
         if self.all then
           local result = info.fn(exchange, capture, table.unpack(values, 1, count))
           if result ~= nil then
@@ -184,6 +185,79 @@ local function compareByOrder(a, b)
   return a.order > b.order
 end
 
+local function createInfo(fullPath, fn)
+  local path = fullPath
+  local info = {fn = fn}
+  local order = 0
+  local p, q = string.match(path, '^([^%?]*)%?(.+)$')
+  if p then
+    -- process query
+    path = p
+    for part in strings.parts(q, '&', true) do
+      local filter
+      local filterKey, filterValue = string.match(part, '^([^=]+=?)=(.*)$')
+      local filterOp = string.sub(filterKey, -1)
+      if string.find('=*^$|/+-', filterOp, 1, true) then
+        filterKey = string.sub(filterKey, 1, -2)
+      else
+        filterOp = '='
+      end
+      filterKey = strings.trim(filterKey)
+      filterValue = strings.trim(filterValue)
+      filter = {
+        op = filterOp,
+        value = filterValue
+      }
+      if filterOp == '|' then
+        filter.values = List.asSet(strings.split(filterValue, filterOp, true))
+      end
+      if ROUTER_ALIAS[filterKey] then
+        filterKey = ROUTER_ALIAS[filterKey]
+      end
+      local group, subKey = string.match(filterKey, '^([^:]*):(.+)$')
+      if group and ROUTER_GROUPS[group] then
+        group = ROUTER_GROUPS[group]
+        local values = info[group]
+        if not values then
+          values = {}
+          info[group] = values
+        end
+        if group == 'header' then
+          subKey = string.lower(subKey)
+        end
+        if values[subKey] then
+          error('duplicated filter key "'..subKey..'" for path "'..fullPath..'"')
+        end
+        values[subKey] = filter
+        order = order + 1
+      elseif ROUTER_FILTERS[filterKey] then
+        if filterKey == 'method' and filterOp == '=' then
+          filter.op = '|'
+          filter.values = List.asSet(strings.split(filterValue, ',', true))
+        elseif filterKey == 'order' and filterOp == '=' then
+          filter = tonumber(filterValue)
+        end
+        info[filterKey] = filter
+        order = order + 1
+      else
+        error('invalid filter "'..q..'" at "'..filterKey..' '..filterOp..'= '..filterValue..'" for path "'..fullPath..'"')
+      end
+    end
+    info.args = {} -- to force processing query filters
+  end
+  p, q = string.match(path, '^(.*)%(([%a_][%a%d_,%s]*)%)$')
+  if p then
+    -- process arguments
+    path = p
+    -- TODO indicate that a parameter is mandatory or optional
+    info.args = strings.split(q, '%s*,%s*')
+  end
+  if not info.order then
+    info.order = order
+  end
+  return info, path
+end
+
 local function prepareHandlers(handlers)
   local preparedHandlers = {}
   local infosByPath = {}
@@ -191,90 +265,41 @@ local function prepareHandlers(handlers)
     local path, info
     path = fullPath
     if type(value) == 'function' then -- TODO accept HttpHandler instance
-      info = {}
-      info.fn = value
-      local order = 0
-      local p, q = string.match(path, '^([^%?]*)%?(.+)$')
-      if p then
-        path = p
-        for part in strings.parts(q, '&', true) do
-          local filter
-          local filterKey, filterValue = string.match(part, '^([^=]+=?)=(.*)$')
-          local filterOp = string.sub(filterKey, -1)
-          if string.find('=*^$|/+-', filterOp, 1, true) then
-            filterKey = string.sub(filterKey, 1, -2)
-          else
-            filterOp = '='
-          end
-          filterKey = strings.trim(filterKey)
-          filterValue = strings.trim(filterValue)
-          filter = {
-            op = filterOp,
-            value = filterValue
-          }
-          if filterOp == '|' then
-            filter.values = List.asSet(strings.split(filterValue, filterOp, true))
-          end
-          if ROUTER_ALIAS[filterKey] then
-            filterKey = ROUTER_ALIAS[filterKey]
-          end
-          local group, subKey = string.match(filterKey, '^([^:]*):(.+)$')
-          if group and ROUTER_GROUPS[group] then
-            group = ROUTER_GROUPS[group]
-            local values = info[group]
-            if not values then
-              values = {}
-              info[group] = values
-            end
-            if group == 'header' then
-              subKey = string.lower(subKey)
-            end
-            if values[subKey] then
-              error('duplicated filter key "'..subKey..'"')
-            end
-            values[subKey] = filter
-            order = order + 1
-          elseif ROUTER_FILTERS[filterKey] then
-            if filterKey == 'method' and filterOp == '=' then
-              filter.op = '|'
-              filter.values = List.asSet(strings.split(filterValue, ',', true))
-            elseif filterKey == 'order' and filterOp == '=' then
-              filter = tonumber(filterValue)
-            end
-            info[filterKey] = filter
-            order = order + 1
-          else
-            error('invalid filter "'..q..'" at "'..filterKey..' '..filterOp..'= '..filterValue..'"')
-          end
-        end
-        info.args = {} -- to force processing query filters
-      end
-      p, q = string.match(path, '^(.*)%(([%a_][%a%d_,%s]*)%)$')
-      if p then
-        path = p
-        -- TODO indicate that a parameter is mandatory or optional
-        info.args = strings.split(q, '%s*,%s*')
-      end
-      if not info.order then
-        info.order = order
-      end
+      info, path = createInfo(fullPath, value)
     end
-    local name = string.match(path, '^{([%a_][%a%d_]*)}$')
+    local addMode, name = string.match(path, '^{(%+?)([%a_][%a%d_]*)}$')
     if name then
-      path = ROUTER_ANY
-      addAt(infosByPath, ROUTER_ALL, {
-        fn = function(exchange, capture)
-          exchange:setAttribute(name, capture)
-        end,
-        order = 0
-      })
+      -- process capture
+      if addMode == '+' and info then
+        path = ROUTER_ALL
+        info.fn = function(exchange, capture, ...)
+          local v = value(exchange, capture, ...)
+          if v == nil then
+            HttpExchange.notFound(exchange)
+            return false
+          end
+          exchange:setAttribute(name, v)
+        end
+      else
+        path = ROUTER_ANY
+        addAt(infosByPath, ROUTER_ALL, {
+          fn = function(exchange, capture)
+            exchange:setAttribute(name, capture)
+          end,
+          order = 0
+        })
+      end
     end
     if info then
       addAt(infosByPath, path, info)
-    elseif type(value) == 'table' then
-      preparedHandlers[path] = prepareHandlers(value)
     else
-      preparedHandlers[path] = value
+      if type(value) ~= 'table' then
+        error('invalid value "'..type(value)..'" for path "'..fullPath..'"')
+      end
+      if string.find(path, '?', 1, true) then
+        error('invalid path "'..fullPath..'"')
+      end
+      preparedHandlers[path] = prepareHandlers(value)
     end
   end
   for path, infos in pairs(infosByPath) do
@@ -389,9 +414,9 @@ return class.create(HttpHandler, function(routerHttpHandler, _, RouterHttpHandle
       if length and length > 0 then
         request:bufferBody()
         return request:consume():next(function()
-          local contentType = request:getContentType()
           local method = request:getMethod()
           if method == HttpMessage.CONST.METHOD_POST or method == HttpMessage.CONST.METHOD_PUT then
+            local contentType = request:getContentType()
             if contentType == HttpExchange.CONTENT_TYPES.json then
               local requestJson = json.decode(request:getBody()) -- TODO Handle parsing errors
               exchange:setAttribute('requestJson', requestJson)
@@ -400,7 +425,6 @@ return class.create(HttpHandler, function(routerHttpHandler, _, RouterHttpHandle
               exchange:setAttribute('requestXml', requestXml)
             end
           end
-
           return self:handleNow(exchange)
         end)
       end
