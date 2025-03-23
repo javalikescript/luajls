@@ -2,7 +2,8 @@ local lu = require('luaunit')
 
 local Thread = require('jls.lang.Thread')
 local event = require('jls.lang.event')
-local BufferStream = require('jls.util.BufferStream')
+local loader = require('jls.lang.loader')
+local BufferStream = loader.tryRequire('jls.util.BufferStream')
 local Promise = require('jls.lang.Promise')
 local loop = require('jls.lang.loopWithTimeout')
 
@@ -24,6 +25,16 @@ local function waitConnect(bs, delay)
  end
 
 function Test_thread_stream()
+  if not BufferStream then
+    local isLuv = package.loaded['jls.lang.event'] == package.loaded['jls.lang.event-luv']
+    if isLuv then
+      lu.fail('fail to require BufferStream')
+    else
+      print('/!\\ skipping stream test as BufferStream is not available')
+      lu.success()
+    end
+    return
+  end
   local result = nil
   local bs = BufferStream:new(4096)
   Thread:new(Thread.resolveUpValues(function(...)

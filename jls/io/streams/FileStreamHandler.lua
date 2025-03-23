@@ -199,7 +199,7 @@ end, function(FileStreamHandler)
       else
         local r = sh:onData(data)
         if Promise:isInstance(r) then
-          logger:warn('readFdSync() unsupported onData() promise return')
+          logger:warn('readFdSync() unsupported onData() promise return value')
         end
         if data then
           local l = #data
