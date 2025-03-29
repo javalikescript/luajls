@@ -6,7 +6,7 @@ local logger = require('jls.lang.logger'):get(...)
 local loader = require('jls.lang.loader')
 local StreamHandler = require('jls.io.StreamHandler')
 local event = loader.requireOne('jls.lang.event-')
-local FileDescriptor = loader.requireOne('jls.io.FileDescriptor')
+local FileDescriptor = loader.requireOne('jls.io.FileDescriptor-')
 local linuxLib = loader.tryRequire('linux')
 
 return class.create(function(pipe, _, Pipe)

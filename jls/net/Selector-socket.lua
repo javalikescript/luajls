@@ -169,6 +169,9 @@ return class.create(function(selector)
 
   function selector:select(timeout)
     logger:finer('select(%ss) recvt: %l sendt: %l', timeout, self.recvt, self.sendt)
+    if self:isEmpty() then
+      return true
+    end
     local canrecvt, cansendt, selectErr = luaSocketLib.select(self.recvt, self.sendt, timeout)
     if selectErr then
       logger:finer('select error "%s"', selectErr)
