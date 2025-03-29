@@ -62,7 +62,8 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     local schedule = {
       at = at,
       cr = cr,
-      daemon = daemon or false
+      daemon = daemon or false,
+      --stack = debug and debug.traceback(nil, 2)
     }
     table.insert(self.schedules, schedule)
     return schedule
@@ -80,6 +81,18 @@ return require('jls.lang.class').create(function(coroutineScheduler)
       end
     end
     return count
+  end
+
+  function coroutineScheduler:printAllSchedules()
+    local Date = require('jls.util.Date')
+    for i, schedule in ipairs(self.schedules) do
+      local d = schedule.at > 0 and Date:new(schedule.at):toISOString(true) or 'blocking'
+      io.stderr:write(string.format('schedule #%d, at: %d (%s), daemon: %s, cr: %s (%s)\n', i, schedule.at, d, schedule.daemon, schedule.cr, coroutine.status(schedule.cr)))
+      if schedule.stack then
+        io.stderr:write(schedule.stack, '\n')
+      end
+    end
+    io.stderr:flush()
   end
 
   function coroutineScheduler:isScheduled(schedule)
@@ -145,6 +158,7 @@ return require('jls.lang.class').create(function(coroutineScheduler)
               end
             end
           end
+          logger:finer('resume cr %s with timeout: %s', schedule.cr, timeout)
           local resumeStatus, resumeResult = coroutine.resume(schedule.cr, at, currentTime, timeout)
           local ct = sysLib.timems()
           if logger:isLoggable(logger.FINE) then
@@ -207,14 +221,10 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     if count == 0 then
       return false
     end
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('Schedule count is %s, has timeout: %s, sleep: %d', count, hasTimeout, nextTime - currentTime)
-    end
+    logger:finer('Schedule count is %s, has timeout: %s, no wait: %s', count, hasTimeout, noWait)
     if nextTime > currentTime and not hasTimeout and not noWait then
       local st = nextTime - currentTime
-      if st > 100 then
-        logger:fine('Scheduler sleep time was %d', st)
-      end
+      logger:fine('Scheduler sleep time was %d', st)
       sysLib.sleep(st)
     end
     return true

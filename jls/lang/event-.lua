@@ -150,4 +150,8 @@ return require('jls.lang.class').create(function(event)
   function event:close()
   end
 
+  function event:print()
+    self.scheduler:printAllSchedules()
+  end
+
 end):new()

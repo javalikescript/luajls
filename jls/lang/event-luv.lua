@@ -85,4 +85,8 @@ return class.create(function(event)
     --luvLib.loop_close() -- the loop will automatically be closed when it is garbage collected by Lua
   end
 
+  function event:print()
+    luvLib.print_all_handles()
+  end
+
 end):new()
