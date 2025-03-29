@@ -1211,6 +1211,15 @@ function tables.createArgumentTable(arguments, options)
     end
     exit(0)
   end
+  -- Apply log level configuration
+  if options.logPath then
+    local logConfig = tables.getPath(t, options.logPath, nil, separator)
+    if logConfig then
+      tables.setPath(t, options.logPath, nil, separator)
+      local logger = require('jls.lang.logger')
+      logger:setConfig(logConfig)
+    end
+  end
   -- Validate using schema and add schema default values
   if schema then
     local st, serr = tables.getSchemaValue(schema, t, true)

@@ -19,13 +19,14 @@ lua examples\httpClient.lua -loglevel fine -maxRedirectCount 3 -out.headers true
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'url',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
     u = 'url',
     m = 'method',
     b = 'body',
     r = 'maxRedirectCount',
-    ll = 'loglevel',
+    ll = 'log-level',
   },
   schema = {
     title = 'Request an URL',
@@ -98,17 +99,9 @@ local options = tables.createArgumentTable(system.getArguments(), {
         minimum = 0,
         maximum = 3
       },
-      loglevel = {
-        title = 'The log level',
-        type = 'string',
-        default = 'warn',
-        enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-      },
     }
   }
 })
-
-logger:setLevel(options.loglevel)
 
 local u = Url:new(options.url)
 local client = HttpClient:new(options)
