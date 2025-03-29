@@ -8,34 +8,31 @@ else
   ProcessHandle = require('jls.lang.ProcessHandle-linux')
 end
 
+local function getFdKey(key)
+  return key == 'stdin' and 'readFd' or 'writeFd'
+end
+
 local function getPipeFd(processBuilder, key)
-  local fd = nil
   local pipe = processBuilder[key]
   if type(pipe) == 'table' then
     if pipe.fd then
-      fd = pipe.fd
-    elseif key == 'stdin' then
-      if pipe.readFd then
-        fd = pipe.readFd
-      end
-    elseif pipe.writeFd then
-      fd = pipe.writeFd
+      return pipe.fd
+    end
+    local fd = pipe[getFdKey(key)]
+    if fd and fd.fd then
+      return fd.fd
     end
   end
-  return fd
 end
 
 local function closePipeFd(processBuilder, key)
   local pipe = processBuilder[key]
   if type(pipe) == 'table' then
-    if key == 'stdin' then
-      if pipe.readFd then
-        pipe.readFd:close()
-        pipe.readFd = nil
-      end
-    elseif pipe.writeFd then
-      pipe.writeFd:close()
-      pipe.writeFd = nil
+    local fdKey = getFdKey(key)
+    local fd = pipe[fdKey]
+    if fd then
+      fd:close()
+      pipe[fdKey] = nil
     end
   end
 end
