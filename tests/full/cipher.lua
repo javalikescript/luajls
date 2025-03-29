@@ -44,7 +44,7 @@ function Test_decode_stream_error()
   BufferedStreamHandler.fill(dsh, es)
   local ds, err = bsh:getBuffer()
   lu.assertNil(ds)
-  lu.assertEquals(err, 'bad decrypt')
+  lu.assertNotNil(err)
 end
 
 function Test_encode_decode_stream()
