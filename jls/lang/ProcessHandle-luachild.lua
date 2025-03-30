@@ -1,11 +1,36 @@
 local lcLib = require('luachild')
+local loader = require('jls.lang.loader')
 
 local ProcessHandle
 local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
 if isWindowsOS then
-  ProcessHandle = require('jls.lang.ProcessHandle-win32')
+  ProcessHandle = loader.tryRequire('jls.lang.ProcessHandle-win32')
 else
-  ProcessHandle = require('jls.lang.ProcessHandle-linux')
+  ProcessHandle = loader.tryRequire('jls.lang.ProcessHandle-linux')
+end
+
+if not ProcessHandle then
+  local Promise = require('jls.lang.Promise')
+
+  ProcessHandle = require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(processHandle)
+    function processHandle:isAlive()
+      return tostring(self.process) == 'running'
+    end
+    function processHandle:destroy()
+      error('not available')
+    end
+    function processHandle:ended()
+      return Promise:new(function(resolve, reject)
+        local code, err = lcLib.wait(self.process)
+        if code then
+          self.code = code
+          resolve(code)
+        else
+          reject(err)
+        end
+      end)
+    end
+  end)
 end
 
 local function getFdKey(key)

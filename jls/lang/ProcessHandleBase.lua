@@ -39,7 +39,7 @@ return class.create(function(processHandle)
   --- Returns true if this process is alive.
   -- @treturn boolean true if this process is alive
   function processHandle:isAlive()
-    return false
+    return self.code ~= nil
   end
 
   --- Returns a promise that resolves once this process is terminated.

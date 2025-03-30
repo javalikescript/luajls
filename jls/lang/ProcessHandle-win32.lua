@@ -7,7 +7,13 @@ return require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(p
 
   function processHandle:isAlive()
     local code = win32Lib.GetExitCodeProcess(self.pid)
-    return code == win32Lib.constants.STILL_ACTIVE
+    if code then
+      if code == win32Lib.constants.STILL_ACTIVE then
+        return true
+      end
+      self.code = code
+    end
+    return false
   end
 
   function processHandle:destroy()
@@ -24,6 +30,7 @@ return require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(p
           if status == win32Lib.constants.WAIT_TIMEOUT then
             return true
           elseif status == win32Lib.constants.WAIT_OBJECT_0 then
+            self.code = code
             resolve(code)
           elseif status == win32Lib.constants.WAIT_ABANDONED then
             -- the mutex object that was not released before the owning thread terminated
