@@ -51,12 +51,6 @@ local CONFIG_SCHEMA = {
           default = false
         },
       }
-    },
-    ['log-level'] = {
-      title = 'The log level',
-      type = 'string',
-      default = 'warn',
-      enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'}
     }
   }
 }
@@ -65,6 +59,7 @@ local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
   emptyPath = 'url',
   helpPath = 'help',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
     s = 'search-url',
@@ -77,8 +72,6 @@ local config = tables.createArgumentTable(system.getArguments(), {
   },
   schema = CONFIG_SCHEMA
 })
-
-logger:setLevel(config['log-level'])
 
 local dataUrl = config.url
 if not dataUrl then

@@ -217,17 +217,6 @@ local CONFIG_SCHEMA = {
         },
       },
     },
-    loglevel = {
-      title = 'The log level',
-      type = 'string',
-      default = 'warn',
-      enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-    },
-    globalLoglevel = {
-      title = 'The log level',
-      type = 'string',
-      enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-    },
   },
 }
 
@@ -235,22 +224,17 @@ local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
   emptyPath = 'config',
   helpPath = 'help',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
     b = 'server.address',
     hb = 'heartbeat',
     p = 'server.port',
     pl = 'proxy.log.enabled',
-    ll = 'loglevel',
+    ll = 'log-level',
   },
   schema = CONFIG_SCHEMA
 });
-
-if config.globalLoglevel and config.loglevel ~= config.globalLoglevel then
-  logger:setLevel(config.globalLoglevel)
-  logger = logger:getClass():new()
-end
-logger:setLevel(config.loglevel)
 
 local httpServer = HttpServer:new()
 httpServer:bind(config.server.address, config.server.port):next(function()

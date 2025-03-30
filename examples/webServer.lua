@@ -186,12 +186,6 @@ local CONFIG_SCHEMA = {
         }
       }
     },
-    ['log-level'] = {
-      title = 'The log level',
-      type = 'string',
-      default = 'warn',
-      enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'}
-    }
   }
 }
 
@@ -199,6 +193,7 @@ local config = tables.createArgumentTable(system.getArguments(), {
   configPath = 'config',
   emptyPath = 'dir',
   helpPath = 'help',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
     b = 'bind-address',
@@ -217,8 +212,6 @@ local config = tables.createArgumentTable(system.getArguments(), {
   },
   schema = CONFIG_SCHEMA
 })
-
-logger:setLevel(config['log-level'])
 
 local SCRIPT = [[
 function setKey(key) {

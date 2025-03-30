@@ -1,4 +1,3 @@
-local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')
@@ -9,6 +8,7 @@ local hex = Codec.getInstance('hex')
 
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
     f = 'file',
@@ -21,7 +21,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
     os = 'offset',
     l = 'length',
     ow = 'overwrite',
-    ll = 'loglevel',
+    ll = 'log-level',
   },
   schema = {
     title = 'Cipher utility',
@@ -105,17 +105,9 @@ local options = tables.createArgumentTable(system.getArguments(), {
         type = 'string',
         default = 'secret',
       },
-      loglevel = {
-        title = 'The log level',
-        type = 'string',
-        default = 'warn',
-        enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-      },
     }
   }
 })
-
-logger:setLevel(options.loglevel)
 
 if options.list then
   local opensslLib = require('openssl')

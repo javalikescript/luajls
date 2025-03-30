@@ -1,4 +1,3 @@
-local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local tables = require('jls.util.tables')
 local ZipFile = require('jls.util.zip.ZipFile')
@@ -6,13 +5,14 @@ local ZipFile = require('jls.util.zip.ZipFile')
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'file',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
     a = 'action',
     d = 'dir',
     f = 'file',
     o = 'overwrite',
-    ll = 'loglevel',
+    ll = 'log-level',
   },
   schema = {
     title = 'ZIP utility',
@@ -45,17 +45,9 @@ local options = tables.createArgumentTable(system.getArguments(), {
         default = 'list',
         enum = {'list', 'create', 'extract', 'check'},
       },
-      loglevel = {
-        title = 'The log level',
-        type = 'string',
-        default = 'warn',
-        enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-      },
     }
   }
 })
-
-logger:setLevel(options.loglevel)
 
 if options.action == 'extract' then
   ZipFile.unzipTo(options.file, options.dir)

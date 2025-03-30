@@ -1,4 +1,3 @@
-local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local tables = require('jls.util.tables')
@@ -7,9 +6,10 @@ local WebSocket = require('jls.net.http.WebSocket')
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'url',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
-    ll = 'loglevel',
+    ll = 'log-level',
   },
   schema = {
     title = 'Open a WebSocket',
@@ -36,18 +36,9 @@ local options = tables.createArgumentTable(system.getArguments(), {
         title = 'The message to send',
         type = 'string'
       },
-      loglevel = {
-        title = 'The log level',
-        type = 'string',
-        default = 'warn',
-        enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-      },
     }
   }
 })
-
-logger:setLevel(options.loglevel)
-
 
 local webSocket = WebSocket:new(options.url)
 webSocket:open():next(function()

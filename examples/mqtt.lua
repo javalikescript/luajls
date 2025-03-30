@@ -1,4 +1,3 @@
-local logger = require('jls.lang.logger')
 local event = require('jls.lang.event')
 local system = require('jls.lang.system')
 local tables = require('jls.util.tables')
@@ -8,9 +7,10 @@ local mqtt = require('jls.net.mqtt')
 local options = tables.createArgumentTable(system.getArguments(), {
   helpPath = 'help',
   emptyPath = 'url',
+  logPath = 'log-level',
   aliases = {
     h = 'help',
-    ll = 'loglevel',
+    ll = 'log-level',
   },
   schema = {
     title = 'MQTT client and server',
@@ -75,17 +75,9 @@ Allows to start a MQTT broker.]],
         type = 'boolean',
         default = false
       },
-      loglevel = {
-        title = 'The log level',
-        type = 'string',
-        default = 'warn',
-        enum = {'error', 'warn', 'info', 'config', 'fine', 'finer', 'finest', 'debug', 'all'},
-      },
     }
   }
 })
-
-logger:setLevel(options.loglevel)
 
 local tUrl = Url.parse(options.url)
 local mqttClient, mqttServer
