@@ -127,14 +127,24 @@ function putFiles(files) {
     });
   }
 }
+function browseFiles(e) {
+  stopEvent(e);
+  document.getElementsByName("files-upload")[0].click();
+}
 function enableDrag() {
-  if (window.File && window.FileReader && window.FileList && window.Blob) {
+  var canDrag = window.File && window.FileReader && window.FileList && window.Blob;
+  if (canDrag) {
     document.addEventListener("dragover", stopEvent);
     document.addEventListener("drop", function(e) {
       stopEvent(e);
       putFiles(e.dataTransfer.files);
     });
-    document.querySelector("input[type=file]").style.display = "none";
+    var body = document.getElementsByTagName('body')[0];
+    body.className = 'drop';
+    body.title = 'Drop files to upload';
+  }
+  if (canDrag && navigator.maxTouchPoints === 0 && window.location.hash.indexOf('upload') < 0) {
+    document.getElementById("upload-footer").style.display = "none";
   }
 }
 ]]
@@ -213,7 +223,10 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
       buffer:append('</div>\n')
     end
     if self.allowCreate then
-      buffer:append('<input type="file" multiple onchange="putFiles(this.files)" />\n')
+      buffer:append('<div id="upload-footer" style="text-align:center">\n')
+      buffer:append('<a href="#" title="Choose files to upload" class="action" onclick="browseFiles(event)">&#x2795;</a>\n')
+      buffer:append('<input type="file" multiple name="files-upload" onchange="putFiles(this.files)" style="display: none;"/>\n')
+      buffer:append('</div>\n')
       buffer:append('<script>enableDrag();</script>\n')
     end
     return buffer
@@ -234,11 +247,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     buffer:append('<meta name="viewport" content="width=device-width, initial-scale=1" />\n')
     buffer:append('<link href="', basePath, self:getQueryPath('style.css'), '" rel="stylesheet" />\n')
     buffer:append('<script src="', basePath, self:getQueryPath('script.js'), '" type="text/javascript" charset="utf-8"></script>\n')
-    local bodyAtttributes = ''
-    if self.allowCreate then
-      bodyAtttributes = ' class="drop" title="Drop files to upload"'
-    end
-    buffer:append('</head><body', bodyAtttributes, '>\n')
+    buffer:append('</head><body>\n')
     self:appendDirectoryHtmlBody(exchange, buffer, files)
     buffer:append('</body></html>\n')
     local response = exchange:getResponse()
