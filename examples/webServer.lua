@@ -229,20 +229,6 @@ function askKey(e) {
   setKey(window.prompt('Enter the new cipher key?'));
   stopEvent(e);
 }
-function createDir(name) {
-  if (typeof name === 'string' && name) {
-    fetch(name + '/', {
-      credentials: "same-origin",
-      method: "PUT"
-    }).then(function() {
-      window.location.reload();
-    });
-  }
-}
-function askDir(e) {
-  createDir(window.prompt('Enter the folder name?'));
-  stopEvent(e);
-}
 function stopServer(e) {
   if (window.confirm('Stop the server?')) {
     fetch(location.pathname + '?stop', {
@@ -622,10 +608,6 @@ if config.secure.enabled then
   httpSecureServer:setParent(httpServer)
 end
 
-if string.match(config.permissions, '[wc]') then
-  table.insert(htmlHeaders, '<a href="#" onclick="askDir(event)" class="action" title="Create a folder">&#x1F4C2;</a>')
-end
-
 if config.stop then
   queryHandler['stop'] = function(exchange)
     if HttpExchange.methodAllowed(exchange, 'POST') then
@@ -639,14 +621,12 @@ if config.stop then
 end
 
 if #htmlHeaders > 0 then
-  local appendDirectoryHtmlBody = handler.appendDirectoryHtmlBody
-  function handler:appendDirectoryHtmlBody(exchange, buffer, files)
-    buffer:append('<span style="right: 1rem; position: absolute; z-index: +1;">')
+  local appendDirectoryHtmlActions = handler.appendDirectoryHtmlActions
+  function handler:appendDirectoryHtmlActions(exchange, buffer)
+    appendDirectoryHtmlActions(self, exchange, buffer)
     for _, value in ipairs(htmlHeaders) do
       buffer:append(value)
     end
-    buffer:append('</span>')
-    return appendDirectoryHtmlBody(self, exchange, buffer, files)
   end
 end
 

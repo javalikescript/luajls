@@ -105,6 +105,20 @@ function renameFile(e) {
   }
   stopEvent(e);
 }
+function createDir(name) {
+  if (typeof name === 'string' && name && name.indexOf('/') === -1) {
+    fetch(name + '/', {
+      credentials: "same-origin",
+      method: "PUT"
+    }).then(function() {
+      window.location.reload();
+    });
+  }
+}
+function askDir(e) {
+  createDir(window.prompt('Enter the folder name?'));
+  stopEvent(e);
+}
 function putFiles(files) {
   if (files && files.length > 0) {
     files = Array.prototype.slice.call(files);
@@ -132,8 +146,7 @@ function browseFiles(e) {
   document.getElementsByName("files-upload")[0].click();
 }
 function enableDrag() {
-  var canDrag = window.File && window.FileReader && window.FileList && window.Blob;
-  if (canDrag) {
+  if (window.File && window.FileReader && window.FileList && window.Blob) {
     document.addEventListener("dragover", stopEvent);
     document.addEventListener("drop", function(e) {
       stopEvent(e);
@@ -142,9 +155,6 @@ function enableDrag() {
     var body = document.getElementsByTagName('body')[0];
     body.className = 'drop';
     body.title = 'Drop files to upload';
-  }
-  if (canDrag && navigator.maxTouchPoints === 0 && window.location.hash.indexOf('upload') < 0) {
-    document.getElementById("upload-footer").style.display = "none";
   }
 }
 ]]
@@ -206,11 +216,21 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     buffer:append('">', file.name, '</a>\n')
   end
 
+  function htmlFileHttpHandler:appendDirectoryHtmlActions(exchange, buffer)
+    if self.allowCreate then
+      buffer:append('<a href="#" title="Choose files to upload" class="action" onclick="browseFiles(event)">&#x2795;</a>\n')
+      buffer:append('<a href="#" title="Create a folder" class="action" onclick="askDir(event)">&#x1F4C2;</a>\n')
+    end
+  end
+
   function htmlFileHttpHandler:appendDirectoryHtmlBody(exchange, buffer, files)
     local path = self:getPath(exchange)
     if path ~= '' then
       buffer:append('<a href=".." class="dir">..</a><br/>\n')
     end
+    buffer:append('<span style="right: 1rem; position: absolute; z-index: +1;">\n')
+    self:appendDirectoryHtmlActions(exchange, buffer)
+    buffer:append('</span>\n')
     for _, file in ipairs(files) do
       buffer:append('<div class="file">\n')
       self:appendFileHtmlBody(buffer, file)
@@ -223,10 +243,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
       buffer:append('</div>\n')
     end
     if self.allowCreate then
-      buffer:append('<div id="upload-footer" style="text-align:center">\n')
-      buffer:append('<a href="#" title="Choose files to upload" class="action" onclick="browseFiles(event)">&#x2795;</a>\n')
       buffer:append('<input type="file" multiple name="files-upload" onchange="putFiles(this.files)" style="display: none;"/>\n')
-      buffer:append('</div>\n')
       buffer:append('<script>enableDrag();</script>\n')
     end
     return buffer
