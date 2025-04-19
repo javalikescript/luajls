@@ -76,16 +76,16 @@ local function singleRequirer(name)
 end
 
 -- Builds a function by requiring its dependencies on first call.
--- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found
+-- @tparam function providerFn A function which will be called only once with the loaded modules
 -- @treturn funtion the function returned by the providerFn parameter
 -- @function lazyFunction
 local function lazyFunction(providerFn, ...)
-  local fn, names
-  names = {...}
+  local fn, rargs
+  rargs = table.pack(...)
   return function(...)
     if not fn then
-      fn = providerFn(requireList(names, true))
-      names = nil
+      fn = providerFn(requireList(table.unpack(rargs, 1, rargs.n)))
+      rargs = nil
     end
     return fn(...)
   end
@@ -96,7 +96,7 @@ end
 -- The module method will be replaced on the first call, caching the boot method works but is not recommended.
 -- @tparam table mod the module owning the method
 -- @tparam string name the method name
--- @tparam function providerFn A function which will be called only once with the loaded modules or nil values when modules are not found
+-- @tparam function providerFn A function which will be called only once with the loaded modules
 -- @param[opt] ... a list of module names to require and pass to the provider function
 -- @treturn funtion the function returned by the providerFn parameter
 -- @function lazyMethod
@@ -104,14 +104,14 @@ local function lazyMethod(mod, name, providerFn, ...)
   if type(mod) ~= 'table' or type(name) ~= 'string' or type(providerFn) ~= 'function' then
     error('invalid arguments')
   end
-  local fn, modnames
-  modnames = {...}
+  local fn, rargs
+  rargs = table.pack(...)
   mod[name] = function(...)
     if not fn then
-      fn = providerFn(requireList(modnames))
+      fn = providerFn(requireList(table.unpack(rargs, 1, rargs.n)))
       mod[name] = fn
       -- cleanup
-      modnames, mod, name, providerFn = nil, nil, nil, nil
+      rargs, mod, name, providerFn = nil, nil, nil, nil
     end
     return fn(...)
   end

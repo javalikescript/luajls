@@ -226,7 +226,7 @@ loader.lazyMethod(system, 'execute', function(Promise, Thread)
     end
     return d
   end
-end, 'jls.lang.Promise', 'jls.lang.Thread')
+end, true, 'jls.lang.Promise', 'jls.lang.Thread')
 
 --- Returns the executable path based on the `PATH` environment variable.
 -- @tparam string name The executable name, without the extension `.exe`

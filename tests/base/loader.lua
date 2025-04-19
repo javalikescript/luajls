@@ -94,7 +94,7 @@ function TestLoader:test_lazyFunction()
       fc = fc + 1
       return m
     end
-  end, UNKNOWN_MODULE_NAME, TEST_MODULE_NAME)
+  end, true, UNKNOWN_MODULE_NAME, TEST_MODULE_NAME)
   local mr = require(TEST_MODULE_NAME)
   lu.assertEquals(fc, 0)
   lu.assertEquals(pfc, 0)
