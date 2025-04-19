@@ -9,26 +9,39 @@ else
   ProcessHandle = loader.tryRequire('jls.lang.ProcessHandle-linux')
 end
 
+local function parsePid(process)
+  local spid, state = string.match(tostring(process), '^process%s*%((%d+),%s*(%a+)%)')
+  local pid = tonumber(spid)
+  if pid and pid > 0 then
+    return pid, state
+  end
+  return nil, 'unable to parse pid'
+end
+
 if not ProcessHandle then
   local Promise = require('jls.lang.Promise')
+  local event = loader.requireOne('jls.lang.event-')
 
-  ProcessHandle = require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(processHandle)
-    function processHandle:isAlive()
-      return tostring(self.process) == 'running'
-    end
-    function processHandle:destroy()
-      error('not available')
-    end
+  ProcessHandle = require('jls.lang.class').create('jls.lang.ProcessHandleBase', function(processHandle, super)
     function processHandle:ended()
-      return Promise:new(function(resolve, reject)
-        local code, err = lcLib.wait(self.process)
-        if code then
-          self.code = code
-          resolve(code)
-        else
-          reject(err)
-        end
-      end)
+      if not self.endPromise then
+        self.endPromise = Promise:new(function(resolve, reject)
+          event:setTask(function()
+            if self:isAlive() then
+              return true
+            end
+            local code, err = lcLib.wait(self.process)
+            if code then
+              self.code = code
+              resolve(code)
+            else
+              reject(err)
+            end
+            return false
+          end)
+        end)
+      end
+      return self.endPromise
     end
   end)
 end
@@ -83,15 +96,13 @@ ProcessHandle.build = function(processBuilder)
   if not process then
     return nil, err
   end
-  local spid, state = string.match(tostring(process), '^process%s*%((%d+),%s*(%a+)%)')
-  -- state is "running" or "terminated"
-  local pid = tonumber(spid)
-  if pid and pid > 0 then
+  local pid, state = parsePid(process)
+  if pid then
     local ph = ProcessHandle:new(pid)
     ph.process = process
     return ph
   end
-  return nil, 'unable to parse pid'
+  return nil, state
 end
 
 return ProcessHandle
