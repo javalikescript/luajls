@@ -197,6 +197,9 @@ return require('jls.lang.class').create(function(url, _, Url)
   -- @tparam string sUrl The string to parse.
   -- @treturn table a table representing the Url or nil.
   function Url.parse(sUrl)
+    if type(sUrl) ~= 'string' then
+      return nil, 'Invalid URL argument ('..type(sUrl)..')'
+    end
     -- scheme:[//[username[:password]@]host[:port]][/path][?query][#fragment]
     local scheme, specificPart = string.match(sUrl, '^([%w][%w%+%.%-]*):(.*)$')
     if not scheme then

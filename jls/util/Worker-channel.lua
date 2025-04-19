@@ -140,7 +140,7 @@ return class.create(function(worker)
     end
     self:pause()
     local chunk = string.dump(workerFn)
-    logger:finest('Worker:new() code >>%s<<', chunk)
+    logger:finest('new() code >>%s<<', chunk)
     local p
     if options.disableReceive and options.ringSize and not options.scheme and luvLib then
       p = newThreadAsyncChannel(chunk, workerData, options)
@@ -148,6 +148,7 @@ return class.create(function(worker)
       p = newThreadChannel(chunk, workerData, options)
     end
     p:next(function(ch)
+      logger:finer('channel available %s', ch)
       self._channel = ch
       self:resume()
       --ch:onClose():next(function() self:close() end)
@@ -241,6 +242,7 @@ return class.create(function(worker)
   end
 
   function worker:close()
+    logger:fine('close()')
     local channel = self._channel
     if channel then
       self._channel = nil
@@ -269,6 +271,7 @@ end, function(Worker)
       --err = Exception:new('Unable to load chunk', err)
       channel:writeMessage(serialization.serializeError(err))
     end
+    logger:fine('setupWorkerThread() done')
   end
 
   function Worker.initializeAsyncWorkerThread(async, chunk, data, buffer, queue)

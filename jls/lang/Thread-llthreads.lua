@@ -2,6 +2,7 @@ local llthreadsLib = require('llthreads')
 
 local loader = require('jls.lang.loader')
 local event = loader.requireOne('jls.lang.event-')
+local logger = require('jls.lang.logger'):get(...)
 
 local class = require('jls.lang.class')
 local Promise = require('jls.lang.Promise')
@@ -18,6 +19,7 @@ return class.create(ThreadBase, function(thread, super)
     if self.t then
       return self
     end
+    logger:finer('start()')
     self.t = llthreadsLib.new(self:_arg(...))
     self.t:start(self.daemon, true)
     return self
@@ -30,8 +32,10 @@ return class.create(ThreadBase, function(thread, super)
           local t = self.t
           event:setTask(function()
             if t:alive() then
+              logger:finer('not ended')
               return true
             end
+            logger:finer('ended')
             local ok, status, value = t:join()
             self._endPromise = nil
             if not ok then
@@ -49,7 +53,15 @@ return class.create(ThreadBase, function(thread, super)
   end
 
   function thread:isAlive()
-    return self.t and self.t:alive() or false
+    if self.t then
+      local alive, err = self.t:alive()
+      if alive then
+        return true
+      elseif err then
+        logger:warn('alive fails due to %s', err)
+      end
+    end
+    return false
   end
 
 end)

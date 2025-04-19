@@ -144,7 +144,7 @@ return class.create(function(httpClient)
     if self.file then
       url = url..self.file
     end
-  return url
+    return url
   end
 
   function httpClient:getTcpClient()

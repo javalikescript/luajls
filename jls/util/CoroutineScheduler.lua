@@ -62,9 +62,11 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     local schedule = {
       at = at,
       cr = cr,
-      daemon = daemon or false,
-      --stack = debug and debug.traceback(nil, 2)
+      daemon = daemon or false
     }
+    if logger:isLoggable(logger.FINE) then
+      schedule.stack = debug and debug.traceback(nil, 2)
+    end
     table.insert(self.schedules, schedule)
     return schedule
   end
@@ -88,8 +90,9 @@ return require('jls.lang.class').create(function(coroutineScheduler)
     for i, schedule in ipairs(self.schedules) do
       local d = schedule.at > 0 and Date:new(schedule.at):toISOString(true) or 'blocking'
       io.stderr:write(string.format('schedule #%d, at: %d (%s), daemon: %s, cr: %s (%s)\n', i, schedule.at, d, schedule.daemon, schedule.cr, coroutine.status(schedule.cr)))
+      io.stderr:write(debug.traceback(schedule.cr), '\n')
       if schedule.stack then
-        io.stderr:write(schedule.stack, '\n')
+        io.stderr:write('from ', schedule.stack, '\n')
       end
     end
     io.stderr:flush()

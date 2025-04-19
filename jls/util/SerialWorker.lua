@@ -19,6 +19,7 @@ event:loop()
 ]]
 
 local class = require('jls.lang.class')
+local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local Exception = require('jls.lang.Exception')
 local StreamHandler = require('jls.io.StreamHandler')
@@ -46,6 +47,7 @@ return class.create(function(serialWorker)
     local cb = self.workCallback
     if cb then
       local flags, result = string.unpack('>Bs4', message)
+      logger:fine('received from worker %x %l', flags, result)
       if flags & 4 == 4 then
         if self.workStreamHandler then
           if flags & 2 == 2 then
@@ -144,6 +146,7 @@ end, function(SerialWorker)
     local lastFn
     function w:onMessage(message)
       local flags, payload, chunk = string.unpack('>Bs4s4', message)
+      logger:fine('worker received %x %l %l', flags, payload, chunk)
       local data, fn
       if flags & 2 == 2 then
         fn = lastFn
@@ -189,6 +192,7 @@ end, function(SerialWorker)
       local response = string.pack('>Bs4', flags, result)
       return self:postMessage(response)
     end
+    logger:fine('worker initialized')
   end
 
 end)
