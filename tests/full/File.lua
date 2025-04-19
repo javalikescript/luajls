@@ -94,14 +94,14 @@ function Test_write_readAll()
   local f = File:new(tmpDir, 'file.tmp')
   local d = 'Some data'
   f:write(d)
-  lu.assertEquals(f:readAll(), d)
+  lu.assertEquals(assert(f:readAll()), d)
+  lu.assertEquals(f:length(), #d)
 end
 
 function Test_renameTo()
   local tmpDir = getEmptyTmpDir()
   local f = File:new(tmpDir, 'file.tmp')
   local d = 'Some data'
-  local dh = 'Other data'
   f:write(d)
   local g = File:new(tmpDir, 'new_file.tmp')
   local h = File:new(tmpDir, 'a/b')
