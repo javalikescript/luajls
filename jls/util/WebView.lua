@@ -227,6 +227,27 @@ end, function(WebView)
     end)
   end
 
+  local function initialized(webview, timeout)
+    if type(webviewLib.initialized) ~= 'function' then
+      return Promise.resolve(webview)
+    end
+    -- wait for webview initialization
+    return Promise:new(function(resolve, reject)
+      local ms = timeout or 15000
+      local delayMs = 100
+      local timer
+      timer = event:setInterval(function()
+        ms = ms - delayMs
+        if webviewLib.initialized(webview._webview) then
+          event:clearTimeout(timer)
+          resolve(webview)
+        elseif ms <= 0 then
+          reject('timeout')
+        end
+      end, delayMs)
+    end)
+  end
+
   function WebView._threadChannelFunction(webviewAsString, channelName)
     if event:loopAlive() then
       error('event loop is alive')
@@ -275,15 +296,17 @@ end, function(WebView)
       thread:start(webviewLib.asstring(wv), channelName)
       registerWebViewThread(thread, webview)
       webview._webview = wv
-      return acceptPromise -- FIXME after accept the webview is not yet initialized
+      return acceptPromise
     end):next(function(channel)
       webview._channel = channel
-      channel:receiveStart(function(message)
+      return initialized(webview, options.initTimeout)
+    end):next(function()
+      webview._channel:receiveStart(function(message)
         if webview._cb then
           webview._cb(message)
         end
       end)
-      --channel:onClose():next(function() webview:terminate() end)
+      --webview._channel:onClose():next(function() webview:terminate() end)
       return webview
     end)
   end
@@ -323,23 +346,7 @@ end, function(WebView)
     end
     thread:start(webviewLib.asstring(webview._webview), chunk, options.data)
     registerWebViewThread(thread, webview)
-    local promise, resolve = Promise.withResolvers()
-    if type(webviewLib.initialized) == 'function' then
-      -- wait for webview initialization
-      local ms = 0
-      local delayMs = 100
-      local timer
-      timer = event:setInterval(function()
-        ms = ms + delayMs
-        if ms > 15000 or webviewLib.initialized(webview._webview) then
-          event:clearTimeout(timer)
-          resolve(webview)
-        end
-      end, delayMs)
-    else
-      resolve(webview)
-    end
-    return promise
+    return initialized(webview, options.initTimeout)
   end
 
   function WebView._threadWebSocketFunction(webview, wsUrl)
@@ -353,6 +360,14 @@ end, function(WebView)
       end)
     end)
     event:loop() -- wait for connection
+  end
+
+  local function copy(options)
+    local o = {}
+    for k, v in pairs(options) do
+      o[k] = v
+    end
+    return o
   end
 
   local function openInThreadWithHttpServer(tUrl, options)
@@ -369,6 +384,10 @@ end, function(WebView)
       end
       local url = Url.format(tUrl)
       if options.callback == true then
+        if options.fn then
+          error('invalid options fn')
+        end
+        options = copy(options)
         local strings = require('jls.util.strings')
         local Map = require('jls.util.Map')
         local WebSocket = require('jls.net.http.WebSocket')
@@ -481,12 +500,15 @@ end)
 ]]
   function WebView.open(url, options)
     options = options or {}
-    if options.fn then
-      return openInThread(url, options)
-    end
     local tUrl = Url.parse(url)
-    if tUrl and tUrl.scheme == 'http' and tUrl.host and (tUrl.port == 0 or options.bind) then
+    if tUrl and tUrl.scheme == 'http' and tUrl.host and (tUrl.port == 0 or options.bind or options.bindAny) then
       return openInThreadWithHttpServer(tUrl, options)
+    end
+    if options.bind or options.bindAny or options.contexts then
+      error('invalid options')
+    end
+    if options.fn or options.callback == false then
+      return openInThread(url, options)
     end
     return openInThreadWithChannel(url, options)
   end
