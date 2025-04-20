@@ -303,16 +303,13 @@ return class.create(Path, function(file, _, File)
     if not fd then
       return nil, err
     end
-    if type(data) == 'string' then
-      fd:writeSync(data)
-    elseif type(data) == 'table' then
-      for _, d in ipairs(data) do
-        fd:writeSync(d)
-      end
-    else
-      fd:writeSync(tostring(data))
-    end
+    local status
+    status, err = fd:writeSync(data)
     fd:closeSync()
+    if not status then
+      return nil, err
+    end
+    return self
   end
 
   function file:copyTo(dest)
