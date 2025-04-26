@@ -65,9 +65,10 @@ return require('jls.lang.class').create(function(acme)
   --[[-- Creates a new Acme client.
   The files will be created if necessary or used if existing.
   @function Acme:new
-  @tparam string url the ACME API endpoint URL for the directory resource.
-  @tparam table options a table describing the client options.
-  @tparam[opt] string options.wwwDir The root directory of the local HTTP server.
+  @tparam string url the ACME API endpoint URL for the directory resource
+  @tparam table options a table describing the client options
+  @tparam[opt] string options.wwwDir The root directory of the local HTTP server
+  @tparam[opt] string options.acmeDir The directory of the local HTTP server for the ACME challenges
   @tparam[opt] string options.domains the domain for which the certificate is ordered
   @tparam[opt] string options.accountUrl the account URL, must match the account private key
   @tparam[opt] string options.contactEMails the contact email for the account
@@ -245,18 +246,21 @@ return require('jls.lang.class').create(function(acme)
   end
 
   function acme:setupChallenges()
-    assert(self.options.wwwDir, 'missing www directory')
-    local wwwDir = class.asInstance(File, self.options.wwwDir)
-    if not wwwDir:isDirectory() then
-      error('not a directory, '..wwwDir:getPath())
-    end
-    self.acmeDir = File:new(wwwDir, '.well-known/acme-challenge')
-    if not self.acmeDir:isDirectory() then
-      if not self.acmeDir:mkdirs() then
+    if self.options.acmeDir then
+      self.acmeDir = class.asInstance(File, self.options.acmeDir)
+      assert(self.acmeDir:isDirectory(), 'invalid directory, '..self.acmeDir:getPath())
+    else
+      assert(self.options.wwwDir, 'missing www directory')
+      local wwwDir = class.asInstance(File, self.options.wwwDir)
+      if not wwwDir:isDirectory() then
+        error('not a directory, '..wwwDir:getPath())
+      end
+      self.acmeDir = File:new(wwwDir, '.well-known/acme-challenge')
+      if not self.acmeDir:isDirectory() and not self.acmeDir:mkdirs() then
         error('cannot create directory, '..self.acmeDir:getPath())
       end
     end
-    logger:info('directory %s created', self.acmeDir)
+    logger:info('using ACME challenge directory %s', self.acmeDir)
   end
 
   function acme:cleanupChallenges()
