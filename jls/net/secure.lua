@@ -505,10 +505,14 @@ local function createCertificate(options)
   return cacert, pkey
 end
 
-local function readCertificate(data)
-  local cert = opensslLib.x509.read(data)
+local function readCertificate(data, format)
+  local cert = opensslLib.x509.read(data, format)
   -- cert:validat([time]) => validity, notbefore, notafter
   return cert
+end
+
+local function readPrivateKey(data, format, passhprase)
+  return opensslLib.pkey.read(data, true, format, passhprase)
 end
 
 
@@ -516,6 +520,7 @@ return {
   createPrivateKey = createPrivateKey,
   createCertificate = createCertificate,
   readCertificate = readCertificate,
+  readPrivateKey = readPrivateKey,
   Context = SecureContext,
   TcpSocket = SecureTcpSocket
 }
