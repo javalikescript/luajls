@@ -1,3 +1,12 @@
+--[[--
+Provides a client implementation of the Automatic Certificate Management Environment (ACME) v2 protocol.
+It allows to get a certificate from an ACME server such as [Let’s Encrypt](https://letsencrypt.org/).
+See [RFC 8555](https://datatracker.ietf.org/doc/html/rfc8555).
+
+@module jls.net.Acme
+@pragma nostrip
+]]
+
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
 local event = require('jls.lang.event')
@@ -49,13 +58,42 @@ local function readPrivateKey(file, password, format)
 end
 
 
--- see https://datatracker.ietf.org/doc/html/rfc8555
-
+--- The Acme client class.
+-- @type Acme
 return require('jls.lang.class').create(function(acme)
 
-  function acme:initialize(url, dir)
+  --[[-- Creates a new Acme client.
+  The files will be created if necessary or used if existing.
+  @function Acme:new
+  @tparam string url the ACME API endpoint URL for the directory resource.
+  @tparam table options a table describing the client options.
+  @tparam[opt] string options.wwwDir The root directory of the local HTTP server.
+  @tparam[opt] string options.domains the domain for which the certificate is ordered
+  @tparam[opt] string options.accountUrl the account URL
+  @tparam[opt] string options.contactEMails the contact email for the account
+  @tparam[opt] string options.accountKeyFile the file containing the private key for the account
+  @tparam[opt] string options.domainKeyFile the file containing the private key for the certificate
+  @tparam[opt] string options.certificateFile the file containing the certificate
+  @tparam[opt] number options.timeout the timeout in seconds for the order to be ready or valid
+  @return a new Acme client
+  @usage
+  local acme = Acme:new('https://acme-v02.api.letsencrypt.org/directory', {
+    domains = 'mydomain.fr',
+    wwwDir = '/var/www/'
+  })
+  ]]
+  function acme:initialize(url, options)
     self.url = url
-    self.wwwDir = class.asInstance(File, dir or '.')
+    self.options = options or {}
+    if options then
+      self.accountUrl = options.accountUrl
+      if options.accountKeyFile then
+        self:setAccountKeyFile(options.accountKeyFile, options.accountKeyPassphrase, options.accountKeyFormat)
+      end
+      if options.domainKeyFile then
+        self:setDomainKeyFile(options.domainKeyFile, options.domainKeyPassphrase, options.domainKeyFormat)
+      end
+    end
   end
 
   function acme:setAccountKeyFile(file, passphrase, format)
@@ -102,14 +140,6 @@ return require('jls.lang.class').create(function(acme)
     return self.jwk
   end
 
-  function acme:getJwkThumbPrint()
-    if not self.jwkThumbPrint then
-      local md = opensslLib.digest.get('sha256')
-      self.jwkThumbPrint = base64Url:encode(md:digest (json.stringify(self:getJwk())))
-    end
-    return self.jwkThumbPrint
-  end
-
   function acme:getClient(url)
     if self.client then
       local v = Url:new(self.client:getUrl())
@@ -147,6 +177,7 @@ return require('jls.lang.class').create(function(acme)
       if self.accountUrl then
         header.kid = self.accountUrl
       else
+        -- Some requests use a "jwk" field, newAccount and revokeCert
         header.jwk = self:getJwk()
       end
       local jwsProtected = base64Url:encode(json.stringify(header))
@@ -162,6 +193,10 @@ return require('jls.lang.class').create(function(acme)
     end)
   end
 
+  --- Creates an account.  
+  -- The account private key will be generated if not provided.
+  -- @tparam[opt] string contactEMails the contact email for the account
+  -- @return a promise that resolves to the account response as a table
   function acme:createAccount(contactEMails)
     if type(contactEMails) == 'string' then
       contactEMails = {contactEMails}
@@ -182,11 +217,22 @@ return require('jls.lang.class').create(function(acme)
     end)
   end
 
-  function acme:setupChallenges()
-    if not self.wwwDir:isDirectory() then
-      error('not a directory, '..self.wwwDir:getPath())
+  function acme:getOrCreateAccountUrl()
+    if self.accountUrl then
+      return Promise.resolve(self.accountUrl)
     end
-    self.acmeDir = File:new(self.wwwDir, '.well-known/acme-challenge')
+    return self:createAccount(self.options.contactEMails):next(function()
+      return self.accountUrl
+    end)
+  end
+
+  function acme:setupChallenges()
+    assert(self.options.wwwDir, 'missing www directory')
+    local wwwDir = class.asInstance(File, self.options.wwwDir)
+    if not wwwDir:isDirectory() then
+      error('not a directory, '..wwwDir:getPath())
+    end
+    self.acmeDir = File:new(wwwDir, '.well-known/acme-challenge')
     if not self.acmeDir:isDirectory() then
       if not self.acmeDir:mkdirs() then
         error('cannot create directory, '..self.acmeDir:getPath())
@@ -200,8 +246,9 @@ return require('jls.lang.class').create(function(acme)
 
   function acme:setupChallenge(challenge)
     local token = File:new(self.acmeDir, challenge.token)
-    local keyAuth = challenge.token..'.'..self:getJwkThumbPrint()
-    assert(token:write(keyAuth))
+    local md = opensslLib.digest.get('sha256')
+    local jwkThumbPrint = base64Url:encode(md:digest(json.stringify(self:getJwk())))
+    assert(token:write(challenge.token..'.'..jwkThumbPrint))
   end
 
   function acme:cleanupChallenge(challenge)
@@ -211,7 +258,7 @@ return require('jls.lang.class').create(function(acme)
 
   function acme:waitOrder(orderUrl, target)
     return Promise:new(function(resolve, reject)
-      local n, duration, timeout = 0, 0, 180
+      local n, duration, timeout = 0, 0, self.options.timeout or 180
       local function checkStatus()
         self:request(orderUrl):next(getJson):next(function(o)
           logger:fine('order status is %s (%d %d/%ds)', o.status, n, duration, timeout)
@@ -234,13 +281,23 @@ return require('jls.lang.class').create(function(acme)
     end)
   end
 
+  --- Gets a certificate.  
+  -- The account will be created if its URL is not provided.
+  -- The domain private key, used for the certificate, will be generated if not provided.  
+  -- The HTTP Challenge is used by default, the local HTTP server must be available to the ACME server.
+  -- @tparam[opt] string domains the domain for which the certificate is ordered
+  -- @return a promise that resolves to the raw certificate
   function acme:orderCertificate(domains)
+    domains = domains or self.options.domains
     if type(domains) == 'string' then
       domains = {domains}
     end
+    assert(type(domains) == 'table', 'invalid or missing domain')
     self:setupChallenges()
     local orderUrl, finalizeUrl
-    return self:fetchDirectory():next(function(directory)
+    return self:getOrCreateAccountUrl():next(function()
+      return self:fetchDirectory()
+    end):next(function(directory)
       local identifiers = {}
       for _, domain in ipairs(domains) do
         table.insert(identifiers, {type = 'dns', value = domain})
@@ -285,11 +342,17 @@ return require('jls.lang.class').create(function(acme)
     end):next(function(response)
       return response:text()
     end):next(function(rawCertificate)
-      self.rawCertificate = rawCertificate
-      return opensslLib.x509.read(rawCertificate)
+      if self.options.certificateFile then
+        local file = class.asInstance(File, self.options.certificateFile)
+        if not file:exists() then
+          file:write(rawCertificate)
+        end
+      end
+      return rawCertificate
     end)
   end
 
+  --- Closes this Acme client.
   function acme:close()
     if self.client then
       self.client:close()

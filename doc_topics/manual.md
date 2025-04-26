@@ -114,7 +114,7 @@ local configPath = Path:new('work/config.json')
 print(configPath:getName()) -- prints 'config.json'
 ```
 
-A class can exposed fields and methods which are not shared with the instance prototype.
+A class can expose fields and methods which are not shared with the instance prototype.
 
 ```lua
 local Url = require('jls.net.Url')
@@ -236,6 +236,12 @@ The logger helps to debug and troubleshoot by recording execution information.
 
 The logging levels are `ERROR`, `WARN`, `INFO`, `CONFIG`, `DEBUG`, `FINE`, `FINER`, `FINEST`.
 The log information consists in a message string, additional arguments could be passed to be formated in the message as for `string.format`.
+
+The following additional specifiers are available.
+
+* The specifier `t` or `T` stringifies the table argument
+* The specifier `l` formats a string or a table argument to its size
+* The specifier `x` or `X` formats a string argument to hexadecimal
 
 ```lua
 local logger = require('jls.lang.logger')

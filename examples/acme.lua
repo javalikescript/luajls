@@ -1,5 +1,4 @@
 local event = require('jls.lang.event')
-local Promise = require('jls.lang.Promise')
 local Acme = require('jls.net.Acme')
 local system = require('jls.lang.system')
 local tables = require('jls.util.tables')
@@ -78,26 +77,29 @@ local options = tables.createArgumentTable(system.getArguments(), {
   }
 })
 
-local acme = Acme:new(options.test and options.stagingUrl or options.url, options.webRoot)
+local acme = Acme:new(options.test and options.stagingUrl or options.url, {
+  wwwDir = options.webRoot,
+  domains = options.domain,
+  accountUrl = options.accountUrl,
+  contactEMails = options.contactEMail,
+  accountKeyFile = options.accountKey,
+  domainKeyFile = options.domainKey,
+  certificateFile = options.certificate,
+})
 
-if options.accountKey then
-  acme:setAccountKeyFile(options.accountKey)
-end
-if options.domainKey then
-  acme:setDomainKeyFile(options.domainKey)
-end
-
-Promise.async(function(await)
-  if options.accountUrl then
-    acme:setAccountUrl(options.accountUrl)
-  else
-    await(acme:createAccount(options.contactEMail))
-  end
-  await(acme:orderCertificate(options.domain))
-  print(acme.rawCertificate)
-end):catch(function(reason)
+local cert
+acme:orderCertificate():next(function(rawCertificate)
+  cert = rawCertificate
+end, function(reason)
   print('error: ', reason)
+end):finally(function()
   acme:close()
 end)
 
 event:loop()
+
+if cert then
+  print(cert)
+else
+  os.exit(1)
+end
