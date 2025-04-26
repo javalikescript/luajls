@@ -18,6 +18,8 @@ Allows to send or receive message to a WebSocket server.
 * A web server  
 Allows to serve static files.  
 Supports file upload and WebDAV.
+* An ACME client  
+Allows to get a certificate for a local HTTP server.
 * A WebView with documentation  
 Allows to browse the luajls documentation, including Lua reference, LDoc, LuaUnit and LuaCov.
 * A ZIP utility  

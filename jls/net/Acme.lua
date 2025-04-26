@@ -69,11 +69,12 @@ return require('jls.lang.class').create(function(acme)
   @tparam table options a table describing the client options.
   @tparam[opt] string options.wwwDir The root directory of the local HTTP server.
   @tparam[opt] string options.domains the domain for which the certificate is ordered
-  @tparam[opt] string options.accountUrl the account URL
+  @tparam[opt] string options.accountUrl the account URL, must match the account private key
   @tparam[opt] string options.contactEMails the contact email for the account
   @tparam[opt] string options.accountKeyFile the file containing the private key for the account
   @tparam[opt] string options.domainKeyFile the file containing the private key for the certificate
   @tparam[opt] string options.certificateFile the file containing the certificate
+  @tparam[opt] table options.certificateNames the certificate names to use for the request
   @tparam[opt] number options.timeout the timeout in seconds for the order to be ready or valid
   @return a new Acme client
   @usage
@@ -167,6 +168,17 @@ return require('jls.lang.class').create(function(acme)
     end)
   end
 
+  --- Gets the terms of service URL.  
+  -- @return a promise that resolves to the URL
+  function acme:getTermsOfServiceURL()
+    return self:fetchDirectory():next(function(directory)
+      if directory.meta and directory.meta.termsOfService then
+        return directory.meta.termsOfService
+      end
+      return Promise.reject('not available')
+    end)
+  end
+
   function acme:request(resource, content)
     return self:fetchDirectory():next(function(directory)
       return self:fetch(directory.newNonce, {method = 'HEAD'})
@@ -195,9 +207,12 @@ return require('jls.lang.class').create(function(acme)
 
   --- Creates an account.  
   -- The account private key will be generated if not provided.
+  -- If the server already has an account registered with the account key, this account will be used.
+  -- Creating an account implies to agree to the terms of service.
   -- @tparam[opt] string contactEMails the contact email for the account
+  -- @tparam[opt] boolean onlyReturnExisting true to not create the account
   -- @return a promise that resolves to the account response as a table
-  function acme:createAccount(contactEMails)
+  function acme:createAccount(contactEMails, onlyReturnExisting)
     if type(contactEMails) == 'string' then
       contactEMails = {contactEMails}
     end
@@ -208,6 +223,9 @@ return require('jls.lang.class').create(function(acme)
         for _, contactEMail in ipairs(contactEMails) do
           table.insert(request.contact, 'mailto:'..contactEMail)
         end
+      end
+      if onlyReturnExisting then
+        request.onlyReturnExisting = true
       end
       return self:request(directory.newAccount, json.stringify(request))
     end):next(function(response)
@@ -281,6 +299,16 @@ return require('jls.lang.class').create(function(acme)
     end)
   end
 
+  function acme:enhanceCertificateNames(names)
+    if type(self.options.certificateNames) == 'table' then
+      for k, v in pairs(self.options.certificateNames) do
+        if names[k] == nil then
+          names[k] = v
+        end
+      end
+    end
+  end
+
   --- Gets a certificate.  
   -- The account will be created if its URL is not provided.
   -- The domain private key, used for the certificate, will be generated if not provided.  
@@ -331,6 +359,7 @@ return require('jls.lang.class').create(function(acme)
       end)
     end):next(function()
       local names = {{CN = domains[1]}}
+      self:enhanceCertificateNames(names)
       local cadn = opensslLib.x509.name.new(names)
       local req = opensslLib.x509.req.new(cadn, self:getDomainKey())
       local request = {csr = base64Url:encode(req:export('der'))}

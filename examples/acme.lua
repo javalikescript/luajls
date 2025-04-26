@@ -56,7 +56,7 @@ local options = tables.createArgumentTable(system.getArguments(), {
         default = false
       },
       webRoot = {
-        title = 'The web root directory to use for challenges',
+        title = 'The web root directory to use for HTTP challenges',
         type = 'string',
         default = '.'
       },
@@ -73,6 +73,14 @@ local options = tables.createArgumentTable(system.getArguments(), {
         title = 'The domain key file name',
         type = 'string'
       },
+      certificate = {
+        title = 'The certificate file name',
+        type = 'string'
+      },
+      names = {
+        title = 'The certificate names',
+        type = 'object'
+      },
     }
   }
 })
@@ -85,6 +93,7 @@ local acme = Acme:new(options.test and options.stagingUrl or options.url, {
   accountKeyFile = options.accountKey,
   domainKeyFile = options.domainKey,
   certificateFile = options.certificate,
+  certificateNames = options.names,
 })
 
 local cert
