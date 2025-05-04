@@ -86,6 +86,8 @@ function Tests:test_format()
   lu.assertEquals(logFile:getMessagesAndClean(), {'INFO simple 1 length'})
   logger:info('simple %l length', {1, 2, 3})
   lu.assertEquals(logFile:getMessagesAndClean(), {'INFO simple 3 length'})
+  logger:info('simple %l length', {a=1, b=2, c=3})
+  lu.assertEquals(logFile:getMessagesAndClean(), {'INFO simple 3 length'})
 end
 
 function Tests:test_log()

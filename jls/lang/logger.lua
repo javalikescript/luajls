@@ -142,8 +142,16 @@ local function log(logger, level, message, ...)
               return '%s'
             elseif s == 'l' then
               local v = args[i]
-              if type(v) == 'string' or type(v) == 'table' then
+              if type(v) == 'string' then
                 args[i] = #v
+              elseif type(v) == 'table' then
+                local l = #v
+                if l == 0 and getmetatable(v) == nil then
+                  for _ in pairs(v) do
+                    l = l + 1
+                  end
+                end
+                args[i] = l
               else
                 args[i] = type(v)
               end
