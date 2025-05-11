@@ -128,6 +128,7 @@ local function assertSetPath(t, p, v, nt)
 end
 
 function Test_setPath_flat()
+  assertSetPath({}, '/', {a = 'New value'}, {a = 'New value'})
   assertSetPath({a = 'A value'}, 'a', 'New value', {a = 'New value'})
   assertSetPath({a = 'A value'}, '/a', 'New value', {a = 'New value'})
   assertSetPath({a = 'A value'}, 'b', 'New value', {a = 'A value', b = 'New value'})

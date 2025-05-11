@@ -481,7 +481,7 @@ end
 -- @tparam table t a table.
 -- @tparam string path the path to look in the table.
 -- @param defaultValue the default value to return if there is no value for the path.
--- @tparam[opt] string separator the path separator, default is /.
+-- @tparam[opt] string separator the path separator, default is `/`.
 -- @return the value
 function tables.getPath(t, path, defaultValue, separator)
   local key, remainingPath = getPathKey(path, separator)
@@ -523,7 +523,16 @@ function tables.setPath(t, path, value, separator)
     end
     return tables.setPath(v, remainingPath, value, separator)
   end
-  t[key] = value
+  if key == '' then
+    if type(value) ~= 'table' then
+      error('cannot set value '..type(value)..' at '..path)
+    end
+    for k, w in pairs(value) do
+      t[k] = w
+    end
+  else
+    t[key] = value
+  end
   return v, t, key
 end
 
