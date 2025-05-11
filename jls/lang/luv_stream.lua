@@ -7,7 +7,7 @@ return {
   close = function(stream, callback)
     logger:finest('close(%s)', stream)
     local cb, d = Promise.ensureCallback(callback)
-    if stream then
+    if stream and not stream:is_closing() then
       stream:close(cb)
     elseif cb then
       cb()
