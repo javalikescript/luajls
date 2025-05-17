@@ -22,10 +22,14 @@ end
 function Test_hasHeaderValue()
   local message = HttpMessage:new()
   message:setHeader('Accept-Language', 'en-US,en;q=0.9,fr;q=0.8')
+  message:setHeader('Content-Type', 'application/json; charset=utf-8')
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en'), true)
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en-US'), true)
   lu.assertEquals(message:hasHeaderValue('accept-language', 'fr'), true)
   lu.assertEquals(message:hasHeaderValue('accept-language', 'en-GB'), false)
+  lu.assertEquals(message:hasHeaderValue('content-type', 'application/JSON'), false)
+  lu.assertEquals(message:hasHeaderValue('content-type', 'application/JSON', true), true)
+  lu.assertEquals(message:hasHeaderValueIgnoreCase('content-type', 'application/JSON'), true)
 end
 
 function Test_parseHeaderValue()

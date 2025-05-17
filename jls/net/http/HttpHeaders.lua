@@ -64,19 +64,17 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   end
 
   function httpHeaders:hasHeaderValueIgnoreCase(name, value)
-    local v = self:getHeader(name)
-    if v then
-      return string.lower(v) == string.lower(value)
-    end
+    return self:hasHeaderValue(name, value, true)
   end
 
-  function httpHeaders:hasHeaderValue(name, value)
+  function httpHeaders:hasHeaderValue(name, value, ignoreCase)
     local values = self:getHeaderValues(name)
+    local lv = ignoreCase and string.lower(value)
     if values then
       for _, v in ipairs(values) do
-        local pv = HttpHeaders.parseHeaderValue(v)
-        if pv == value then
-          return true
+        local pv, params = HttpHeaders.parseHeaderValue(v)
+        if pv == value or ignoreCase and string.lower(pv) == lv then
+          return true, params
         end
       end
     end
