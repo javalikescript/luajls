@@ -215,27 +215,56 @@ function compat.unsign(v, n)
   return v % c
 end
 
+-- duplicated from serialization to avoid dependency
+local function n2sp(n)
+  local s = string.format('%a', n)
+  local i = string.find(s, 'p', 1, true)
+  local p
+  if i then
+    p = math.tointeger(string.sub(s, i + 1))
+    s = string.sub(s, 3, i - 1)
+  else
+    p = 0
+    s = string.sub(s, 3)
+  end
+  i = string.find(s, '.', 1, true)
+  if i then
+    p = p - (#s - i) * 4
+    s = string.sub(s, 1, i - 1)..string.sub(s, i + 1)
+  end
+  return tonumber(s, 16), p
+end
+
 function compat.rtos(v, ew, sp)
   local sign = 0
   if v < 0 then
     sign = 1
     v = -v
   end
-  local e = floor(math.log(v, 10))
-  local sm = 2 ^ sp
-  local se = floor(math.log(sm, 10))
-  if e > se then
-    v = v / (10 ^ e - se)
-  elseif e < se then
-    v = v * (10 ^ se - e)
-  end
-  v = floor(v % sm)
+  local i, e = n2sp(v)
+  --print(string.format('rtos(%s) -> %x * 2 ^ %s', v, i, e))
   -- TODO Fix
-  return string.char((sign * 128) + floor(e % 128))..compat.itos(v, floor(sp / 8) + 1, false)
+  local sm = 2 ^ (sp + 1)
+  while i > sm do
+    i = floor(i / 2)
+    e = e + 1
+  end
+  --print(string.format(' rtos --> %x, %s', i, e))
+  e = e + 127
+  return string.char(sign, e)..compat.itos(i, floor(sp / 8) + 1, false)
 end
 
 function compat.stor(v, ew, sp)
-  return 0 -- TODO
+  -- TODO Fix
+  local sign, e = string.byte(v, 1, 2)
+  e = e - 127
+  local i = compat.stoi(v, floor(sp / 8) + 1, false, 3)
+  --print(string.format(' stor --> %x, %s', i, e))
+  if sign ~= 0 then
+    i = -i
+  end
+  --print(string.format('stor() -> %x * 2 ^ %s', i, e))
+  return i * 2 ^ e
 end
 
 local option_aliases = {

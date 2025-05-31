@@ -88,6 +88,37 @@ function Test_itos_stoi()
   end
 end
 
+local function assertEqualsHex(r, e)
+  if r ~= e and type(r) == 'string' and type(e) == 'string' then
+    local hex = require('jls.util.Codec').getInstance('hex')
+    print('\nresult: '..hex:encode(r)..'\nexpect:'..hex:encode(e))
+  end
+  lu.assertEquals(r, e)
+end
+
+function _Test_rtos()
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
+  for _, n in ipairs({0.0, 1.0, -1.0}) do
+    assertEqualsHex(compat.rtos(n, 11, 52), string.pack('<d', n))
+  end
+end
+
+function Test_rtos_stor()
+  for _, n in ipairs({0.0, 1.0, -1.0, 1/3, 1.23e20, 1.23e-20, -1.23e20, -1.23e-20}) do
+    lu.assertEquals(compat.stor(compat.rtos(n, 11, 52), 11, 52), n)
+  end
+  for _, n in ipairs({0.0, 1.0, -1.0}) do
+    lu.assertEquals(compat.stor(compat.rtos(n, 8, 23), 8, 23), n)
+  end
+  for _, n in ipairs({1/3, -1/3}) do
+    lu.assertAlmostEquals(compat.stor(compat.rtos(n, 8, 23), 8, 23), n, 0.000001)
+  end
+end
+
 function Test_spack()
   --print('\n'..hex.encode('\1\0\1\0\0\0\1a\0')..'\n'..hex.encode(compat.spack('>BI2I4c2', 1, 1, 1, 'a')))
   lu.assertEquals(compat.spack('>BI2I4c2', 1, 1, 1, 'ab'), '\1\0\1\0\0\0\1ab')
