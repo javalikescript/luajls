@@ -41,6 +41,70 @@ local function unpackv(s, pos)
   return i, p
 end
 
+-- Returns the significant and power of 2 for a number with no loss.
+local function n2sp(n)
+  local s = string.format('%a', n)
+  local i = string.find(s, 'p', 1, true)
+  local p
+  if i then
+    p = math.tointeger(string.sub(s, i + 1))
+    s = string.sub(s, 3, i - 1)
+  else
+    p = 0
+    s = string.sub(s, 3)
+  end
+  i = string.find(s, '.', 1, true)
+  if i then
+    p = p - (#s - i) * 4
+    s = string.sub(s, 1, i - 1)..string.sub(s, i + 1)
+  end
+  return tonumber(s, 16), p
+end
+
+-- Encodes a positive number.
+local function packn(n)
+  local i, e = n2sp(n)
+  if e < 0 then
+    e = (-e) << 1 | 1
+  else
+    e = e << 1
+  end
+  return packv(i)..packv(e)
+end
+
+-- Decodes a positive number.
+local function unpackn(s, pos)
+  local p, i, e
+  i, p = unpackv(s, pos)
+  e, p = unpackv(s, p)
+  local neg = e & 1 == 1
+  e = e >> 1
+  if neg then
+    e = -e
+  end
+  return i * 2 ^ e, p
+end
+
+-- Returns true when the value is serializable.
+-- This is not a deep check, table or object could contain not serializable values.
+local function isSerializable(value)
+  local t = type(value)
+  if t == 'string' or t == 'number' or t == 'boolean' or t == 'nil' then
+    return true
+  end
+  if t == 'table' then
+    local Class = class.getClass(value)
+    if Class then
+      if Class:getName() and type(value.serialize) == 'function' then
+        return true
+      end
+    elseif type(value.serialize) == 'function' or not getmetatable(value) then
+      return true
+    end
+  end
+  return false
+end
+
 --[[--
 Returns the serialized string corresponding to the specified values.  
 The primitive types, boolean, number, string and nil can be serialized.
@@ -63,23 +127,50 @@ local function serialize(...)
   end
   local list = {MARK}
   local index = 2
-  local function write(value, asType)
-    local t = asType or type(value)
+  local function write(value, protected, asType)
+    local t = type(value)
+    if protected then
+      local i = index
+      local status, reason = pcall(write, value, false, asType)
+      if status then
+        return true
+      end
+      index = i
+      for ii in pairs(list) do
+        if ii >= i then
+          list[ii] = nil
+        end
+      end
+      return false, reason
+    end
+    if asType then
+      if asType == 'error' or asType == 'string' or asType == t then
+        t = asType
+      else
+        error('invalid value type "'..tostring(asType)..'"')
+      end
+    end
     if t == 'nil' then
       list[index] = 'N'
       index = index + 1
     elseif t == 'boolean' then
       list[index] = value and 'T' or 'F'
       index = index + 1
-    elseif t == 'number' and math.type(value) == 'integer' then
-      if value >= 0 then
-        list[index] = 'I'
+    elseif t == 'number' then
+      local neg = value < 0
+      local v = neg and -value or value
+      if math.type(v) == 'integer' then
+        list[index] = neg and 'i' or 'I'
         index = index + 1
-        list[index] = packv(value)
+        list[index] = packv(v)
+      elseif v ~= v then -- NaN
+        list[index] = 'n'
+      elseif v == math.huge then -- inf
+        list[index] = neg and 'h' or 'H'
       else
-        list[index] = 'i'
+        list[index] = neg and 'd' or 'D'
         index = index + 1
-        list[index] = packv(-value)
+        list[index] = packn(v)
       end
       index = index + 1
     else
@@ -88,11 +179,6 @@ local function serialize(...)
       index = index + 2 -- reserve 2 slots for short type and size
       if t == 'string' then
         st = 's'
-        list[index] = tostring(value)
-        index = index + 1
-      elseif t == 'number' then
-        -- TODO using string pack 'n' is problematic as unsupported in Lua 5.1
-        st = 'n'
         list[index] = tostring(value)
         index = index + 1
       elseif t == 'error' then
@@ -118,11 +204,14 @@ local function serialize(...)
           return
         else
           assert(not getmetatable(value), 'table has metadata')
-          local s = 0
-          for _ in pairs(value) do
-            s = s + 1
+          local s
+          if value[1] ~= nil then
+            s = 0
+            for _ in pairs(value) do
+              s = s + 1
+            end
           end
-          if s == #value then
+          if s and s == #value then
             st = 'l'
             for _, v in ipairs(value) do
               write(v)
@@ -160,24 +249,28 @@ The deserialization will raise the specified error message.
 @treturn string the serialized string
 @function serializeError
 ]]
-local function serializeError(message)
+local function serializeError(message, protected)
   return serialize({
     serialize = function(_, write)
-      write(message, 'error')
+      write(message, protected, 'error')
     end
   })
 end
 
 local TYPE_MAP = {
   N = 'nil',
-  T = 'boolean',
-  F = 'boolean',
-  n = 'number',
-  I = 'number',
-  i = 'number',
+  T = 'boolean', -- true
+  F = 'boolean', -- false
+  I = 'number', -- +integer
+  i = 'number', -- -integer
+  D = 'number', -- +float
+  d = 'number', -- -float
+  H = 'number', -- +inf
+  h = 'number', -- -inf
+  n = 'number', -- nan
   s = 'string',
-  t = 'table',
-  l = 'table',
+  t = 'table', -- map
+  l = 'table', -- list
   e = 'error',
   o = 'object',
 }
@@ -209,8 +302,23 @@ local function classMatch(types, Class)
   return false
 end
 
+-- Trims a string, returns nil for empty string.
+local function trim(value)
+  if value == nil then
+    return nil
+  end
+  local s = string.gsub(string.gsub(value, '^%s+', ''), '%s+$', '')
+  if #s == 0 then
+    return nil
+  end
+  return s
+end
+
 --[[--
 Returns the values read from the specified serialized string.
+The expected types could be enclosed with brackets `{}` to indicate the expected types in a table,
+optionally the table key types could be passed followed by the equal sign `=`.
+The object constructor is not called, the `deserialize` method is in charge to initialize the object including its inheritance.
 @tparam[opt] number pos the optional position in the string value, default to 1
 @tparam string s the string value to deserialize
 @tparam string ... the expected types or class names, defaults to any type, `?` and any count
@@ -241,6 +349,19 @@ local function deserialize(pos, ...)
   local len = #s
   pos = pos + 1
   local function read(exectedTypes)
+    local valueType, keyType
+    if exectedTypes then
+      valueType = string.match(exectedTypes, '^{(.*)}$')
+      if valueType then
+        exectedTypes = 'table'
+        local k, v = string.match(valueType, '^([^=]*)=(.*)$')
+        if k then
+          keyType, valueType = trim(k), trim(v)
+        else
+          valueType = trim(valueType)
+        end
+      end
+    end
     if pos > len then
       error('end of string')
     end
@@ -258,6 +379,17 @@ local function deserialize(pos, ...)
     elseif st == 'i' then
       v, pos = unpackv(s, pos)
       v = -v
+    elseif st == 'D' then
+      v, pos = unpackn(s, pos)
+    elseif st == 'd' then
+      v, pos = unpackn(s, pos)
+      v = -v
+    elseif st == 'n' then
+      v = 0/0 -- nan
+    elseif st == 'H' then
+      v = math.huge -- +inf
+    elseif st == 'h' then
+      v = -math.huge -- -inf
     else
       local size
       size, pos = unpackv(s, pos)
@@ -268,22 +400,23 @@ local function deserialize(pos, ...)
       end
       if st == 's' then
         v = string.sub(s, pos, lend)
-      elseif st == 'n' then
-        v = tonumber(string.sub(s, pos, lend))
       elseif st == 'e' then
         error(read())
       elseif st == 't' then
         v = {}
         while pos < next do
-          local k = read()
-          v[k] = read()
+          local k = read(keyType)
+          v[k] = read(valueType)
         end
       elseif st == 'l' then
+        if keyType and not typeMatch(keyType, 'integer') then
+          error('invalid type '..keyType..' for table key, expected integer')
+        end
         v = {}
         local i = 0
         while pos < next do
           i = i + 1
-          v[i] = read()
+          v[i] = read(valueType)
         end
       elseif st == 'o' then
         local osize
@@ -337,6 +470,7 @@ local function deserialize(pos, ...)
 end
 
 return {
+  isSerializable = isSerializable,
   serialize = serialize,
   serializeError = serializeError,
   deserialize = deserialize,
@@ -344,5 +478,8 @@ return {
   classMatch = classMatch,
   packv = packv,
   unpackv = unpackv,
+  packn = packn,
+  unpackn = unpackn,
+  n2sp = n2sp,
   MARK = MARK,
 }
