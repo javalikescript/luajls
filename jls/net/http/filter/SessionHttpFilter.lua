@@ -85,6 +85,20 @@ return class.create('jls.net.http.HttpFilter', function(filter)
     exchange:setSession(session)
   end
 
+  function filter:getSessions()
+    local list = {}
+    for _, session in pairs(self.sessions) do
+      table.insert(list, session)
+    end
+    return list
+  end
+
+  function filter:addSessions(sessions)
+    for _, session in ipairs(sessions) do
+      self.sessions[session:getId()] = session
+    end
+  end
+
   function filter:close()
     for _, session in pairs(self.sessions) do
       self:onDestroyed(session)

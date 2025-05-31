@@ -54,4 +54,35 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     self:cleanAttributes()
   end
 
+  function httpSession:serialize(write)
+    write(self.id)
+    write(self.creationTime)
+    write(self.lastAccessTime)
+    for name, value in pairs(self:getAttributes()) do
+      write(name)
+      if not write(value, true) then
+        write(nil)
+      end
+    end
+    write(nil)
+  end
+
+  function httpSession:deserialize(read)
+    super.initialize(self)
+    self.id = read('string')
+    self.creationTime = read('number')
+    self.lastAccessTime = read('number')
+    while true do
+      local name = read('string|nil')
+      if name then
+        local value = read()
+        if value ~= nil then
+          self:setAttribute(name, value)
+        end
+      else
+        break
+      end
+    end
+  end
+
 end)
