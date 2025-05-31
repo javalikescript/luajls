@@ -41,9 +41,11 @@ function Test_serialize_deserialize()
   local numbers = {
     0,
     1,
-    0.1,
     -1,
+    0.1,
     -0.1,
+    0.0,
+    1.0,
     12345,
     1.2345,
     -12345,
@@ -173,6 +175,26 @@ function Test_serializeError()
   local status, r = pcall(serialization.deserialize, se)
   lu.assertEquals(status, false)
   lu.assertEquals(r, e)
+end
+
+function _Test_packn_unpackn_perf()
+  local time = require('tests.time')
+  local numbers = {}
+  for _ = 1, 10000 do
+    local n = math.random(2^32)
+    local b, s = n * math.random(2^10), n / math.random(2^10)
+    table.insert(numbers, n)
+    table.insert(numbers, b)
+    table.insert(numbers, s)
+  end
+  print('time', 'user', 'mem')
+  for i = 1, 10 do
+    print(time(function()
+      for _, n in ipairs(numbers) do
+        lu.assertEquals(serialization.unpackn(serialization.packn(n)), n)
+      end
+    end))
+  end
 end
 
 os.exit(lu.LuaUnit.run())
