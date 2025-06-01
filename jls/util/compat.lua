@@ -215,8 +215,11 @@ function compat.unsign(v, n)
   return v % c
 end
 
--- Returns the significant and power of 2 for a positive number.
-local function n2sp(n)
+local function frexp(n)
+  local neg = n < 0
+  if neg then
+    n = -n
+  end
   local s = string.format('%a', n) -- [-]0xh.hhhhp±d -- not available in 5.1
   local op = string.find(s, 'p', 1, true)
   local p
@@ -233,7 +236,26 @@ local function n2sp(n)
   else
     s = string.sub(s, 3, op - 1)
   end
+  if neg then
+    return -tonumber(s, 16), p
+  end
   return tonumber(s, 16), p
+end
+
+if math.frexp then
+  frexp = math.frexp
+end
+
+local function n2sp(n)
+  local m, e = frexp(n)
+  while true do
+    local i, f = math.modf(m)
+    if f == 0 then
+      return i, e
+    end
+    m = m * 2
+    e = e - 1
+  end
 end
 
 function compat.rtos(v, ew, sp)
