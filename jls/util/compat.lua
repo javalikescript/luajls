@@ -215,22 +215,23 @@ function compat.unsign(v, n)
   return v % c
 end
 
--- duplicated from serialization to avoid dependency
+-- Returns the significant and power of 2 for a positive number.
 local function n2sp(n)
-  local s = string.format('%a', n)
-  local i = string.find(s, 'p', 1, true)
+  local s = string.format('%a', n) -- [-]0xh.hhhhp±d -- not available in 5.1
+  local op = string.find(s, 'p', 1, true)
   local p
-  if i then
-    p = math.tointeger(string.sub(s, i + 1))
-    s = string.sub(s, 3, i - 1)
+  if op then
+    p = tonumber(string.sub(s, op + 1))
   else
     p = 0
-    s = string.sub(s, 3)
+    op = #s + 1
   end
-  i = string.find(s, '.', 1, true)
-  if i then
-    p = p - (#s - i) * 4
-    s = string.sub(s, 1, i - 1)..string.sub(s, i + 1)
+  local od = string.find(s, '.', 4, true)
+  if od then
+    p = p - (op - 1 - od) * 4
+    s = string.sub(s, 3, od - 1)..string.sub(s, od + 1, op - 1)
+  else
+    s = string.sub(s, 3, op - 1)
   end
   return tonumber(s, 16), p
 end

@@ -41,60 +41,6 @@ local function unpackv(s, pos)
   return i, p
 end
 
--- Returns the significant and power of 2 for a positive number.
-local function n2sp(n)
-  local s = string.format('%a', n) -- [-]0xh.hhhhp±d
-  local op = string.find(s, 'p', 1, true)
-  local p
-  if op then
-    p = math.tointeger(string.sub(s, op + 1))
-  else
-    p = 0
-    op = #s + 1
-  end
-  local od = string.find(s, '.', 4, true)
-  if od then
-    p = p - (op - 1 - od) * 4
-    s = string.sub(s, 3, od - 1)..string.sub(s, od + 1, op - 1)
-  else
-    s = string.sub(s, 3, op - 1)
-  end
-  return tonumber(s, 16), p
-end
-
--- Encodes a positive number.
-local function packn(n)
-  local i, e = n2sp(n)
-  if e < 0 then
-    e = (-e) << 1 | 1
-  else
-    e = e << 1
-  end
-  return packv(i)..packv(e)
-end
-
--- Decodes a positive number.
-local function unpackn(s, pos)
-  local p, i, e
-  i, p = unpackv(s, pos)
-  e, p = unpackv(s, p)
-  local neg = e & 1 == 1
-  e = e >> 1
-  if neg then
-    e = -e
-  end
-  return i * 2 ^ e, p
-end
-
-if string['pack'..''] then
-  packn = function(n)
-    return string.pack('n', n)
-  end
-  unpackn = function(s, pos)
-    return string.unpack('n', s, pos)
-  end
-end
-
 -- Returns true when the value is serializable.
 -- This is not a deep check, table or object could contain not serializable values.
 local function isSerializable(value)
@@ -167,20 +113,16 @@ local function serialize(...)
       list[index] = value and 'T' or 'F'
       index = index + 1
     elseif t == 'number' then
-      local neg = value < 0
-      local v = neg and -value or value
-      if math.type(v) == 'integer' then
+      if math.type(value) == 'integer' then
+        local neg = value < 0
+        local v = neg and -value or value
         list[index] = neg and 'i' or 'I'
         index = index + 1
         list[index] = packv(v)
-      elseif v ~= v then -- NaN
-        list[index] = 'n'
-      elseif v == math.huge then -- inf
-        list[index] = neg and 'h' or 'H'
       else
-        list[index] = neg and 'd' or 'D'
+        list[index] = 'n'
         index = index + 1
-        list[index] = packn(v)
+        list[index] = string.pack('n', value)
       end
       index = index + 1
     else
@@ -273,11 +215,8 @@ local TYPE_MAP = {
   F = 'boolean', -- false
   I = 'number', -- +integer
   i = 'number', -- -integer
-  D = 'number', -- +float
-  d = 'number', -- -float
-  H = 'number', -- +inf
-  h = 'number', -- -inf
-  n = 'number', -- nan
+  n = 'number',
+  f = 'number', -- float
   s = 'string',
   t = 'table', -- map
   l = 'table', -- list
@@ -389,17 +328,8 @@ local function deserialize(pos, ...)
     elseif st == 'i' then
       v, pos = unpackv(s, pos)
       v = -v
-    elseif st == 'D' then
-      v, pos = unpackn(s, pos)
-    elseif st == 'd' then
-      v, pos = unpackn(s, pos)
-      v = -v
-    elseif st == 'n' then
-      v = 0/0 -- nan
-    elseif st == 'H' then
-      v = math.huge -- +inf
-    elseif st == 'h' then
-      v = -math.huge -- -inf
+    elseif st == 'n' or st == 'f' then
+      v, pos = string.unpack(st, s, pos)
     else
       local size
       size, pos = unpackv(s, pos)
@@ -488,8 +418,5 @@ return {
   classMatch = classMatch,
   packv = packv,
   unpackv = unpackv,
-  packn = packn,
-  unpackn = unpackn,
-  n2sp = n2sp,
   MARK = MARK,
 }
