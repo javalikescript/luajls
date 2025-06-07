@@ -128,14 +128,14 @@ function compat.tmove(a1, f, e, t, a2)
 end
 
 function compat.itos(v, n, be)
-  local chars = {}
+  local bytes = {}
   local r = v
-  for _ = 1, n do
+  for i = 1, n do
     local b = r % 256
     r = floor(r / 256)
-    table.insert(chars, string.char(b))
+    bytes[i] = b
   end
-  local s = table.concat(chars)
+  local s = string.char(compat.unpack(bytes))
   if be then
     return string.reverse(s)
   end
@@ -215,7 +215,14 @@ function compat.unsign(v, n)
   return v % c
 end
 
-local function frexp(n)
+function compat.log10(n)
+  return math.log(n, 10)
+end
+if math.log10 then
+  compat.log10 = math.log10
+end
+
+function compat.frexp(n)
   local neg = n < 0
   if neg then
     n = -n
@@ -241,53 +248,88 @@ local function frexp(n)
   end
   return tonumber(s, 16), p
 end
-
 if math.frexp then
-  frexp = math.frexp
+  compat.frexp = math.frexp
 end
 
-local function n2sp(n)
-  local m, e = frexp(n)
-  while true do
-    local i, f = math.modf(m)
-    if f == 0 then
-      return i, e
-    end
-    m = m * 2
-    e = e - 1
+local function c2h(c)
+  return string.format('%02x', string.byte(c))
+end
+function compat.hex(s)
+  return (string.gsub(s, '.', c2h))
+end
+
+local function h2c(h)
+    return string.char(tonumber(h, 16))
   end
+function compat.byt(s)
+  return (string.gsub(s, '%x%x', h2c))
 end
 
-function compat.rtos(v, ew, sp)
+function compat.rtos(v, ew, sp, be)
   local sign = 0
   if v < 0 then
     sign = 1
     v = -v
   end
-  local i, e = n2sp(v)
-  --print(string.format('rtos(%s) -> %x * 2 ^ %s', v, i, e))
-  -- TODO Fix
-  local sm = 2 ^ (sp + 1)
-  while i > sm do
-    i = floor(i / 2)
-    e = e + 1
+  local m, e
+  if v ~= v then
+    m, e = 1, floor(2 ^ ew) - 1
+  elseif v == math.huge then
+    m, e = 0, floor(2 ^ ew) - 1
+  elseif v == 0 then
+    m, e = 0, 0
+  else
+    m, e = compat.frexp(v) -- m is in the range [0.5, 1) or zero when n is zero
+    m = m * 4 - 2
+    e = e - 1
+    m = floor(m * 2 ^ (sp - 1))
+    e = e + floor(2 ^ (ew - 1) - 1)
   end
-  --print(string.format(' rtos --> %x, %s', i, e))
-  e = e + 127
-  return string.char(sign, e)..compat.itos(i, floor(sp / 8) + 1, false)
+  local l = floor((1 + ew + sp) / 8)
+  local bytes = {string.byte(compat.itos(m, l), 1, l)}
+  local he = compat.rshift(e, ew - 7) % 256
+  if sign == 1 then
+    he = he + 0x80
+  end
+  local le = compat.lshift(e, 15 - ew) % 256
+  bytes[l] = he
+  bytes[l - 1] = bytes[l - 1] + le
+  local s = string.char(compat.unpack(bytes))
+  if be then
+    return string.reverse(s)
+  end
+  return s
 end
 
-function compat.stor(v, ew, sp)
-  -- TODO Fix
-  local sign, e = string.byte(v, 1, 2)
-  e = e - 127
-  local i = compat.stoi(v, floor(sp / 8) + 1, false, 3)
-  --print(string.format(' stor --> %x, %s', i, e))
-  if sign ~= 0 then
-    i = -i
+function compat.stor(s, ew, sp, be, init)
+  init = init or 1
+  if be then
+    s = string.reverse(s)
   end
-  --print(string.format('stor() -> %x * 2 ^ %s', i, e))
-  return i * 2 ^ e
+  local l = floor((1 + ew + sp) / 8)
+  local bytes = {string.byte(s, init, init + l - 1)}
+  local le = bytes[l - 1]
+  local se = compat.lshift(bytes[l], ew - 7) + compat.rshift(le, 15 - ew)
+  bytes[l] = 0
+  bytes[l - 1] = le % (2 ^ (15 - ew))
+  local e = se % (2 ^ ew)
+  local neg = e ~= se
+  local sm = string.char(compat.unpack(bytes))
+  local m = compat.stoi(sm, l)
+  local n
+  if e == 0 then
+    n = m * 2 ^ (1 - sp)
+  elseif e == floor(2 ^ ew) - 1 then
+    n = m == 0 and math.huge or 0/0
+  else
+    e = e - (2 ^ (ew - 1) - 1)
+    n = 1 * 2 ^ e + m * 2 ^ (e - sp)
+  end
+  if neg then
+    n = -n
+  end
+  return n
 end
 
 local option_aliases = {
@@ -357,10 +399,10 @@ function compat.spack(fmt, ...)
       return compat.itos(v, n, be)
     elseif o == 'f' then
       -- Single-precision floating-point
-      return compat.rtos(v, 8, 23)
-    elseif o == 'd' then
+      return compat.rtos(v, 8, 23, be)
+    elseif o == 'd' or o == 'n' then
       -- Double-precision floating-point
-      return compat.rtos(v, 11, 52)
+      return compat.rtos(v, 11, 52, be)
     elseif o == 'c' then
       if n > #v then
         return v..string.rep('\0', n - #v)
@@ -404,9 +446,9 @@ function compat.sunpack(fmt, s, pos)
       elseif o == 'i' then
         return compat.sign(compat.stoi(s, n, be, j), n)
       elseif o == 'f' then
-        return 0.0 -- TODO Fix
-      elseif o == 'd' then
-        return 0.0 -- TODO Fix
+        return compat.stor(s, 8, 23, be, j)
+      elseif o == 'd' or o == 'n' then
+        return compat.stor(s, 11, 52, be, j)
       elseif o == 'x' then
         return nil
       else

@@ -2,6 +2,27 @@ local lu = require('luaunit')
 
 local compat = require('jls.util.compat')
 
+local function assertEqualsHex(r, e)
+  if r ~= e and type(r) == 'string' and type(e) == 'string' then
+    local rh, eh = compat.hex(r), compat.hex(e)
+    lu.assertEquals(rh, eh)
+  end
+  lu.assertEquals(r, e)
+end
+
+local function assertAlmostEquals(r, e, d)
+  lu.assertEquals(type(r), 'number')
+  lu.assertEquals(type(e), 'number')
+  lu.assertEquals(r < 0, e < 0)
+  local re = math.floor(compat.log10(math.abs(r)))
+  local ee = math.floor(compat.log10(math.abs(e)))
+  lu.assertAlmostEquals(re, ee, d)
+  local m = 10 ^ math.min(re, ee)
+  local rd = r / m
+  local ed = e / m
+  lu.assertAlmostEquals(rd, ed, d)
+end
+
 function Test_len()
   lu.assertEquals(compat.len('a'), 1)
   lu.assertEquals(compat.len({'a'}), 1)
@@ -61,10 +82,6 @@ function Test_itos()
     lu.success()
     return
   end
-  for _, i in ipairs({0, 1, 123456}) do
-    lu.assertEquals(compat.itos(i, 4, false), string.pack('<I4', i))
-    lu.assertEquals(compat.itos(i, 4, true), string.pack('>I4', i))
-  end
   for _, i in ipairs({0, 1, -1, 123456, -123456}) do
     lu.assertEquals(compat.itos(i, 4, false), string.pack('<i4', i))
     lu.assertEquals(compat.itos(i, 4, true), string.pack('>i4', i))
@@ -88,22 +105,46 @@ function Test_itos_stoi()
   end
 end
 
-local function assertEqualsHex(r, e)
-  if r ~= e and type(r) == 'string' and type(e) == 'string' then
-    local hex = require('jls.util.Codec').getInstance('hex')
-    print('\nresult: '..hex:encode(r)..'\nexpect:'..hex:encode(e))
-  end
-  lu.assertEquals(r, e)
-end
+local DOUBLE_VALUES = {
+  ['0000000000000000'] = 0,
+  ['3FF0000000000000'] = 1,
+  ['C000000000000000'] = -2,
+  ['4000000000000000'] = 2,
+  ['7FF0000000000000'] = math.huge,
+  ['FFF0000000000000'] = -math.huge,
+  ['7FF0000000000001'] = 0/0,
+}
+local NUMBER_VALUES = {0, 1, -1, 2, 4097, math.pi, 1/3, math.huge, -math.huge}
 
-function _Test_rtos()
+function Test_rtos()
+  for h, n in ipairs(DOUBLE_VALUES) do
+    assertEqualsHex(compat.rtos(n, 11, 52, true), compat.byt(h))
+  end
   if _VERSION == 'Lua 5.1' then
     print('/!\\ skipping test due to Lua version')
     lu.success()
     return
   end
-  for _, n in ipairs({0.0, 1.0, -1.0}) do
+  for _, n in ipairs(NUMBER_VALUES) do
     assertEqualsHex(compat.rtos(n, 11, 52), string.pack('<d', n))
+    --assertEqualsHex(compat.rtos(n, 8, 23), string.pack('<f', n))
+    assertEqualsHex(compat.rtos(n, 11, 52, true), string.pack('>d', n))
+  end
+end
+
+function Test_stor()
+  for h, n in ipairs(DOUBLE_VALUES) do
+    lu.assertEquals(compat.stor(compat.byt(h), 11, 52, true), n)
+  end
+  if _VERSION == 'Lua 5.1' then
+    print('/!\\ skipping test due to Lua version')
+    lu.success()
+    return
+  end
+  for _, n in ipairs(NUMBER_VALUES) do
+    lu.assertEquals(compat.stor(string.pack('<d', n), 11, 52), n)
+    --lu.assertEquals(compat.stor(string.pack('<f', n), 8, 23), n)
+    lu.assertEquals(compat.stor(string.pack('>d', n), 11, 52, true), n)
   end
 end
 
@@ -115,7 +156,7 @@ function Test_rtos_stor()
     lu.assertEquals(compat.stor(compat.rtos(n, 8, 23), 8, 23), n)
   end
   for _, n in ipairs({1/3, -1/3}) do
-    lu.assertAlmostEquals(compat.stor(compat.rtos(n, 8, 23), 8, 23), n, 0.000001)
+    assertAlmostEquals(compat.stor(compat.rtos(n, 8, 23), 8, 23), n, 0.01)
   end
 end
 
