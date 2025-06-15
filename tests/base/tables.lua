@@ -350,6 +350,14 @@ function Test_getSchemaValue_object()
   lu.assertEquals(getSchemaValueOrFail(schema, {name = 'Cup'}, true), {name = 'Cup', count = 1, available = false})
   lu.assertEquals(getSchemaValueOrFail(schema, {}, true), {name = 'Def', count = 1, available = false})
   getSchemaValueError(schema, {name = {}})
+  lu.assertEquals(getSchemaValueOrFail({
+    type = 'object',
+    properties = {
+      props = {
+        type = 'object'
+      }
+    }
+  }, {}, true), {})
 end
 
 function Test_getSchemaValue_object_additionalProperties()

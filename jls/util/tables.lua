@@ -907,7 +907,7 @@ local function getSchemaValue(rootSchema, schema, value, populate, onError, path
     end
     local t = {}
     if schemaType == 'array' then
-      local itemSchema = schema.items
+      local itemSchema = schema.items -- TODO prefixItems
       for i, v in ipairs(value) do
         if itemSchema then
           local sv, err = getSchemaValue(rootSchema, itemSchema, v, populate, onError, path..'['..tostring(i)..']')
@@ -952,13 +952,16 @@ local function getSchemaValue(rootSchema, schema, value, populate, onError, path
             elseif propertySchema.const ~= nil then
               t[k] = propertySchema.const
             elseif propertySchema.type == 'object' then
-              t[k] = getSchemaValue(rootSchema, propertySchema, {}, populate, returnNil, path)
+              local v = getSchemaValue(rootSchema, propertySchema, {}, populate, returnNil, path)
+              if type(v) == 'table' and next(v) ~= nil then
+                t[k] = v
+              end
             end
           end
         end
       end
     end
-    if populate then
+    if populate and next(t) ~= nil then
       return t
     end
     return value
