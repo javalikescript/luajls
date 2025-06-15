@@ -161,13 +161,17 @@ function Test_rtos_stor()
 end
 
 function Test_spack()
-  --print('\n'..hex.encode('\1\0\1\0\0\0\1a\0')..'\n'..hex.encode(compat.spack('>BI2I4c2', 1, 1, 1, 'a')))
+  --print('\n'..compat.hex('\1\0\1\0\0\0\1a\0')..'\n'..compat.hex(compat.spack('>BI2I4c2', 1, 1, 1, 'a')))
   lu.assertEquals(compat.spack('>BI2I4c2', 1, 1, 1, 'ab'), '\1\0\1\0\0\0\1ab')
 end
 
 function Test_sunpack()
   --print('sunpack', compat.sunpack('>BI2I4c2', '\1\0\1\0\0\0\1a\0'))
   lu.assertEquals(compat.pack(compat.sunpack('>BI2I4c2', '\1\0\1\0\0\0\1ab')), {n = 5, 1, 1, 1, 'ab', 10})
+end
+
+function Test_spacksize()
+  lu.assertEquals(compat.spacksize('>BI2I4c2fdn'), 29)
 end
 
 function Test_uchar()

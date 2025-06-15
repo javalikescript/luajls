@@ -158,6 +158,12 @@ function compat.stoi(v, n, be, init)
   return r
 end
 
+local pointersize = 8
+if #string.match(tostring({}), ': (.*)$') == 8 then
+  pointersize = 4
+end
+local nativesize = pointersize
+
 local maxinteger = 1
 while maxinteger + 1 > maxinteger and 2 * maxinteger > maxinteger do
   maxinteger = maxinteger * 2
@@ -169,7 +175,6 @@ else
   maxinteger = 2 * maxinteger - 1
   mininteger = -maxinteger - 1
 end
-
 
 compat.maxinteger = maxinteger
 compat.mininteger = mininteger
@@ -345,6 +350,8 @@ local option_aliases = {
   J = {o = 'I', n = 8}, -- lua_Unsigned
   T = {o = 'I', n = 8}, -- unsigned size_t
   n = {o = 'd', n = 8}, -- lua_Number
+  d = {o = 'd', n = 8}, -- double (native size)
+  f = {o = 'f', n = 4}, -- float (native size)
 }
 
 local function mapPack(fmt, fn)
@@ -400,7 +407,7 @@ function compat.spack(fmt, ...)
     elseif o == 'f' then
       -- Single-precision floating-point
       return compat.rtos(v, 8, 23, be)
-    elseif o == 'd' or o == 'n' then
+    elseif o == 'd' then
       -- Double-precision floating-point
       return compat.rtos(v, 11, 52, be)
     elseif o == 'c' then
@@ -447,7 +454,7 @@ function compat.sunpack(fmt, s, pos)
         return compat.sign(compat.stoi(s, n, be, j), n)
       elseif o == 'f' then
         return compat.stor(s, 8, 23, be, j)
-      elseif o == 'd' or o == 'n' then
+      elseif o == 'd' then
         return compat.stor(s, 11, 52, be, j)
       elseif o == 'x' then
         return nil
@@ -481,6 +488,7 @@ function compat.format(fmt, ...)
   -- Each conversion specification is introduced by the character %, and ends with a conversion specifier.
   -- In between there may be (in this order) zero or more flags, an optional minimum field width, an optional precision and an optional length modifier.
   local i = 1
+  -- TODO The option p is not supported in 5.1
   for c in string.gmatch(fmt, '%%[#0%-%+ ]*[0-9]*%.?[0-9]*[hlLqjzt]*([diouxXeEfFgGaAcspn])') do
     local value = values[i]
     if c == 's' and type(value) ~= 'string' then
