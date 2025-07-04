@@ -359,9 +359,9 @@ local function mapPack(fmt, fn)
   local mal = 1
   local i = 1
   local t = {}
-  for o, ns in string.gmatch(fmt, "([^0-9])([0-9]*)") do
-    local a = option_aliases[o]
-    local n = 1
+  for oo, ns in string.gmatch(fmt, "([^0-9])([0-9]*)") do
+    local a = option_aliases[oo]
+    local o, n = oo, 1
     if a then
       o, n = a.o, a.n
     end

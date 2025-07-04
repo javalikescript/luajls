@@ -13,8 +13,9 @@ local ProxyHandler = require('jls.lang.class').create(ProxyHttpHandler, function
     local t = {}
     local file = filename and io.open(filename)
     if file then
-      for line in file:lines('l') do
-        if line ~= '' then
+      for l in file:lines('l') do
+        if l ~= '' then
+          local line = l
           --local isPattern = string.match(line, '[%*%+]') ~= nil
           if not string.match(line, '^%^') then
             line = string.gsub(line, '([%^%$%(%)%%%.%[%]%-%?])', '%%%1')
