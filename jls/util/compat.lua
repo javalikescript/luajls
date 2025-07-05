@@ -248,13 +248,18 @@ function compat.frexp(n)
   else
     s = string.sub(s, 3, op - 1)
   end
-  if neg then
-    return -tonumber(s, 16), p
+  local m = tonumber(s, 16)
+  while m >= 1 do
+    m = m / 2
+    p = p + 1
   end
-  return tonumber(s, 16), p
+  if neg then
+    return -m, p
+  end
+  return m, p
 end
 if math.frexp then
-  compat.frexp = math.frexp
+  compat.frexp = math.frexp -- not available in 5.5
 end
 
 local function c2h(c)
