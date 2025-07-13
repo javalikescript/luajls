@@ -11,6 +11,7 @@ local HttpServer = require('jls.net.http.HttpServer')
 local HttpClient = require('jls.net.http.HttpClient')
 local Date = require('jls.util.Date')
 local File = require('jls.io.File')
+local tables = require('jls.util.tables')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
@@ -219,8 +220,7 @@ function Test_rest()
   lu.assertEquals(shift(responses):getBody(), 'delay done')
 end
 
-function Test_file()
-  local tmpDir = getTmpDir()
+local function testFile(httpServer, fetchOptions, checkFn)
   local responses = {}
   local url
   local content = '123456789 123456789 123456789 Hello World !'
@@ -228,10 +228,17 @@ function Test_file()
   local fetchCount = 0
   local function addFetch(resource, options)
     fetchCount = fetchCount + 1
+    if fetchOptions then
+      if options then
+        options = tables.merge(tables.deepCopy(fetchOptions), options)
+      else
+        options = fetchOptions
+      end
+    end
     return fetch(httpClient, resource, options, responses)
   end
-  local httpServer = HttpServer:new()
-  httpServer:createContext('/(.*)', FileHttpHandler:new(tmpDir, 'rwl'))
+  local nextMinute = Date:new(system.currentTimeMillis() + 60000):toRFC822String(true)
+  local prevMinute = Date:new(system.currentTimeMillis() - 60000):toRFC822String(true)
   httpServer:bind('::', 0):next(function()
     local port = select(2, httpServer:getAddress())
     url = 'http://127.0.0.1:'..tostring(port)
@@ -243,17 +250,12 @@ function Test_file()
   end):next(function()
     return addFetch('/file.txt')
   end):next(function()
-    return addFetch('/file.txt', {
-      headers = {
-        ['If-Modified-Since'] = Date:new(system.currentTimeMillis() + 60000):toRFC822String(true),
-      }
-    })
+    if type(checkFn) == 'function' then
+      checkFn('file.txt', content)
+    end
+    return addFetch('/file.txt', { headers = { ['If-Modified-Since'] = nextMinute } })
   end):next(function()
-    return addFetch('/file.txt', {
-      headers = {
-        ['If-Modified-Since'] = Date:new(system.currentTimeMillis() - 60000):toRFC822String(true),
-      }
-    })
+    return addFetch('/file.txt', { headers = { ['If-Modified-Since'] = prevMinute } })
   end):next(function()
     return addFetch('/file.txt', { headers = { Range = 'bytes=0-' } })
   end):next(function()
@@ -300,7 +302,63 @@ function Test_file()
   assertReponse(shift(responses), 200, '') -- HEAD
   assertReponse(shift(responses), 200) -- DELETE
   assertReponse(shift(responses), 404)
+end
+
+function Test_file()
+  local tmpDir = getTmpDir()
+  local handler = FileHttpHandler:new(tmpDir, 'rwl')
+  local httpServer = HttpServer:new()
+  httpServer:createContext('/(.*)', handler)
+  testFile(httpServer)
   tmpDir:deleteRecursive()
+end
+
+local function testFileSession(key)
+  local SessionHttpFilter = require('jls.net.http.filter.SessionHttpFilter')
+  local CipherFileSystem = require('jls.net.http.handler.CipherFileSystem')
+  local HttpSession = require('jls.net.http.HttpSession')
+
+  local tmpDir = getTmpDir()
+  local handler = FileHttpHandler:new(tmpDir, 'rwl')
+  handler:setFileSystem(CipherFileSystem:new())
+  local sessionId = 'test'
+  local time = system.currentTimeMillis()
+  local session = HttpSession:new(sessionId, time)
+  if key then
+    session:setAttribute('jls-cipher-key', key)
+  end
+  local sessionFilter = SessionHttpFilter:new()
+  sessionFilter:addSessions({session})
+  local httpServer = HttpServer:new()
+  httpServer:createContext('/(.*)', handler)
+  httpServer:addFilter(sessionFilter)
+  local files
+  testFile(httpServer, { headers = { Cookie = 'jls-session-id='..sessionId } }, function()
+    files = {}
+    for _, file in ipairs(tmpDir:listFiles()) do
+      table.insert(files, {
+        name = file:getName(),
+        content = file:readAll()
+      })
+    end
+  end)
+  tmpDir:deleteRecursive()
+  return files
+end
+
+function Test_file_cipher()
+  local files = testFileSession()
+  lu.assertEquals(#files, 1)
+  lu.assertEquals(files[1].name, 'file.txt')
+  lu.assertStrContains(files[1].content, 'Hello')
+end
+
+function Test_file_cipher()
+  local files = testFileSession('a key')
+  lu.assertEquals(#files, 1)
+  lu.assertStrContains(files[1].name, '.enc')
+  lu.assertNotStrContains(files[1].name, 'file')
+  lu.assertNotStrContains(files[1].content, 'Hello')
 end
 
 function Test_proxy()

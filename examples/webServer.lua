@@ -322,191 +322,25 @@ end
 
 if config.cipher and config.cipher.enabled then
   local SessionHttpFilter = require('jls.net.http.filter.SessionHttpFilter')
-  local FileDescriptor = require('jls.io.FileDescriptor')
-  local Codec = require('jls.util.Codec')
-  local base64 = Codec.getInstance('base64', 'safe', false)
-  local headerFormat = '>c2I8I8'
-  local headerSize = string.packsize(headerFormat)
-  local extension = config.cipher.extension
+  local CipherFileSystem = require('jls.net.http.handler.CipherFileSystem')
   httpServer:addFilter(SessionHttpFilter:new())
   queryHandler['key'] = function(exchange)
     if HttpExchange.methodAllowed(exchange, 'PUT') then
-      local session = exchange:getSession()
       local request = exchange:getRequest()
       request:bufferBody()
       return request:consume():next(function()
         local key = exchange:getRequest():getBody()
-        if key == '' then
-          session:setAttribute('cipher')
-          session:setAttribute('mdCipher')
-        else
-          session:setAttribute('cipher', Codec.getInstance('cipher', config.cipher.alg, key))
-          session:setAttribute('mdCipher', Codec.getInstance('cipher', 'aes256', key))
+        local session = exchange:getSession()
+        if session then
+          session:setAttribute('jls-cipher-key', key ~= '' and key or nil)
         end
         HttpExchange.ok(exchange)
       end)
     end
     return false
   end
+  handler:setFileSystem(CipherFileSystem:new(config.cipher.alg, not config.cipher.filter, config.cipher.extension))
   table.insert(htmlHeaders, '<a href="#" onclick="askKey(event)" class="action" title="Set the cipher key">&#x1F511;</a>')
-  local function generateEncName(mdCipher, name)
-    -- the same plain name must result to the same encoded name
-    return base64:encode(mdCipher:encode('\7'..name))..'.'..extension
-  end
-  local function getNameExt(name)
-    return string.match(name, '^([%w%-_%+/]+)%.(%w+)$')
-  end
-  local function readEncFileMetadata(mdCipher, encFile)
-    local bname, ext = getNameExt(encFile:getName())
-    if bname and ext == extension then
-      local cname = base64:decodeSafe(bname)
-      if cname then
-        local name = mdCipher:decodeSafe(cname)
-        if name and string.byte(name, 1) == 7 then
-          return {
-            name = string.sub(name, 2),
-            size = encFile:length() - headerSize, -- possibly incorrect
-            time = encFile:lastModified(),
-          } -- we could read the header to check the signature and get the size
-        end
-      end
-    end
-  end
-  local function getEncFileMetadata(mdCipher, file, full)
-    local dir = file:getParentFile()
-    if dir then
-      local name = file:getName()
-      local encFile = File:new(dir, generateEncName(mdCipher, name))
-      if encFile:isFile() then
-        local md = {
-          name = name,
-          time = encFile:lastModified(),
-          encFile = encFile,
-        }
-        if not full then
-          return md
-        end
-        local fd = FileDescriptor.openSync(encFile, 'r')
-        if fd then
-          local header = fd:readSync(headerSize)
-          fd:closeSync()
-          if header then
-            local sig, size, salt = string.unpack(headerFormat, header)
-            if sig == 'EC' then
-              md.size = size
-              md.salt = salt
-              return md
-            end
-          end
-        end
-      end
-    end
-  end
-  local function getIv(salt, ctr)
-    return string.pack('>I8I8', salt, ctr or 0)
-  end
-
-  local fs = handler:getFileSystem()
-  handler:setFileSystem({
-    getFileMetadata = function(exchange, file)
-      local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if mdCipher and not file:isDirectory() then
-        return getEncFileMetadata(mdCipher, file, true)
-      end
-      return fs.getFileMetadata(exchange, file)
-    end,
-    listFileMetadata = function(exchange, dir)
-      local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if mdCipher and dir:isDirectory() then
-        local files = {}
-        for _, file in ipairs(dir:listFiles()) do
-          local md
-          if file:isDirectory() then
-            md = fs.getFileMetadata(exchange, file)
-            md.name = file:getName()
-          else
-            md = readEncFileMetadata(mdCipher, file)
-          end
-          if md then
-            table.insert(files, md)
-          end
-        end
-        return files
-      end
-      local files = fs.listFileMetadata(exchange, dir)
-      if config.cipher.filter then
-        return List.filter(files, function(md)
-          local _, ext = getNameExt(md.name)
-          return ext ~= extension
-        end)
-      end
-      return files
-    end,
-    createDirectory = fs.createDirectory,
-    copyFile = function(exchange, file, destFile)
-      local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if mdCipher then
-        local md = getEncFileMetadata(mdCipher, file)
-        if md then
-          file = md.encFile
-          destFile = File:new(destFile:getParent(), generateEncName(mdCipher, destFile:getName()))
-        end
-      end
-      return fs.copyFile(exchange, file, destFile)
-    end,
-    renameFile = function(exchange, file, destFile)
-      local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if mdCipher then
-        local md = getEncFileMetadata(mdCipher, file)
-        if md then
-          return md.encFile:renameTo(File:new(file:getParent(), generateEncName(mdCipher, destFile:getName())))
-        end
-      end
-      return fs.renameFile(exchange, file, destFile)
-    end,
-    deleteFile = function(exchange, file, recursive)
-      local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if mdCipher then
-        local md = getEncFileMetadata(mdCipher, file)
-        if md then
-          file = md.encFile
-        end
-      end
-      return fs.deleteFile(exchange, file, recursive)
-    end,
-    setFileStreamHandler = function(exchange, file, sh, md, offset, length)
-      local cipher = exchange:getSession():getAttribute('cipher')
-      logger:fine('setFileStreamHandler(..., %s, %s)', offset, length)
-      if cipher then
-        if not (md and md.encFile and md.salt) then
-          error('metadata are missing')
-        end
-        -- curl -o file -r 0- http://localhost:8000/file
-        sh, offset, length = cipher:decodeStreamPart(sh, getIv(md.salt), offset, length)
-        logger:fine('cipher:decodeStreamPart(0x%x) => %s, %s', md.salt, offset, length)
-        offset = headerSize + (offset or 0)
-        file = md.encFile
-      end
-      fs.setFileStreamHandler(exchange, file, sh, md, offset, length)
-    end,
-    getFileStreamHandler = function(exchange, file, ...)
-      local cipher = exchange:getSession():getAttribute('cipher')
-      local mdCipher = exchange:getSession():getAttribute('mdCipher')
-      if cipher and mdCipher then
-        local size = exchange:getRequest():getContentLength()
-        if not size then
-          error('content length is missing')
-        end
-        local encFile = File:new(file:getParent(), generateEncName(mdCipher, file:getName()))
-        local sh = fs.getFileStreamHandler(exchange, encFile, ...)
-        local salt = math.random(0, 0xffffffff)
-        sh:onData(string.pack(headerFormat, 'EC', size, salt))
-        logger:fine('cipher:encodeStreamPart(%d, 0x%x)', size, salt)
-        return cipher:encodeStreamPart(sh, getIv(salt))
-      end
-      return fs.getFileStreamHandler(exchange, file, ...)
-    end,
-  })
 end
 
 if config.websocket.enabled then

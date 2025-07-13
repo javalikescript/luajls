@@ -7,61 +7,11 @@ local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
 local Path = require('jls.io.Path')
 local File = require('jls.io.File')
-local FileStreamHandler = require('jls.io.streams.FileStreamHandler')
 local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
 local HttpExchange = require('jls.net.http.HttpExchange')
-local Url = require('jls.net.Url')
 local json = require('jls.util.json')
-
-local function getFileMetadata(file, name)
-  return {
-    isDir = file:isDirectory(),
-    size = file:length(),
-    time = file:lastModified(),
-    name = name,
-  }
-end
-
-local FS = {
-  getFileMetadata = function(exchange, file)
-    if file:exists() then
-      return getFileMetadata(file)
-    end
-  end,
-  listFileMetadata = function(exchange, dir)
-    local files = {}
-    for _, file in ipairs(dir:listFiles()) do
-      local name = file:getName()
-      if string.find(name, '^[^%.]') then
-        table.insert(files, getFileMetadata(file, name))
-      end
-    end
-    return files
-  end,
-  createDirectory = function(exchange, file)
-    return file:mkdir()
-  end,
-  copyFile = function(exchange, file, destFile)
-    return file:copyTo(destFile)
-  end,
-  renameFile = function(exchange, file, destFile)
-    return file:renameTo(destFile)
-  end,
-  deleteFile = function(exchange, file, recursive)
-    if recursive then
-      return file:deleteRecursive()
-    end
-    return file:delete()
-  end,
-  setFileStreamHandler = function(exchange, file, sh, md, offset, length)
-    FileStreamHandler.read(file, sh, offset, length)
-  end,
-  getFileStreamHandler = function(exchange, file, time)
-    return FileStreamHandler:new(file, true, function()
-      file:setLastModified(time)
-    end, nil, true)
-  end,
-}
+local Url = require('jls.net.Url')
+local DefaultFileSystem = require('jls.net.http.handler.DefaultFileSystem')
 
 --- A FileHttpHandler class.
 -- @type FileHttpHandler
@@ -79,7 +29,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     else
       self.defaultFile = 'index.html'
     end
-    self.fs = FS
+    self.fs = DefaultFileSystem:new()
     self.cacheControl = 0
     if type(permissions) ~= 'string' then
       permissions = 'r'
@@ -116,13 +66,13 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   end
 
   function fileHttpHandler:setFileSystem(fs)
-    self.fs = fs or FS
+    self.fs = fs or DefaultFileSystem:new()
     return self
   end
 
   function fileHttpHandler:handleGetDirectory(exchange, dir)
     local response = exchange:getResponse()
-    local files = self.fs.listFileMetadata(exchange, dir)
+    local files = self.fs:listFileMetadata(exchange, dir)
     local body = ''
     local request = exchange:getRequest()
     if request:hasHeaderValue(HTTP_CONST.HEADER_ACCEPT, HttpExchange.CONTENT_TYPES.json) then
@@ -191,7 +141,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       end
       response:onWriteBodyStreamHandler(function()
         local sh = response:getBodyStreamHandler()
-        self.fs.setFileStreamHandler(exchange, file, sh, md, offset, length)
+        self.fs:setFileStreamHandler(exchange, file, sh, md, offset, length)
       end)
     end
   end
@@ -199,11 +149,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
   function fileHttpHandler:receiveFile(exchange, file)
     local request = exchange:getRequest()
     local time = tonumber(request:getHeader('jls-last-modified'))
-    request:setBodyStreamHandler(self.fs.getFileStreamHandler(exchange, file, time))
+    request:setBodyStreamHandler(self.fs:getFileStreamHandler(exchange, file, time))
   end
 
   function fileHttpHandler:handleGetHeadFile(exchange, file)
-    local md = self.fs.getFileMetadata(exchange, file)
+    local md = self.fs:getFileMetadata(exchange, file)
     if md then
       if md.isDir then
         if self.allowList then
@@ -241,7 +191,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
       if self.allowUpdate or not file:exists() then
         if isDirectoryPath then
-          self.fs.createDirectory(exchange, file) -- TODO Handle errors
+          self.fs:createDirectory(exchange, file) -- TODO Handle errors
         else
           self:receiveFile(exchange, file)
         end
@@ -250,7 +200,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
         HttpExchange.forbidden(exchange)
       end
     elseif method == HTTP_CONST.METHOD_DELETE and self.allowDelete then
-      self.fs.deleteFile(exchange, file, self.allowDeleteRecursive) -- TODO Handle errors
+      self.fs:deleteFile(exchange, file, self.allowDeleteRecursive) -- TODO Handle errors
       HttpExchange.ok(exchange)
     elseif method == 'MOVE' and self.allowCreate and self.allowDelete then
       local request = exchange:getRequest()
@@ -262,7 +212,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(fil
       local destPath = exchange:getContext():getArguments(destination)
       if destPath then
         local destFile = self:findFile(exchange, destPath)
-        self.fs.renameFile(exchange, file, destFile)
+        self.fs:renameFile(exchange, file, destFile)
         HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Moved')
       else
         HttpExchange.badRequest(exchange)

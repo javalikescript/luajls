@@ -94,7 +94,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
       table.insert(multistatus, getFileResponse(propfind, md, baseHref, false))
     end
     if string.find(depth, '^1') and md.isDir then
-      local list = self.fs.listFileMetadata(exchange, file)
+      local list = self.fs:listFileMetadata(exchange, file)
       for _, cmd in ipairs(list) do
         table.insert(multistatus, getFileResponse(propfind, cmd, baseHref, true))
       end
@@ -111,7 +111,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     local method = exchange:getRequestMethod()
     local request = exchange:getRequest()
     if method == 'PROPFIND' then
-      local md = self.fs.getFileMetadata(exchange, file)
+      local md = self.fs:getFileMetadata(exchange, file)
       if md then
         if request:getBodyLength() > 0 then
           request:bufferBody()
@@ -140,10 +140,10 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
       response:setHeader('DAV', 1)
       response:setBody('')
     elseif method == 'MKCOL' then
-      if self.fs.getFileMetadata(exchange, file) then
+      if self.fs:getFileMetadata(exchange, file) then
         HttpExchange.response(exchange, HTTP_CONST.HTTP_CONFLICT, 'Conflict, already exists')
       else
-        if self.fs.createDirectory(exchange, file) then
+        if self.fs:createDirectory(exchange, file) then
           HttpExchange.ok(exchange, HTTP_CONST.HTTP_CREATED, 'Created')
         else
           HttpExchange.badRequest(exchange)
@@ -162,17 +162,17 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
       if destPath then
         logger:fine('destPath: %s', destPath)
         local destFile = self:findFile(exchange, destPath)
-        if self.fs.getFileMetadata(exchange, destFile) and not overwrite then
+        if self.fs:getFileMetadata(exchange, destFile) and not overwrite then
           HttpExchange.response(exchange, HTTP_CONST.HTTP_PRECONDITION_FAILED, 'Already exists')
         elseif method == 'COPY' then
           if file:isFile() then
-            self.fs.copyFile(exchange, file, destFile)
+            self.fs:copyFile(exchange, file, destFile)
             HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Copied')
           else
             HttpExchange.badRequest(exchange)
           end
         elseif method == 'MOVE' then
-          self.fs.renameFile(exchange, file, destFile)
+          self.fs:renameFile(exchange, file, destFile)
           HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Moved')
         end
       else

@@ -257,7 +257,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
         request:hasHeaderValue(acceptHdr, HttpExchange.CONTENT_TYPES.txt)) then
       return super.handleGetDirectory(self, exchange, dir)
     end
-    local files = self.fs.listFileMetadata(exchange, dir)
+    local files = self.fs:listFileMetadata(exchange, dir)
     local basePath = exchange:getContext():getBasePath()
     local buffer = StringBuffer:new()
     buffer:append('<!DOCTYPE html><html><head><meta charset="UTF-8" />\n')
