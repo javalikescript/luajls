@@ -78,27 +78,29 @@ return require('jls.lang.class').create('jls.net.http.handler.DefaultFileSystem'
     self.mdAlg = 'aes256'
     self.showEncoded = showEncoded == true
     self.extension = extension or 'enc'
+    self.keyName = 'jls-cipher-key'
+    self.contextName = 'jls-cipher-context'
   end
 
   function fileSystem:getCipher(exchange, key)
     local session = exchange:getSession()
     if session then
-      local cipherKey = session:getAttribute('jls-cipher-key')
+      local cipherKey = session:getAttribute(self.keyName)
       if cipherKey then
-        local cipherContext = session:getAttribute('jls-cipher-context')
+        local cipherContext = session:getAttribute(self.contextName)
         if not cipherContext then
           cipherContext = {
             cipher = Codec.getInstance('cipher', self.alg, cipherKey),
             mdCipher = Codec.getInstance('cipher', self.mdAlg, cipherKey)
           }
-          session:setAttribute('jls-cipher-context', cipherContext)
+          session:setAttribute(self.contextName, cipherContext)
         end
         if key then
           return cipherContext[key]
         end
         return cipherContext.cipher, cipherContext.mdCipher
       else
-        session:setAttribute('jls-cipher-context')
+        session:setAttribute(self.contextName)
       end
     end
   end
