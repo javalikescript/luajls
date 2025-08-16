@@ -115,6 +115,10 @@ function Http1.readBody(tcp, message, buffer, callback)
       return promise
     end
   end
+  if not tcp then
+    cb('tcp is nil')
+    return promise
+  end
   local readState = 0
   -- after that we know that we have something to read from the client
   local sh = StreamHandler:new(function(err, data)
