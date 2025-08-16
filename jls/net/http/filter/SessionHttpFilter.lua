@@ -43,6 +43,17 @@ return class.create('jls.net.http.HttpFilter', function(filter)
   function filter:onDestroyed(session)
   end
 
+  function filter:changeSessionId(session, exchange)
+    self.sessions[session:getId()] = nil
+    local sessionId = self:generateId()
+    session.id = sessionId
+    self.sessions[sessionId] = session
+    if exchange then
+      local response = exchange:getResponse()
+      response:setCookie(self.name, sessionId, self.options)
+    end
+  end
+
   local function computeMinTime(time, timeout)
     if timeout <= 0 then
       return -1
