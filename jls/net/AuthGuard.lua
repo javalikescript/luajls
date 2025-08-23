@@ -117,29 +117,32 @@ return class.create(function(authGuard)
   function authGuard:onUserBlocked(user)
   end
 
-  function authGuard:denyUser(user)
+  function authGuard:getUserInfo(user, time)
     local info = self.infoByUser[user]
-    if info then
-      local failures = (info.failures or 0) + 1
-      info.failures = failures
-      if failures >= self.maxFailures then
-        info.blocked = true
-        logger:fine('User %s blocked, too much failed authentications', user)
-        self:onUserBlocked(user)
-      end
+    if not info then
+      info = {
+        ips = {},
+        since = time or system.currentTime()
+      }
+      self.infoByUser[user] = info
+    end
+    return info
+  end
+
+  function authGuard:denyUser(user)
+    local info = self:getUserInfo(user)
+    local failures = (info.failures or 0) + 1
+    info.failures = failures
+    if failures >= self.maxFailures then
+      info.blocked = true
+      logger:fine('User %s blocked, too much failed authentications', user)
+      self:onUserBlocked(user)
     end
   end
 
   function authGuard:grantUser(user, exchange)
     local time = system.currentTime()
-    local info = self.infoByUser[user]
-    if not info then
-      info = {
-        ips = {},
-        since = time
-      }
-      self.infoByUser[user] = info
-    end
+    local info = self:getUserInfo(user, time)
     if info.blocked then
       return false
     end
