@@ -193,27 +193,27 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     return path
   end
 
-  function htmlFileHttpHandler:appendFileHtmlBody(buffer, file)
-    buffer:append('<a href="', Url.encodeURIComponent(file.link or file.name))
-    if file.isDir then
+  function htmlFileHttpHandler:appendFileHtmlBody(buffer, md)
+    buffer:append('<a href="', Url.encodeURIComponent(md.link or md.name))
+    if md.isDir then
       buffer:append('/')
     end
     buffer:append('" title="')
     local sep = ''
-    if file.time then
-      buffer:append(Date.iso(file.time, true))
+    if md.time then
+      buffer:append(Date.iso(md.time, true))
       sep = ' '
     end
-    if file.size then
-      buffer:append(sep, file.size, ' bytes')
+    if md.size then
+      buffer:append(sep, md.size, ' bytes')
     end
     buffer:append('" class="')
-    if file.isDir then
+    if md.isDir then
       buffer:append('dir')
     else
       buffer:append('file')
     end
-    buffer:append('">', file.name, '</a>\n')
+    buffer:append('">', md.name, '</a>\n')
   end
 
   function htmlFileHttpHandler:appendDirectoryHtmlActions(exchange, buffer)
@@ -257,7 +257,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
         request:hasHeaderValue(acceptHdr, HttpExchange.CONTENT_TYPES.txt)) then
       return super.handleGetDirectory(self, exchange, dir)
     end
-    local files = self.fs:listFileMetadata(exchange, dir)
+    local files = self:listFileMetadata(exchange, dir)
     local basePath = exchange:getContext():getBasePath()
     local buffer = StringBuffer:new()
     buffer:append('<!DOCTYPE html><html><head><meta charset="UTF-8" />\n')

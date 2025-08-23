@@ -80,7 +80,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     self.allowList = false
   end
 
-  function webDavHttpHandler:handlePropFind(exchange, file, md, propfind)
+  function webDavHttpHandler:handlePropFind(exchange, file, propfind)
     local request = exchange:getRequest()
     -- "0", "1", or "infinity" optionally suffixed ",noroot"
     local depth = request:getHeader('depth') or 'infinity'
@@ -91,12 +91,12 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     --response:setHeader('Content-Location', 'http://'..host..baseHref)
     local multistatus = {name = 'multistatus'}
     if not string.find(depth, ',noroot$') then
-      table.insert(multistatus, getFileResponse(propfind, md, baseHref, false))
+      table.insert(multistatus, getFileResponse(propfind, FileHttpHandler.toFileMetadata(file), baseHref, false))
     end
-    if string.find(depth, '^1') and md.isDir then
-      local list = self.fs:listFileMetadata(exchange, file)
-      for _, cmd in ipairs(list) do
-        table.insert(multistatus, getFileResponse(propfind, cmd, baseHref, true))
+    if string.find(depth, '^1') and file:isDirectory() then
+      local list = self:listFileMetadata(exchange, file)
+      for _, md in ipairs(list) do
+        table.insert(multistatus, getFileResponse(propfind, md, baseHref, true))
       end
     end
     local body = xml.encode(xml.setNamespace(multistatus, 'DAV:', 'D'))
@@ -111,8 +111,7 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
     local method = exchange:getRequestMethod()
     local request = exchange:getRequest()
     if method == 'PROPFIND' then
-      local md = self.fs:getFileMetadata(exchange, file)
-      if md then
+      if file:exists() then
         if request:getBodyLength() > 0 then
           request:bufferBody()
           return request:consume():next(function()
@@ -125,10 +124,10 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
             if t.name == 'propfind' then
               propfind = t[1]
             end
-            self:handlePropFind(exchange, file, md, propfind)
+            self:handlePropFind(exchange, file, propfind)
           end)
         else
-          self:handlePropFind(exchange, file, md)
+          self:handlePropFind(exchange, file)
         end
       else
         HttpExchange.notFound(exchange)
@@ -140,39 +139,32 @@ return require('jls.lang.class').create(FileHttpHandler, function(webDavHttpHand
       response:setHeader('DAV', 1)
       response:setBody('')
     elseif method == 'MKCOL' then
-      if self.fs:getFileMetadata(exchange, file) then
+      if file:exists() then
         HttpExchange.response(exchange, HTTP_CONST.HTTP_CONFLICT, 'Conflict, already exists')
       else
-        if self.fs:createDirectory(exchange, file) then
-          HttpExchange.ok(exchange, HTTP_CONST.HTTP_CREATED, 'Created')
+        if file:mkdir() then
+          HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Created')
         else
           HttpExchange.badRequest(exchange)
         end
       end
     elseif method == 'COPY' or method == 'MOVE' then
-      local destination = request:getHeader('destination') or ''
       local overwrite = request:getHeader('overwrite') ~= 'F'
-      logger:fine('destination: "%s", overwrite: %s', destination, overwrite)
-      if string.find(destination, '://') then
-        destination = Url:new(destination):getPath()
-      end
-      destination = Url.decodePercent(destination)
-      logger:fine('destination: %s', destination)
-      local destPath = exchange:getContext():getArguments(destination)
+      local destPath = FileHttpHandler.getDestinationPath(exchange)
+      logger:fine('destination path: "%s", overwrite: %s', destPath, overwrite)
       if destPath then
-        logger:fine('destPath: %s', destPath)
         local destFile = self:findFile(exchange, destPath)
-        if self.fs:getFileMetadata(exchange, destFile) and not overwrite then
+        if destFile:exists() and not overwrite then
           HttpExchange.response(exchange, HTTP_CONST.HTTP_PRECONDITION_FAILED, 'Already exists')
         elseif method == 'COPY' then
           if file:isFile() then
-            self.fs:copyFile(exchange, file, destFile)
+            file:copyTo(destFile)
             HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Copied')
           else
             HttpExchange.badRequest(exchange)
           end
         elseif method == 'MOVE' then
-          self.fs:renameFile(exchange, file, destFile)
+          file:renameTo(destFile)
           HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Moved')
         end
       else

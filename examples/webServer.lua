@@ -1,8 +1,10 @@
-local logger = require('jls.lang.logger')
+local class = require('jls.lang.class')
 local event = require('jls.lang.event')
+local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
 local Promise = require('jls.lang.Promise')
 local File = require('jls.io.File')
+local Path = require('jls.io.Path')
 local HttpServer = require('jls.net.http.HttpServer')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local HttpHandler = require('jls.net.http.HttpHandler')
@@ -322,7 +324,8 @@ end
 
 if config.cipher and config.cipher.enabled then
   local SessionHttpFilter = require('jls.net.http.filter.SessionHttpFilter')
-  local CipherFileSystem = require('jls.net.http.handler.CipherFileSystem')
+  local CipherHttpFile = require('jls.net.http.handler.CipherHttpFile')
+  local extension = config.cipher.extension
   httpServer:addFilter(SessionHttpFilter:new())
   queryHandler['key'] = function(exchange)
     if HttpExchange.methodAllowed(exchange, 'PUT') then
@@ -339,7 +342,23 @@ if config.cipher and config.cipher.enabled then
     end
     return false
   end
-  handler:setFileSystem(CipherFileSystem:new(config.cipher.alg, not config.cipher.filter, config.cipher.extension))
+  local createCipherHttpFile = CipherHttpFile.getCreateHttpFilefromSession()
+  class.modifyInstance(handler, function(fileHttpHandler, super)
+    function fileHttpHandler:createHttpFile(exchange, file, isDir)
+      local hf = createCipherHttpFile(self, exchange, file, isDir)
+      if hf then
+        return hf
+      end
+      return super.createHttpFile(self, exchange, file, isDir)
+    end
+    if config.cipher.filter then
+      function fileHttpHandler:listFileMetadata(exchange, dir)
+        return List.filter(super.listFileMetadata(self, exchange, dir), function(md)
+          return Path.extractExtension(md.name) ~= extension
+        end)
+      end
+    end
+  end)
   table.insert(htmlHeaders, '<a href="#" onclick="askKey(event)" class="action" title="Set the cipher key">&#x1F511;</a>')
 end
 

@@ -5,6 +5,8 @@ local event = require('jls.lang.event')
 local Promise = require('jls.lang.Promise')
 local system = require('jls.lang.system')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
+local WebDavHttpHandler = require('jls.net.http.handler.WebDavHttpHandler')
+local CipherHttpFile = require('jls.net.http.handler.CipherHttpFile')
 local RouterHttpHandler = require('jls.net.http.handler.RouterHttpHandler')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
 local HttpServer = require('jls.net.http.HttpServer')
@@ -12,6 +14,9 @@ local HttpClient = require('jls.net.http.HttpClient')
 local Date = require('jls.util.Date')
 local File = require('jls.io.File')
 local tables = require('jls.util.tables')
+local SessionHttpFilter = require('jls.net.http.filter.SessionHttpFilter')
+local HttpSession = require('jls.net.http.HttpSession')
+local Codec = require('jls.util.Codec')
 
 local TEST_PATH = 'tests/full'
 local TMP_PATH = TEST_PATH..'/tmp'
@@ -53,12 +58,22 @@ local function shift(responses)
   return table.remove(responses, 1)
 end
 
-local function assertReponse(response, statusCode, body)
-  if statusCode then
+local function assertReponse(response, statusCode, body, headers)
+  if type(statusCode) == 'number' then
     lu.assertEquals(response:getStatusCode(), statusCode)
   end
+  if type(headers) == 'table' then
+    local responseHeaders = {}
+    for name in pairs(headers) do
+      responseHeaders[name] = response:getHeader(name)
+    end
+    lu.assertEquals(responseHeaders, headers)
+  end
+  local responseBody = response:getBody()
   if body then
-    lu.assertEquals(response:getBody(), body)
+    lu.assertEquals(responseBody, body)
+  else
+    return responseBody
   end
 end
 
@@ -220,7 +235,7 @@ function Test_rest()
   lu.assertEquals(shift(responses):getBody(), 'delay done')
 end
 
-local function testFile(httpServer, fetchOptions, checkFn)
+local function testFile(httpServer, fetchOptions, checkFn, extraFn)
   local responses = {}
   local url
   local content = '123456789 123456789 123456789 Hello World !'
@@ -246,7 +261,7 @@ local function testFile(httpServer, fetchOptions, checkFn)
   end):next(function()
     return addFetch('/file.txt')
   end):next(function()
-    return addFetch('/file.txt', { method = 'PUT', body = content, })
+    return addFetch('/file.txt', { method = 'PUT', body = content })
   end):next(function()
     return addFetch('/file.txt')
   end):next(function()
@@ -276,6 +291,10 @@ local function testFile(httpServer, fetchOptions, checkFn)
     return addFetch('/file-new.txt', { method = 'DELETE' })
   end):next(function()
     return addFetch('/file-new.txt')
+  end):next(function()
+    if type(extraFn) == 'function' then
+      return extraFn(httpClient, url)
+    end
   end):catch(function(reason)
     print('Unexpected error', reason)
   end):finally(function()
@@ -313,48 +332,103 @@ function Test_file()
   tmpDir:deleteRecursive()
 end
 
-local function testFileSession(key)
-  local SessionHttpFilter = require('jls.net.http.filter.SessionHttpFilter')
-  local CipherFileSystem = require('jls.net.http.handler.CipherFileSystem')
-  local HttpSession = require('jls.net.http.HttpSession')
+function Test_webdav()
+  local tmpDir = getTmpDir()
+  local handler = WebDavHttpHandler:new(tmpDir, 'rwl')
+  local httpServer = HttpServer:new()
+  httpServer:createContext('/(.*)', handler)
+  local content = 'A file content.'
+  local responses = {}
+  testFile(httpServer, nil, nil, function(httpClient, url)
+    return Promise.resolve():next(function()
+      return fetch(httpClient, '/', { headers = { depth = '0' }, method = 'PROPFIND' }, responses);
+    end):next(function()
+      return fetch(httpClient, '/', { method = 'OPTIONS' }, responses);
+    end):next(function()
+      return fetch(httpClient, '/a-dir/', { method = 'MKCOL' }, responses);
+    end):next(function()
+      return fetch(httpClient, '/a-dir/', { method = 'MKCOL' }, responses);
+    end):next(function()
+      return fetch(httpClient, '/a-file.txt', { method = 'PUT', body = content}, responses)
+    end):next(function()
+      return fetch(httpClient, '/a-file.txt', { headers = { destination = url..'/a-file-copy.txt' }, method = 'COPY' }, responses)
+    end):next(function()
+      return fetch(httpClient, '/a-file.txt', nil, responses)
+    end):next(function()
+      return fetch(httpClient, '/a-file-copy.txt', nil, responses)
+    end):next(function()
+      return fetch(httpClient, '/', { headers = { depth = '1' }, method = 'PROPFIND' }, responses);
+    end)
+  end)
+  lu.assertEquals(#responses, 9)
+  local body = assertReponse(shift(responses), 207)
+  lu.assertStrContains(body, 'HTTP/1.1 200 OK')
+  lu.assertStrContains(body, 'xml')
+  assertReponse(shift(responses), 200, nil, {Allow = 'OPTIONS, GET, PUT, DELETE, PROPFIND', DAV = '1'})
+  assertReponse(shift(responses), 201)
+  assertReponse(shift(responses), 409)
+  assertReponse(shift(responses), 200)
+  assertReponse(shift(responses), 201)
+  assertReponse(shift(responses), 200, content)
+  assertReponse(shift(responses), 200, content)
+  body = assertReponse(shift(responses), 207)
+  lu.assertStrContains(body, 'HTTP/1.1 200 OK')
+  lu.assertStrContains(body, '>/<')
+  lu.assertStrContains(body, '>/a-file.txt<')
+  lu.assertStrContains(body, '>/a-file-copy.txt<')
+  tmpDir:deleteRecursive()
+end
 
+local function readFiles(dir)
+  local files = {}
+  for _, file in ipairs(dir:listFiles()) do
+    table.insert(files, {
+      name = file:getName(),
+      content = file:isFile() and file:readAll()
+    })
+  end
+  return files
+end
+
+function Test_file_cipher()
   local tmpDir = getTmpDir()
   local handler = FileHttpHandler:new(tmpDir, 'rwl')
-  handler:setFileSystem(CipherFileSystem:new())
-  local sessionId = 'test'
-  local time = system.currentTimeMillis()
-  local session = HttpSession:new(sessionId, time)
-  if key then
-    session:setAttribute('jls-cipher-key', key)
+  local key = 'abc'
+  local cipher = Codec.getInstance('cipher', 'aes-128-ctr', key)
+  local mdCipher = Codec.getInstance('cipher', 'aes256', key)
+  handler.createHttpFile = function(self, exchange, file, isDir)
+    return CipherHttpFile:new(file, cipher, mdCipher, 'enc')
   end
+  local httpServer = HttpServer:new()
+  httpServer:createContext('/(.*)', handler)
+  local files
+  testFile(httpServer, nil, function()
+    files = readFiles(tmpDir)
+  end)
+  tmpDir:deleteRecursive()
+  lu.assertEquals(#files, 1)
+  lu.assertStrContains(files[1].name, '.enc')
+  lu.assertNotStrContains(files[1].name, 'file')
+  lu.assertNotStrContains(files[1].content, 'Hello')
+end
+
+function Test_file_cipher_session()
+  local tmpDir = getTmpDir()
+  local handler = FileHttpHandler:new(tmpDir, 'rwl')
+  CipherHttpFile.fromSession(handler)
   local sessionFilter = SessionHttpFilter:new()
+  local sessionId = 'test'
+  local session = HttpSession:new(sessionId, system.currentTimeMillis())
+  session:setAttribute('jls-cipher-key', 'abc')
   sessionFilter:addSessions({session})
   local httpServer = HttpServer:new()
   httpServer:createContext('/(.*)', handler)
   httpServer:addFilter(sessionFilter)
   local files
   testFile(httpServer, { headers = { Cookie = 'jls-session-id='..sessionId } }, function()
-    files = {}
-    for _, file in ipairs(tmpDir:listFiles()) do
-      table.insert(files, {
-        name = file:getName(),
-        content = file:readAll()
-      })
-    end
+    files = readFiles(tmpDir)
   end)
   tmpDir:deleteRecursive()
-  return files
-end
-
-function Test_file_cipher()
-  local files = testFileSession()
-  lu.assertEquals(#files, 1)
-  lu.assertEquals(files[1].name, 'file.txt')
-  lu.assertStrContains(files[1].content, 'Hello')
-end
-
-function Test_file_cipher()
-  local files = testFileSession('a key')
   lu.assertEquals(#files, 1)
   lu.assertStrContains(files[1].name, '.enc')
   lu.assertNotStrContains(files[1].name, 'file')
