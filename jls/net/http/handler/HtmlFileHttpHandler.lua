@@ -42,6 +42,12 @@ div.file > a.action {
 div.file:hover > a.action {
   display: initial;
 }
+span.actions {
+  right: 1rem;
+  top: 1rem;
+  position: absolute;
+  z-index: +1;
+}
 .drop:before {
   z-index: -1;
   content: '\21d1';
@@ -159,6 +165,51 @@ function enableDrag() {
 }
 ]]
 
+local SLIDE_STYLE = [[
+html {
+  height: 100%;
+}
+body {
+  height: 100%;
+  margin: 0;
+  display: block;
+  overflow: hidden;
+}
+body > div {
+  height: 1.5rem;
+  text-align: center;
+}
+body > iframe {
+  width: 100%;
+  height: calc(100% - 1.5rem);
+  border: 0;
+}
+]]
+
+local SLIDE_SCRIPT = [[
+var names = ["about:blank"];
+var index = 0;
+function show(e,d) {
+  index = (index + names.length + d) % names.length;
+  var frame = document.getElementsByName('iframe')[0];
+  var name = names[index];
+  frame.src = name;
+  document.title = '' + (index + 1) + '/' + names.length + ' - ' + decodeURIComponent(name);
+  if (e) {
+    stopEvent(e);
+  }
+}
+function adjust() {
+  var frame = document.getElementsByName('iframe')[0];
+  var doc = frame.contentDocument || frame.contentWindow.document;
+  var img = doc && doc.getElementsByTagName('img')[0];
+  if (img) {
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '100%';
+  }
+}
+]]
+
 --- A HtmlFileHttpHandler class.
 -- @type HtmlFileHttpHandler
 return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHandler, super)
@@ -168,8 +219,11 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     self.queryMap = {
       ['script.js'] = SCRIPT,
       ['style.css'] = STYLE,
+      ['slide-script.js'] = SLIDE_SCRIPT,
+      ['slide-style.css'] = SLIDE_STYLE,
     }
     self.queryPath = {}
+    self.minSlide = 1
   end
 
   function htmlFileHttpHandler:getQuery(name)
@@ -185,10 +239,15 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     local path = self.queryPath[name]
     if not path then
       local content = self.queryMap[name]
-      local md = MessageDigest.getInstance('SHA-1')
-      md:update(content)
-      path = string.format('!%s!%s', base64:encode(md:digest()), name)
-      path = Url.encodeURI(path)
+      if content then
+        local md = MessageDigest.getInstance('SHA-1')
+        md:update(content)
+        path = string.format('!%s!%s', base64:encode(md:digest()), name)
+        path = Url.encodeURI(path)
+        self.queryPath[name] = path
+      else
+        return name
+      end
     end
     return path
   end
@@ -216,10 +275,32 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     buffer:append('">', md.name, '</a>\n')
   end
 
-  function htmlFileHttpHandler:appendDirectoryHtmlActions(exchange, buffer)
+  local function isViewable(file)
+    if file.isDir or file.link then
+      return false
+    end
+    local m = FileHttpHandler.guessContentType(file.name, '')
+    local t = string.match(m, '^([^/]+)/')
+    return t == 'image' or t == 'video' or t == 'text'
+  end
+
+  local function countViewables(files)
+    local n = 0
+    for _, file in ipairs(files) do
+      if isViewable(file) then
+        n = n + 1
+      end
+    end
+    return n
+  end
+
+  function htmlFileHttpHandler:appendDirectoryHtmlActions(exchange, buffer, files)
     if self.allowCreate then
       buffer:append('<a href="#" title="Choose files to upload" class="action" onclick="browseFiles(event)">&#x2795;</a>\n')
       buffer:append('<a href="#" title="Create a folder" class="action" onclick="askDir(event)">&#x1F4C2;</a>\n')
+    end
+    if self.minSlide == 0 or countViewables(files) >= self.minSlide then
+      buffer:append('<a href="?d=slide" title="Show" class="action">&#x1f441;</a>\n')
     end
   end
 
@@ -228,8 +309,8 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     if path ~= '' then
       buffer:append('<a href=".." class="dir">..</a><br/>\n')
     end
-    buffer:append('<span style="right: 1rem; position: absolute; z-index: +1;">\n')
-    self:appendDirectoryHtmlActions(exchange, buffer)
+    buffer:append('<span class="actions">\n')
+    self:appendDirectoryHtmlActions(exchange, buffer, files)
     buffer:append('</span>\n')
     for _, file in ipairs(files) do
       buffer:append('<div class="file">\n')
@@ -249,6 +330,28 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     return buffer
   end
 
+  function htmlFileHttpHandler:appendDirectoryHtmlSlideBody(exchange, buffer, files)
+    buffer:append([[<div>
+<a href="#" title="Previous" class="action" onclick="show(event,-1)">&#x2190;</a>
+<a href="#" title="Next" class="action" onclick="show(event,1)">&#x2192;</a>
+<a href="#" title="Close" class="action" onclick="window.location = window.location.pathname" style="right: 1rem; position: absolute;">&#x2715;</a>
+</div>
+<iframe name="iframe" src="about:blank" onload="adjust()"></iframe></body>
+]])
+    local list = {}
+    for _, file in ipairs(files) do
+      if isViewable(file) then
+        table.insert(list, Url.encodeURIComponent(file.name))
+      end
+    end
+    if #list > 0 then
+      buffer:append('<script>\nnames = ["')
+      buffer:append(table.concat(list, '","'))
+      buffer:append('"];\nshow(undefined,0);\n</script>\n')
+    end
+    return buffer
+  end
+
   function htmlFileHttpHandler:handleGetDirectory(exchange, dir)
     local request = exchange:getRequest()
     local acceptHdr = HTTP_CONST.HEADER_ACCEPT
@@ -264,8 +367,15 @@ return require('jls.lang.class').create(FileHttpHandler, function(htmlFileHttpHa
     buffer:append('<meta name="viewport" content="width=device-width, initial-scale=1" />\n')
     buffer:append('<link href="', basePath, self:getQueryPath('style.css'), '" rel="stylesheet" />\n')
     buffer:append('<script src="', basePath, self:getQueryPath('script.js'), '" type="text/javascript" charset="utf-8"></script>\n')
-    buffer:append('</head><body>\n')
-    self:appendDirectoryHtmlBody(exchange, buffer, files)
+    if exchange:getRequest():getSearchParam('d') == 'slide' then
+      buffer:append('<link href="', basePath, self:getQueryPath('slide-style.css'), '" rel="stylesheet" />\n')
+      buffer:append('<script src="', basePath, self:getQueryPath('slide-script.js'), '" type="text/javascript" charset="utf-8"></script>\n')
+      buffer:append('</head><body>\n')
+      self:appendDirectoryHtmlSlideBody(exchange, buffer, files)
+    else
+      buffer:append('</head><body>\n')
+      self:appendDirectoryHtmlBody(exchange, buffer, files)
+    end
     buffer:append('</body></html>\n')
     local response = exchange:getResponse()
     response:setContentType(HttpExchange.CONTENT_TYPES.html)

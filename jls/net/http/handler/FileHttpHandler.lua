@@ -62,6 +62,18 @@ local function toFileMetadata(file)
   }
 end
 
+--- Returns the content type based on the path.
+local function guessContentType(path, def)
+  local extension
+  if type(path) == 'string' then
+    extension = Path.extractExtension(path)
+  elseif Path:isInstance(path) then
+    extension = path:getExtension()
+  end
+  extension = string.lower(extension or '')
+  return HttpExchange.CONTENT_TYPES[extension] or def or HttpExchange.CONTENT_TYPES.bin
+end
+
 --- Returns the destination header as a path in the exchange context.
 local function getDestinationPath(exchange, name)
   local request = exchange:getRequest()
@@ -119,7 +131,7 @@ return class.create('jls.net.http.HttpHandler', function(fileHttpHandler, _, Fil
   end
 
   function fileHttpHandler:getContentType(path)
-    return FileHttpHandler.guessContentType(path)
+    return guessContentType(path)
   end
 
   function fileHttpHandler:listFileMetadata(exchange, dir)
@@ -317,22 +329,11 @@ return class.create('jls.net.http.HttpHandler', function(fileHttpHandler, _, Fil
     return self:handleFile(exchange, httpFile, isDirectoryPath)
   end
 
-  function FileHttpHandler.guessContentType(path, def)
-    local extension
-    if type(path) == 'string' then
-      extension = Path.extractExtension(path)
-    elseif path then
-      extension = path:getExtension()
-    else
-      extension = ''
-    end
-    extension = string.lower(extension)
-    return HttpExchange.CONTENT_TYPES[extension] or def or HttpExchange.CONTENT_TYPES.bin
-  end
-
   FileHttpHandler.HttpFile = HttpFile
 
   FileHttpHandler.toFileMetadata = toFileMetadata
+
+  FileHttpHandler.guessContentType = guessContentType
 
   FileHttpHandler.getDestinationPath = getDestinationPath
 
