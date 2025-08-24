@@ -229,11 +229,11 @@ return class.create(function(selector)
         log('sending on %s', socket)
         local wf = context.writet[1]
         if socket.sendto then
-          local sendErr
+          local i, sendErr
           if wf.ip and wf.port then
-            _, sendErr = socket:sendto(wf.buffer, wf.ip, wf.port)
+            i, sendErr = socket:sendto(wf.buffer, wf.ip, wf.port)
           else
-            _, sendErr = socket:send(wf.buffer)
+            i, sendErr = socket:send(wf.buffer)
           end
           if sendErr then
             if sendErr == 'closed' then
