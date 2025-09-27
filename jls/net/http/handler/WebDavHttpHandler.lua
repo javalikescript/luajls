@@ -14,7 +14,7 @@ local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local function getFileResponse(propfind, md, baseHref, isChild)
   local href = baseHref
   if isChild then
-    href = href..md.name
+    href = href..Url.encodeURIComponent(md.name)
     if md.isDir then
       href = href..'/'
     end
@@ -66,7 +66,7 @@ local function getFileResponse(propfind, md, baseHref, isChild)
   end
   return {
     name = 'response',
-    {name = 'href', Url.encodeURI(href)},
+    {name = 'href', href},
     propstat,
   }
 end
