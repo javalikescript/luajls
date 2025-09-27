@@ -170,7 +170,7 @@ local function toString(buffer, node)
       end
       buffer:append('</', node.name, '>')
     else
-      buffer:append(' />')
+      buffer:append('/>')
     end
   end
 end

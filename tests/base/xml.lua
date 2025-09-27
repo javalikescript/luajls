@@ -39,7 +39,7 @@ function Test_decode_encode_2()
 end
 
 function Test_decode_encode_escaped()
-  checkEncodeDecode([[<a><b c=" &apos;1 &amp; 1&#x0a;line" /><d>"2' &amp; 2</d></a>]])
+  checkEncodeDecode([[<a><b c=" &apos;1 &amp; 1&#x0a;line"/><d>"2' &amp; 2</d></a>]])
 end
 
 local function getSampleXmlTable()
