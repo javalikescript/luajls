@@ -1,4 +1,4 @@
---[[--
+--[[-
 Protects a TCP server against unauthenticated connections.
 The authentications on new IP are detected.
 Bad authentications are monitored and user is blocked.
@@ -6,14 +6,37 @@ Connections attempts from IP without authentication are blocked.
 
 @module jls.net.AuthGuard
 @pragma nostrip
+
+@usage
+
+authGuard = AuthGuard:new()
+authGuard:guard(httpServer)
+
+-- use the guard during the login flow for granting or denying users
+local function login(exchange, user, success)
+  if success then
+    if authGuard:grantUser(user, exchange) then
+      -- ok
+    else
+      HttpExchange.forbidden(exchange)
+    end
+  else
+    authGuard:denyUser(user)
+    HttpExchange.forbidden(exchange)
+  end
+end
 ]]
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
 local system = require('jls.lang.system')
 
+--- The authentication guard class.
+-- @type AuthGuard
 return class.create(function(authGuard)
 
+  --- Creates a new authentication guard.
+  -- @function AuthGuard:new
   function authGuard:initialize()
     self.infoByUser = {}
     self.maxFailures = 5
