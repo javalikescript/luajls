@@ -12,6 +12,12 @@ SET REPLAY_LOGGER_LEVEL=warn
 SET COV=no
 SET OPTS=
 
+SET LUACOV_HOME=..\luaclibs\luacov
+SET LUACOV_PATH=%LUA_PATH%;%LUACOV_HOME%\src\?.lua;..\datafile\?.lua
+SET LUACOV_REPORT_OPTS=
+SET LUACOV_REPORT_EXT=.out
+SET LUA_PATH_BOOT=%LUA_PATH%
+
 :args
 IF _%1==_ GOTO :main
 SET ARG=%1
@@ -42,9 +48,23 @@ IF %VERBOSE%==yes (
 )
 
 IF %COV%==yes (
-  ECHO Coverage enabled
-  DEL /Q luacov.stats.out
-  SET OPTS=-lluacov
+  IF EXIST %LUACOV_HOME% (
+    ECHO Coverage enabled
+    DEL /Q luacov.stats.out
+    SET OPTS=-lluacov
+    SET LUA_PATH=%LUACOV_PATH%
+    %LUA% -e "require('datafile')" 2> NUL
+    IF ERRORLEVEL 0 (
+      SET LUACOV_REPORT_OPTS=-r html
+      SET LUACOV_REPORT_EXT=.html
+    ) ELSE (
+      ECHO Coverage HTML report disabled, module datafile not available
+    )
+    SET LUA_PATH=%LUA_PATH_BOOT%
+  ) ELSE (
+    ECHO Luacov not available at %LUACOV_HOME%
+    SET COV=no
+  )
 )
 
 IF %ALL%==yes GOTO :runall
@@ -82,6 +102,7 @@ IF %COV%==yes DEL /Q luacov.stats.out 1>NUL 2>NUL
 IF %VERBOSE%==yes ECHO JLS_REQUIRES=%JLS_REQUIRES%
 SET NAME=%1
 SET TIMESTAMP=%DATE:~6,4%%DATE:~3,2%%DATE:~0,2%%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
+SET TIMESTAMP=%TIMESTAMP: =0%
 SET TESTCOUNT=0
 SET ERRORCOUNT=0
 SET LUA_CPATH_SAVED=%LUA_CPATH%
@@ -95,9 +116,13 @@ IF %ERRORCOUNT% NEQ 0 (
   ECHO %TESTCOUNT% files passed
 )
 IF %COV%==yes (
-  ECHO Generate coverage report luacov.report.%NAME%.%TIMESTAMP%.out
-  %LUA% ../luaclibs/luacov/src/bin/luacov jls
-  REN luacov.report.out luacov.report.%NAME%.%TIMESTAMP%.out
+  ECHO Generate coverage report luacov.report.%NAME%.%TIMESTAMP%%LUACOV_REPORT_EXT%
+  SET PUBLIC=%LUACOV_HOME%
+  SET LUA_PATH=%LUACOV_PATH%
+  %LUA% %LUACOV_HOME%/src/bin/luacov %LUACOV_REPORT_OPTS% jls
+  SET LUA_PATH=%LUA_PATH_BOOT%
+  REN luacov.report.out luacov.report.%NAME%.%TIMESTAMP%%LUACOV_REPORT_EXT%
+  COPY luacov.report.%NAME%.%TIMESTAMP%%LUACOV_REPORT_EXT% luacov.report.%NAME%%LUACOV_REPORT_EXT%
 )
 GOTO :eof
 

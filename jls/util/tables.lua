@@ -88,7 +88,7 @@ function tables.stringify(value, space, lenient)
   end
   local sb = StringBuffer:new()
   local indent = ''
-  if type(space) == 'number' and space > 1 then
+  if type(space) == 'number' and space > 0 then
     indent = string.rep(' ', space)
   elseif type(space) == 'string' then
     indent = space
@@ -205,7 +205,7 @@ end
 function tables.deepEquals(a, b)
   for k, va in pairs(a) do
     local vb = b[k]
-    if not vb then
+    if vb == nil then
       return false
     end
     local vat = type(va)
@@ -221,8 +221,8 @@ function tables.deepEquals(a, b)
       return false
     end
   end
-  for k, vb in pairs(b) do
-    if not a[k] then
+  for k in pairs(b) do
+    if a[k] == nil then
       return false
     end
   end
@@ -252,7 +252,7 @@ function tables.forEach(t, fn)
     if type(value) == 'table' then
       tables.forEach(value, fn)
     else
-      fn(key, value, t)
+      fn(value, key, t)
     end
   end
   return t

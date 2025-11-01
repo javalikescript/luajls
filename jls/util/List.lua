@@ -281,6 +281,15 @@ return require('jls.lang.class').create(function(list, _, List)
     return self
   end
 
+  function list:reverse()
+    local s = #self
+    for i = 1, math.floor(s / 2) do
+      local j = s - i + 1
+      self[i], self[j] = self[j], self[i]
+    end
+    return self
+  end
+
   function list:iterator()
     return ipairs(self)
   end
@@ -331,6 +340,8 @@ return require('jls.lang.class').create(function(list, _, List)
   List.contains = List.prototype.contains
 
   List.sort = List.prototype.sort
+
+  List.reverse = List.prototype.reverse
 
   --- Removes the first specified value from the specified list.
   -- @tparam table list The list from which to remove the value.

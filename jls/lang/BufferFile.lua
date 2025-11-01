@@ -29,7 +29,7 @@ return class.create('jls.lang.Buffer', function(buffer)
     self.file:seek('set')
     local s = self.file:read(self.size)
     if from then
-      return string.sub(s, from, to)
+      return string.sub(s, from, to or #s)
     end
     return s
   end

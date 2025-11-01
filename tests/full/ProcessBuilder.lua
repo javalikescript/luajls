@@ -4,6 +4,7 @@ local lu = require('luaunit')
 
 local ProcessBuilder = require('jls.lang.ProcessBuilder')
 local ProcessHandle = require('jls.lang.ProcessHandle')
+local ProcessHandleBase = require('jls.lang.ProcessHandleBase')
 local loader = require('jls.lang.loader')
 local Pipe = loader.tryRequire('jls.io.Pipe')
 local File = require('jls.io.File')
@@ -15,20 +16,9 @@ local logger = require('jls.lang.logger')
 local LUA_PATH = ProcessHandle.getExecutablePath()
 logger:fine('Lua path is "%s"', LUA_PATH)
 local WRITE = 'io.write'
-if string.find(LUA_PATH, 'luvit$') then
+if string.find(LUA_PATH, 'luvit') then
   WRITE = 'print'
 end
-
-local function getNames(m)
-  local names = {}
-  for name, c in pairs(package.loaded) do
-    if c == m then
-      table.insert(names, name)
-    end
-  end
-  return names
-end
---print('ProcessHandle is '..table.concat(getNames(ProcessHandle), ','))
 
 function Test_pipe_redirect()
   if not Pipe then
@@ -93,27 +83,36 @@ end
 
 function Test_exit_code()
   local code = 11
-  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'os.exit('..code..')'})
   local exitCode
+  local pb = ProcessBuilder:new({LUA_PATH, '-e', 'os.exit('..code..')'})
   local ph = pb:start()
-  print('pid', ph:getPid())
   ph:ended():next(function(c)
     exitCode = c
   end)
-  if not loop(30000) then
+  if not loop() then
     lu.fail('Timeout reached')
   end
   lu.assertEquals(exitCode, code)
   if ph then
     lu.assertEquals(ph:isAlive(), false)
   end
+  if ProcessHandle ~= ProcessHandleBase then
+    ph = ProcessHandleBase.build(pb)
+    if not loop() then
+      lu.fail('Timeout reached')
+    end
+    lu.assertEquals(ph:getExitCode(), code)
+  end
+end
+
+local function startLongProcess(ms)
+  return ProcessBuilder:new({LUA_PATH, '-lsys=jls.lang.sys', '-e', 'sys.sleep('..ms..')'}):start()
 end
 
 function Test_destroy()
   local ms = 5000
-  local pb = ProcessBuilder:new({LUA_PATH, '-lsys=jls.lang.sys', '-e', 'sys.sleep('..ms..')'})
   local t = os.time()
-  local ph = pb:start()
+  local ph = startLongProcess(ms)
   lu.assertEquals(ph:isAlive(), true)
   ph:ended():next(function(c)
     t = os.time() - t
@@ -125,6 +124,20 @@ function Test_destroy()
   lu.assertTrue(t < 4)
   if ph then
     lu.assertEquals(ph:isAlive(), false)
+  end
+end
+
+local function destroyAlive(ph)
+  lu.assertEquals(ph:isAlive(), true)
+  ph:destroy()
+  lu.assertEquals(ph:isAlive(), false)
+end
+
+function Test_isAlive()
+  local ms = 3000
+  destroyAlive(startLongProcess(ms))
+  if ProcessHandle ~= ProcessHandleBase then
+    destroyAlive(ProcessHandleBase.of(startLongProcess(ms):getPid()))
   end
 end
 

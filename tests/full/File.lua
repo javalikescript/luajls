@@ -29,6 +29,10 @@ local function getEmptyTmpDir()
   return tmpDir
 end
 
+local function toSlash(p)
+  return string.gsub(p, '\\', '/')
+end
+
 function Test_exists()
   local f
   f = File:new('does_not_exist')
@@ -111,6 +115,8 @@ function Test_renameTo()
   lu.assertTrue(f:renameTo(g))
   lu.assertFalse(f:exists())
   lu.assertEquals(g:readAll(), d)
+  lu.assertTrue(g:renameTo(f:getPath()))
+  lu.assertTrue(f:exists())
 end
 
 function Test_copyTo()
@@ -122,6 +128,24 @@ function Test_copyTo()
   f:copyTo(g)
   lu.assertEquals(f:readAll(), d)
   lu.assertEquals(g:readAll(), d)
+end
+
+function Test_getAbsolutePath()
+  local f = File:new('/file.tmp')
+  lu.assertEquals(toSlash(f:getAbsolutePath()), '/file.tmp')
+  lu.assertIs(f:getAbsoluteFile(), f)
+  f = File:new('file.tmp')
+  lu.assertStrContains(toSlash(f:getAbsolutePath()), '/file.tmp')
+  lu.assertNotIs(f:getAbsoluteFile(), f)
+end
+
+function Test_lastModified()
+  local f = File:new(getEmptyTmpDir(), 'file.tmp')
+  lu.assertEquals(f:lastModified(), 0)
+  f:write('')
+  local t = 946684800000
+  f:setLastModified(t)
+  lu.assertEquals(f:lastModified(), t)
 end
 
 -- last test will cleanup the tmp dir

@@ -254,6 +254,9 @@ function Test_stringify()
   -- table list
   lu.assertEquals(tables.stringify({1, true, "Hi"}), '{1,true,"Hi",}')
   lu.assertEquals(tables.stringify(List:new()), '{}')
+  -- format
+  lu.assertEquals(tables.stringify({1}, 2), '{\n  1,\n}')
+  lu.assertEquals(tables.stringify({1}, ' '), '{\n 1,\n}')
 end
 
 function Test_stringify_lenient()
@@ -501,6 +504,46 @@ function Test_set()
   lu.assertEquals(tables.set({a = {b = 'Hi'}}, 'Hello', 'a', 'b'), {a = {b = 'Hello'}})
   lu.assertEquals(tables.set({a = {b = 'Hi'}}, 'Hello', 'a', 'c'), {a = {b = 'Hi', c = 'Hello'}})
   lu.assertEquals(tables.set({}, 'Hello', 'a', 'b'), {a = {b = 'Hello'}})
+end
+
+function Test_shallowCopy()
+  local t = {r = {}, b = 1, 0}
+  local s = tables.shallowCopy(t)
+  lu.assertEquals(s, t)
+  lu.assertNotIs(s, t)
+  lu.assertIs(s.r, t.r)
+end
+
+function Test_deepCopy()
+  local t = {r = {}, b = 1, 0}
+  local s = tables.deepCopy(t)
+  lu.assertEquals(s, t)
+  lu.assertNotIs(s, t)
+  lu.assertNotIs(s.r, t.r)
+end
+
+function Test_deepMap()
+  local t = {r = {n = 2}, n = 1, 0}
+  local s = tables.deepMap(t, function(v)
+    return v + 1
+  end)
+  lu.assertEquals(s, {r = {n = 3}, n = 2, 1})
+end
+
+function Test_deepEquals()
+  local t = {r = {c = true, false}, b = 1, 'Hi'}
+  lu.assertTrue(tables.deepEquals(t, t))
+  lu.assertTrue(tables.deepEquals(t, {r = {c = true, false}, b = 1, 'Hi'}))
+  lu.assertFalse(tables.deepEquals(t, {r = {c = true}, b = 1, 'Hi'}))
+end
+
+function Test_forEach()
+  local c = 0
+  local t = {r = {n = 2}, n = 1, 3}
+  tables.forEach(t, function(v)
+    c = c + v
+  end)
+  lu.assertEquals(c, 6)
 end
 
 os.exit(lu.LuaUnit.run())

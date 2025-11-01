@@ -6,12 +6,12 @@ local loop = require('jls.lang.loopWithTimeout')
 
 local LUA_EXE_PATH = ProcessHandle.getExecutablePath()
 
+local function commandArgs(code)
+  return {LUA_EXE_PATH, '-e', 'os.exit('..tostring(code)..')'}
+end
+
 local function commandLine(code)
-  return system.formatCommandLine({
-    LUA_EXE_PATH,
-    '-e',
-    'os.exit('..tostring(code)..')'
-  })
+  return system.formatCommandLine(commandArgs(code))
 end
 
 function Test_execute_success()
@@ -61,6 +61,33 @@ function Test_findExecutablePath()
   local executablePath = system.findExecutablePath(executableName)
   --print(executableName, executablePath)
   lu.assertNotNil(executablePath)
+end
+
+function Test_exec()
+  local ph = system.exec(commandArgs(0))
+  lu.assertTrue(ph:isAlive())
+  if not loop() then
+    lu.fail('Timeout reached')
+  end
+  lu.assertFalse(ph:isAlive())
+end
+
+function Test_getArguments()
+  lu.assertEquals(type(system.getArguments()), 'table')
+  lu.assertEquals(type(system.getLibraryExtension()), 'string')
+end
+
+function Test_gc()
+  local flag = false
+  local t = setmetatable({}, {
+    __gc = function()
+      flag = true
+    end
+  })
+  lu.assertFalse(flag)
+  t = nil
+  system.gc()
+  lu.assertTrue(flag)
 end
 
 os.exit(lu.LuaUnit.run())

@@ -8,7 +8,7 @@ local HttpHandler = require('jls.net.http.HttpHandler')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpClient = require('jls.net.http.HttpClient')
 local HttpServer = require('jls.net.http.HttpServer')
-local HttpExchange = require('jls.net.http.HttpExchange')
+local HttpSession = require('jls.net.http.HttpSession')
 
 local logger = require('jls.lang.logger')
 
@@ -738,6 +738,21 @@ function Test_HttpMessage_getTargetQuery()
   lu.assertEquals(getTargetQuery('/search?query'), 'query')
   lu.assertEquals(getTargetQuery('/search?'), '')
   lu.assertEquals(getTargetQuery('/search'), '')
+end
+
+local class = require('jls.lang.class')
+local getWriteReverseRead = require('tests.getWriteReverseRead')
+
+function Test_HttpSession_serialize()
+  local sess = HttpSession:new('Id-123', 456)
+  local w, rev, r = getWriteReverseRead()
+  sess:serialize(w)
+  rev()
+  local ee = class.makeInstance(HttpSession)
+  ee:deserialize(r)
+  lu.assertEquals(ee:getId(), 'Id-123')
+  lu.assertEquals(ee:getCreationTime(), 456)
+
 end
 
 os.exit(lu.LuaUnit.run())

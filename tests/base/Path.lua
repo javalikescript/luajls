@@ -117,7 +117,13 @@ function Test_getParent()
   assertParentEquals('C:\\a', 'C:\\')
 end
 
+function Test_getParentPath()
+  lu.assertEquals(Path:new('a/b'):getParentPath():getPathName(), 'a')
+  lu.assertNil(Path:new('/'):getParentPath())
+end
+
 function Test_normalizePath()
+  lu.assertEquals(Path.normalizePath('a'), 'a')
   lu.assertEquals(Path.normalizePath('/a/.b'), '/a/.b')
   lu.assertEquals(Path.normalizePath('/.a/b'), '/.a/b')
   lu.assertEquals(Path.normalizePath('/a./b'), '/a./b')
@@ -169,6 +175,16 @@ function Test_relativizePath()
   lu.assertEquals(toSlash(Path.relativizePath('ab', 'ab/bc')), 'bc')
   lu.assertEquals(toSlash(Path.relativizePath('a', 'a/b/c')), 'b/c')
   lu.assertEquals(toSlash(Path.relativizePath('a/b', 'a/b/c')), 'c')
+  lu.assertFalse(pcall(Path.relativizePath, 'a', 'b'))
+end
+
+function Test_relativize()
+  lu.assertEquals(Path:new('a'):relativize('a/b'):getPathName(), 'b')
+end
+
+function Test_extractDirName()
+  lu.assertEquals({Path.extractDirName('a/b')}, {'a', 'b'})
+  lu.assertEquals(Path.extractDirName('a'), 'a')
 end
 
 os.exit(lu.LuaUnit.run())

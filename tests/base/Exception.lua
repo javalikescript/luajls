@@ -1,5 +1,6 @@
 local lu = require('luaunit')
 
+local class = require('jls.lang.class')
 local Exception = require('jls.lang.Exception')
 
 function Test_new()
@@ -118,6 +119,21 @@ function Test_try()
   end, 'Hi')
   lu.assertNil(r)
   lu.assertEquals(e:getMessage(), 'Hi')
+end
+
+local getWriteReverseRead = require('tests.getWriteReverseRead')
+
+function Test_serialization()
+  local e = Exception:new('msg', 'cause', 'stack', 'name')
+  local w, rev, r = getWriteReverseRead()
+  e:serialize(w)
+  rev()
+  local ee = class.makeInstance(Exception)
+  ee:deserialize(r)
+  lu.assertEquals(ee:getMessage(), 'msg')
+  lu.assertEquals(ee:getCause(), 'cause')
+  lu.assertEquals(ee:getName(), 'name')
+  lu.assertEquals(ee:getStackTrace(), 'stack')
 end
 
 os.exit(lu.LuaUnit.run())

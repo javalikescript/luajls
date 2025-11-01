@@ -26,7 +26,7 @@ local isWindowsOS = string.sub(package.config, 1, 1) == '\\'
 
 local DESTROY_COMMAND_LINE, ALIVE_COMMAND_LINE
 if isWindowsOS then
-  DESTROY_COMMAND_LINE = 'taskkill /pid %d >NUL'
+  DESTROY_COMMAND_LINE = 'taskkill /f /pid %d >NUL'
   ALIVE_COMMAND_LINE = 'tasklist /fi "PID eq %d" | findstr "PID" >NUL'
 else
   DESTROY_COMMAND_LINE = 'kill %d >/dev/null'

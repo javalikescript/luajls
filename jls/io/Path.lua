@@ -87,17 +87,21 @@ return require('jls.lang.class').create(function(path, _, Path)
     return self.path
   end
 
+  local function guessSeparator(p)
+    return string.match(p, '[/\\]') or Path.separator
+  end
+
   --- Returns the parent path as a string.
   -- @treturn string the parent path.
   -- @usage
   --local configurationPath = Path:new('work/configuration.json')
   --configurationPath:getParent() -- returns 'work'
   function path:getParent()
-    local prefix, rel = Path.getPathPrefix(self.npath)
+    local _, rel = Path.getPathPrefix(self.npath)
     if rel == '' then
       return nil
     end
-    local sep = string.match(self.path, '[/\\]') or Path.separator
+    local sep = guessSeparator(self.path)
     return Path.normalizePath(self.npath..sep..'..', sep)
   end
 
@@ -128,8 +132,6 @@ return require('jls.lang.class').create(function(path, _, Path)
     return nil
   end
 
-end, function(Path)
-
   --- The Operating System (OS) specific separator, '/' on Unix and '\\' on Windows.
   -- @field Path.separator
   Path.separator = string.sub(package.config, 1, 1) or '/'
@@ -145,9 +147,9 @@ end, function(Path)
     if prefix then
       return prefix, rel
     end
-    prefix, rel = string.match(pathname, '^(%a:)[/\\]*([^/\\]?.*)$')
+    prefix, rel = string.match(pathname, '^(%a:[/\\])[/\\]*(.*)$')
     if prefix then
-      return prefix..'\\', rel
+      return prefix, rel
     end
     return '', pathname
   end
@@ -167,7 +169,7 @@ end, function(Path)
   -- Returns the specified path without dots.
   function Path.normalizePath(pathname, separator)
     if type(pathname) == 'string' then
-      local sep = separator or string.match(pathname, '[/\\]') or Path.separator
+      local sep = separator or guessSeparator(pathname)
       -- clean dots
       local prefix, rel = Path.getPathPrefix(pathname)
       rel = '/'..rel..'/'
@@ -220,7 +222,11 @@ end, function(Path)
 
   -- Returns the dir and file name
   function Path.extractDirName(pathname)
-    return string.match(pathname, '^(.+)[/\\]([^/\\]*)$') or pathname
+    local d, n = string.match(pathname, '^(.+)[/\\]([^/\\]*)$')
+    if d then
+      return d, n
+    end
+    return pathname
   end
 
   function Path.asNormalizedPath(path)
