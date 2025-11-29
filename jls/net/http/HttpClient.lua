@@ -13,8 +13,8 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local strings = require('jls.util.strings')
 local secure
 
-local function formatHostPort(host, port)
-  if port then
+local function formatHostPort(host, port, isSecure)
+  if port and port ~= (isSecure and 443 or 80) then
     return string.format('%s:%d', host, port)
   end
   return host
@@ -47,7 +47,7 @@ end)
 event:loop()
 @type HttpClient
 ]]
-return class.create(function(httpClient)
+return class.create(function(httpClient, _, HttpClient)
 
   --- Creates a new HTTP client.
   -- @function HttpClient:new
@@ -129,7 +129,7 @@ return class.create(function(httpClient)
     return self.tcpClient
   end
 
-  function httpClient:connectV2()
+  function httpClient:connectV2() -- TODO Rename?
     logger:finer('connectV2()')
     if self.connecting then
       return self.connecting
@@ -172,6 +172,23 @@ return class.create(function(httpClient)
     return connecting
   end
 
+  function httpClient:getSubClient(url)
+    local n = url:getProtocol()..'://'..url:getHostPort()
+    if self.clients then
+      local c = self.clients[n]
+      if c then
+        return c
+      end
+    else
+      self.clients = {}
+    end
+    logger:fine('create sub client "%s"', n)
+    local c = HttpClient:new(url)
+    c.secureContext = self.secureContext
+    self.clients[n] = c
+    return c
+  end
+
   local function handleRedirect(client, options, request, response)
     if (response:getStatusCode() // 100) == 3 then
       local redirect = options.redirect or 'follow'
@@ -190,7 +207,7 @@ return class.create(function(httpClient)
         local url = Url.fromString(location)
         if url then
           if not(url:getHost() == client.host and url:getPort() == client.port and isUrlSecure(url) == client.isSecure) then
-            local c = httpClient:new(url)
+            local c = client:getSubClient(url)
             request:setTarget(url:getFile())
             return response:consume():next(function()
               return c:fetch(request, options)
@@ -322,9 +339,9 @@ return class.create(function(httpClient)
     local url = Url.fromString(request:getTarget())
     local hostPort
     if url then
-      hostPort = formatHostPort(url:getHost(), url:getPort())
+      hostPort = url:getHostPort()
     else
-      hostPort = formatHostPort(self.host, self.port)
+      hostPort = formatHostPort(self.host, self.port, self.isSecure)
     end
     request:setHeader(HttpMessage.CONST.HEADER_HOST, hostPort)
     local response = HttpMessage:new()
@@ -425,10 +442,15 @@ return class.create(function(httpClient)
       self.http2 = nil
       http2:close()
     end
+    if self.clients then
+      for n, client in pairs(self.clients) do
+        logger:fine('closing sub client "%s"', n)
+        client:close()
+      end
+      self.clients = nil
+    end
     return self:closeClient(callback)
   end
-
-end, function(HttpClient)
 
   function HttpClient.getSecureContext()
     return DEFAULT_SECURE_CONTEXT
