@@ -10,7 +10,6 @@ local Url = require('jls.net.Url')
 local Http1 = require('jls.net.http.Http1')
 local Http2 = require('jls.net.http.Http2')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local strings = require('jls.util.strings')
 local secure
 
@@ -27,29 +26,9 @@ end
 
 local SECURE_CONTEXT
 
-
--- deprecated helpers
-local function sendRequest(tcpClient, request)
-  logger:finer('sendRequest()')
-  request:applyBodyLength()
-  return Http1.writeHeaders(tcpClient, request):next(function()
-    logger:finer('sendRequest() writeHeaders() done')
-    return Http1.writeBody(tcpClient, request)
-  end)
-end
-local function getHostHeader(host, port)
-  if port then
-    return host..':'..tostring(port)
-  end
-  return host
-end
 local function isUrlSecure(url)
   return isSchemeSecured(url:getProtocol())
 end
-local function sameClient(url1, url2)
-  return url1:getHost() == url2:getHost() and url1:getPort() == url2:getPort() and isUrlSecure(url1) == isUrlSecure(url2)
-end
--- end deprecated helpers
 
 --[[--
 The HttpClient class enables to send an HTTP request.
@@ -112,7 +91,6 @@ return class.create(function(httpClient)
         self:setSecureContext({ alpnProtos = {'h2', 'http/1.1', 'http/1.0'} })
       end
     end
-    self:initializeV1(options) -- deprecated
   end
 
   function httpClient:getSecureContext()
@@ -447,197 +425,7 @@ return class.create(function(httpClient)
       self.http2 = nil
       http2:close()
     end
-    self:closeRequest() -- deprecated
     return self:closeClient(callback)
-  end
-
-
-  -- deprecated
-
-  function httpClient:initializeV1(options)
-    logger:finer('initializeV1(...)')
-    options = options or {}
-    local request = HttpMessage:new()
-    self.request = request
-    if type(options.headers) == 'table' then
-      request:addHeadersTable(options.headers)
-    end
-    request:setMethod(options.method or 'GET')
-    if options.url then
-      request.url = class.asInstance(Url, options.url)
-    else
-      local protocol, host, port, target = 'http', 'localhost', nil, '/'
-      if type(options.protocol) == 'string' then
-        protocol = options.protocol
-      elseif options.isSecure == true then
-        protocol = protocol..'s'
-      end
-      if type(options.host) == 'string' then
-        host = options.host
-      end
-      if type(options.port) == 'number' then
-        port = options.port
-      end
-      if type(options.target) == 'string' then
-        target = options.target
-      end
-      request.url = Url:new(protocol, host, port, target)
-    end
-    request:setTarget(request.url:getFile())
-    if options.body then
-      request:setBody(options.body)
-    end
-    if type(options.maxRedirectCount) == 'number' then
-      self.maxRedirectCount = options.maxRedirectCount
-    elseif options.followRedirect == true then
-      self.maxRedirectCount = 3
-    else
-      self.maxRedirectCount = 0
-    end
-    -- add accept headers
-  end
-
-  function httpClient:setUrl(url)
-    logger:finer('setUrl(%s)', url)
-    local u = class.asInstance(Url, url)
-    -- do our best to keep the client
-    if self.tcpClient and not sameClient(u, self.request.url) then
-      self:closeClient(false)
-    end
-    self.request.url = u
-    self.request:setTarget(self.request.url:getFile())
-    return self
-  end
-
-  function httpClient:connect()
-    logger:finer('connect()')
-    if self.tcpClient then
-      return Promise.resolve(self)
-    end
-    return self:reconnectV1()
-  end
-
-  function httpClient:reconnectV1()
-    logger:finer('reconnect()')
-    self:closeClient(false)
-    local request = self.request
-    local url = request.url
-    local isSecure = isUrlSecure(url)
-    local host = url:getHost()
-    local port = url:getPort()
-    if isSecure then
-      if not secure then
-        secure = require('jls.net.secure')
-      end
-      self.tcpClient = secure.TcpSocket:new()
-      self.tcpClient:sslInit(false, self.secureContext or SECURE_CONTEXT)
-    else
-      self.tcpClient = TcpSocket:new()
-    end
-    request:setHeader(HttpMessage.CONST.HEADER_HOST, getHostHeader(host, port))
-    return self.tcpClient:connect(host, port or 80):next(function()
-      return self
-    end)
-  end
-
-  function httpClient:closeRequest()
-    if self.request then
-      self.request:close()
-    end
-    if self.response then
-      self.response:close()
-    end
-  end
-
-  function httpClient:getRequest()
-    return self.request
-  end
-
-  function httpClient:getResponse()
-    return self.response
-  end
-
-  function httpClient:processResponseHeaders()
-  end
-
-  function httpClient:sendRequest()
-    logger:warn('HttpClient sendRequest() is deprecated, please use fetch()')
-    self.response = HttpMessage:new()
-    self.response:bufferBody()
-    -- close the connection by default
-    if not self.request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) then
-      self.request:setHeader(HttpMessage.CONST.HEADER_CONNECTION, HttpMessage.CONST.CONNECTION_CLOSE)
-    end
-    return sendRequest(self.tcpClient, self.request)
-  end
-
-  function httpClient:receiveResponseHeaders()
-    logger:finer('receiveResponseHeaders()')
-    local response = HttpMessage:new()
-    local hsh = HeaderStreamHandler:new(response)
-    return hsh:read(self.tcpClient):next(function(remainingBuffer)
-      if logger:isLoggable(logger.FINE) then
-        logger:finer('header done, status code is %d, remainingBuffer is #%s',
-          response:getStatusCode(), remainingBuffer and #remainingBuffer)
-      end
-      if self.maxRedirectCount > 0 and (response:getStatusCode() // 100) == 3 then
-        local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
-        if location then
-          logger:finer('redirected #%d to "%s"', self.maxRedirectCount, location)
-          self.maxRedirectCount = self.maxRedirectCount - 1
-          return self:closeClient():next(function()
-            self:setUrl(location) -- TODO Is it ok to overwrite the url?
-            return self:connect()
-          end):next(function()
-            return sendRequest(self.tcpClient, self.request)
-          end):next(function()
-            return self:receiveResponseHeaders()
-          end)
-        end
-      end
-      self.response:parseLine(response:formatLine())
-      self.response:setHeadersTable(response:getHeadersTable())
-      self:processResponseHeaders()
-      return remainingBuffer
-    end)
-  end
-
-  function httpClient:receiveResponseBody(buffer)
-    logger:finest('receiveResponseBody(%l)', buffer)
-    local connection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
-    local connectionClose
-    if connection then
-      connectionClose = strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE)
-    else
-      connectionClose = self.response:getVersion() ~= HttpMessage.CONST.VERSION_1_1
-    end
-    return Http1.readBody(self.tcpClient, self.response, buffer):finally(function()
-      self:closeRequest()
-      if connectionClose then
-        self:closeClient(false)
-      end
-    end)
-  end
-
-  function httpClient:receiveResponse()
-    logger:finest('receiveResponse()')
-    return self:receiveResponseHeaders():next(function(remainingBuffer)
-      logger:finest('receiveResponse() headers done')
-      return self:receiveResponseBody(remainingBuffer)
-    end)
-  end
-
-  function httpClient:sendReceive()
-    logger:finer('sendReceive()')
-    return self:connect():next(function()
-      return self:sendRequest()
-    end):next(function()
-      logger:finer('send completed')
-      return self:receiveResponse()
-    end):next(function()
-      logger:finer('receive completed')
-      return self.response
-    end)
   end
 
 end, function(HttpClient)

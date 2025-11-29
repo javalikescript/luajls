@@ -5,13 +5,14 @@
 
 local logger = require('jls.lang.logger'):get(...)
 local HttpClient = require('jls.net.http.HttpClient')
-local HTTP_CONST = require('jls.net.http.HttpMessage').CONST
+local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpExchange = require('jls.net.http.HttpExchange')
-local HttpHeaders = require('jls.net.http.HttpHeaders')
 local DelayedStreamHandler = require('jls.io.streams.DelayedStreamHandler')
 local Promise = require('jls.lang.Promise')
 local Url = require('jls.net.Url')
 local TcpSocket = require('jls.net.TcpSocket')
+
+local HTTP_CONST = HttpMessage.CONST
 
 --- A ProxyHttpHandler class.
 -- @type ProxyHttpHandler
@@ -127,6 +128,22 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     return nil
   end
 
+  function proxyHttpHandler:prepareRequest(exchange, request, url)
+    local hostport = exchange:getRequest():getHeader(HTTP_CONST.HEADER_HOST)
+    if hostport then
+      local forwarded = 'host='..hostport..';proto='..url:getProtocol()
+      local by = exchange:clientAsString()
+      if by then
+        forwarded = 'by='..by..';for='..by..';'..forwarded
+      end
+      request:setHeader('forwarded', forwarded)
+    end
+  end
+
+  function proxyHttpHandler:adaptResponseStreamHandler(exchange, sh)
+    return sh
+  end
+
   local function connectStream(fromClient, toClient, callback)
     fromClient:readStart(function(err, data)
       if err then
@@ -212,65 +229,46 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       return
     end
     logger:fine('forward to "%s"', targetUrl)
-    -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
-    local headers = HttpHeaders:new()
-    headers:addHeadersTable(request:getHeadersTable())
-    local hostport = request:getHeader(HTTP_CONST.HEADER_HOST)
-    if hostport then
-      local forwarded = 'host='..hostport..';proto='..targetUrl:getProtocol()
-      local by = exchange:clientAsString()
-      if by then
-        forwarded = 'by='..by..';for='..by..';'..forwarded
-      end
-      headers:setHeader('Forwarded', forwarded)
-      headers:setHeader(HTTP_CONST.HEADER_HOST, targetUrl:getHost())
-    end
-    local client = HttpClient:new({
-      url = targetUrl:toString(),
-      method = method,
-      headers = headers:getHeadersTable()
-    })
     -- buffer incoming request body prior client connection
-    request:setBodyStreamHandler(DelayedStreamHandler:new())
-    client:getRequest():onWriteBodyStreamHandler(function(clientRequest)
+    local idsh = DelayedStreamHandler:new()
+    request:setBodyStreamHandler(idsh)
+
+    local clientRequest = HttpMessage:new()
+    clientRequest:setTarget(targetUrl:getFile())
+    clientRequest:setMethod(method)
+    -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
+    clientRequest:addHeadersTable(request:getHeadersTable())
+    clientRequest:setHeader(HTTP_CONST.HEADER_HOST, targetUrl:getHostPort())
+    clientRequest:onWriteBodyStreamHandler(function()
       logger:finer('client request on write body')
-      local drsh = request:getBodyStreamHandler()
-      drsh:setStreamHandler(clientRequest:getBodyStreamHandler())
+      idsh:setStreamHandler(clientRequest:getBodyStreamHandler())
     end)
-    local pr, cb = Promise.withCallback()
-    client:connect():next(function()
-      logger:finer('client connected')
-      return client:sendRequest() -- TODO switch to fetch
-    end):next(function()
-      logger:finer('client send completed')
-      return client:receiveResponseHeaders()
-    end):next(function(remainingBuffer)
-      local clientResponse = client:getResponse()
-      logger:fine('client status code is %d, remaining buffer #%l', clientResponse:getStatusCode(), remainingBuffer)
-      response:setStatusCode(clientResponse:getStatusCode())
-      local respHdrs = HttpHeaders:new()
-      respHdrs:addHeadersTable(clientResponse:getHeadersTable())
+    self:prepareRequest(exchange, clientRequest, targetUrl)
+    local client = HttpClient:new(targetUrl)
+    return client:fetch(clientRequest, {
+      redirect = 'no'
+    }):next(function(clientResponse)
+      local statusCode = clientResponse:getStatusCode()
+      logger:fine('client status code is %d', statusCode)
+      response:setStatusCode(statusCode)
       -- TODO rewrite headers, location, cookie path
-      response:setHeadersTable(respHdrs:getHeadersTable())
-      clientResponse:setBodyStreamHandler(DelayedStreamHandler:new())
+      response:setHeadersTable(clientResponse:getHeadersTable())
+      local odsh = DelayedStreamHandler:new()
       response:onWriteBodyStreamHandler(function()
         logger:finer('response on write body')
-        local drsh = clientResponse:getBodyStreamHandler()
-        drsh:setStreamHandler(response:getBodyStreamHandler())
+        odsh:setStreamHandler(response:getBodyStreamHandler())
       end)
-      cb()
-      return client:receiveResponseBody(remainingBuffer)
-    end):next(function()
-      logger:finer('closing client')
-      client:close()
-    end, function(err)
-      logger:fine('client error: %s', err)
-      response:setStatusCode(HTTP_CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
-      response:setBody('<p>Sorry something went wrong on our side.</p>')
-      client:close()
-      cb(err)
+      local ash, defer = self:adaptResponseStreamHandler(exchange, odsh)
+      clientResponse:setBodyStreamHandler(ash)
+      local p = clientResponse:consume()
+      p:finally(function()
+        logger:fine('closing client')
+        client:close()
+      end)
+      if defer then
+        return p
+      end
     end)
-    return pr
   end
 
   function proxyHttpHandler:close()
