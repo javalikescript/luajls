@@ -136,6 +136,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       if by then
         forwarded = 'by='..by..';for='..by..';'..forwarded
       end
+      -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
       request:setHeader('forwarded', forwarded)
     end
   end
@@ -236,9 +237,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     local clientRequest = HttpMessage:new()
     clientRequest:setTarget(targetUrl:getFile())
     clientRequest:setMethod(method)
-    -- See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Forwarded
     clientRequest:addHeadersTable(request:getHeadersTable())
-    clientRequest:setHeader(HTTP_CONST.HEADER_HOST, targetUrl:getHostPort())
     clientRequest:onWriteBodyStreamHandler(function()
       logger:finer('client request on write body')
       idsh:setStreamHandler(clientRequest:getBodyStreamHandler())

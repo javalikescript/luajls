@@ -161,10 +161,6 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return strings.equalsIgnoreCase(responseConnection, HttpMessage.CONST.CONNECTION_KEEP_ALIVE)
   end
 
-  function httpExchange:prepareResponseHeaders()
-    self.response:applyBodyLength()
-  end
-
   function httpExchange:resetResponseToError(reason)
     local r = reason and tostring(reason) or 'Unknown error'
     local response = self.response

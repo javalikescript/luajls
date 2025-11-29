@@ -13,6 +13,8 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local strings = require('jls.util.strings')
 local secure
 
+local CONST = HttpMessage.CONST
+
 local function formatHostPort(host, port, isSecure)
   if port and port ~= (isSecure and 443 or 80) then
     return string.format('%s:%d', host, port)
@@ -198,7 +200,7 @@ return class.create(function(httpClient, _, HttpClient)
       end
       local redirectCount = request.redirectCount or 0
       redirectCount = redirectCount + 1
-      local location = response:getHeader(HttpMessage.CONST.HEADER_LOCATION)
+      local location = response:getHeader(CONST.HEADER_LOCATION)
       if location and redirect == 'follow' and redirectCount < 20 then
         request.redirectCount = redirectCount
         logger:fine('redirected to "%s" (%d)', location, redirectCount)
@@ -344,7 +346,7 @@ return class.create(function(httpClient, _, HttpClient)
     else
       hostPort = formatHostPort(self.host, self.port, self.isSecure)
     end
-    request:setHeader(HttpMessage.CONST.HEADER_HOST, hostPort)
+    request:setHeader(CONST.HEADER_HOST, hostPort)
     local response = HttpMessage:new()
     return self:connectV2():next(function()
       if self.http2 then
@@ -354,14 +356,14 @@ return class.create(function(httpClient, _, HttpClient)
       logger:fine('fetch is using HTTP/1')
       request:applyBodyLength()
       -- keep alive the connection by default
-      if not request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) then
+      if not request:getHeader(CONST.HEADER_CONNECTION) then
         local connection
-        if request:getVersion() == HttpMessage.CONST.VERSION_1_0 then
-          connection = HttpMessage.CONST.CONNECTION_CLOSE
+        if request:getVersion() == CONST.VERSION_1_0 then
+          connection = CONST.CONNECTION_CLOSE
         else
-          connection = HttpMessage.CONST.CONNECTION_KEEP_ALIVE
+          connection = CONST.CONNECTION_KEEP_ALIVE
         end
-        request:setHeader(HttpMessage.CONST.HEADER_CONNECTION, connection)
+        request:setHeader(CONST.HEADER_CONNECTION, connection)
       end
       local queuePromise = self.queuePromise or Promise.resolve()
       local queueNext
@@ -378,12 +380,12 @@ return class.create(function(httpClient, _, HttpClient)
         return Http1.readHeader(self.tcpClient, response, self.remnant)
       end):next(function(buffer)
         logger:finer('fetch read headers done')
-        local connection = response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
+        local connection = response:getHeader(CONST.HEADER_CONNECTION)
         local connectionClose
         if connection then
-          connectionClose = strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE)
+          connectionClose = strings.equalsIgnoreCase(connection, CONST.CONNECTION_CLOSE)
         else
-          connectionClose = response:getVersion() == HttpMessage.CONST.VERSION_1_0
+          connectionClose = response:getVersion() == CONST.VERSION_1_0
         end
         -- TODO Always read body after resolving consume promise
         -- TODO shall we override response:close()?

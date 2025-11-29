@@ -264,7 +264,7 @@ local HttpServer = class.create(function(httpServer)
   function httpServer:prepareResponseHeaders(exchange)
     local response = exchange:getResponse()
     response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
-    exchange:prepareResponseHeaders()
+    response:applyBodyLength()
   end
 
   -- TODO remove

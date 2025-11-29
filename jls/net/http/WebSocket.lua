@@ -584,8 +584,6 @@ end, function(WebSocket)
             if self.protocol then
               response:setHeader(CONST.HEADER_SEC_WEBSOCKET_PROTOCOL, self.protocol)
             end
-            function exchange:prepareResponseHeaders()
-            end
             -- override HTTP client close
             function exchange.close()
               logger:finer('handle() close exchange')

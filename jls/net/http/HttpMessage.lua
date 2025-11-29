@@ -12,6 +12,8 @@ local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 local Url = require('jls.net.Url')
 
+local CONST
+
 --- The HttpMessage class represents the base class for HTTP request and HTTP response.
 -- This class inherits from @{HttpHeaders}.
 -- @type HttpMessage
@@ -23,7 +25,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     super.initialize(self)
     self.body = ''
     self.bodyStreamHandler = StreamHandler.null
-    self.version = HttpMessage.CONST.VERSION_1_1
+    self.version = CONST.VERSION_1_1
   end
 
   function httpMessage:isRequest()
@@ -72,7 +74,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Returns the version of this HTTP message, default to `HTTP/1.1`.
   -- @treturn string the version of this HTTP message.
   function httpMessage:getVersion()
-    return self.version or HttpMessage.CONST.VERSION_1_0
+    return self.version or CONST.VERSION_1_0
   end
 
   --- Sets the first line of this HTTP message.
@@ -117,7 +119,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:setContentType(value)
-    self:setHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE, value)
+    self:setHeader(CONST.HEADER_CONTENT_TYPE, value)
   end
 
   function httpMessage:setCacheControl(value)
@@ -133,11 +135,11 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     elseif type(value) ~= 'string' then
       error('Invalid cache control value')
     end
-    self:setHeader(HttpMessage.CONST.HEADER_CACHE_CONTROL, value)
+    self:setHeader(CONST.HEADER_CACHE_CONTROL, value)
   end
 
   function httpMessage:getLastModified()
-    local value = self:getHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED)
+    local value = self:getHeader(CONST.HEADER_LAST_MODIFIED)
     if value then
       return Date.fromRFC822String(value)
     end
@@ -152,7 +154,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     elseif type(value) ~= 'string' then
       error('Invalid last modified value')
     end
-    self:setHeader(HttpMessage.CONST.HEADER_LAST_MODIFIED, value)
+    self:setHeader(CONST.HEADER_LAST_MODIFIED, value)
   end
 
   --- Returns this HTTP request method, GET, POST.
@@ -223,7 +225,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:getContentLength()
-    local value = self:getHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH)
+    local value = self:getHeader(CONST.HEADER_CONTENT_LENGTH)
     if type(value) == 'string' then
       return tonumber(value)
     end
@@ -231,11 +233,23 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:setContentLength(value)
-    self:setHeader(HttpMessage.CONST.HEADER_CONTENT_LENGTH, value)
+    self:setHeader(CONST.HEADER_CONTENT_LENGTH, value)
+  end
+
+  function httpMessage:hasTransferEncoding(value)
+    local te = self:getHeader(CONST.HEADER_TRANSFER_ENCODING)
+    if te then
+      for s in string.gmatch(te, '[^,;%s]+') do
+        if string.lower(s) == string.lower(value) then
+          return true
+        end
+       end
+    end
+    return false
   end
 
   function httpMessage:getContentType()
-    local value = self:getHeader(HttpMessage.CONST.HEADER_CONTENT_TYPE)
+    local value = self:getHeader(CONST.HEADER_CONTENT_TYPE)
     if value then
       return strings.cut(value, ';', 1, true)
     end
@@ -285,9 +299,13 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
 
   function httpMessage:applyBodyLength()
     -- If there no length and using body string
-    if not self:getContentLength() and self.writeBodyCallback == httpMessage.writeBodyCallback then
-      -- We may check the connection header
-      self:setContentLength(self:getBodyLength())
+    if not (self:getContentLength() or self:hasTransferEncoding('chunked')) then
+      if self.writeBodyCallback == httpMessage.writeBodyCallback then
+        -- We may check the connection header
+        self:setContentLength(self:getBodyLength())
+      else
+        self:setHeader(CONST.HEADER_TRANSFER_ENCODING, 'chunked')
+      end
     end
   end
 
@@ -445,5 +463,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     HEADER_RANGE = 'range',
     HEADER_CONTENT_RANGE = 'content-range',
   }
+
+  CONST = HttpMessage.CONST
 
 end)
