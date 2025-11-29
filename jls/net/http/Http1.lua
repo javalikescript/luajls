@@ -11,6 +11,22 @@ local strings = require('jls.util.strings')
 
 local Http1 = {}
 
+local ChunkStreamHandler = class.create(StreamHandler.WrappedStreamHandler, function(sh)
+
+  function sh:onData(data)
+    if data then
+      local length = string.len(data)
+      if length > 0 then
+        local chunk = string.format('%X', length)..'\r\n'..data..'\r\n'
+        return self.handler:onData(chunk)
+      end
+    else
+      return StreamHandler.fill(self.handler, '0\r\n\r\n')
+    end
+  end
+
+end)
+
 local function createChunkFinder()
   local needChunkSize = true
   local chunkSize
@@ -160,7 +176,7 @@ function Http1.writeBody(tcp, message)
   logger:finer('writeBody()')
   local pr, cb = Promise.withCallback()
   local len = 0
-  message:setBodyStreamHandler(StreamHandler:new(function(err, data)
+  local sh = StreamHandler:new(function(err, data)
     if err then
       logger:fine('writeBody() stream error "%s"', err)
       cb(err)
@@ -172,7 +188,12 @@ function Http1.writeBody(tcp, message)
       logger:finer('writeBody() done #%s', len)
       cb()
     end
-  end))
+  end)
+  if message:hasTransferEncoding('chunked') then
+    sh = ChunkStreamHandler:new(sh)
+  end
+  -- TODO Content-Encoding
+  message:setBodyStreamHandler(sh)
   message:writeBodyCallback(Http1.BODY_BLOCK_SIZE)
   return pr
 end
@@ -210,5 +231,7 @@ function Http1.toString(message)
 end
 
 Http1.WritableBuffer = WritableBuffer
+Http1.ChunkStreamHandler = ChunkStreamHandler
+Http1.createChunkFinder = createChunkFinder
 
 return Http1
