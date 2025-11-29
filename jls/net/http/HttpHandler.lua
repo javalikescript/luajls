@@ -17,6 +17,7 @@ end)
 
 local Promise = require('jls.lang.Promise')
 local Exception = require('jls.lang.Exception')
+local HttpExchange = require('jls.net.http.HttpExchange')
 
 --- A HttpHandler class.
 -- The handler is called when the request headers are available.
@@ -90,7 +91,7 @@ end, function(HttpHandler)
   end
 
   local function chainCondition(exchange)
-    return exchange:getResponse():getStatusCode() == 403
+    return exchange:getResponse():getStatusCode() == 404
   end
 
   -- Returns an handler that chain the specified handlers
