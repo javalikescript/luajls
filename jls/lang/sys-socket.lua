@@ -1,6 +1,6 @@
 local luaSocketLib = require('socket')
 
-return {
+local m = {
   timems = function()
     return math.floor(luaSocketLib.gettime() * 1000)
   end,
@@ -13,6 +13,13 @@ return {
   sleep = function(millis)
     luaSocketLib.sleep(millis / 1000)
   end,
-  getenv = os.getenv,
-  setenv = require('jls.lang.setenv'),
 }
+
+-- inherit default implementation values
+for k, v in pairs(require('jls.lang.sys-')) do
+  if m[k] == nil then
+    m[k] = v
+  end
+end
+
+return m
