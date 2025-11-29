@@ -2,6 +2,7 @@ local class = require('jls.lang.class')
 local event = require('jls.lang.event')
 local logger = require('jls.lang.logger')
 local system = require('jls.lang.system')
+local signal = require('jls.lang.signal')
 local Promise = require('jls.lang.Promise')
 local File = require('jls.io.File')
 local Path = require('jls.io.Path')
@@ -510,20 +511,7 @@ httpServer:createContext('/favicon.ico', function(exchange)
   HttpExchange.ok(exchange, faviconFile:readAll(), FileHttpHandler.guessContentType(faviconFile:getName()))
 end)
 
-do
-  local hasLuv, luvLib = pcall(require, 'luv')
-  if hasLuv then
-    local signal = luvLib.new_signal()
-    luvLib.ref(signal)
-    stopPromise:next(function()
-      logger:fine('Unreference signal')
-      luvLib.unref(signal)
-    end)
-    luvLib.signal_start_oneshot(signal, 'sigint', function()
-      stopCallback()
-    end)
-  end
-end
+stopPromise:next(signal('?!sigint', function() stopCallback() end))
 
 event:loop()
 logger:info('HTTP server closed')
