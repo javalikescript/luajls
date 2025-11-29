@@ -5,6 +5,7 @@ local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
 local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
+local Promise = require('jls.lang.Promise')
 
 local function assertStreamHandling(s, t)
   lu.assertIsNil(t.dataCaptured)
@@ -135,6 +136,31 @@ function Test_tee()
   lu.assertEquals(cs2._captured, {data_list = {}, error_list = {'Ouch'}})
 end
 
+function Test_tee_promise()
+  local ps = StreamHandler:new(function(_, data)
+    return Promise.resolve(data)
+  end)
+  local id = StreamHandler:new(function(_, data)
+    return data
+  end)
+  lu.assertTrue(Promise:isInstance(StreamHandler.tee(ps, id):onData('Hi')))
+  lu.assertTrue(Promise:isInstance(StreamHandler.tee(id, ps):onData('Hi')))
+  lu.assertTrue(Promise:isInstance(StreamHandler.tee(ps, ps):onData('Hi')))
+  lu.assertEquals(type(StreamHandler.tee(StreamHandler.null, id):onData('Hi')), 'string')
+  lu.assertEquals(type(StreamHandler.tee(id, StreamHandler.null):onData('Hi')), 'string')
+end
+
+function Test_keep()
+  local cs = createCaptureStreamHandler()
+  local s = StreamHandler.keep(cs)
+  assertCaptureStreamHandler(cs)
+  s:onData('Hi')
+  s:onData('!')
+  s:onData()
+  s:onData('Bye')
+  assertCaptureStreamHandler(cs, {'Hi', '!'})
+end
+
 function Test_block()
   local cs = createCaptureStreamHandler()
   local s = BlockStreamHandler:new(cs, 4)
@@ -193,6 +219,33 @@ function Test_range()
   assertCaptureStreamHandler(cs)
   endData(s, 'Hell', 'o wo', 'rld ', '!')
   assertThenCleanCaptureStreamHandler(cs, {'ll', 'o w', false})
+end
+
+function Test_ensureCallback()
+  local fn = function() end
+  lu.assertFalse(pcall(StreamHandler.ensureCallback))
+  lu.assertFalse(pcall(StreamHandler.ensureCallback, ''))
+  lu.assertIsNil(StreamHandler.ensureCallback(nil, true))
+  lu.assertIs(StreamHandler.ensureCallback(fn), fn)
+  lu.assertEquals(type(StreamHandler.ensureCallback(StreamHandler.null)), 'function')
+end
+
+function Test_ensureStreamHandler()
+  local fn = function() end
+  lu.assertFalse(pcall(StreamHandler.ensureStreamHandler))
+  lu.assertFalse(pcall(StreamHandler.ensureStreamHandler, ''))
+  lu.assertIs(StreamHandler.ensureStreamHandler(StreamHandler.null), StreamHandler.null)
+  lu.assertTrue(StreamHandler:isInstance(StreamHandler.ensureStreamHandler(fn)))
+end
+
+function Test_fill()
+  local cs = createCaptureStreamHandler()
+  StreamHandler.fill(cs, 'Hi')
+  assertCaptureStreamHandler(cs, {'Hi', false})
+  local ps = StreamHandler:new(function(_, data)
+    return Promise.resolve(data)
+  end)
+  lu.assertTrue(Promise:isInstance(StreamHandler.fill(ps, 'Hi')))
 end
 
 os.exit(lu.LuaUnit.run())

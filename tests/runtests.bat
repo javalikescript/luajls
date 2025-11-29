@@ -124,6 +124,7 @@ IF %COV%==yes (
   REN luacov.report.out luacov.report.%NAME%.%TIMESTAMP%%LUACOV_REPORT_EXT%
   COPY luacov.report.%NAME%.%TIMESTAMP%%LUACOV_REPORT_EXT% luacov.report.%NAME%%LUACOV_REPORT_EXT%
 )
+del .jls.*.tmp
 GOTO :eof
 
 :rundir
