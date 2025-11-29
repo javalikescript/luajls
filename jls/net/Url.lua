@@ -7,6 +7,46 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local Map = require('jls.util.Map')
 local strings = require('jls.util.strings')
 
+local PORT_BY_SCHEME = {
+  http = 80,
+  https = 443,
+  ws = 80,
+  wss = 443
+}
+
+local function formatUserInfo(tUrl)
+  if tUrl.userinfo then
+    return tUrl.userinfo
+  end
+  local user = tUrl.username or tUrl.user
+  if user then
+    if tUrl.password then
+      return user..':'..tUrl.password
+    end
+      return user
+  end
+end
+
+local function formatHostPort(tUrl)
+  local hostport = tUrl.host
+  if string.find(hostport, ':') then -- IPv6 addresses are enclosed in brackets
+    hostport = '['..hostport..']'
+  end
+  local port = tUrl.port
+  if port and port ~= PORT_BY_SCHEME[tUrl.scheme] then
+    hostport = hostport..':'..port
+  end
+  return hostport
+end
+
+local function formatAuthority(tUrl)
+  local userinfo = formatUserInfo(tUrl)
+  if userinfo then
+    return userinfo..'@'..formatHostPort(tUrl)
+  end
+  return formatHostPort(tUrl)
+end
+
 --- The Url class represents an Uniform Resource Locator.
 -- see https://tools.ietf.org/html/rfc1738
 -- @type Url
@@ -51,10 +91,7 @@ return require('jls.lang.class').create(function(url, _, Url)
   --- Returns this Url userInfo.
   -- @return this Url userInfo.
   function url:getUserInfo()
-    if self.t.password then
-      return self.t.username..':'..self.t.password
-    end
-    return self.t.username
+    return formatUserInfo(self.t)
   end
 
   --- Returns this Url hostname.
@@ -67,6 +104,14 @@ return require('jls.lang.class').create(function(url, _, Url)
   -- @return this Url port.
   function url:getPort()
     return self.t.port
+  end
+
+  function url:getHostPort()
+    return formatHostPort(self.t)
+  end
+
+  function url:getAuthority()
+    return formatAuthority(self.t)
   end
 
   --- Returns this Url path.
@@ -108,13 +153,6 @@ return require('jls.lang.class').create(function(url, _, Url)
     end
     return self.s
   end
-
-  local PORT_BY_SCHEME = {
-    http = 80,
-    https = 443,
-    ws = 80,
-    wss = 443
-  }
 
   local function parseHostPort(hostport)
     local host, port
@@ -227,25 +265,7 @@ return require('jls.lang.class').create(function(url, _, Url)
     local buffer = StringBuffer:new()
     buffer:append(tUrl.scheme, ':')
     if tUrl.host then
-      buffer:append('//')
-      if tUrl.userinfo then
-        buffer:append(tUrl.userinfo)
-        buffer:append('@')
-      elseif tUrl.username or tUrl.user then
-        buffer:append(tUrl.username or tUrl.user)
-        if tUrl.password then
-          buffer:append(':', tUrl.password)
-        end
-        buffer:append('@')
-      end
-      if string.find(tUrl.host, ':') then -- IPv6 addresses are enclosed in brackets
-        buffer:append('[', tUrl.host, ']')
-      else
-        buffer:append(tUrl.host)
-      end
-      if tUrl.port and tUrl.port ~= PORT_BY_SCHEME[tUrl.scheme] then
-        buffer:append(':', tUrl.port)
-      end
+      buffer:append('//', formatAuthority(tUrl))
       if tUrl.path and string.match(tUrl.path, '^/') then
         buffer:append(tUrl.path)
       end
