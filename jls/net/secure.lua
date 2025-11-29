@@ -159,6 +159,10 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     end]]
   end
 
+  function secureTcpSocket:sslSet(name, value)
+    return self.ssl:set(name, value)
+  end
+
   function secureTcpSocket:sslGetAlpnSelected()
     if not self.ssl.get_alpn_selected then
       return nil
@@ -243,8 +247,11 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     local ret, err = self.ssl:handshake()
     logger:finer('sslDoHandshake() ssl:handshake() => %s, %s', ret, err)
     if ret == nil then
+      if logger:isLoggable(logger.FINE) then
+        logger:fine('OpenSSL errors: %s', opensslLib.errors())
+      end
       self:close()
-      callback('closed')
+      callback('SSL handshake failed with error '..tostring(err))
       return
     end
     if self.outMem:pending() > 0 then

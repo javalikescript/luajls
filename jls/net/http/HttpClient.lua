@@ -141,6 +141,7 @@ return class.create(function(httpClient, _, HttpClient)
     if self.isSecure then
       tcp = secure.TcpSocket:new()
       tcp:sslInit(false, self.secureContext or SECURE_CONTEXT)
+      tcp:sslSet('hostname', self.host)
     else
       tcp = TcpSocket:new()
     end
