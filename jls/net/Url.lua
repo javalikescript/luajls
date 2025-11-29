@@ -29,22 +29,27 @@ end
 
 local function formatHostPort(tUrl)
   local hostport = tUrl.host
-  if string.find(hostport, ':') then -- IPv6 addresses are enclosed in brackets
-    hostport = '['..hostport..']'
-  end
-  local port = tUrl.port
-  if port and port ~= PORT_BY_SCHEME[tUrl.scheme] then
-    hostport = hostport..':'..port
+  if hostport then
+    if string.find(hostport, ':') then -- IPv6 addresses are enclosed in brackets
+      hostport = '['..hostport..']'
+    end
+    local port = tUrl.port
+    if port and port ~= PORT_BY_SCHEME[tUrl.scheme] then
+      hostport = hostport..':'..port
+    end
   end
   return hostport
 end
 
 local function formatAuthority(tUrl)
-  local userinfo = formatUserInfo(tUrl)
-  if userinfo then
-    return userinfo..'@'..formatHostPort(tUrl)
+  local hostport = formatHostPort(tUrl)
+  if hostport then
+    local userinfo = formatUserInfo(tUrl)
+    if userinfo then
+      return userinfo..'@'..hostport
+    end
   end
-  return formatHostPort(tUrl)
+  return hostport
 end
 
 --- The Url class represents an Uniform Resource Locator.
@@ -254,11 +259,11 @@ return require('jls.lang.class').create(function(url, _, Url)
   -- @tparam string sUrl The Url as a string.
   -- @treturn jls.net.Url the Url or nil.
   function Url.fromString(sUrl)
-    local tUrl = Url.parse(sUrl)
+    local tUrl, err = Url.parse(sUrl)
     if tUrl then
       return Url:new(tUrl)
     end
-    return nil
+    return nil, err
   end
 
   local function formatCommon(tUrl)
