@@ -182,7 +182,6 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       local targetClient = TcpSocket:new()
       targetClient:connect(host, port):next(function()
         logger:fine('connected to "%s"', hostport)
-        exchange.applyKeepAlive = returnFalse
         function exchange.close()
           client = exchange.client
           exchange.client = nil

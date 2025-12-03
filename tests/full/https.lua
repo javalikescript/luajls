@@ -60,8 +60,7 @@ local function createHttpsServer(handler, keep)
     if not keep then
       exchange:onClose():next(function()
         logger:finer('http exchange closed')
-        local keepAlive = exchange:getResponse():getHeader('connection') == 'keep-alive'
-        if not keepAlive then
+        if exchange:getResponse():getConnection() ~= 'keep-alive' then
           logger:finer('http server closing')
           server:close()
         end
@@ -213,12 +212,12 @@ function Test_HttpsServerClientsKeepAlive()
     client = createHttpsClient({Connection = 'keep-alive'})
     client:fetch('/'):next(function(response)
       return response:text()
-    end):next(function(body)
+    end):next(function()
       logger:fine('send receive completed for first request')
       return client:fetch('/')
     end):next(function(response)
       return response:text()
-    end):next(function(body)
+    end):next(function()
       logger:fine('send receive completed for second request')
     end):finally(function()
       client:close()

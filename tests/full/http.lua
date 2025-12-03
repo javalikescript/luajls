@@ -108,8 +108,7 @@ local function createHttpServer(handler, keep)
     if not keep then
       exchange:onClose():next(function()
         logger:finer('http exchange closed')
-        local keepAlive = exchange:getResponse():getHeader('connection') == 'keep-alive'
-        if not keepAlive then
+        if exchange:getResponse():getConnection() ~= 'keep-alive' then
           logger:finer('http server closing')
           server:close()
         end
@@ -435,15 +434,17 @@ function Test_HttpClientServer_body()
   lu.assertEquals(server.t_request:getMethod(), 'POST')
 end
 
-local function onWriteMessage(message, data)
+local function onWriteMessage(message, data, addLength)
   if type(data) == 'string' then
     data = {data}
   end
-  local l = 0
-  for _, d in ipairs(data) do
-    l = l + #d
+  if addLength then
+    local l = 0
+    for _, d in ipairs(data) do
+      l = l + #d
+    end
+    message:setContentLength(l)
   end
-  message:setContentLength(l)
   message:onWriteBodyStreamHandler(function()
     local bsh = message:getBodyStreamHandler()
     for _, d in ipairs(data) do
@@ -461,12 +462,19 @@ local function createRequest(method, target)
   return request
 end
 
-function Test_HttpClientServer_body_stream()
+local function setHeaders(msg, headers)
+  if headers then
+    msg:addHeadersTable(headers)
+  end
+end
+
+local function assertHttpClientServer(reqHdrs, resHdrs)
   local server, client
   createHttpServer(function(exchange)
     local request = exchange:getRequest()
     local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
+    setHeaders(response, resHdrs)
     setConnectionClose(response)
     onWriteMessage(response, '<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
@@ -474,6 +482,7 @@ function Test_HttpClientServer_body_stream()
     server = s
     client = createHttpClient()
     local request = createRequest('POST')
+    setHeaders(request, reqHdrs)
     onWriteMessage(request, 'Tim')
     sendReceiveClose(client, request)
   end)
@@ -487,6 +496,23 @@ function Test_HttpClientServer_body_stream()
   lu.assertEquals(client.t_response:getBody(), '<p>Hello Tim!</p>')
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_request:getMethod(), 'POST')
+end
+
+function Test_HttpClientServer_body_stream()
+  assertHttpClientServer()
+end
+
+local function assertHttpClientServerContentEncoding(ce)
+  local headers = {[HttpMessage.CONST.HEADER_CONTENT_ENCODING] = ce}
+  assertHttpClientServer(headers, headers)
+end
+
+function Test_HttpClientServer_content_encoding_gzip()
+  assertHttpClientServerContentEncoding('gzip')
+end
+
+function Test_HttpClientServer_content_encoding_deflate()
+  assertHttpClientServerContentEncoding('deflate')
 end
 
 function Test_HttpsClientServer_body_stream_multiple()

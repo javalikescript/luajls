@@ -212,6 +212,14 @@ local Stream = class.create(function(stream)
   function stream:onHeaders(endHeaders, endStream)
     if endHeaders then
       self:onEndHeaders()
+      -- after triggering end headers, the stream must be available
+      local sh, err = self.message:getBodyStreamHandler()
+      sh, err = self.message:applyContentEncoding(sh, false)
+      if sh then
+        self.sh = sh
+      else
+        sh:onError(err)
+      end
     end
     if endStream then
       self:onEndStream()
@@ -219,8 +227,7 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onData(data)
-    local sh = self.message:getBodyStreamHandler()
-    sh:onData(data)
+    self.sh:onData(data)
   end
 
   function stream:onRawData(data, endStream)
@@ -300,7 +307,7 @@ local Stream = class.create(function(stream)
   function stream:sendBody(message)
     logger:finer('sendBody()')
     local endStream = false
-    message:setBodyStreamHandler(StreamHandler:new(function(err, data, endData)
+    local sh = StreamHandler:new(function(err, data, endData)
       if err then
         error(err)
       elseif data then
@@ -315,7 +322,9 @@ local Stream = class.create(function(stream)
       elseif not endStream then
         return self:sendData(nil, true)
       end
-    end))
+    end)
+    sh = assert(message:applyContentEncoding(sh, true))
+    message:setBodyStreamHandler(sh)
     message:writeBodyCallback(self.blockSize)
   end
 

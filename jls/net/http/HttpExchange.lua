@@ -8,7 +8,6 @@ local Promise = require('jls.lang.Promise')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpMessage = require('jls.net.http.HttpMessage')
 local List = require('jls.util.List')
-local strings = require('jls.util.strings')
 local HTTP_CONST = HttpMessage.CONST
 
 --- The HttpExchange class wraps the HTTP request and response.
@@ -101,18 +100,6 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     return self:getRequest():getSearchParams()
   end
 
-  -- TODO Remove as deprecated in favor of request:consume()
-  function httpExchange:onRequestBody(buffer)
-    logger:warn('exchange:onRequestBody() is deprecated in favor of request:consume()')
-    if buffer then
-      self.request:bufferBody()
-    end
-    if not self.requestBodyPromise then
-      self.requestBodyPromise, self.requestBodyCallback = Promise.withCallback()
-    end
-    return self.requestBodyPromise
-  end
-
   --- Returns a promise that resolves once the exchange is closed.
   -- @treturn jls.lang.Promise a promise that resolves once the exchange is closed
   function httpExchange:onClose()
@@ -120,14 +107,6 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
       self.closePromise, self.closeCallback = Promise.withCallback()
     end
     return self.closePromise
-  end
-
-  -- TODO Remove as deprecated in favor of request:consume()
-  function httpExchange:notifyRequestBody(reason)
-    if self.requestBodyCallback then
-      self.requestBodyCallback(reason, self)
-      self.requestBodyCallback = nil
-    end
   end
 
   --- Sets the status code for the response.
@@ -141,34 +120,12 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     end
   end
 
-  -- Applies the connection header and returns true if keep alive applies.
-  -- Use the response connection header if any or the request one if any
-  -- otherwise default to close in version 1.0 and keep-alive in 1.1.
-  -- @treturn boolean true if keep alive applies to the response
-  function httpExchange:applyKeepAlive()
-    local responseConnection = self.response:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
-    if not responseConnection then
-      local requestConnection = self.request:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
-      if requestConnection then
-        responseConnection = requestConnection
-      elseif self.request:getVersion() == HttpMessage.CONST.VERSION_1_1 then
-        responseConnection = HttpMessage.CONST.CONNECTION_KEEP_ALIVE
-      else
-        responseConnection = HttpMessage.CONST.CONNECTION_CLOSE
-      end
-      self.response:setHeader(HttpMessage.CONST.HEADER_CONNECTION, responseConnection)
-    end
-    return strings.equalsIgnoreCase(responseConnection, HttpMessage.CONST.CONNECTION_KEEP_ALIVE)
-  end
-
   function httpExchange:resetResponseToError(reason)
-    local r = reason and tostring(reason) or 'Unknown error'
     local response = self.response
     response:close()
     response = HttpMessage:new()
     response:setStatusCode(HttpMessage.CONST.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error')
     self.response = response
-    self:notifyRequestBody(r)
   end
 
   function httpExchange:handleRequest(context)

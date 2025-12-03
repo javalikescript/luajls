@@ -71,7 +71,6 @@ local Stream = class.create(Http2.Stream, function(stream, super)
       endStreamCallback()
     end
     super.onEndStream(self)
-    exchange:notifyRequestBody() -- TODO Remove
     self.http2.server:prepareResponseHeaders(exchange)
     local response = exchange:getResponse()
     local handling = self.handling
@@ -262,8 +261,38 @@ local HttpServer = class.create(function(httpServer)
   end
 
   function httpServer:prepareResponseHeaders(exchange)
+    local CONST = HttpMessage.CONST
+    local request = exchange:getRequest()
     local response = exchange:getResponse()
-    response:setHeader(HttpMessage.CONST.HEADER_SERVER, HttpMessage.CONST.DEFAULT_SERVER)
+    -- apply server
+    response:setHeader(CONST.HEADER_SERVER, CONST.DEFAULT_SERVER)
+    -- apply connection from the request and if necessary
+    if not response:getHeader(CONST.HEADER_CONNECTION) then
+      local connection = request:getHeader(CONST.HEADER_CONNECTION)
+      if connection then
+        response:setHeader(CONST.HEADER_CONNECTION, string.lower(connection))
+      elseif request:getVersion() ~= response:getVersion() then
+        response:setHeader(CONST.HEADER_CONNECTION, request:getConnection())
+      end
+    end
+    -- apply content encoding is wanted and accepted
+    if self.compress and not response:getHeader(CONST.HEADER_CONTENT_ENCODING) then
+      local ae = request:getHeader(CONST.HEADER_ACCEPT_ENCODING) -- deflate, gzip;q=1.0, *;q=0.5
+      local ct = response:getHeader(CONST.HEADER_CONTENT_TYPE)
+      if ae and string.find(ct, '^text/') then
+        local ce
+        ae = string.lower(ae)
+        if string.find(ae, '*', 1, true) or string.find(ae, 'deflate', 1, true) then
+          ce = 'deflate'
+        elseif string.find(ae, 'gzip', 1, true) then
+          ce = 'gzip'
+        end
+        if ce then
+          response:setHeader(CONST.HEADER_CONTENT_LENGTH)
+          response:setHeader(CONST.HEADER_CONTENT_ENCODING, ce)
+        end
+      end
+    end
     response:applyBodyLength()
   end
 
@@ -372,7 +401,6 @@ local HttpServer = class.create(function(httpServer)
     end
     local exchange = HttpExchange:new()
     exchange.client = client
-    local keepAlive = false
     local handling = nil
     local callback = nil
     local remnant = nil
@@ -381,7 +409,7 @@ local HttpServer = class.create(function(httpServer)
     exchange.start_time = os.time()
     self.pendings[client] = exchange
     hsh:read(client, buffer):next(function(remnantBuffer)
-      logger:finer('header read')
+      logger:finer('request headers processed on %s', exchange)
       self.pendings[client] = nil
       local request = exchange:getRequest()
       local promise
@@ -394,29 +422,23 @@ local HttpServer = class.create(function(httpServer)
         local context = self:getMatchingContext(path, request)
         handling = exchange:handleRequest(context)
       end
-      logger:finer('request headers %s processed', exchange)
-      if logger:isLoggable(logger.FINEST) then
-        logger:finest('headers are %s', request:getRawHeaders())
-      end
       return Http1.readBody(client, request, remnantBuffer)
     end):next(function(remnantBuffer)
       logger:finer('body done')
       callback()
-      exchange:notifyRequestBody() -- TODO Remove
       remnant = remnantBuffer
       return handling
     end):next(function()
-      logger:finer('request %s processed', exchange)
-      keepAlive = exchange:applyKeepAlive()
+      logger:finer('request processed on %s', exchange)
       self:prepareResponseHeaders(exchange)
       return Http1.writeHeaders(client, exchange:getResponse())
     end):next(function()
-      logger:finer('response headers %s done', exchange)
+      logger:finer('response headers done on %s', exchange)
       -- post filter
-      --exchange:prepareResponseBody()
       return Http1.writeBody(client, exchange:getResponse())
     end):next(function()
-      logger:fine('response body %s done', exchange)
+      logger:fine('response body done on %s', exchange)
+      local keepAlive = exchange:getResponse():getConnection() == HttpMessage.CONST.CONNECTION_KEEP_ALIVE
       if keepAlive and not self.tcpServer:isClosed() then
         local c = exchange.client
         exchange.client = nil

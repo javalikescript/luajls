@@ -132,12 +132,14 @@ return class.create(function(httpClient, _, HttpClient)
   end
 
   function httpClient:connectV2() -- TODO Rename?
-    logger:finer('connectV2()')
     if self.connecting then
+      logger:finest('connecting')
       return self.connecting
     elseif not self:isClosed() then
+      logger:finest('connected')
       return Promise.resolve(self)
     end
+    logger:finer('connectV2()')
     self:close(false)
     local tcp
     if self.isSecure then
@@ -355,16 +357,6 @@ return class.create(function(httpClient, _, HttpClient)
       end
       logger:fine('fetch is using HTTP/1')
       request:applyBodyLength()
-      -- keep alive the connection by default
-      if not request:getHeader(CONST.HEADER_CONNECTION) then
-        local connection
-        if request:getVersion() == CONST.VERSION_1_0 then
-          connection = CONST.CONNECTION_CLOSE
-        else
-          connection = CONST.CONNECTION_KEEP_ALIVE
-        end
-        request:setHeader(CONST.HEADER_CONNECTION, connection)
-      end
       local queuePromise = self.queuePromise or Promise.resolve()
       local queueNext
       self.queuePromise, queueNext = Promise.withCallback()
@@ -380,13 +372,7 @@ return class.create(function(httpClient, _, HttpClient)
         return Http1.readHeader(self.tcpClient, response, self.remnant)
       end):next(function(buffer)
         logger:finer('fetch read headers done')
-        local connection = response:getHeader(CONST.HEADER_CONNECTION)
-        local connectionClose
-        if connection then
-          connectionClose = strings.equalsIgnoreCase(connection, CONST.CONNECTION_CLOSE)
-        else
-          connectionClose = response:getVersion() == CONST.VERSION_1_0
-        end
+        local connectionClose = response:getConnection() == CONST.CONNECTION_CLOSE
         -- TODO Always read body after resolving consume promise
         -- TODO shall we override response:close()?
         local promise

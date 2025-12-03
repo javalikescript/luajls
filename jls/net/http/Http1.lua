@@ -7,7 +7,8 @@ local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local HeaderStreamHandler = require('jls.net.http.HeaderStreamHandler')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local strings = require('jls.util.strings')
+
+local CONST = HttpMessage.CONST
 
 local Http1 = {}
 
@@ -84,15 +85,14 @@ function Http1.readBody(tcp, message, buffer, callback)
   logger:finest('readBody()')
   local bsh = message:getBodyStreamHandler()
   local cb, promise = Promise.ensureCallback(callback, true)
-  local chunkFinder = nil
-  local transferEncoding = message:getHeader(HttpMessage.CONST.HEADER_TRANSFER_ENCODING)
-  if transferEncoding then
-    if strings.equalsIgnoreCase(transferEncoding, 'chunked') then
-      chunkFinder = createChunkFinder()
-    else
-      cb('Unsupported transfer encoding "'..transferEncoding..'"')
+  local chunked = false
+  local te = message:getHeader(CONST.HEADER_TRANSFER_ENCODING)
+  if te then
+    if string.lower(te) ~= 'chunked' then
+      cb('Unsupported transfer encoding "'..te..'"')
       return promise
     end
+    chunked = true
   end
   local length = message:getContentLength()
   logger:finer('readBody() content length is %s', length)
@@ -116,17 +116,17 @@ function Http1.readBody(tcp, message, buffer, callback)
       return promise
     end
   end
-  if not length then
-    -- request without content length nor transfer encoding does not have a body
-    local connection = message:getHeader(HttpMessage.CONST.HEADER_CONNECTION)
-    if message:isRequest() or strings.equalsIgnoreCase(connection, HttpMessage.CONST.HEADER_UPGRADE) then
+  if not (length or chunked) then
+    local connection = message:getConnection()
+    logger:finer('readBody() connection: %s', connection)
+    -- RFC 7230 3.3. The presence of a message body in a request is signaled by a Content-Length or Transfer-Encoding header field.
+    if message:isRequest() or connection == CONST.HEADER_UPGRADE then
       bsh:onData(nil)
       cb(nil, buffer) -- no body
       return promise
     end
     length = -1
-    logger:finer('readBody() connection: %s', connection)
-    if not (strings.equalsIgnoreCase(connection, HttpMessage.CONST.CONNECTION_CLOSE) or chunkFinder or message:getVersion() == HttpMessage.CONST.VERSION_1_0) then
+    if connection ~= CONST.CONNECTION_CLOSE then
       cb('Content length value, chunked transfer encoding or connection close expected')
       return promise
     end
@@ -155,8 +155,14 @@ function Http1.readBody(tcp, message, buffer, callback)
     readState = 3
     cb(err) -- TODO is there a remaining buffer
   end)
-  if chunkFinder then
-    sh = ChunkedStreamHandler:new(sh, chunkFinder)
+  local err
+  sh, err = message:applyContentEncoding(sh, false)
+  if not sh then
+    cb(err or 'unknown')
+    return promise
+  end
+  if chunked then
+    sh = ChunkedStreamHandler:new(sh, createChunkFinder())
   elseif length > 0 then
     sh = RangeStreamHandler:new(sh, 0, length)
   end
@@ -192,9 +198,14 @@ function Http1.writeBody(tcp, message)
   if message:hasTransferEncoding('chunked') then
     sh = ChunkStreamHandler:new(sh)
   end
-  -- TODO Content-Encoding
-  message:setBodyStreamHandler(sh)
-  message:writeBodyCallback(Http1.BODY_BLOCK_SIZE)
+  local err
+  sh, err = message:applyContentEncoding(sh, true)
+  if sh then
+    message:setBodyStreamHandler(sh)
+    message:writeBodyCallback(Http1.BODY_BLOCK_SIZE)
+  else
+    cb(err or 'unknown')
+  end
   return pr
 end
 

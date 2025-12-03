@@ -8,9 +8,11 @@ local Promise = require('jls.lang.Promise')
 local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
+local Url = require('jls.net.Url')
 local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
-local Url = require('jls.net.Url')
+local Codec = require('jls.util.Codec')
+local List = require('jls.util.List')
 
 local CONST
 
@@ -236,10 +238,21 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     self:setHeader(CONST.HEADER_CONTENT_LENGTH, value)
   end
 
+  function httpMessage:getConnection()
+    local connection = self:getHeader(CONST.HEADER_CONNECTION)
+    if connection then
+      return string.lower(connection)
+    end
+    if self:getVersion() == HttpMessage.CONST.VERSION_1_1 then
+      return CONST.CONNECTION_KEEP_ALIVE
+    end
+    return CONST.CONNECTION_CLOSE
+  end
+
   function httpMessage:hasTransferEncoding(value)
     local te = self:getHeader(CONST.HEADER_TRANSFER_ENCODING)
     if te then
-      for s in string.gmatch(te, '[^,;%s]+') do
+      for s in string.gmatch(te, '[^,%s]+') do
         if string.lower(s) == string.lower(value) then
           return true
         end
@@ -297,14 +310,17 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return self.body
   end
 
+  --- Ensures Content-Length or Transfer-Encoding header are defined.
+  -- These headers are required when using HTTP 1 Keep-Alive
   function httpMessage:applyBodyLength()
-    -- If there no length and using body string
-    if not (self:getContentLength() or self:hasTransferEncoding('chunked')) then
-      if self.writeBodyCallback == httpMessage.writeBodyCallback then
-        -- We may check the connection header
-        self:setContentLength(self:getBodyLength())
-      else
-        self:setHeader(CONST.HEADER_TRANSFER_ENCODING, 'chunked')
+    -- request or response with keep alive must provide content length or use chuncked
+    if self:isRequest() or self:getConnection() == CONST.CONNECTION_KEEP_ALIVE then
+      if not (self:getHeader(CONST.HEADER_CONTENT_LENGTH) or self:hasTransferEncoding('chunked')) then
+        if self.writeBodyCallback == httpMessage.writeBodyCallback and not self:getHeader(CONST.HEADER_CONTENT_ENCODING) then
+          self:setContentLength(self:getBodyLength())
+        else
+          self:setHeader(CONST.HEADER_TRANSFER_ENCODING, 'chunked')
+        end
       end
     end
   end
@@ -322,6 +338,32 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       error('Invalid body value, type is '..type(value))
     end
     self.writeBodyCallback = nil
+  end
+
+  --- Returns a stream with all content encoding applied.
+  -- @tparam jls.io.StreamHandler sh the stream.
+  -- @tparam boolean encode true to encode otherwise decode.
+  -- @return a stream with all content encoding applied.
+  function httpMessage:applyContentEncoding(sh, encode)
+    local ce = self:getHeader(CONST.HEADER_CONTENT_ENCODING)
+    if ce then
+      local l = strings.split(string.lower(ce), '%s*,%s*')
+      if encode then
+        l = List.reverse(l)
+      end
+      for _, n in ipairs(l) do
+        if n ~= 'identity' then
+          local status, codec = pcall(Codec.getInstance, n)
+          if status then
+            logger:fine('apply content encoding %s encode=%s', n, encode)
+            sh = encode and codec:encodeStream(sh) or codec:decodeStream(sh)
+          else
+            return nil, 'unsupported content encoding "'..n..'"'
+          end
+        end
+      end
+    end
+    return sh
   end
 
   --- Sets a function that will be called when the body stream handler is available to receive data.
@@ -458,6 +500,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     HEADER_CONTENT_DISPOSITION = 'content-disposition',
     HEADER_CONTENT_LENGTH = 'content-length',
     HEADER_CONTENT_TYPE = 'content-type',
+    HEADER_CONTENT_ENCODING = 'content-encoding',
     HEADER_TRANSFER_ENCODING = 'transfer-encoding',
     HEADER_LAST_MODIFIED = 'last-modified',
     HEADER_RANGE = 'range',
