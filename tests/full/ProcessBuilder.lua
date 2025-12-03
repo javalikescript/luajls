@@ -118,7 +118,7 @@ function Test_destroy()
     t = os.time() - t
   end)
   ph:destroy()
-  if not loop(30000) then
+  if not loop(ms * 3) then
     lu.fail('Timeout reached')
   end
   lu.assertTrue(t < 4)
@@ -130,6 +130,9 @@ end
 local function destroyAlive(ph)
   lu.assertEquals(ph:isAlive(), true)
   ph:destroy()
+  if not loop() then -- on linux to avoid defunct
+    lu.fail('Timeout reached')
+  end
   lu.assertEquals(ph:isAlive(), false)
 end
 

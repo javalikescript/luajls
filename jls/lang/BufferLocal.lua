@@ -1,1 +1,1 @@
-return require('jls.lang.loader').requireOne('jls.lang.Buffer-buffer', 'jls.lang.BufferFile')
+return require('jls.lang.BufferGlobal')
