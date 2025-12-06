@@ -316,4 +316,35 @@ function Test_HttpClientServer_stream_secure()
   assertFetchHttpClientServerStream(bodyParts, true)
 end
 
+function Test_HttpClientServer_content_encoding()
+  local headers = {['Content-Encoding'] = 'deflate'}
+  local responseStatus, responseBody, responseVersion
+  runHttpClientServer(function(client)
+    return client:fetch('/', {
+      headers = headers,
+      body = 'Joe'
+    }):next(function(response)
+      logger:info('response fetched')
+      responseStatus = response:getStatusCode()
+      responseVersion = response:getVersion()
+      return response:text()
+    end):next(function(content)
+      logger:info('response body received')
+      responseBody = content
+    end)
+  end, true, function(exchange)
+    logger:info('request headers received')
+    local request = exchange:getRequest()
+    local response = exchange:getResponse()
+    return request:text():next(function(content)
+      logger:info('request body received')
+      response:addHeadersTable(headers)
+      response:setBody('Hello '..content..'!')
+    end)
+  end)
+  lu.assertEquals(responseStatus, 200)
+  lu.assertEquals(responseBody, 'Hello Joe!')
+  lu.assertEquals(responseVersion, 'HTTP/2')
+end
+
 os.exit(lu.LuaUnit.run())

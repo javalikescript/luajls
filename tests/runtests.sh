@@ -52,3 +52,4 @@ then
 else
   echo $testcount files pass
 fi
+rm .jls.*.tmp
