@@ -4,13 +4,12 @@
 
 local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
-local TcpSocket = require('jls.net.TcpSocket')
 local Promise = require('jls.lang.Promise')
-local Url = require('jls.net.Url')
 local Http1 = require('jls.net.http.Http1')
 local Http2 = require('jls.net.http.Http2')
 local HttpMessage = require('jls.net.http.HttpMessage')
-local strings = require('jls.util.strings')
+local TcpSocket = require('jls.net.TcpSocket')
+local Url = require('jls.net.Url')
 local secure
 
 local CONST = HttpMessage.CONST
@@ -335,9 +334,7 @@ return class.create(function(httpClient, _, HttpClient)
     if options.method then
       request:setMethod(options.method)
     end
-    if options.headers then
-      request:addHeadersTable(options.headers)
-    end
+    request:addHeadersTable(options.headers)
     if options.body then
       request:setBody(options.body)
     end
@@ -349,6 +346,9 @@ return class.create(function(httpClient, _, HttpClient)
       hostPort = formatHostPort(self.host, self.port, self.isSecure)
     end
     request:setHeader(CONST.HEADER_HOST, hostPort)
+    if not request:getHeader(CONST.HEADER_USER_AGENT) then
+      request:setHeader(CONST.HEADER_USER_AGENT, CONST.DEFAULT_USER_AGENT)
+    end
     local response = HttpMessage:new()
     return self:connectV2():next(function()
       if self.http2 then
@@ -379,8 +379,7 @@ return class.create(function(httpClient, _, HttpClient)
         response.consume = function(message)
           if not promise then
             logger:finer('fetch reading body')
-            local statusCode = message:getStatusCode()
-            if statusCode == 204 or statusCode == 304 or (statusCode // 100 == 1) or request:getMethod() == 'HEAD' then
+            if Http1.hasNoBody(request, message) then
               message:getBodyStreamHandler():onData(nil)
               self.remnant = buffer
               promise = Promise.resolve()

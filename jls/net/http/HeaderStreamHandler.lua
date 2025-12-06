@@ -93,8 +93,8 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
         if err then
           reject(err)
         else
-          if logger:isLoggable(logger.FINEST) then
-            logger:finest('headers are %s', self.message:getRawHeaders())
+          if logger:isLoggable(logger.FINER) then
+            logger:finer('headers are\r\n%s', self.message:getRawHeaders())
           end
           resolve(partHandler:getBuffer())
         end

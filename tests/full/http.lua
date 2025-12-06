@@ -462,19 +462,13 @@ local function createRequest(method, target)
   return request
 end
 
-local function setHeaders(msg, headers)
-  if headers then
-    msg:addHeadersTable(headers)
-  end
-end
-
 local function assertHttpClientServer(reqHdrs, resHdrs)
   local server, client
   createHttpServer(function(exchange)
     local request = exchange:getRequest()
     local response = exchange:getResponse()
     response:setStatusCode(200, 'Ok')
-    setHeaders(response, resHdrs)
+    response:addHeadersTable(resHdrs)
     setConnectionClose(response)
     onWriteMessage(response, '<p>Hello '..request:getBody()..'!</p>')
     logger:fine('http server handler => Ok')
@@ -482,7 +476,7 @@ local function assertHttpClientServer(reqHdrs, resHdrs)
     server = s
     client = createHttpClient()
     local request = createRequest('POST')
-    setHeaders(request, reqHdrs)
+    request:addHeadersTable(reqHdrs)
     onWriteMessage(request, 'Tim')
     sendReceiveClose(client, request)
   end)

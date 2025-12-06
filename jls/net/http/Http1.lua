@@ -76,7 +76,7 @@ end
 function Http1.writeHeaders(tcp, message, callback)
   local buffer = StringBuffer:new(message:formatLine(), '\r\n')
   message:appendHeaders(buffer):append('\r\n')
-  logger:finer('writeHeaders() "%s"', buffer)
+  logger:finer('writeHeaders() %s', buffer)
   -- TODO write StringBuffer
   return tcp:write(buffer:toString(), callback)
 end
@@ -174,6 +174,11 @@ function Http1.readBody(tcp, message, buffer, callback)
     tcp:readStart(sh)
   end
   return promise
+end
+
+function Http1.hasNoBody(request, response)
+  local statusCode = response:getStatusCode()
+  return statusCode == 204 or statusCode == 304 or (statusCode // 100 == 1) or request:getMethod() == 'HEAD'
 end
 
 Http1.BODY_BLOCK_SIZE = 2 << 14

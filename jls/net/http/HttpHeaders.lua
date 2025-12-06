@@ -20,9 +20,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   -- @function HttpHeaders:new
   function httpHeaders:initialize(headers)
     self.headers = {}
-    if headers then
-      self:addHeadersTable(headers)
-    end
+    self:addHeadersTable(headers)
   end
 
   --- Returns the header value for the specified name.
@@ -206,10 +204,12 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
       for name, value in pairs(headers:getHeadersTable()) do
         self.headers[name] = value
       end
-    else
+    elseif type(headers) == 'table' then
       for name, value in pairs(headers) do
         self:setHeader(name, value)
       end
+    elseif headers ~= nil then
+      error('invalid headers table type '..type(headers))
     end
   end
 
