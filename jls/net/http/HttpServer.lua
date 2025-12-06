@@ -275,14 +275,14 @@ local HttpServer = class.create(function(httpServer)
         response:setHeader(CONST.HEADER_CONNECTION, request:getConnection())
       end
     end
-    -- apply content encoding is wanted and accepted
-    if self.compress and not response:getHeader(CONST.HEADER_CONTENT_ENCODING) then
+    -- apply content encoding
+    if not response:getHeader(CONST.HEADER_CONTENT_ENCODING) then
       local ae = request:getHeader(CONST.HEADER_ACCEPT_ENCODING) -- deflate, gzip;q=1.0, *;q=0.5
       local ct = response:getHeader(CONST.HEADER_CONTENT_TYPE)
-      if ae and string.find(ct, '^text/') then
+      if ae and ct and string.find(ct, '^text/') then
         local ce
         ae = string.lower(ae)
-        if string.find(ae, '*', 1, true) or string.find(ae, 'deflate', 1, true) then
+        if string.find(ae, 'deflate', 1, true) then
           ce = 'deflate'
         elseif string.find(ae, 'gzip', 1, true) then
           ce = 'gzip'
@@ -434,8 +434,13 @@ local HttpServer = class.create(function(httpServer)
       return Http1.writeHeaders(client, exchange:getResponse())
     end):next(function()
       logger:finer('response headers done on %s', exchange)
+      local response = exchange:getResponse()
+      if Http1.hasNoBody(exchange:getRequest(), response) then
+        logger:finer('response has no body')
+        return
+      end
       -- post filter
-      return Http1.writeBody(client, exchange:getResponse())
+      return Http1.writeBody(client, response)
     end):next(function()
       logger:fine('response body done on %s', exchange)
       local keepAlive = exchange:getResponse():getConnection() == HttpMessage.CONST.CONNECTION_KEEP_ALIVE

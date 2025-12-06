@@ -313,13 +313,20 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Ensures Content-Length or Transfer-Encoding header are defined.
   -- These headers are required when using HTTP 1 Keep-Alive
   function httpMessage:applyBodyLength()
-    -- request or response with keep alive must provide content length or use chuncked
+    local ce = self:getHeader(CONST.HEADER_CONTENT_ENCODING)
+    if ce then
+      logger:finer('discard content length')
+      self:setHeader(CONST.HEADER_CONTENT_LENGTH)
+    end
+    -- request or response with keep alive must provide content length or use chunked
     if self:isRequest() or self:getConnection() == CONST.CONNECTION_KEEP_ALIVE then
       if not (self:getHeader(CONST.HEADER_CONTENT_LENGTH) or self:hasTransferEncoding('chunked')) then
-        if self.writeBodyCallback == httpMessage.writeBodyCallback and not self:getHeader(CONST.HEADER_CONTENT_ENCODING) then
-          self:setContentLength(self:getBodyLength())
+        if self.writeBodyCallback == httpMessage.writeBodyCallback and not ce then
+          self:setHeader(CONST.HEADER_CONTENT_LENGTH, self:getBodyLength())
+          logger:finer('use content length')
         else
           self:setHeader(CONST.HEADER_TRANSFER_ENCODING, 'chunked')
+          logger:finer('use chunked')
         end
       end
     end
@@ -355,7 +362,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
         if n ~= 'identity' then
           local status, codec = pcall(Codec.getInstance, n)
           if status then
-            logger:fine('apply content encoding %s encode=%s', n, encode)
+            logger:fine('apply content encoding %s, encode is %s', n, encode)
             sh = encode and codec:encodeStream(sh) or codec:decodeStream(sh)
           else
             return nil, 'unsupported content encoding "'..n..'"'
@@ -401,7 +408,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   --- Consumes the body.
   -- @return a promise that resolves once the body has been received.
   function httpMessage:consume()
-    return Promise.reject('not available')
+    return Promise.reject('message body not available')
   end
 
   --- Reads the message body as text.
