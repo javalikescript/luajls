@@ -146,9 +146,9 @@ local Stream = class.create(function(stream)
     logger:finer('onEndHeaders()')
     if self.state == STATE.IDLE then
       if isServerInitiated(self.id) then
-        self.state = STATE.OPEN
-      else
         self:onError('Cannot open server initiated stream')
+      else
+        self.state = STATE.OPEN
       end
     end
   end
@@ -198,7 +198,7 @@ local Stream = class.create(function(stream)
     logger:finer('sendHeaders(?, %s, %s)', endHeaders, endStream)
     if endHeaders and self.state == STATE.IDLE then
       if isServerInitiated(self.id) then
-        error('Cannot open client initiated stream')
+        error('Cannot open server initiated stream')
       end
       self.state = STATE.OPEN
     end
@@ -212,7 +212,7 @@ local Stream = class.create(function(stream)
   function stream:onHeaders(endHeaders, endStream)
     if endHeaders then
       self:onEndHeaders()
-      -- after triggering end headers, the stream must be available
+      -- after triggering end of headers, the stream must be available
       local sh, err = self.message:getBodyStreamHandler()
       sh, err = self.message:applyContentEncoding(sh, false)
       if sh then
@@ -231,7 +231,8 @@ local Stream = class.create(function(stream)
   end
 
   function stream:onRawData(data, endStream)
-    logger:finer('onRawData(?, %s)', endStream)
+    logger:finer('onRawData(%l, %s)', data, endStream)
+    --logger:finest('data: %x', data)
     local size = #data
     self.recvWindowSize = self.recvWindowSize - size
     -- TODO send window update
@@ -271,8 +272,9 @@ local Stream = class.create(function(stream)
   end
 
   function stream:sendData(data, endStream)
+    logger:finer('sendData(%l, %s)', data, endStream)
+    --logger:finest('data: %x', data)
     local size = data and #data or 0
-    logger:finer('sendData(#%d, %s)', size, endStream)
     if size <= self.blockSize then
       if size > 0 and size > self.sendWindowSize then
         logger:fine('stream window size too small (%d, frame is %d)', self.sendWindowSize, size)
@@ -426,7 +428,7 @@ return class.create(function(http2)
     local frame = string.pack('>I3BBI4', frameLen, frameType, flags, streamId)..data
     if logger:isLoggable(logger.FINE) then
       logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self)
-      --logger:finer('frame #%d: %s', #data, hex:encode(data))
+      logger:finest('frame data #%l: %x', data, data)
     end
     local p = self.client:write(frame)
     if logger:isLoggable(logger.FINER) then
