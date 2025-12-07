@@ -247,10 +247,11 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     if location then
       response:setHeader('location', encodeHref(location, base, opts))
     end
-    local setCookie = response:getHeader('set-cookie')
-    if setCookie then
-      setCookie = string.gsub(setCookie, '; *[Dd]omain *=[^;]+', '')
+    local setCookies = response:getHeaderValues('set-cookie')
+    for i, v in ipairs(setCookies) do
+      setCookies[i] = string.gsub(v, '; *[Dd]omain *=[^;]+', '')
     end
+    response:setHeader('set-cookie', setCookies)
     local transform
     local contentType = response:getContentType()
     if contentType == 'text/html' then
