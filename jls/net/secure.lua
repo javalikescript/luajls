@@ -5,6 +5,7 @@ local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
 local StreamHandler = require('jls.io.StreamHandler')
+local Date = require('jls.util.Date')
 
 --logger = logger:getClass():new(); logger:setLevel('fine')
 
@@ -210,19 +211,30 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:onConnected(host, startData)
-    logger:finer('onConnected()')
+    logger:finer('onConnected(%s, %l)', host, startData)
     return self:startHandshake(startData):next(function()
-      if logger:isLoggable(logger.FINE) then
-        logger:fine('connect() handshake completed for %s', self.tcp)
-        if logger:isLoggable(logger.FINER) then
-          logger:finer('getpeerverification() => %s', self.ssl:getpeerverification())
-          logger:finer('peerCert:subject() => %s', self.ssl:peer():subject():oneline())
-        end
+      logger:fine('connect() handshake completed for %s', self.tcp)
+      local peerCert = self.ssl:peer()
+      if logger:isLoggable(logger.FINER) then
+        logger:finer('peerCert:subject() => %s', peerCert:subject():oneline())
+      end
+      local verified, results = self.ssl:getpeerverification()
+      logger:finer('getpeerverification() => %s, %t', verified, results)
+      if not verified then
+        return Promise.reject('Peer not verified')
       end
       if self.sslCheckHost then
-        local peerCert = self.ssl:peer()
-        if host and not peerCert:check_host(host) then
-          logger:fine('connect() => Wrong host')
+        logger:fine('checking host "%s"', host)
+        local isValid, notBefore, notAfter = peerCert:validat()
+        if logger:isLoggable(logger.FINER) then
+          local notBeforeText = Date:new(notBefore:get() * 1000):toISOString(true)
+          local notafterText = Date:new(notAfter:get() * 1000):toISOString(true)
+          logger:finer('certificate validity %s from %s to %s', isValid, notBeforeText, notafterText)
+        end
+        if not isValid then
+          return Promise.reject('Invalid certificate')
+        end
+        if not (host and peerCert:check_host(host)) then
           return Promise.reject('Wrong host')
         end
       end

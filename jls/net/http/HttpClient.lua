@@ -52,12 +52,13 @@ return class.create(function(httpClient, _, HttpClient)
 
   --- Creates a new HTTP client.
   -- @function HttpClient:new
-  -- @tparam table options A table describing the client options or the URL.
-  -- @tparam string options.url The request URL.
-  -- @tparam[opt] string options.host The request hostname.
-  -- @tparam[opt] number options.port The request port number.
-  -- @tparam[opt] boolean options.isSecure true to use a secure client.
-  -- @tparam[opt] table options.secureContext the secure context options.
+  -- @tparam table options A table describing the client options or the URL
+  -- @tparam string options.url The request URL
+  -- @tparam[opt] string options.host The request hostname
+  -- @tparam[opt] number options.port The request port number
+  -- @tparam[opt] boolean options.isSecure true to use a secure client
+  -- @tparam[opt] table options.secureContext the secure context options
+  -- @tparam[opt] boolean options.checkHost true to check the host
   -- @return a new HTTP client
   function httpClient:initialize(options)
     if type(options) == 'string' or Url:isInstance(options) then
@@ -91,6 +92,7 @@ return class.create(function(httpClient, _, HttpClient)
       elseif options.h2 then
         self:setSecureContext({ alpnProtos = {'h2', 'http/1.1', 'http/1.0'} })
       end
+      self.checkHost = options.checkHost ~= false
     end
   end
 
@@ -145,6 +147,7 @@ return class.create(function(httpClient, _, HttpClient)
       tcp = secure.TcpSocket:new()
       tcp:sslInit(false, self.secureContext or SECURE_CONTEXT)
       tcp:sslSet('hostname', self.host)
+      tcp.sslCheckHost = self.checkHost
     else
       tcp = TcpSocket:new()
     end
