@@ -9,6 +9,7 @@ local StringBuffer = require('jls.lang.StringBuffer')
 local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local Url = require('jls.net.Url')
+local HttpHeaders = require('jls.net.http.HttpHeaders')
 local Date = require('jls.util.Date')
 local strings = require('jls.util.strings')
 local Codec = require('jls.util.Codec')
@@ -19,7 +20,7 @@ local CONST
 --- The HttpMessage class represents the base class for HTTP request and HTTP response.
 -- This class inherits from @{HttpHeaders}.
 -- @type HttpMessage
-return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, HttpMessage)
+return class.create(HttpHeaders, function(httpMessage, super, HttpMessage)
 
   --- Creates a new Message.
   -- @function HttpMessage:new
@@ -231,6 +232,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     if type(value) == 'string' then
       return tonumber(value)
     end
+    -- a request without content length and transfer encoding has no content
     return value
   end
 
@@ -239,7 +241,7 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   end
 
   function httpMessage:getConnection()
-    local connection = self:getHeader(CONST.HEADER_CONNECTION)
+    local connection = self:getHeaderValue(CONST.HEADER_CONNECTION)
     if connection then
       return string.lower(connection)
     end
@@ -249,22 +251,14 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
     return CONST.CONNECTION_CLOSE
   end
 
-  function httpMessage:hasTransferEncoding(value)
-    local te = self:getHeader(CONST.HEADER_TRANSFER_ENCODING)
-    if te then
-      for s in string.gmatch(te, '[^,%s]+') do
-        if string.lower(s) == string.lower(value) then
-          return true
-        end
-       end
-    end
-    return false
+  function httpMessage:hasChunkedTransferEncoding()
+    return self:hasHeaderValue(CONST.HEADER_TRANSFER_ENCODING, 'chunked', true)
   end
 
   function httpMessage:getContentType()
     local value = self:getHeader(CONST.HEADER_CONTENT_TYPE)
     if value then
-      return strings.cut(value, ';', 1, true)
+      return (HttpHeaders.parseHeaderValue(value))
     end
     return value
   end
@@ -319,11 +313,15 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
       self:setHeader(CONST.HEADER_CONTENT_LENGTH)
     end
     -- request or response with keep alive must provide content length or use chunked
-    if self:isRequest() or self:getConnection() == CONST.CONNECTION_KEEP_ALIVE then
-      if not (self:getHeader(CONST.HEADER_CONTENT_LENGTH) or self:hasTransferEncoding('chunked')) then
+    local isRequest = self:isRequest()
+    if isRequest or self:getConnection() == CONST.CONNECTION_KEEP_ALIVE then
+      if not (self:getHeader(CONST.HEADER_CONTENT_LENGTH) or self:hasChunkedTransferEncoding()) then
         if self.writeBodyCallback == httpMessage.writeBodyCallback and not ce then
-          self:setHeader(CONST.HEADER_CONTENT_LENGTH, self:getBodyLength())
-          logger:finer('use content length')
+          local l = self:getBodyLength()
+          if not (isRequest and l == 0) then
+            self:setHeader(CONST.HEADER_CONTENT_LENGTH, l)
+            logger:finer('use content length')
+          end
         else
           self:setHeader(CONST.HEADER_TRANSFER_ENCODING, 'chunked')
           logger:finer('use chunked')
@@ -352,21 +350,19 @@ return class.create('jls.net.http.HttpHeaders', function(httpMessage, super, Htt
   -- @tparam boolean encode true to encode otherwise decode.
   -- @return a stream with all content encoding applied.
   function httpMessage:applyContentEncoding(sh, encode)
-    local ce = self:getHeader(CONST.HEADER_CONTENT_ENCODING)
-    if ce then
-      local l = strings.split(string.lower(ce), '%s*,%s*')
-      if encode then
-        l = List.reverse(l)
-      end
-      for _, n in ipairs(l) do
-        if n ~= 'identity' then
-          local status, codec = pcall(Codec.getInstance, n)
-          if status then
-            logger:fine('apply content encoding %s, encode is %s', n, encode)
-            sh = encode and codec:encodeStream(sh) or codec:decodeStream(sh)
-          else
-            return nil, 'unsupported content encoding "'..n..'"'
-          end
+    local ce = self:getHeaderValues(CONST.HEADER_CONTENT_ENCODING)
+    if encode then
+      ce = List.reverse(ce)
+    end
+    for _, e in ipairs(ce) do
+      local n = string.lower(e)
+      if n ~= 'identity' then
+        local status, codec = pcall(Codec.getInstance, n)
+        if status then
+          logger:fine('apply content encoding %s, encode is %s', n, encode)
+          sh = encode and codec:encodeStream(sh) or codec:decodeStream(sh)
+        else
+          return nil, 'unsupported content encoding "'..n..'"'
         end
       end
     end

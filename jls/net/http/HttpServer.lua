@@ -268,7 +268,7 @@ local HttpServer = class.create(function(httpServer)
     response:setHeader(CONST.HEADER_SERVER, CONST.DEFAULT_SERVER)
     -- apply connection from the request and if necessary
     if not response:getHeader(CONST.HEADER_CONNECTION) then
-      local connection = request:getHeader(CONST.HEADER_CONNECTION)
+      local connection = request:getHeaderValue(CONST.HEADER_CONNECTION)
       if connection then
         response:setHeader(CONST.HEADER_CONNECTION, string.lower(connection))
       elseif request:getVersion() ~= response:getVersion() then

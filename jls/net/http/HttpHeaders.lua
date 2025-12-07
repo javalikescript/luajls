@@ -36,6 +36,9 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     self.headers = {}
   end
 
+  --- Returns the header values for the specified name.
+  -- @tparam string name the name of the header
+  -- @treturn table the header values as a table
   function httpHeaders:getHeaderValues(name)
     --[[
       see
@@ -55,9 +58,17 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
     return {rawValue}
   end
 
+  function httpHeaders:getHeaderValue(name)
+    return table.unpack(self:getHeaderValues(name))
+  end
+
   function httpHeaders:setHeaderValues(name, values)
     if type(values) == 'table' then
-      self:setHeader(name, table.concat(values, ', '))
+      if #values > 0 then
+        self:setHeader(name, table.concat(values, ', '))
+      else
+        self:setHeader(name)
+      end
     end
   end
 

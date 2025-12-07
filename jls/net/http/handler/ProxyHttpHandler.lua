@@ -25,6 +25,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     self.isReverse = false
     self.baseUrlIndex = 1
     self.pendings = {}
+    self.clients = {}
   end
 
   --- Configures this proxy to forward requests.
@@ -156,10 +157,6 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     end)
   end
 
-  local function returnFalse()
-    return false
-  end
-
   function proxyHttpHandler:handleConnect(exchange)
     local hostport = exchange:getRequest():getTarget()
     local host, port = string.match(hostport, '^(.+):(%d+)$')
@@ -213,6 +210,42 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     return sh
   end
 
+  function proxyHttpHandler:cleanupClients()
+    local count = 0
+    for _ in pairs(self.clients) do
+      count = count + 1
+    end
+    for n, client in pairs(self.clients) do
+      if count <= 8 then
+        break
+      end
+      if client.refCount <= 0 then
+        logger:finer('closing unreferenced client %s', n)
+        client:close()
+        self.clients[n] = nil
+        count = count - 1
+      end
+    end
+  end
+
+  function proxyHttpHandler:getClient(url)
+    local n = url:getProtocol()..'://'..url:getHostPort()
+    local client = self.clients[n]
+    if not client then
+      self:cleanupClients()
+      client = HttpClient:new(url)
+      client.refCount = 0
+      self.clients[n] = client
+    end
+    client.refCount = client.refCount + 1
+    logger:finer('getClient(%s) refCount is %d', n, client.refCount)
+    return client
+  end
+
+  function proxyHttpHandler:releaseClient(client, url)
+    client.refCount = client.refCount - 1
+  end
+
   function proxyHttpHandler:handle(exchange)
     local request = exchange:getRequest()
     local response = exchange:getResponse()
@@ -232,24 +265,25 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       return
     end
     logger:fine('forward to "%s"', targetUrl)
-    -- buffer incoming request body prior client connection
-    local idsh = DelayedStreamHandler:new()
-    request.applyContentEncoding = identityContentEncoding
-    request:setBodyStreamHandler(idsh)
     local clientRequest = HttpMessage:new()
     clientRequest:setTarget(targetUrl:getFile())
     clientRequest:setMethod(method)
     clientRequest:addHeadersTable(request)
-    clientRequest.applyContentEncoding = identityContentEncoding
-    clientRequest:onWriteBodyStreamHandler(function()
-      logger:finer('client request on write body')
-      idsh:setStreamHandler(clientRequest:getBodyStreamHandler())
-    end)
-    self:prepareRequest(exchange, clientRequest, targetUrl)
-    if logger:isLoggable(logger.FINER) then
-      logger:finer('client request headers are: %s', clientRequest:getRawHeaders())
+    local cl = request:getContentLength()
+    local hasContent = cl and cl > 0 or request:hasChunkedTransferEncoding()
+    if hasContent then
+      -- buffer incoming request body prior client connection
+      local idsh = DelayedStreamHandler:new()
+      request.applyContentEncoding = identityContentEncoding
+      request:setBodyStreamHandler(idsh)
+      clientRequest.applyContentEncoding = identityContentEncoding
+      clientRequest:onWriteBodyStreamHandler(function()
+        logger:finer('client request on write body')
+        idsh:setStreamHandler(clientRequest:getBodyStreamHandler())
+      end)
     end
-    local client = HttpClient:new(targetUrl) -- TODO Reuse client
+    self:prepareRequest(exchange, clientRequest, targetUrl)
+    local client = self:getClient(targetUrl)
     return client:fetch(clientRequest, {
       redirect = 'no'
     }):next(function(clientResponse)
@@ -273,8 +307,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       clientResponse:setBodyStreamHandler(ash)
       local p = clientResponse:consume()
       p:finally(function()
-        logger:fine('closing client')
-        client:close()
+        self:releaseClient(client, targetUrl)
       end)
       if defer then
         return p
@@ -283,15 +316,22 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
   end
 
   function proxyHttpHandler:close()
-    local pendings = self.pendings
-    self.pendings = {}
     local count = 0
-    for client, targetClient in pairs(pendings) do
+    for client, targetClient in pairs(self.pendings) do
       client:close()
       targetClient:close()
       count = count + 1
     end
-    logger:fine('proxyHttpHandler:close() %d pending connect(s) closed', count)
+    self.pendings = {}
+    logger:fine('%d pending connect(s) closed', count)
+    count = 0
+    for n, client in pairs(self.clients) do
+      logger:finer('closing client %s', n)
+      client:close()
+      count = count + 1
+    end
+    self.clients = {}
+    logger:fine('%d client(s) closed', count)
   end
 
 end)

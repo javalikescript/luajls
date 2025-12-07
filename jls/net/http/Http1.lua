@@ -31,6 +31,7 @@ end)
 local function createChunkFinder()
   local needChunkSize = true
   local chunkSize
+  local totalLength = 0
   return function(self, buffer, length)
     logger:finer('chunkFinder(#%l, %s) chunk size: %s, needChunkSize: %s', buffer, length, chunkSize, needChunkSize)
     if needChunkSize then
@@ -56,11 +57,13 @@ local function createChunkFinder()
       end
     else
       if chunkSize == 0 then
-        logger:finer('chunkFinder() chunk ended')
+        logger:finer('chunkFinder() ended, length is %d', totalLength)
         -- TODO consume trailer-part
         return -1, -1
       elseif length >= chunkSize + 2 then
         needChunkSize = true
+        totalLength = totalLength + chunkSize
+        logger:finer('chunkFinder() chunk ended, length is %d', totalLength)
         return chunkSize, chunkSize + 2
       end
     end
@@ -200,7 +203,7 @@ function Http1.writeBody(tcp, message)
       cb()
     end
   end)
-  if message:hasTransferEncoding('chunked') then
+  if message:hasChunkedTransferEncoding() then
     sh = ChunkStreamHandler:new(sh)
   end
   local err

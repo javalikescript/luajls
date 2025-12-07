@@ -24,7 +24,7 @@ local CONST = {
   HEADER_SEC_WEBSOCKET_VERSION = 'Sec-WebSocket-Version',
   HEADER_SEC_WEBSOCKET_PROTOCOL = 'Sec-WebSocket-Protocol',
 
-  CONNECTION_UPGRADE = 'Upgrade',
+  CONNECTION_UPGRADE = 'upgrade',
   UPGRADE_WEBSOCKET = 'websocket',
 
   WEBSOCKET_VERSION = 13,
@@ -566,7 +566,7 @@ end, function(WebSocket)
       local request = exchange:getRequest()
       local headerConnection = string.lower(request:getHeader(HttpMessage.CONST.HEADER_CONNECTION) or '')
       local headerUpgrade = string.lower(request:getHeader(HttpMessage.CONST.HEADER_UPGRADE) or '')
-      if string.find(headerConnection, string.lower(CONST.CONNECTION_UPGRADE)) and headerUpgrade == string.lower(CONST.UPGRADE_WEBSOCKET) then
+      if string.find(headerConnection, CONST.CONNECTION_UPGRADE) and headerUpgrade == CONST.UPGRADE_WEBSOCKET then
         local headerSecWebSocketKey = request:getHeader(CONST.HEADER_SEC_WEBSOCKET_KEY)
         local headerSecWebSocketVersion = tonumber(request:getHeader(CONST.HEADER_SEC_WEBSOCKET_VERSION))
         if headerSecWebSocketKey and headerSecWebSocketVersion == CONST.WEBSOCKET_VERSION then
