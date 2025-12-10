@@ -7,8 +7,6 @@ local TcpSocket = require('jls.net.TcpSocket')
 local StreamHandler = require('jls.io.StreamHandler')
 local Date = require('jls.util.Date')
 
---logger = logger:getClass():new(); logger:setLevel('fine')
-
 -- LOPENSSL_VERSION_NUM: 0xMNNFFPPS
 -- OPENSSL_VERSION_NUMBER: 0xMNN00PP0L Major miNor Patch
 local LOPENSSL_VERSION_NUM, _, OPENSSL_VERSION_NUMBER = opensslLib.version(true)
@@ -56,7 +54,7 @@ local SecureContext = class.create(function(secureContext)
     if options.certificate and options.key then
       self:use(options.certificate, options.key, options.password)
     end
-    if options.cafile or options.capath then
+    if options.cafile then
       self:verifyLocations(options.cafile, options.capath)
     end
     if self.sslContext.set_alpn_select_cb then
@@ -125,7 +123,7 @@ end, function(SecureContext)
 
   function SecureContext.getDefault()
     if not DEFAULT_SECURE_CONTEXT then
-      DEFAULT_SECURE_CONTEXT = SecureContext:new()
+      local options = {}
       local protos = os.getenv('JLS_SSL_ALPN_PROTOS')
       if protos and OPENSSL_VERSION_NUMBER >= 0x10002000 then
         logger:fine('Using ALPN protocols: %s', protos)
@@ -133,9 +131,18 @@ end, function(SecureContext)
         for proto in string.gmatch(protos, '[^%s]+') do
           table.insert(protoList, proto)
         end
-        DEFAULT_SECURE_CONTEXT:setAlpnProtocols(protoList)
-        DEFAULT_SECURE_CONTEXT:setAlpnSelectProtos(protoList)
+        options.alpnSelectProtos = protoList
+        options.alpnProtos = protoList
       end
+      if os.getenv('JLS_SSL_PEER_VERIFY') == 'false' then
+        options.peerVerify = false
+      end
+      local cafile = os.getenv('JLS_SSL_CA_FILE')
+      if cafile then
+        logger:fine('Using CA file "%s"', cafile)
+        options.cafile = cafile
+      end
+      DEFAULT_SECURE_CONTEXT = SecureContext:new(options)
     end
     return DEFAULT_SECURE_CONTEXT
   end
