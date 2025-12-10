@@ -131,7 +131,8 @@ local function createHttpClient(isSecure)
   local client = HttpClient:new({
     url = string.format('%s://%s:%d', isSecure and 'https' or 'http', TEST_HOST, TEST_PORT),
     secureContext = {
-      alpnProtos = {'h2'}
+      alpnProtos = {'h2'},
+      cafile = CACERT_PEM
     },
   })
   return client

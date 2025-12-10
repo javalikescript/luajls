@@ -23,6 +23,14 @@ end
 local DEFAULT_CIPHERS = 'ECDHE-RSA-AES128-SHA256:AES128-GCM-SHA256:' .. -- TLS 1.2
                         'RC4:HIGH:!MD5:!aNULL:!EDH'                     -- TLS 1.0
 
+local function returnTrue()
+  return true
+end
+
+local function peerVerify(t)
+  logger:finer('peerVerify(%t)', t)
+  return t.preverify_ok
+end
 
 local SecureContext = class.create(function(secureContext)
 
@@ -37,23 +45,19 @@ local SecureContext = class.create(function(secureContext)
       -- opensslLib.ssl.no_sslv2 | opensslLib.ssl.no_sslv3 | opensslLib.ssl.no_compression
       self.sslContext:options(options.options)
     end
-    if type(options.peerVerifyFn) == 'function' then
-      self.sslContext:verify_mode(opensslLib.ssl.peer, options.peerVerifyFn)
-    else
+    if type(options.peerVerify) == 'function' then
+      self.sslContext:verify_mode(opensslLib.ssl.peer, options.peerVerify)
+    elseif options.peerVerify == false then
       self.sslContext:verify_mode(opensslLib.ssl.none)
+      self.sslContext:set_cert_verify(returnTrue)
+    else
+      self.sslContext:verify_mode(opensslLib.ssl.peer, peerVerify)
     end
     if options.certificate and options.key then
       self:use(options.certificate, options.key, options.password)
     end
     if options.cafile or options.capath then
       self:verifyLocations(options.cafile, options.capath)
-    end
-    if type(options.peerVerifyFn) == 'function' then
-      self.sslContext:set_cert_verify(options.peerVerifyFn)
-    else
-      self.sslContext:set_cert_verify(function()
-        return true
-      end)
     end
     if self.sslContext.set_alpn_select_cb then
       if type(options.alpnSelectCb) == 'function' then
@@ -154,10 +158,6 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     end
     self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
     self.sslReading = false
-    --[[if self.sslCheckHost == nil then
-      logger:fine('sslInit() use default check host')
-      self.sslCheckHost = not isServer
-    end]]
   end
 
   function secureTcpSocket:sslSet(name, value)
@@ -180,7 +180,6 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       self.ssl:shutdown()
     end
     self.ssl = nil
-    logger:finer('sslShutdown() in and out Mem')
     if self.inMem then
       self.inMem:close()
     end
@@ -202,7 +201,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:connect(addr, port, callback)
-    logger:finer('connect()')
+    logger:finer('connect(%s, %s)', addr, port)
     local cb, d = Promise.ensureCallback(callback)
     super.connect(self, addr, port):next(function()
       return self:onConnected(addr)
@@ -210,6 +209,18 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     return d
   end
 
+  function secureTcpSocket:sslCheckHost(host, peerCert)
+    if not host then
+      return false, 'missing host'
+    end
+    if not (peerCert:check_host(host) or peerCert:check_ip_asc(host)) then
+      return false, 'wrong host'
+    end
+    logger:fine('host "%s" checked', host)
+    return true
+  end
+
+  -- TODO Remove this method
   function secureTcpSocket:onConnected(host, startData)
     logger:finer('onConnected(%s, %l)', host, startData)
     return self:startHandshake(startData):next(function()
@@ -217,26 +228,21 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       local peerCert = self.ssl:peer()
       if logger:isLoggable(logger.FINER) then
         logger:finer('peerCert:subject() => %s', peerCert:subject():oneline())
-      end
-      local verified, results = self.ssl:getpeerverification()
-      logger:finer('getpeerverification() => %s, %t', verified, results)
-      if not verified then
-        return Promise.reject('Peer not verified')
-      end
-      if self.sslCheckHost then
-        logger:fine('checking host "%s"', host)
+        local verified, results = self.ssl:getpeerverification()
+        logger:finer('getpeerverification() => %s, %t', verified, results)
         local isValid, notBefore, notAfter = peerCert:validat()
-        if logger:isLoggable(logger.FINER) then
-          local notBeforeText = Date:new(notBefore:get() * 1000):toISOString(true)
-          local notafterText = Date:new(notAfter:get() * 1000):toISOString(true)
-          logger:finer('certificate validity %s from %s to %s', isValid, notBeforeText, notafterText)
-        end
-        if not isValid then
-          return Promise.reject('Invalid certificate')
-        end
-        if not (host and peerCert:check_host(host)) then
-          return Promise.reject('Wrong host')
-        end
+        local notBeforeText = Date:new(notBefore:get() * 1000):toISOString(true)
+        local notafterText = Date:new(notAfter:get() * 1000):toISOString(true)
+        logger:finer('certificate validity %s from %s to %s', isValid, notBeforeText, notafterText)
+      end
+      local r = self.ssl:get('verify_result')
+      logger:finer('verify_result: %s', r)
+      if r ~= opensslLib.x509.verify_result.OK then
+        return Promise.reject('peer verification failed ('..tostring(r)..')')
+      end
+      local status, err = self:sslCheckHost(host, peerCert)
+      if not status then
+        return Promise.reject(err or 'host check failed')
       end
       return Promise.resolve()
     end)
@@ -260,16 +266,16 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     logger:finer('sslDoHandshake() ssl:handshake() => %s, %s', ret, err)
     if ret == nil then
       if logger:isLoggable(logger.FINE) then
-        logger:fine('OpenSSL errors: %s', opensslLib.errors())
+        logger:fine('SSL errors: %s', opensslLib.errors())
       end
       self:close()
       callback('SSL handshake failed with error '..tostring(err))
       return
     end
     if self.outMem:pending() > 0 then
-      return self:sslFlush(function(err)
-        if err then
-          callback(err)
+      return self:sslFlush(function(e)
+        if e then
+          callback(e)
         else
           self:sslDoHandshake(callback)
         end
@@ -511,6 +517,15 @@ local function createCertificate(options)
   local cadn = opensslLib.x509.name.new(names)
   local pkey = options.privateKey or createPrivateKey()
   local req = opensslLib.x509.req.new(cadn, pkey)
+  if type(options.extensions) == 'table' then
+    -- {object='subjectAltName', value='IP:127.0.0.1'}
+    local extensions = {}
+    for _, extension in ipairs(options.extensions) do
+      local ext = opensslLib.x509.extension.new_extension(extension)
+      table.insert(extensions, ext)
+    end
+    req:extensions(extensions)
+  end
   local time = os.time()
   local serialNumber = options.serialNumber
   if not serialNumber then

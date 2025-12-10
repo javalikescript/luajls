@@ -20,18 +20,20 @@ local logger = require('jls.lang.logger')
 local opensslLib = require('openssl')
 
 local genCertificateAndPKey = loader.load('tests.genCertificateAndPKey')
-local CACERT_PEM, PKEY_PEM = genCertificateAndPKey()
+local CACERT_PEM, PKEY_PEM, CACERT_UNKNOWN_PEM, CACERT_INVALID_PEM = genCertificateAndPKey()
 
 local TEST_HOST, TEST_PORT = '127.0.0.1', 3002
 
-local function createHttpsClient(headers, method)
+local function createHttpsClient(headers, method, secureContext)
   headers = headers or {}
   logger:fine('createHttpsClient()')
   local client = HttpClient:new({
     url = string.format('https://%s:%d/', TEST_HOST, TEST_PORT),
     method = method or 'GET',
-    checkHost = false,
-    headers = headers
+    headers = headers,
+    secureContext = secureContext or {
+      cafile = CACERT_PEM
+    }
   })
   logger:fine('createHttpsClient() done')
   return client
@@ -43,16 +45,16 @@ local function notFoundHandler(exchange)
   response:setBody('The resource "'..exchange:getRequest():getTarget()..'" is not available.')
 end
 
-local function createHttpsServer(handler, keep)
+local function createHttpsServer(handler, keep, secureContext)
   if not handler then
     handler = notFoundHandler
   end
   local tcp = secure.TcpSocket:new()
-  local secureContext = secure.Context:new({
+  local ctx = secure.Context:new(secureContext or {
     key = PKEY_PEM,
     certificate = CACERT_PEM
   })
-  tcp:setSecureContext(secureContext)
+  tcp:setSecureContext(ctx)
   local server = HttpServer:new(tcp)
   server:createContext('/.*', function(exchange)
     --print('createHttpsServer() handler')
@@ -127,6 +129,55 @@ function Test_HttpsClientServer()
   lu.assertEquals(client.t_response:getBody(), body)
   lu.assertIsNil(server.t_err)
   lu.assertEquals(server.t_request:getMethod(), 'GET')
+end
+
+local function checkHttpsClientServer(success, ctxServer, ctxClient)
+  local server, client, result
+  createHttpsServer(function(exchange)
+    HttpExchange.ok(exchange, 'Hi')
+  end, nil, ctxServer):next(function(s)
+    server = s
+    client = createHttpsClient(nil, nil, ctxClient or {
+      cafile = ctxServer and ctxServer.certificate or CACERT_PEM
+    })
+    return sendReceiveClose(client)
+  end):finally(function()
+    server:close()
+  end)
+  if not loop(function()
+    client:close()
+    server:close()
+  end) then
+    lu.fail('Timeout reached')
+  end
+  if success then
+    lu.assertIsNil(client.t_err)
+    lu.assertEquals(client.t_response:getStatusCode(), 200)
+    lu.assertEquals(client.t_response:getBody(), 'Hi')
+  else
+    lu.assertNotNil(client.t_err)
+    --print('error', client.t_err)
+  end
+  lu.assertIsNil(server.t_err)
+end
+
+function Test_HttpsClientServer_verify()
+  checkHttpsClientServer(true, {
+    key = PKEY_PEM,
+    certificate = CACERT_PEM
+  })
+  checkHttpsClientServer(false, {
+    key = PKEY_PEM,
+    certificate = CACERT_PEM
+  }, {})
+  checkHttpsClientServer(false, {
+    key = PKEY_PEM,
+    certificate = CACERT_UNKNOWN_PEM
+  })
+  checkHttpsClientServer(false, {
+    key = PKEY_PEM,
+    certificate = CACERT_INVALID_PEM
+  })
 end
 
 local function onWriteMessage(message, data)
@@ -270,11 +321,9 @@ local function shutdownConnection(tcp, close)
 end
 
 local function createSecureTcpClient()
-  local secureContext = secure.Context:new()
-  secureContext.sslContext:set_cert_verify(function(arg)
-    logger:info('ssl cert verify => false')
-    return false
-  end)
+  local secureContext = secure.Context:new({
+    peerVerify = false
+  })
   local client = secure.TcpSocket:new()
   client:sslInit(false, secureContext)
   return client
@@ -282,25 +331,28 @@ end
 
 function Test_HttpsClientServerConnectionCloseAfterHandshake()
   local server, client
-  createHttpsServer(function(exchange)
-    HttpExchange.ok(exchange, '<p>Hello.</p>')
-    logger:info('server replied')
-  end):next(function(s)
+  local function cleanup()
+    if client then
+      client:close()
+    end
+    if server then
+      server:close()
+    end
+  end
+  createHttpsServer():next(function(s)
     server = s
     client = secure.TcpSocket:new()
-    client:connect(TEST_HOST, TEST_PORT):next(function()
-      logger:info('client connected')
-      return client:close()
-    end):next(function()
-      logger:info('client closed')
-      server:close()
-      logger:info('server closed')
-    end)
-  end)
-  if not loop(function()
-    client:close()
+  end):next(function()
+    return client:connect(TEST_HOST, TEST_PORT)
+  end):next(function()
+    logger:info('client connected')
+    return client:close()
+  end):next(function()
     server:close()
-  end) then
+  end):catch(function(err)
+    logger:info('error "%s"', err)
+  end):finally(cleanup)
+  if not loop(cleanup) then
     lu.fail('Timeout reached')
   end
 end

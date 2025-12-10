@@ -55,6 +55,14 @@ local options = tables.createArgumentTable(system.getArguments(), {
           [HTTP_CONST.HEADER_USER_AGENT] = HTTP_CONST.DEFAULT_USER_AGENT,
         },
       },
+      secureContext = {
+        type = 'object',
+        properties = {
+          peerVerify = {
+            type = 'boolean'
+          }
+        }
+      },
       body = {
         title = 'The HTTP body to send',
         type = 'string',

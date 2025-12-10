@@ -11,6 +11,7 @@ The default writing consists in printing the log message to the standard error s
 
 The `JLS_LOGGER_LEVEL` environment variable could be used to indicate the log level to use.
 You could use comma separated values of module name and associated level, "`INFO,jls.net:FINE`".
+Another option is the lua execute argument: `lua -e "require('jls.lang.logger'):setConfig('info,secure:fine')"`
 
 @usage
 local logger = require('jls.lang.logger'):get(...) -- require will pass the module name

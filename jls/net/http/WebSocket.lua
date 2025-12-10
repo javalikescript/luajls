@@ -263,7 +263,8 @@ return class.create(function(webSocket)
     local client = HttpClient:new({
       url = self.url,
       secureContext = {
-        alpnProtos = {'h2'}
+        alpnProtos = {'h2'},
+        peerVerify = false -- TODO default to verify and configurable
       }
     })
     return client:connectV2():next(function()

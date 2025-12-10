@@ -37,6 +37,7 @@ function Test_TcpClient_TcpServer()
     end))
   end
   local client = TcpSocket:new()
+  client:setSecureContext({peerVerify = false})
   local u = {}
   server:bind(TEST_HOST, TEST_PORT):next(function()
     client:connect(TEST_HOST, TEST_PORT):next(function(err)
@@ -81,6 +82,7 @@ function Test_TcpClient_TcpServer_table()
     end))
   end
   local client = TcpSocket:new()
+  client:setSecureContext({peerVerify = false})
   local u = {}
   server:bind(TEST_HOST, TEST_PORT):next(function()
     client:connect(TEST_HOST, TEST_PORT):next(function(err)
