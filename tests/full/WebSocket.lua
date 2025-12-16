@@ -37,6 +37,10 @@ local function assert_send_receive(withH2)
     end
   }))
   local webSocket = WebSocket:new(scheme..'://127.0.0.1:'..tostring(TEST_PORT)..'/ws/')
+  webSocket:setSecureContext({
+    alpnProtos = {'h2'},
+    cafile = CACERT_PEM
+  })
   server:bind('::', TEST_PORT):next(function()
     webSocket:open():next(function()
       function webSocket:onTextMessage(payload)
