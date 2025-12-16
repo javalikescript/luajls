@@ -205,7 +205,15 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
 
   local function transformCss(data, base, opts)
     return (string.gsub(data, 'url%(%s*([^%)]+)%)', function(url)
-      return 'url('..encodeHref(url, base, opts)..')'
+      local c = string.char(string.byte(url))
+      if c == '"' then
+        url = string.gsub(string.sub(url, 2), '"%s*$', '')
+      elseif c == "'" then
+        url = string.gsub(string.sub(url, 2), "'%s*$", '')
+      else
+        c = ''
+      end
+      return 'url('..c..encodeHref(url, base, opts)..c..')'
     end))
   end
 
@@ -420,7 +428,8 @@ httpServer:bind(config.server.address, config.server.port):next(function()
           if url then
             url = Url.decodePercent(url)
             logger:info('url is "%s"', url)
-            HttpExchange.redirect(exchange, encodeHref(url, nil, 'a'))
+            local flags = exchange:getRequest():getSearchParam('flags')
+            HttpExchange.redirect(exchange, encodeHref(url, nil, flags or 'a'))
             return false
           end
           local response = exchange:getResponse()
