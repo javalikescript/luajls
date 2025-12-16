@@ -251,10 +251,15 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   -- @treturn string the header start value.
   -- @treturn table a table containing the header value parameters.
   function HttpHeaders.parseHeaderValue(value)
-    local params = strings.split(value, '%s*;%s*')
-    local startValue = table.remove(params, 1)
-    --return table.unpack(params)
-    return startValue, params
+    if type(value) == 'string' then
+      if string.find(value, ';', 1, true) then
+        local params = strings.split(value, '%s*;%s*')
+        local startValue = table.remove(params, 1)
+        return startValue, params
+      end
+      return value
+    end
+    return nil
   end
 
   --- Returns the header start value and a table containing the header value parameters.
@@ -264,10 +269,12 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
   function HttpHeaders.parseHeaderValueAsTable(value)
     local startValue, params = HttpHeaders.parseHeaderValue(value)
     local t = {}
-    for _, param in ipairs(params) do
-      local k, v = string.match(param, '^([^=]+)%s*=%s*(.*)$')
-      if k then
-        t[k] = v
+    if params then
+      for _, param in ipairs(params) do
+        local k, v = string.match(param, '^([^=]+)%s*=%s*(.*)$')
+        if k then
+          t[k] = v
+        end
       end
     end
     return startValue, t

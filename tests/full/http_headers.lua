@@ -33,6 +33,7 @@ function Test_hasHeaderValue()
 end
 
 function Test_parseHeaderValue()
+  lu.assertNil(HttpMessage.parseHeaderValue(nil))
   lu.assertEquals(HttpMessage.parseHeaderValue('text/html'), 'text/html')
   lu.assertEquals(HttpMessage.parseHeaderValue('text/html;level=2;q=0.4'), 'text/html')
   lu.assertEquals({HttpMessage.parseHeaderValue('text/html;level=2;q=0.4')}, {'text/html', {'level=2', 'q=0.4'}})

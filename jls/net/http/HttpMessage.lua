@@ -258,7 +258,7 @@ return class.create(HttpHeaders, function(httpMessage, super, HttpMessage)
   function httpMessage:getContentType()
     local value = self:getHeader(CONST.HEADER_CONTENT_TYPE)
     if value then
-      return (HttpHeaders.parseHeaderValue(value))
+      return string.lower(HttpHeaders.parseHeaderValue(value))
     end
     return value
   end
