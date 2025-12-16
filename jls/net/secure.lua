@@ -4,8 +4,8 @@ local class = require('jls.lang.class')
 local logger = require('jls.lang.logger'):get(...)
 local Promise = require('jls.lang.Promise')
 local TcpSocket = require('jls.net.TcpSocket')
+local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')
-local Date = require('jls.util.Date')
 
 -- LOPENSSL_VERSION_NUM: 0xMNNFFPPS
 -- OPENSSL_VERSION_NUMBER: 0xMNN00PP0L Major miNor Patch
@@ -17,9 +17,11 @@ local DEFAULT_PROTOCOL = 'TLS'
 if LOPENSSL_VERSION_NUM < 0x00706000 then -- 0.7.6
   DEFAULT_PROTOCOL = 'TLSv1_2'
 end
+DEFAULT_PROTOCOL = os.getenv('JLS_SSL_PROTOCOL') or DEFAULT_PROTOCOL
 
 local DEFAULT_CIPHERS = 'ECDHE-RSA-AES128-SHA256:AES128-GCM-SHA256:' .. -- TLS 1.2
                         'RC4:HIGH:!MD5:!aNULL:!EDH'                     -- TLS 1.0
+DEFAULT_CIPHERS = os.getenv('JLS_SSL_CIPHERS') or DEFAULT_CIPHERS
 
 local function returnTrue()
   return true
@@ -38,9 +40,7 @@ local SecureContext = class.create(function(secureContext)
       options = {}
     end
     self.sslContext = opensslLib.ssl.ctx_new(options.protocol or DEFAULT_PROTOCOL, options.ciphers or DEFAULT_CIPHERS)
-    --self.sslContext:mode(true, 'release_buffers')
     if options.options then
-      -- opensslLib.ssl.no_sslv2 | opensslLib.ssl.no_sslv3 | opensslLib.ssl.no_compression
       self.sslContext:options(options.options)
     end
     if type(options.peerVerify) == 'function' then
@@ -52,10 +52,10 @@ local SecureContext = class.create(function(secureContext)
       self.sslContext:verify_mode(opensslLib.ssl.peer, peerVerify)
     end
     if options.certificate and options.key then
-      self:use(options.certificate, options.key, options.password)
+      assert(self:use(options.certificate, options.key, options.password))
     end
     if options.cafile then
-      self:verifyLocations(options.cafile, options.capath)
+      assert(self:verifyLocations(options.cafile, options.capath))
     end
     if self.sslContext.set_alpn_select_cb then
       if type(options.alpnSelectCb) == 'function' then
@@ -70,21 +70,20 @@ local SecureContext = class.create(function(secureContext)
   end
 
   function secureContext:verifyLocations(cafile, capath)
-    logger:finer('verifyLocations()')
-    self.sslContext:verify_locations(cafile, capath)
+    logger:finer('verifyLocations(%s, %s)', cafile, capath)
+    return self.sslContext:verify_locations(cafile, capath)
   end
 
   function secureContext:use(certificate, key, password)
-    logger:finer('use()')
-    local File = require('jls.io.File')
+    logger:finer('use(%s, %s)', certificate, key)
     local certificateFile = File:new(certificate)
     local keyFile = File:new(key)
     if certificateFile:isFile() and keyFile:isFile() then
       local xcert = opensslLib.x509.read(certificateFile:readAll())
       local xkey = opensslLib.pkey.read(keyFile:readAll(), true, 'pem', password)
-      self.sslContext:use(xkey, xcert)
+      return self.sslContext:use(xkey, xcert)
     else
-      logger:warn('Certificate or key file not found')
+      return nil, 'Certificate or key file not found'
     end
   end
 
@@ -98,6 +97,7 @@ local SecureContext = class.create(function(secureContext)
   end
 
   function secureContext:setAlpnSelectProtos(protoList)
+    logger:finer('setAlpnSelectProtos(%t)', protoList)
     self:setAlpnSelectCb(function(list)
       if logger:isLoggable(logger.FINE) then
         logger:fine('ALPN select: %s', table.concat(list, ','))
@@ -114,6 +114,7 @@ local SecureContext = class.create(function(secureContext)
   end
 
   function secureContext:setAlpnProtocols(list)
+    logger:finer('setAlpnProtocols(%t)', list)
     return self.sslContext:set_alpn_protos(list)
   end
 
@@ -121,28 +122,44 @@ end, function(SecureContext)
 
   local DEFAULT_SECURE_CONTEXT = nil
 
-  function SecureContext.getDefault()
-    if not DEFAULT_SECURE_CONTEXT then
-      local options = {}
-      local protos = os.getenv('JLS_SSL_ALPN_PROTOS')
-      if protos and OPENSSL_VERSION_NUMBER >= 0x10002000 then
-        logger:fine('Using ALPN protocols: %s', protos)
-        local protoList = {}
-        for proto in string.gmatch(protos, '[^%s]+') do
-          table.insert(protoList, proto)
-        end
-        options.alpnSelectProtos = protoList
-        options.alpnProtos = protoList
+  function SecureContext.getDefaultOptions()
+    local options = {}
+    local protos = os.getenv('JLS_SSL_ALPN_PROTOS')
+    if protos and OPENSSL_VERSION_NUMBER >= 0x10002000 then
+      logger:fine('Using ALPN protocols: %s', protos)
+      local protoList = {}
+      for proto in string.gmatch(protos, '[^%s]+') do
+        table.insert(protoList, proto)
       end
-      if os.getenv('JLS_SSL_PEER_VERIFY') == 'false' then
-        options.peerVerify = false
-      end
+      options.alpnSelectProtos = protoList
+      options.alpnProtos = protoList
+    end
+    if os.getenv('JLS_SSL_PEER_VERIFY') == 'false' then
+      options.peerVerify = false
+    else
       local cafile = os.getenv('JLS_SSL_CA_FILE')
       if cafile then
-        logger:fine('Using CA file "%s"', cafile)
-        options.cafile = cafile
+        if cafile ~= 'no' then
+          options.cafile = cafile
+        end
+      else
+        local ProcessHandle = require('jls.lang.ProcessHandle')
+        local path = ProcessHandle.getExecutablePath()
+        path = path and File:new(path):getParent()
+        if path then
+          local certsFile = File:new(path, 'certs.pem')
+          if certsFile:isFile() then
+            options.cafile = certsFile:getPath()
+          end
+        end
       end
-      DEFAULT_SECURE_CONTEXT = SecureContext:new(options)
+    end
+    return options
+  end
+
+  function SecureContext.getDefault()
+    if not DEFAULT_SECURE_CONTEXT then
+      DEFAULT_SECURE_CONTEXT = SecureContext:new(SecureContext.getDefaultOptions())
     end
     return DEFAULT_SECURE_CONTEXT
   end
@@ -160,10 +177,8 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     logger:finer('sslInit()')
     self.inMem = opensslLib.bio.mem(BUFFER_SIZE)
     self.outMem = opensslLib.bio.mem(BUFFER_SIZE)
-    if not secureContext then
-      secureContext = self:getSecureContext()
-    end
-    self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
+    local sc = secureContext or self.secureContext or SecureContext.getDefault()
+    self.ssl = sc:ssl(self.inMem, self.outMem, isServer)
     self.sslReading = false
   end
 
@@ -238,6 +253,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
         local verified, results = self.ssl:getpeerverification()
         logger:finer('getpeerverification() => %s, %t', verified, results)
         local isValid, notBefore, notAfter = peerCert:validat()
+        local Date = require('jls.util.Date')
         local notBeforeText = Date:new(notBefore:get() * 1000):toISOString(true)
         local notafterText = Date:new(notAfter:get() * 1000):toISOString(true)
         logger:finer('certificate validity %s from %s to %s', isValid, notBeforeText, notafterText)
@@ -463,13 +479,6 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     return self:sslFlush(callback)
   end
 
-  function secureTcpSocket:getSecureContext()
-    if self.secureContext then
-      return self.secureContext
-    end
-    return SecureContext.getDefault()
-  end
-
   function secureTcpSocket:setSecureContext(context)
     self.secureContext = context ~= nil and class.asInstance(SecureContext, context) or nil
   end
@@ -483,7 +492,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   function secureTcpSocket:handleAccept(tcp)
     logger:finer('handleAccept() accepting %s', tcp)
     local client = SecureTcpSocket:new(tcp)
-    client:sslInit(true, self:getSecureContext())
+    client:sslInit(true, self.secureContext)
     self:onHandshakeStarting(client)
     client:startHandshake():next(function()
       logger:finer('handleAccept() handshake completed for %s', tcp)

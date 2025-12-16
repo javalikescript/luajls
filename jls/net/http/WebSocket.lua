@@ -252,6 +252,10 @@ return class.create(function(webSocket)
     return self
   end
 
+  function webSocket:setSecureContext(secureContext)
+    self.secureContext = secureContext
+  end
+
   --- Connects this WebSocket to a server.
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is opened.
   function webSocket:open()
@@ -262,10 +266,7 @@ return class.create(function(webSocket)
     self.connecting = true
     local client = HttpClient:new({
       url = self.url,
-      secureContext = {
-        alpnProtos = {'h2'},
-        peerVerify = false -- TODO default to verify and configurable
-      }
+      secureContext = self.secureContext
     })
     return client:connectV2():next(function()
       local http2 = client.http2

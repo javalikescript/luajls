@@ -25,7 +25,7 @@ local function isSchemeSecured(scheme)
   return scheme == 'https' or scheme == 'wss'
 end
 
-local SECURE_CONTEXT
+local SECURE_CONTEXT, SECURE_CONTEXT_H2
 
 local function isUrlSecure(url)
   return isSchemeSecured(url:getProtocol())
@@ -90,14 +90,28 @@ return class.create(function(httpClient, _, HttpClient)
       if type(options.secureContext) == 'table' then
         self:setSecureContext(options.secureContext)
       elseif options.h2 then
-        self:setSecureContext({ alpnProtos = {'h2', 'http/1.1', 'http/1.0'} })
+        if not SECURE_CONTEXT_H2 then
+          local h2Options = secure.Context.getDefaultOptions()
+          local h2Missing = true
+          if type(h2Options.alpnProtos) == 'table' then
+            for _, proto in ipairs(h2Options.alpnProtos) do
+              if proto == 'h2' then
+                h2Missing = false
+                break
+              end
+            end
+            if h2Missing then
+              table.insert(h2Options.alpnProtos, 1, 'h2')
+            end
+          else
+            h2Options.alpnProtos = {'h2', 'http/1.1', 'http/1.0'}
+          end
+          SECURE_CONTEXT_H2 = secure.Context:new(h2Options)
+        end
+        self:setSecureContext(SECURE_CONTEXT_H2)
       end
-      self.checkHost = options.checkHost ~= false
+      self.checkHost = options.checkHost
     end
-  end
-
-  function httpClient:getSecureContext()
-    return self.secureContext
   end
 
   function httpClient:setSecureContext(secureContext)
@@ -147,10 +161,12 @@ return class.create(function(httpClient, _, HttpClient)
       tcp = secure.TcpSocket:new()
       tcp:sslInit(false, self.secureContext or SECURE_CONTEXT)
       tcp:sslSet('hostname', self.host)
-      if not self.checkHost then
+      if self.checkHost == false then
         tcp.sslCheckHost = function()
           return true
         end
+      elseif type(self.checkHost) == 'function' then
+        tcp.sslCheckHost = self.checkHost
       end
     else
       tcp = TcpSocket:new()
@@ -452,7 +468,6 @@ return class.create(function(httpClient, _, HttpClient)
   end
 
   function HttpClient.setSecureContext(secureContext)
-    DEFAULT_SECURE_CONTEXT = secureContext
     if secureContext then
       DEFAULT_SECURE_CONTEXT = class.asInstance(require('jls.net.secure').Context, secureContext)
     else
