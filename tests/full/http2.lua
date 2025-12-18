@@ -37,12 +37,11 @@ end
 local function newSecureTcpServer()
   local server = TcpSocket:new()
   -- reuse previous context
-  local secureContext = secure.Context:new({
-    key = PKEY_PEM,
+  server:setSecureContext({
     certificate = CACERT_PEM,
-    alpnSelectProtos = {'h2', 'http/1.1'},
-  })
-  server:setSecureContext(secureContext)
+    key = PKEY_PEM,
+    alpnProtocols = {'h2', 'http/1.1'},
+  }, true)
   return server
 end
 
@@ -131,7 +130,7 @@ local function createHttpClient(isSecure)
   local client = HttpClient:new({
     url = string.format('%s://%s:%d', isSecure and 'https' or 'http', TEST_HOST, TEST_PORT),
     secureContext = {
-      alpnProtos = {'h2'},
+      alpnProtocols = {'h2'},
       cafile = CACERT_PEM
     },
   })
@@ -177,7 +176,7 @@ local function createHttpServer(handler, isSecure)
     server = HttpServer.createSecure({
       key = PKEY_PEM,
       certificate = CACERT_PEM,
-      alpnSelectProtos = {'h2'}
+      alpnProtocols = {'h2'}
     })
   else
     server = HttpServer:new()

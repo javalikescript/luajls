@@ -83,30 +83,15 @@ return class.create(function(httpClient, _, HttpClient)
       self.host = options.host
       self.port = options.port
     end
-    if self.isSecure and not secure then
-      secure = require('jls.net.secure')
-    end
     if self.isSecure then
+      if not secure then
+        secure = require('jls.net.secure')
+      end
       if type(options.secureContext) == 'table' then
         self:setSecureContext(options.secureContext)
       elseif options.h2 then
         if not SECURE_CONTEXT_H2 then
-          local h2Options = secure.Context.getDefaultOptions()
-          local h2Missing = true
-          if type(h2Options.alpnProtos) == 'table' then
-            for _, proto in ipairs(h2Options.alpnProtos) do
-              if proto == 'h2' then
-                h2Missing = false
-                break
-              end
-            end
-            if h2Missing then
-              table.insert(h2Options.alpnProtos, 1, 'h2')
-            end
-          else
-            h2Options.alpnProtos = {'h2', 'http/1.1', 'http/1.0'}
-          end
-          SECURE_CONTEXT_H2 = secure.Context:new(h2Options)
+          SECURE_CONTEXT_H2 = secure.Context:new({alpnProtocols = {'h2', 'http/1.1', 'http/1.0'}})
         end
         self:setSecureContext(SECURE_CONTEXT_H2)
       end
@@ -114,9 +99,15 @@ return class.create(function(httpClient, _, HttpClient)
     end
   end
 
-  function httpClient:setSecureContext(secureContext)
-    if secure and secureContext then
-      self.secureContext = class.asInstance(secure.Context, secureContext)
+  --- Sets the secure context.
+  -- @tparam table options A table describing the options for the secure context
+  -- @tparam[opt] string options.certificates The file containing the CA certificates, in PEM format, for verification purposes
+  -- @tparam[opt] table options.alpnProtocols The ordered list of ALPN protocols
+  -- @tparam[opt] boolean options.ignoreVerification true to ignore the certificate verification
+  -- @tparam[opt] boolean options.skipVerification true to skip the certificate verification
+  function httpClient:setSecureContext(options)
+    if secure and options then
+      self.secureContext = class.asInstance(secure.Context, options)
     else
       self.secureContext = nil
     end
@@ -159,8 +150,7 @@ return class.create(function(httpClient, _, HttpClient)
     local tcp
     if self.isSecure then
       tcp = secure.TcpSocket:new()
-      tcp:sslInit(false, self.secureContext or SECURE_CONTEXT)
-      tcp:sslSet('hostname', self.host)
+      tcp:setSecureContext(self.secureContext)
       if self.checkHost == false then
         tcp.sslCheckHost = function()
           return true
@@ -461,18 +451,6 @@ return class.create(function(httpClient, _, HttpClient)
       self.clients = nil
     end
     return self:closeClient(callback)
-  end
-
-  function HttpClient.getSecureContext()
-    return DEFAULT_SECURE_CONTEXT
-  end
-
-  function HttpClient.setSecureContext(secureContext)
-    if secureContext then
-      DEFAULT_SECURE_CONTEXT = class.asInstance(require('jls.net.secure').Context, secureContext)
-    else
-      DEFAULT_SECURE_CONTEXT = nil
-    end
   end
 
 end)

@@ -8,6 +8,7 @@ local HttpClient = require('jls.net.http.HttpClient')
 local HttpServer = require('jls.net.http.HttpServer')
 
 local loader = require('jls.lang.loader')
+local Promise = require('jls.lang.Promise')
 local loop = require('jls.lang.loopWithTimeout')
 local TcpSocketLuv = loader.getRequired('jls.net.TcpSocket-luv')
 local TcpSocketSocket = loader.getRequired('jls.net.TcpSocket-socket')
@@ -50,11 +51,10 @@ local function createHttpsServer(handler, keep, secureContext)
     handler = notFoundHandler
   end
   local tcp = secure.TcpSocket:new()
-  local ctx = secure.Context:new(secureContext or {
-    key = PKEY_PEM,
-    certificate = CACERT_PEM
-  })
-  tcp:setSecureContext(ctx)
+  tcp:setSecureContext(secureContext or {
+    certificate = CACERT_PEM,
+    key = PKEY_PEM
+  }, true)
   local server = HttpServer:new(tcp)
   server:createContext('/.*', function(exchange)
     --print('createHttpsServer() handler')
@@ -72,6 +72,9 @@ local function createHttpsServer(handler, keep, secureContext)
   end)
   return server:bind('::', TEST_PORT):next(function()
     return server
+  end):catch(function(reason)
+    logger:warn('bind fails due to "%s"', reason)
+    return Promise.reject(reason)
   end)
 end
 
@@ -117,6 +120,8 @@ function Test_HttpsClientServer()
       --print('createHttpsServer() closing server')
       server:close()
     end)
+  end):catch(function(reason)
+    logger:warn('something went wrong "%s"', reason)
   end)
   if not loop(function()
     client:close()
@@ -320,15 +325,6 @@ local function shutdownConnection(tcp, close)
   end
 end
 
-local function createSecureTcpClient()
-  local secureContext = secure.Context:new({
-    peerVerify = false
-  })
-  local client = secure.TcpSocket:new()
-  client:sslInit(false, secureContext)
-  return client
-end
-
 function Test_HttpsClientServerConnectionCloseAfterHandshake()
   local server, client
   local function cleanup()
@@ -359,29 +355,33 @@ end
 
 if canResetConnection() then
   function Test_HttpsClientServerConnectionResetAfterHandshake()
-    local server, client
+    local server, client, failure
+    local function cleanup()
+      if client then client:close(); end
+      if server then server:close(); end
+    end
     createHttpsServer(function(exchange)
       HttpExchange.ok(exchange, '<p>Hello.</p>')
       logger:info('server replied')
     end):next(function(s)
       server = s
-      client = createSecureTcpClient()
-      client:connect(TEST_HOST, TEST_PORT):next(function()
-        logger:info('client connected')
-        resetConnection(client, true, false)
-        logger:info('client reset')
-        server:close()
-        logger:info('server closed')
-      end, function(err)
-        logger:info('an error occurred, %s', err)
-      end)
-    end)
-    if not loop(function()
-      client:close()
+      client = secure.TcpSocket:new()
+      client:setSecureContext({skipVerification = true})
+      return client:connect(TEST_HOST, TEST_PORT)
+    end):next(function()
+      logger:info('client connected')
+      resetConnection(client, true, false)
+      logger:info('client reset')
       server:close()
-    end) then
+      logger:info('server closed')
+    end):catch(function(err)
+      failure = err or 'unknown failure'
+      cleanup()
+    end)
+    if not loop(cleanup) then
       lu.fail('Timeout reached')
     end
+    lu.assertNil(failure)
   end
 else
   logger:warn('skip Test_HttpsClientServerConnectionResetAfterHandshake')

@@ -448,7 +448,7 @@ if config.secure.enabled then
   local httpSecureServer = HttpServer.createSecure({
     certificate = certFile:getPath(),
     key = pkeyFile:getPath(),
-    alpnSelectProtos = config.h2 and {'h2', 'http/1.1'} or nil,
+    alpnProtocols = config.h2 and {'h2', 'http/1.1'} or nil,
   })
   httpSecureServer:bind(config['bind-address'], config.secure.port):next(function()
     logger:info('HTTPS bound to "%s" on port %d', config['bind-address'], config.secure.port)

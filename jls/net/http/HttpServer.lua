@@ -552,6 +552,15 @@ end, function(HttpServer)
   --- The default not found handler.
   HttpServer.notFoundHandler = notFoundHandler
 
+  --- Creates a new secure HTTP server.
+  -- @function HttpServer.createSecure
+  -- @tparam table options A table describing the options for the secure context
+  -- @tparam[opt] string options.certificate The file containing the certificate in PEM format
+  -- @tparam[opt] string options.key The file containing the private key associated with the certificate
+  -- @tparam[opt] string options.passhprase The passhprase for the private key
+  -- @tparam[opt] string options.clientAuth The client certificate verification, none, need or want
+  -- @tparam[opt] table options.alpnProtocols The ordered list of ALPN protocols
+  -- @return a new secure HTTP server
   require('jls.lang.loader').lazyMethod(HttpServer, 'createSecure', function(secure)
     local SecureTcpSocket = class.create(secure.TcpSocket, function(secureTcpSocket)
       function secureTcpSocket:onHandshakeStarting(client)
@@ -568,9 +577,10 @@ end, function(HttpServer)
       end
     end)
     return function(options)
+      logger:finer('createSecure()')
       local tcp = SecureTcpSocket:new()
       if options then
-        tcp:setSecureContext(class.asInstance(secure.Context, options))
+        tcp:setSecureContext(options, true)
       end
       local httpsServer = HttpServer:new(tcp)
       tcp._hss = httpsServer

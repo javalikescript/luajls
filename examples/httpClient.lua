@@ -58,7 +58,16 @@ local options = tables.createArgumentTable(system.getArguments(), {
       secureContext = {
         type = 'object',
         properties = {
-          peerVerify = {
+          certificates = {
+            title = 'The file containing the CA certificates, in PEM format, for verification purposes',
+            type = 'string'
+          },
+          ignoreVerification = {
+            title = 'Whether to ignore the certificate verification',
+            type = 'boolean'
+          },
+          skipVerification = {
+            title = 'Whether to skip the certificate verification',
             type = 'boolean'
           }
         }

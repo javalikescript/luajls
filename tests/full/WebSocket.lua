@@ -19,7 +19,7 @@ local function assert_send_receive(withH2)
     server = HttpServer.createSecure({
       key = PKEY_PEM,
       certificate = CACERT_PEM,
-      alpnSelectProtos = {'h2'}
+      alpnProtocols = {'h2'}
     })
   else
     server = HttpServer:new()
@@ -38,7 +38,7 @@ local function assert_send_receive(withH2)
   }))
   local webSocket = WebSocket:new(scheme..'://127.0.0.1:'..tostring(TEST_PORT)..'/ws/')
   webSocket:setSecureContext({
-    alpnProtos = {'h2'},
+    alpnProtocols = {'h2'},
     cafile = CACERT_PEM
   })
   server:bind('::', TEST_PORT):next(function()
