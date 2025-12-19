@@ -51,10 +51,10 @@ local function createHttpsServer(handler, keep, secureContext)
     handler = notFoundHandler
   end
   local tcp = secure.TcpSocket:new()
-  tcp:setSecureContext(secureContext or {
+  tcp:setSecureContext(secure.Context:new(secureContext or {
     certificate = CACERT_PEM,
     key = PKEY_PEM
-  }, true)
+  }, true))
   local server = HttpServer:new(tcp)
   server:createContext('/.*', function(exchange)
     --print('createHttpsServer() handler')
@@ -366,7 +366,7 @@ if canResetConnection() then
     end):next(function(s)
       server = s
       client = secure.TcpSocket:new()
-      client:setSecureContext({skipVerification = true})
+      client:setSecureContext(secure.Context:new({skipVerification = true}))
       return client:connect(TEST_HOST, TEST_PORT)
     end):next(function()
       logger:info('client connected')

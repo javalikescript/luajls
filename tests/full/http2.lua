@@ -37,11 +37,11 @@ end
 local function newSecureTcpServer()
   local server = TcpSocket:new()
   -- reuse previous context
-  server:setSecureContext({
+  server:setSecureContext(secure.Context:new({
     certificate = CACERT_PEM,
     key = PKEY_PEM,
     alpnProtocols = {'h2', 'http/1.1'},
-  }, true)
+  }, true))
   return server
 end
 

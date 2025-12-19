@@ -14,10 +14,10 @@ local TEST_HOST, TEST_PORT = '127.0.0.1', 3002
 
 local function prepareServer(server)
   -- reuse previous context
-  server:setSecureContext({
+  server:setSecureContext(secure.Context:new({
     certificate = CACERT_PEM,
     key = PKEY_PEM,
-  }, true)
+  }, true))
 end
 
 function Test_TcpClient_TcpServer()
@@ -36,7 +36,7 @@ function Test_TcpClient_TcpServer()
     end))
   end
   local client = TcpSocket:new()
-  client:setSecureContext({skipVerification = true})
+  client:setSecureContext(secure.Context:new({skipVerification = true}))
   local u = {}
   server:bind(TEST_HOST, TEST_PORT):next(function()
     client:connect(TEST_HOST, TEST_PORT):next(function(err)
@@ -81,7 +81,7 @@ function Test_TcpClient_TcpServer_table()
     end))
   end
   local client = TcpSocket:new()
-  client:setSecureContext({skipVerification = true})
+  client:setSecureContext(secure.Context:new({skipVerification = true}))
   local u = {}
   server:bind(TEST_HOST, TEST_PORT):next(function()
     client:connect(TEST_HOST, TEST_PORT):next(function(err)

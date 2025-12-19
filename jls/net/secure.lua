@@ -34,14 +34,32 @@ if OPENSSL_VERSION_NUMBER >= 0x10002000 then
   end
 end
 
-local DEFAULT_CAFILE
-
 local IGNORE_VERIFICATION = os.getenv('JLS_SSL_IGNORE_VERIFICATION') == 'true'
 local SKIP_VERIFICATION = os.getenv('JLS_SSL_SKIP_VERIFICATION') == 'true'
 
 local function skipPeerVerify(t)
   logger:finer('skipPeerVerify(%t)', t)
   return true -- t.preverify_ok
+end
+
+local DEFAULT_CAFILE = false
+
+local function getCertsPath()
+  if DEFAULT_CAFILE == false then
+    DEFAULT_CAFILE = nil
+    local status, ProcessHandle = pcall(require, 'jls.lang.ProcessHandle')
+    if status then
+      local path = ProcessHandle.getExecutablePath()
+      path = path and File:new(path):getParent()
+      if path then
+        local certsFile = File:new(path, 'certs.pem')
+        if certsFile:isFile() then
+          DEFAULT_CAFILE = certsFile:getPath()
+        end
+      end
+    end
+  end
+  return DEFAULT_CAFILE
 end
 
 local SecureContext = class.create(function(secureContext)
@@ -53,10 +71,7 @@ local SecureContext = class.create(function(secureContext)
     end
     self.sslContext = opensslLib.ssl.ctx_new(options.protocol or DEFAULT_PROTOCOL, options.ciphers or DEFAULT_CIPHERS)
     local opts = options.options
-    if opts then
-      if type(opts) == 'string' then
-        opts = {opts}
-      end
+    if type(opts) == 'table' then
       for _, opt in ipairs(opts) do
         self.sslContext:options(opt)
       end
@@ -71,27 +86,9 @@ local SecureContext = class.create(function(secureContext)
         self:setAlpnSelectProtos(alpnProtocols)
       end
     else
-      local cafile = options.certificates or options.cafile or os.getenv('JLS_SSL_CA_FILE')
-      if cafile then
-        if cafile ~= '' then
-          self:verifyLocations(cafile)
-        end
-      else
-        if DEFAULT_CAFILE == nil then
-          DEFAULT_CAFILE = false
-          local ProcessHandle = require('jls.lang.ProcessHandle')
-          local path = ProcessHandle.getExecutablePath()
-          path = path and File:new(path):getParent()
-          if path then
-            local certsFile = File:new(path, 'certs.pem')
-            if certsFile:isFile() then
-              DEFAULT_CAFILE = certsFile:getPath()
-            end
-          end
-        end
-        if DEFAULT_CAFILE then
-          self:verifyLocations(DEFAULT_CAFILE)
-        end
+      local cafile = options.certificates or options.cafile or os.getenv('JLS_SSL_CA_FILE') or getCertsPath()
+      if cafile and cafile ~= '' then
+        self:verifyLocations(cafile)
       end
       if alpnProtocols and #alpnProtocols > 0 then
         self:setAlpnProtocols(alpnProtocols)
@@ -171,21 +168,23 @@ local SecureContext = class.create(function(secureContext)
 
 end, function(SecureContext)
 
-  local DEFAULT_SECURE_CONTEXTS = {}
+  local DEFAULT_SECURE_CONTEXT
 
-  function SecureContext.getDefault(isServer)
-    local key = isServer or false
-    local secureContext = DEFAULT_SECURE_CONTEXTS[key]
-    if not secureContext then
-      secureContext = SecureContext:new(nil, isServer)
-      DEFAULT_SECURE_CONTEXTS[key] = secureContext
+  function SecureContext.getDefault()
+    -- TODO we may discard default context after some time
+    if not DEFAULT_SECURE_CONTEXT then
+      DEFAULT_SECURE_CONTEXT = SecureContext:new()
+      DEFAULT_SECURE_CONTEXT._creationTime = os.time()
     end
-    return secureContext
+    return DEFAULT_SECURE_CONTEXT
   end
 
-  function SecureContext.setDefault(context, isServer)
-    local secureContext = context ~= nil and class.asInstance(SecureContext, context, isServer) or nil
-    DEFAULT_SECURE_CONTEXTS[isServer or false] = secureContext
+  function SecureContext.setDefault(context)
+    if context then
+      DEFAULT_SECURE_CONTEXT = class.asInstance(SecureContext, context)
+    else
+      DEFAULT_SECURE_CONTEXT = nil
+    end
   end
 
 end)
@@ -194,11 +193,10 @@ end)
 local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super, SecureTcpSocket)
 
   function secureTcpSocket:sslInit(isServer, secureContext)
-    logger:finer('sslInit(%s)', isServer)
+    logger:finer('sslInit(%s, %p)', isServer, secureContext)
     self.inMem = opensslLib.bio.mem(BUFFER_SIZE)
     self.outMem = opensslLib.bio.mem(BUFFER_SIZE)
-    local sc = secureContext or SecureContext.getDefault(isServer)
-    self.ssl = sc:ssl(self.inMem, self.outMem, isServer)
+    self.ssl = secureContext:ssl(self.inMem, self.outMem, isServer)
     self.sslReading = false
   end
 
@@ -245,7 +243,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
 
   function secureTcpSocket:connect(addr, port, callback)
     logger:finer('connect(%s, %s)', addr, port)
-    self:sslInit(false, self.secureContext)
+    self:sslInit(false, self.secureContext or SecureContext.getDefault())
     self:sslSet('hostname', addr)
     local cb, d = Promise.ensureCallback(callback)
     super.connect(self, addr, port):next(function()
@@ -255,14 +253,11 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
   end
 
   function secureTcpSocket:sslCheckHost(host, peerCert)
-    if not host then
-      return false, 'missing host'
+    if host and peerCert and (peerCert:check_host(host) or peerCert:check_ip_asc(host)) then
+      logger:fine('host "%s" checked', host)
+      return true
     end
-    if not (peerCert:check_host(host) or peerCert:check_ip_asc(host)) then
-      return false, 'wrong host'
-    end
-    logger:fine('host "%s" checked', host)
-    return true
+    return false, 'wrong host'
   end
 
   -- TODO Remove this method
@@ -490,9 +485,9 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
     return self:sslFlush(callback)
   end
 
-  function secureTcpSocket:setSecureContext(context, isServer)
-    logger:finer('setSecureContext(?, %s)', isServer)
-    self.secureContext = context ~= nil and class.asInstance(SecureContext, context, isServer) or nil
+  function secureTcpSocket:setSecureContext(secureContext)
+    logger:finer('setSecureContext(%p)', secureContext)
+    self.secureContext = secureContext
   end
 
   function secureTcpSocket:onHandshakeStarting(client)
@@ -514,6 +509,11 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       client:close()
       logger:fine('handleAccept() handshake error, %s', reason)
     end)
+  end
+
+  function secureTcpSocket:bind(...)
+    assert(self.secureContext, 'no secure context')
+    return super.bind(self, ...)
   end
 
 end)

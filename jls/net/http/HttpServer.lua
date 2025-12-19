@@ -579,9 +579,7 @@ end, function(HttpServer)
     return function(options)
       logger:finer('createSecure()')
       local tcp = SecureTcpSocket:new()
-      if options then
-        tcp:setSecureContext(options, true)
-      end
+      tcp:setSecureContext(class.asInstance(secure.Context, options, true))
       local httpsServer = HttpServer:new(tcp)
       tcp._hss = httpsServer
       return httpsServer
