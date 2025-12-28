@@ -42,19 +42,22 @@ local function skipPeerVerify(t)
   return true -- t.preverify_ok
 end
 
+---@type boolean|string|nil
 local DEFAULT_CAFILE = false
 
 local function getCertsPath()
   if DEFAULT_CAFILE == false then
-    DEFAULT_CAFILE = nil
-    local status, ProcessHandle = pcall(require, 'jls.lang.ProcessHandle')
-    if status then
-      local path = ProcessHandle.getExecutablePath()
-      path = path and File:new(path):getParent()
-      if path then
-        local certsFile = File:new(path, 'certs.pem')
-        if certsFile:isFile() then
-          DEFAULT_CAFILE = certsFile:getPath()
+    DEFAULT_CAFILE = os.getenv('JLS_SSL_CA_FILE')
+    if not DEFAULT_CAFILE then
+      local status, ProcessHandle = pcall(require, 'jls.lang.ProcessHandle')
+      if status then
+        local path = ProcessHandle.getExecutablePath()
+        path = path and File:new(path):getParent()
+        if path then
+          local certsFile = File:new(path, 'certs.pem')
+          if certsFile:isFile() then
+            DEFAULT_CAFILE = certsFile:getPath()
+          end
         end
       end
     end
@@ -86,7 +89,7 @@ local SecureContext = class.create(function(secureContext)
         self:setAlpnSelectProtos(alpnProtocols)
       end
     else
-      local cafile = options.certificates or options.cafile or os.getenv('JLS_SSL_CA_FILE') or getCertsPath()
+      local cafile = options.certificates or options.cafile or getCertsPath()
       if cafile and cafile ~= '' then
         self:verifyLocations(cafile)
       end
@@ -546,7 +549,8 @@ local function createCertificate(options)
   local pkey = options.privateKey or createPrivateKey()
   local req = opensslLib.x509.req.new(cadn, pkey)
   if type(options.extensions) == 'table' then
-    -- {object='subjectAltName', value='IP:127.0.0.1'}
+    -- {object='subjectAltName', value='IP:127.0.0.1', critical=false}
+    -- objects can use short name, long name or numerical identifier such as 'CN', 'commonName' or '13'
     local extensions = {}
     for _, extension in ipairs(options.extensions) do
       local ext = opensslLib.x509.extension.new_extension(extension)

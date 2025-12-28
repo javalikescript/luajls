@@ -371,7 +371,7 @@ local function mapPack(fmt, fn)
       o, n = a.o, a.n
     end
     if #ns > 0 then
-      n = tonumber(ns)
+      n = tonumber(ns) or 1
     end
     if o == '<' then
       be = false

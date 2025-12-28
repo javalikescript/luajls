@@ -76,6 +76,7 @@ return require('jls.lang.class').create(function(acme)
   @tparam[opt] string options.domainKeyFile the file containing the private key for the certificate
   @tparam[opt] string options.certificateFile the file containing the certificate
   @tparam[opt] table options.certificateNames the certificate names to use for the request
+  @tparam[opt] table options.extensions the certificate extensions to use for the request
   @tparam[opt] number options.timeout the timeout in seconds for the order to be ready or valid
   @return a new Acme client
   @usage
@@ -313,6 +314,17 @@ return require('jls.lang.class').create(function(acme)
     end
   end
 
+  function acme:enhanceCertificateRequest(req)
+    if type(self.options.extensions) == 'table' then
+      local extensions = {}
+      for _, extension in ipairs(self.options.extensions) do
+        local ext = opensslLib.x509.extension.new_extension(extension)
+        table.insert(extensions, ext)
+      end
+      req:extensions(extensions)
+    end
+  end
+
   --- Gets a certificate.  
   -- The account will be created if its URL is not provided.
   -- The domain private key, used for the certificate, will be generated if not provided.  
@@ -366,6 +378,7 @@ return require('jls.lang.class').create(function(acme)
       self:enhanceCertificateNames(names)
       local cadn = opensslLib.x509.name.new(names)
       local req = opensslLib.x509.req.new(cadn, self:getDomainKey())
+      self:enhanceCertificateRequest(req)
       local request = {csr = base64Url:encode(req:export('der'))}
       return self:request(finalizeUrl, json.stringify(request)):next(getJson)
     end):next(function()
