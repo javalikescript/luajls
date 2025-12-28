@@ -584,6 +584,22 @@ end)
 require('jls.lang.event'):loop()
 ```
 
+When requesting a secured URL, the trusted certificates are loaded from the file `certs.pem` located in the Lua executable directory.
+You could override this configuration by setting a secure context.
+
+```lua
+local HttpClient = require('jls.net.http.HttpClient')
+local client = HttpClient:new('https://www.lua.org/')
+client:setSecureContext({
+  certificates = './mycerts.pem',
+  --alpnProtocols = {'h2', 'http/1.1', 'http/1.0'},
+  --ignoreVerification = true,
+  --skipVerification = true,
+})
+```
+
+Note: HTTPS requires the `lua-openssl` dependency.
+
 
 ### HTTP Server
 
@@ -632,6 +648,41 @@ httpServer:createContext('/(.*)', HttpHandler.rest({
     end
   }
 }))
+require('jls.lang.event'):loop()
+```
+
+
+### HTTPS
+
+A dedicated function is available to create a secure server.
+You need to pass the certificate and its associated private key.
+
+```lua
+local HttpServer = require('jls.net.http.HttpServer')
+local httpSecureServer = HttpServer.createSecure({
+  certificate = './cert.pem',
+  key = './pkey.pem',
+  --alpnProtocols = {'h2', 'http/1.1'},
+})
+```
+
+You could use Automatic Certificate Management Environment (ACME) to order or renew a certificate.
+
+```lua
+local Acme = require('jls.net.Acme')
+local acme = Acme:new('https://acme-v02.api.letsencrypt.org/directory', {
+  domains = 'mydomain.com',
+  contactEMails = 'me@mail.com',
+  wwwDir = './www', -- local root directory available on http://mydomain.com for the challenge
+  accountKeyFile = 'account.pem', -- will be generated and reused if necessary
+  domainKeyFile = 'domain.pem', -- will be generated and reused if necessary
+  certificateFile = 'cert.pem', -- will be created
+})
+acme:orderCertificate():next(function(cert)
+  print(cert)
+end):finally(function()
+  acme:close()
+end)
 require('jls.lang.event'):loop()
 ```
 
@@ -751,7 +802,7 @@ require('jls.lang.event'):loop()
 
 #### Named Pipe
 
-Named pipes are only available with the _luv_ module.
+Named pipes are only available with the _luv_ dependency.
 
 ```lua
 local Pipe = require('jls.io.Pipe')
