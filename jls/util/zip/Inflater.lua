@@ -41,11 +41,18 @@ return require('jls.lang.class').create(function(inflater)
 
   --- Inflates the specified data.
   -- @tparam string buffer the data to inflate
-  -- @return the inflated data
+  -- @treturn string the inflated data or nil in case of error
+  -- @treturn number the total number of input bytes processed
   function inflater:inflate(buffer)
-    local inflated
-    inflated, self.eof, self.bytesIn, self.bytesOut = self.stream(buffer)
-    return inflated
+    local status, result, bytesIn
+    status, result, self.eof, bytesIn, self.bytesOut = pcall(self.stream, buffer)
+    if status then
+      local n = bytesIn - self.bytesIn
+      self.bytesIn = bytesIn
+      return result, n
+    end
+    self.eof = true
+    return nil, result
   end
 
   function inflater:getBytesRead()
