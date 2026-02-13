@@ -171,67 +171,82 @@ FileStreamHandler.readAllSync('test.txt.gz', sh)
 function gzip.decompressStream(sh, onHeader)
   logger:finer('decompressStream()')
   local cb = StreamHandler.ensureCallback(sh)
-  local header, inflated
   local buffer = ''
-  local size = 0
-  local md = Crc32:new()
-  local inflater = Inflater:new(-15)
+  local inflater, md, size
+  local state = 1
   return StreamHandler:new(function(err, data)
     if err then
       return cb(err)
-    end
-    if header then
-      if buffer then
-        local footer
-        if data then
-          if #data < 8 then
-            -- do not consume the buffer if data is less than footer
-            buffer = buffer..data
-            return
+    elseif data then
+      buffer = buffer..data
+      if state == 1 then
+        local header, headerSize, headerErr = gzip.parseHeader(buffer)
+        if headerErr then
+          state = -state
+          return cb(headerErr)
+        elseif header then
+          if type(onHeader) == 'function' then
+            onHeader(header)
           end
+          inflater = Inflater:new(-15)
+          md = Crc32:new()
+          size = 0
+          state = state + 1
+          buffer = string.sub(buffer, headerSize + 1)
         else
-          local bufferSize = #buffer
-          footer = string.sub(buffer, bufferSize - 7)
-          buffer = string.sub(buffer, 1, bufferSize - 8)
-          if logger:isLoggable(logger.FINER) then
-            logger:finer('footer %s', Codec.encode('hex', footer))
-          end
+          return -- need more data
         end
-        inflated = inflater:inflate(buffer)
+      end
+      local r = nil
+      if state == 2 then
+        if #buffer == 0 then
+          return -- need more data
+        end
+        local inflated, n = inflater:inflate(buffer)
+        if not inflated then
+          state = -state
+          return cb(n or 'unknown error')
+        end
+        buffer = string.sub(buffer, n + 1)
         md:update(inflated)
         size = size + #inflated
-        local r = cb(nil, inflated)
-        if data then
-          buffer = data
+        r = cb(nil, inflated)
+        if inflater:finished() then
+          state = state + 1
+        else
           return r
         end
-        local crcFooter, sizeFooter = string.unpack('<I4I4', footer)
+      end
+      if state == 3 then
+        if #buffer < 8 then
+          return r
+        end
+        if logger:isLoggable(logger.FINER) then
+          logger:finer('footer %s', Codec.encode('hex', string.sub(buffer, 1, 8)))
+        end
+        local crcFooter, sizeFooter = string.unpack('<I4I4', buffer)
+        buffer = string.sub(buffer, 9)
+        state = state + 1
         local crc = md:digest()
         logger:finer('decompressStream() CRC %s/%s, size %s expected %s', crc, crcFooter, size, sizeFooter)
         if crcFooter ~= crc then
-          err = 'Bad CRC (found '..tostring(crc)..' expected '..tostring(crcFooter)..')'
+          state = -state
+          return cb(string.format('bad CRC (found %s expected %s)', crc, crcFooter))
         elseif sizeFooter ~= size then
-          err = 'Bad size (found '..tostring(size)..' expected '..tostring(sizeFooter)..')'
-        else
-          err = nil
+          state = -state
+          return cb(string.format('bad size (found %s expected %s)', size, sizeFooter))
         end
-        cb()
+        return r
       end
+      return cb(string.format('invalid state (%s)', state))
     else
-      local headerSize
-      buffer = buffer..data
-      header, headerSize, err = gzip.parseHeader(buffer)
-      if err then
-        return cb(err)
+      if state == 4 then
+        state = 1
+        return cb()
       end
-      if header then
-        if type(onHeader) == 'function' then
-          onHeader(header)
-        end
-        buffer = string.sub(buffer, headerSize + 1)
-      else
-        return
-      end
+      local reason = string.format('unexpected end of stream (%s)', state)
+      state = 0
+      return cb(reason)
     end
   end)
 end
