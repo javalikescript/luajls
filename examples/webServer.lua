@@ -476,8 +476,8 @@ end
 
 if #htmlHeaders > 0 then
   local appendDirectoryHtmlActions = handler.appendDirectoryHtmlActions
-  function handler:appendDirectoryHtmlActions(exchange, buffer)
-    appendDirectoryHtmlActions(self, exchange, buffer)
+  function handler:appendDirectoryHtmlActions(exchange, buffer, files)
+    appendDirectoryHtmlActions(self, exchange, buffer, files)
     for _, value in ipairs(htmlHeaders) do
       buffer:append(value)
     end
