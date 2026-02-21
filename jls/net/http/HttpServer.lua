@@ -307,6 +307,7 @@ local HttpServer = class.create(function(httpServer)
 
   -- TODO remove
   function httpServer:getParentContextHolder()
+    logger:warn('this method is deprecated, please use getParent')
     return self.parent
   end
 
@@ -317,6 +318,13 @@ local HttpServer = class.create(function(httpServer)
     return self
   end
 
+  function httpServer:getParent()
+    return self.parent
+  end
+
+  --- Sets the parent HTTP server.
+  -- This server will inherit the contexts and filters from its parent.
+  -- @tparam jls.net.http.HttpServer parent the HTTP server to set as parent
   function httpServer:setParent(parent)
     self.parent = parent
     return self

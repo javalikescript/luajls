@@ -52,10 +52,14 @@ end, function(HttpFilter)
 
   local MultipleHttpFilter = class.create(HttpFilter, function(filter)
     function filter:initialize(...)
-      self.filters = {...}
+      self.filters = {}
+      local filters = {...}
+      for _, f in ipairs(filters) do
+        self:addFilter(f)
+      end
     end
     function filter:addFilter(f)
-      table.insert(self.filters, f)
+      table.insert(self.filters, class.asInstance(HttpFilter, f))
       return self
     end
     function filter:doFilter(exchange)

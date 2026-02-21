@@ -12,12 +12,18 @@ end
 
 local hasLuv, luvLib = pcall(require, 'luv')
 if hasLuv then
+  --- Registers a function to be called on a signal.
+  -- @tparam string the signal name, could start with '?' to ignore when signals are not supported and '!' to call the function only once
+  -- @treturn function a function that could be used to unregister the funciton
   return function(n, cb)
     local flags, s = parseFlags(n)
     local signal = luvLib.new_signal()
     luvLib.ref(signal)
     if hasFlag(flags, '!') then
-      luvLib.signal_start_oneshot(signal, s, cb)
+      luvLib.signal_start_oneshot(signal, s, function()
+        luvLib.unref(signal)
+        cb()
+      end)
     else
       luvLib.signal_start(signal, s, cb)
     end

@@ -17,7 +17,6 @@ end)
 
 local Promise = require('jls.lang.Promise')
 local Exception = require('jls.lang.Exception')
-local HttpExchange = require('jls.net.http.HttpExchange')
 
 --- A HttpHandler class.
 -- The handler is called when the request headers are available.
