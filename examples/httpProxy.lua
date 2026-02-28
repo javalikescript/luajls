@@ -9,8 +9,10 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
+local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local Http1 = require('jls.net.http.Http1')
 local Url = require('jls.net.Url')
+local File = require('jls.io.File')
 local StreamHandler = require('jls.io.StreamHandler')
 local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local tables = require('jls.util.tables')
@@ -163,12 +165,20 @@ local function encodeHref(href, base, opts)
     if url:getProtocol() == 'https' or url:getProtocol() == 'http' then
       local b = base64:encode(formatBaseUrl(url))
       if b ~= base and string.find(opts, 'o', 1, true) then
-        return '/not-found'
+        return '/RW/static/not-found'
       end
-      return '/r/'..b..'/'..opts..url:getFile()
+      return '/RW/'..b..'/'..opts..url:getFile()
     end
   elseif string.find(href, '^/') then
-    return '/r/'..base..'/'..opts..href
+    if string.find(href, '^//') then
+      local d = base64:decodeSafe(base)
+      local p = string.match(d, '^([^:]+):')
+      if p then
+        return encodeHref(p..href, base, opts)
+      end
+    else
+      return '/RW/'..base..'/'..opts..href
+    end
   end
   return href
 end
@@ -217,15 +227,36 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     end))
   end
 
+  local function findTag(data, name, before)
+    local namePattern = string.gsub(name, '%a', function(a)
+      return '['..string.lower(a)..string.upper(a)..']'
+    end)
+    local s, e = string.find(data, '<'..namePattern..'>')
+    if not s then
+      s, e = string.find(data, '<'..namePattern..'%s[^>]*>')
+    end
+    if s then
+      if before then
+        return s - 1
+      end
+      return e
+    end
+  end
+
   local function transformHtml(data, base, opts)
     local function urlToQuery(n, v, s)
       local m = string.lower(n)
-      if m == 'href' or m == 'src' then
+      if m == 'href' or m == 'src' or m == 'action' then
         v = encodeHref(v, base, opts)
+      elseif m == 'srcset' then
+        string.gsub(data, '[^,]+', function(w)
+          w = string.gsub(w, '^%s+', '')
+          return encodeHref(w, base, opts)
+        end)
       end
       return n..'='..s..v..s
     end
-    return (string.gsub(data, '<%s*(%w+)([^>]*)>', function(tag, atts)
+    local d = string.gsub(data, '<%s*(%w+)([^>]*)>', function(tag, atts)
       local m = string.gsub(atts, '%s+$', '')
       local s = ''
       if string.sub(m, #m) == '/' then
@@ -235,12 +266,17 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
       local t = string.lower(tag)
       if t == 'script' and string.find(opts, 's', 1, true) then
         m = ' type="text/plain"'
-      elseif t == 'a' or t == 'img' or t == 'link' or t == 'script' then
+      elseif t == 'a' or t == 'link' or t == 'area' or t == 'base' or t == 'img' or t == 'script' or t == 'iframe' then
         m = string.gsub(m, '(%w+)%s*=%s*"([^"]+)(")', urlToQuery)
         m = string.gsub(m, "(%w+)%s*=%s*'([^']+)(')", urlToQuery)
       end
       return '<'..tag..m..s..'>'
-    end))
+    end)
+    local i = findTag(d, 'head') or findTag(d, 'html') or findTag(d, 'script', true) or findTag(d, 'body')
+    if i then
+      d = string.sub(d, 1, i)..'<script src="/RW/static/observe.js"></script>'..string.sub(d, i + 1)
+    end
+    return d
   end
 
   function handler:adaptResponseStreamHandler(exchange, sh)
@@ -270,8 +306,8 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     if not transform then
       return sh
     end
-    response:setContentLength()
-    response:setHeader('transfer-encoding')
+    response:setContentLength(nil)
+    response:setHeader('transfer-encoding', nil)
     return BufferedStreamHandler:new(StreamHandler:new(function(err, data)
       if err then
         return sh:onError(err)
@@ -301,6 +337,10 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
   end
 
 end)
+
+local RESOURCE_MAP = {
+['observe.js'] = File:new('examples/httpProxy.js'):readAll()
+}
 
 local CONFIG_SCHEMA = {
   title = 'HTTP proxy',
@@ -447,7 +487,26 @@ httpServer:bind(config.server.address, config.server.port):next(function()
       end)
 
     local proxyHandler = RewriteProxyHandler:new()
-    httpServer:createContext('/r/(%w+)/(%w+)(.*)', proxyHandler)
+    httpServer:createContext('/RW/(%w+)/(%w+)(.*)', proxyHandler)
+    httpServer:createContext('/RW/static/not-found', function(exchange)
+      HttpExchange.notFound(exchange)
+    end)
+    httpServer:createContext('/RW/static/(.+)', function(exchange)
+      local n = exchange:getRequestArguments()
+      local c = RESOURCE_MAP[n]
+      if c then
+          local response = exchange:getResponse()
+          response:setStatusCode(200, 'OK')
+          response:setContentType(FileHttpHandler.guessContentType(n))
+          response:setCacheControl(43200)
+          response:setContentLength(#c)
+          if exchange:getRequestMethod() == 'GET' then
+            response:setBody(c)
+          end
+      else
+        HttpExchange.notFound(exchange)
+      end
+    end)
   else
     local proxyHandler = ProxyHandler:new(config.proxy)
     httpServer:createContext('(.*)', proxyHandler)
