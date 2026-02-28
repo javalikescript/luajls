@@ -10,11 +10,11 @@ local DecodeStreamHandler = class.create(WrappedStreamHandler, function(decodeSt
   end
   function decodeStreamHandler:onData(data)
     if data then
-      local status, inflated = pcall(self.inflater.inflate, self.inflater, data)
-      if status then
+      local inflated, n = self.inflater:inflate(data)
+      if inflated then
         return self.handler:onData(inflated)
       end
-      self.handler:onError(inflated or 'unknown')
+      self.handler:onError(n or 'unknown')
     else
       return self.handler:onData()
     end

@@ -1,6 +1,7 @@
 local lu = require('luaunit')
 
 local Codec = require('jls.util.Codec')
+local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 
 local Base64 = Codec.getCodec('base64')
 local base64 = Codec.getInstance('base64')
@@ -104,6 +105,19 @@ function _Test_hex_encode_decode_perf()
       lu.assertEquals(hex:decode(hex:encode(s)), s)
     end
   end))
+end
+
+function Test_deflate_stream()
+  local deflate = Codec.getInstance('deflate')
+  local bsh = BufferedStreamHandler:new()
+  local esh = deflate:encodeStream(bsh)
+  BufferedStreamHandler.fill(esh, 'Hi')
+  local es = assert(bsh:getBuffer())
+
+  bsh:getStringBuffer():clear()
+  local dsh = deflate:decodeStream(bsh)
+  BufferedStreamHandler.fill(dsh, es)
+  lu.assertEquals(bsh:getBuffer(), 'Hi')
 end
 
 os.exit(lu.LuaUnit.run())

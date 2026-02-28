@@ -2,49 +2,11 @@ local lu = require('luaunit')
 
 local Deflater = require('jls.util.zip.Deflater')
 local Inflater = require('jls.util.zip.Inflater')
-local Codec = require('jls.util.Codec')
-local base64 = Codec.getInstance('base64')
 
-local EMPTY_DEFLATED = base64:decode('eJwDAAAAAAE=')
-local SPACES_INFLATED = '                                                                                '
-local SPACES_DEFLATED = base64:decode('eJxTUKAuAACVXwoB')
-local SPACES_DEFLATED_100 = base64:decode('eJztwYEAAAAAgCCV/SkXqQoAAAAAAAAAGKcS6C4=')
 local HELLO_WORLD_INFLATED = 'Hello world!'
-local HELLO_WORLD_DEFLATED = base64:decode('eJzzSM3JyVcozy/KSVEEAB0JBF4=')
+local HELLO_WORLD_DEFLATED = '\x78\x9C\xF3\x48\xCD\xC9\xC9\x57\x28\xCF\x2F\xCA\x49\x51\x04\x00\x1D\x09\x04\x5E'
 
 local VALUES = {'', 'a', 'ab', 'abc', HELLO_WORLD_INFLATED}
-
-local function print_base64_deflated(s)
-  print('"'..s..'" => '..base64:encode(Deflater:new():deflate(s, 'finish')))
-end
-
-local function print_base64_deflated_n(s, n)
-  local deflater = Deflater:new()
-  local deflated = ''
-  for i = 1, n do
-    deflated = deflated..deflater:deflate(s)
-  end
-  deflated = deflated..deflater:finish()
-  print('"'..s..'" x '..tostring(n)..' => '..base64:encode(deflated))
-end
-
-local function print_base64_deflated_l(l)
-  local deflater = Deflater:new()
-  local deflated = ''
-  for i, s in ipairs(l) do
-    deflated = deflated..deflater:deflate(s)
-    print('['..tostring(i)..'] => '..base64:encode(deflated))
-  end
-  deflated = deflated..deflater:finish()
-  print('['..tostring(#l)..'] => '..base64:encode(deflated))
-end
-
---[[]
-print_base64_deflated('')
-print_base64_deflated(SPACES_INFLATED)
-print_base64_deflated(HELLO_WORLD_INFLATED)
-print_base64_deflated_n(SPACES_INFLATED, 100)
-]]
 
 function Test_deflate()
   lu.assertEquals(Deflater:new():deflate(HELLO_WORLD_INFLATED, 'finish'), HELLO_WORLD_DEFLATED)
