@@ -55,6 +55,11 @@ local options = tables.createArgumentTable(system.getArguments(), {
           [HTTP_CONST.HEADER_USER_AGENT] = HTTP_CONST.DEFAULT_USER_AGENT,
         },
       },
+      checkHost = {
+        title = 'Check the hostname',
+        type = 'boolean',
+        default = true
+      },
       secureContext = {
         type = 'object',
         properties = {
