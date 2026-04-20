@@ -35,7 +35,7 @@ function dns.getNameInfo(addr, callback)
 end
 
 function dns.getInterfaceAddresses(family)
-  family = family or 'inet'
+  family = family or 'inet' -- inet6
   local ips = {}
   local addresses = lib.interface_addresses()
   logger:fine('interface_addresses() => %t', addresses)

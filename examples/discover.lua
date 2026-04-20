@@ -80,6 +80,7 @@ local CONFIG_SCHEMA = {
     },
     address = {
       title = 'The IP address to bind the sender',
+      description = 'If not provided, will use all the available interface addresses',
       type = 'string'
     },
     mdns = {
@@ -89,6 +90,7 @@ local CONFIG_SCHEMA = {
       properties = {
         address = {
           title = 'The mDNS IP address',
+          description = 'Use ff02::fb for IPv6',
           type = 'string',
           default = '224.0.0.251'
         },
@@ -196,7 +198,9 @@ local addresses
 if config.address then
   addresses = {config.address}
 else
-  addresses = dns.getInterfaceAddresses()
+  local pa = config.protocol == 'SSDP' and config.ssdp.address or config.protocol == 'mDNS' and config.mdns.address or ''
+  local fa = string.match(pa, ':') and 'inet6' or 'inet'
+  addresses = dns.getInterfaceAddresses(fa)
   logger:info('Interface addresses: %t', addresses)
 end
 
