@@ -83,7 +83,7 @@ return class.create(function(authGuard)
 
   function authGuard:clean(time)
     for ip, info in pairs(self.infoByIp) do
-      if info.since < time then
+      if not info.granted and info.since < time then
         self.infoByIp[ip] = nil
       end
     end
@@ -163,13 +163,12 @@ return class.create(function(authGuard)
     end
   end
 
-  function authGuard:grantUser(user, exchange)
+  function authGuard:grantUserIp(user, ip)
     local time = system.currentTime()
     local info = self:getUserInfo(user, time)
     if info.blocked then
       return false
     end
-    local ip = exchange and exchange:getClient():getRemoteName()
     if ip then
       if not info.ips[ip] then
         logger:fine('IP %s granted for user %s', ip, user)
@@ -180,6 +179,11 @@ return class.create(function(authGuard)
       info.time = time
     end
     return true
+  end
+
+  function authGuard:grantUser(user, exchange)
+    local client = exchange and exchange:getClient()
+    return self:grantUserIp(user, client and client:getRemoteName())
   end
 
 end)

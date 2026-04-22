@@ -46,6 +46,18 @@ return require('jls.lang.class').create('jls.net.http.Attributes', function(http
     self.lastAccessTime = time
   end
 
+  function httpSession:getLastIpAddress()
+    return self.lastIpAddress
+  end
+
+  function httpSession:updateLastIpAddress(address)
+    if self.lastIpAddress ~= address then
+      self.lastIpAddress = address
+      return true
+    end
+    return false
+  end
+
   --- Invalidates this session.
   function httpSession:invalidate()
     self.id = ''

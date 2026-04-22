@@ -37,7 +37,10 @@ return class.create('jls.net.http.HttpFilter', function(filter)
     return sessionId
   end
 
-  function filter:onCreated(session)
+  function filter:onCreated(session, exchange)
+  end
+
+  function filter:onChanged(session, exchange)
   end
 
   function filter:onDestroyed(session)
@@ -79,21 +82,31 @@ return class.create('jls.net.http.HttpFilter', function(filter)
     local time = system.currentTimeMillis()
     self:cleanup(time)
     local request = exchange:getRequest()
+    local client = exchange:getClient()
+    local address = client and client:getRemoteName()
     local sessionId = request:getCookie(self.name)
     local session
     if sessionId then
       session = self.sessions[sessionId]
+      if session then
+        session:setLastAccessTime(time)
+        local changed = session:updateLastIpAddress(address)
+        exchange:setSession(session)
+        if changed then
+          self:onChanged(session, exchange)
+        end
+        return
+      end
     end
-    if not session then
-      sessionId = self:generateId()
-      session = HttpSession:new(sessionId, time)
-      self:onCreated(session)
-      self.sessions[sessionId] = session
-      local response = exchange:getResponse()
-      response:setCookie(self.name, sessionId, self.options)
-    end
+    sessionId = self:generateId()
+    session = HttpSession:new(sessionId, time)
+    self.sessions[sessionId] = session
+    local response = exchange:getResponse()
+    response:setCookie(self.name, sessionId, self.options)
     session:setLastAccessTime(time)
+    session:updateLastIpAddress(address)
     exchange:setSession(session)
+    self:onCreated(session, exchange)
   end
 
   function filter:getSessions()
