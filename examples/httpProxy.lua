@@ -369,6 +369,11 @@ local CONFIG_SCHEMA = {
         },
       },
     },
+    reverseUrl = {
+      title = 'The URL to use for the reverse proxy',
+      type = 'string',
+      pattern = '^https?://.+$',
+    },
     heartbeat = {
       type = 'number',
       default = 15,
@@ -507,6 +512,10 @@ httpServer:bind(config.server.address, config.server.port):next(function()
         HttpExchange.notFound(exchange)
       end
     end)
+  elseif config.reverseUrl then
+    local proxyHandler = ProxyHttpHandler:new()
+    proxyHandler:configureReverse(config.reverseUrl)
+    httpServer:createContext('(.*)', proxyHandler)
   else
     local proxyHandler = ProxyHandler:new(config.proxy)
     httpServer:createContext('(.*)', proxyHandler)

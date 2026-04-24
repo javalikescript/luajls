@@ -295,7 +295,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       response:setHeadersTable(clientResponse:getHeadersTable())
       local odsh = DelayedStreamHandler:new()
       local ash, defer = self:adaptResponseStreamHandler(exchange, odsh)
-      if ash == odsh then
+      if ash == odsh and response:getHeader(CONST.HEADER_CONTENT_ENCODING) then
         logger:finer('use identity content encoding')
         clientResponse.applyContentEncoding = identityContentEncoding
         response.applyContentEncoding = identityContentEncoding
