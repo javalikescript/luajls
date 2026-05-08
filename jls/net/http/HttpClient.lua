@@ -412,6 +412,11 @@ return class.create(function(httpClient, _, HttpClient)
           return promise
         end
         return handleRedirect(self, options, request, response)
+      end):catch(function(reason)
+        logger:fine('fetch error %s', reason)
+        self:closeClient(false)
+        queueNext()
+        return Promise.reject(reason)
       end)
     end)
   end

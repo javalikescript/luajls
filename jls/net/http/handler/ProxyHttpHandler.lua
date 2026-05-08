@@ -238,12 +238,13 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       self.clients[n] = client
     end
     client.refCount = client.refCount + 1
-    logger:finer('getClient(%s) refCount is %d', n, client.refCount)
+    logger:finer('getClient(%s) %p refCount is %d', n, client, client.refCount)
     return client
   end
 
   function proxyHttpHandler:releaseClient(client, url)
     client.refCount = client.refCount - 1
+    logger:finer('releaseClient(%p, %s) refCount is %d', client, url, client.refCount)
   end
 
   function proxyHttpHandler:handle(exchange)
@@ -312,6 +313,10 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
       if defer then
         return p
       end
+    end):catch(function(reason)
+      logger:fine('fetch error %s', reason)
+      self:releaseClient(client, targetUrl)
+      return Promise.reject(reason)
     end)
   end
 
