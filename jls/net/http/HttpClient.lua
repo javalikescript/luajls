@@ -138,12 +138,19 @@ return class.create(function(httpClient, _, HttpClient)
   end
 
   function httpClient:connectV2() -- TODO Rename?
+    local time = os.time()
     if self.connecting then
       logger:finest('connecting')
       return self.connecting
     elseif not self:isClosed() then
-      logger:finest('connected')
-      return Promise.resolve(self)
+      if self.timeout and self.connectTime and (time + 1 - self.connectTime) >= self.timeout then
+        logger:fine('timeout reached (%d), closing', self.timeout)
+      elseif self.maxRequests and self.requestCount and self.requestCount + 1 >= self.maxRequests then
+        logger:fine('max request (%d) reached, closing', self.maxRequests)
+      else
+        logger:finest('connected')
+        return Promise.resolve(self)
+      end
     end
     logger:finer('connectV2()')
     self:close(false)
@@ -166,6 +173,7 @@ return class.create(function(httpClient, _, HttpClient)
     self.connecting = connecting
     connecting:next(function()
       logger:finer('connected %s', tcp)
+      self.connectTime = time
       if self.isSecure and tcp.sslGetAlpnSelected then
         if tcp:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
@@ -321,6 +329,20 @@ return class.create(function(httpClient, _, HttpClient)
 
   end)
 
+  local function enqueue(self)
+    -- SLA TODO Keep track of all queued requests to close them properly
+    local queuePromise = self.queuePromise or Promise.resolve()
+    local queueNext
+    self.queuePromise, queueNext = Promise.withCallback()
+    self.queueSize = (self.queueSize or 0) + 1
+    logger:fine('enqueue() %d', self.queueSize)
+    self.queuePromise:finally(function()
+      self.queueSize = self.queueSize - 1
+      logger:fine('dequeue() %d', self.queueSize)
+    end)
+    return queuePromise, queueNext
+  end
+
   --- Sends an HTTP request and receives a response.
   -- The response body must be consumed using its text(), json() or consume() method.
   -- @tparam string resource The request target path.
@@ -370,12 +392,11 @@ return class.create(function(httpClient, _, HttpClient)
       end
       logger:fine('fetch is using HTTP/1')
       request:applyBodyLength()
-      local queuePromise = self.queuePromise or Promise.resolve()
-      local queueNext
-      self.queuePromise, queueNext = Promise.withCallback()
+      local queuePromise, dequeue = enqueue(self)
       return queuePromise:next(function()
         return self:connectV2() -- we stick to HTTP/1
       end):next(function()
+        self.requestCount = (self.requestCount or 0) + 1
         return Http1.writeHeaders(self.tcpClient, request)
       end):next(function()
         logger:finer('fetch write headers done')
@@ -386,6 +407,12 @@ return class.create(function(httpClient, _, HttpClient)
       end):next(function(buffer)
         logger:finer('fetch read headers done')
         local connectionClose = response:getConnection() == CONST.CONNECTION_CLOSE
+        local keepAlive = response:getHeader(CONST.CONNECTION_KEEP_ALIVE)
+        if keepAlive then
+          -- SLA TODO Enhance keep-alive parsing: timeout=5, max=100
+          self.timeout = tonumber(string.match(keepAlive, 'timeout=(%d+)') or '') or self.timeout
+          self.maxRequests = tonumber(string.match(keepAlive, 'max=(%d+)') or '') or self.maxRequests
+        end
         -- TODO Always read body after resolving consume promise
         -- TODO shall we override response:close()?
         local promise
@@ -406,7 +433,7 @@ return class.create(function(httpClient, _, HttpClient)
               if connectionClose then
                 self:closeClient(false)
               end
-              queueNext()
+              dequeue()
             end)
           end
           return promise
@@ -415,13 +442,19 @@ return class.create(function(httpClient, _, HttpClient)
       end):catch(function(reason)
         logger:fine('fetch error %s', reason)
         self:closeClient(false)
-        queueNext()
+        dequeue()
         return Promise.reject(reason)
       end)
     end)
   end
 
   function httpClient:closeClient(callback)
+    self.queuePromise = nil
+    self.queueSize = nil
+    self.connectTime = nil
+    self.requestCount = nil
+    self.timeout = nil
+    self.maxRequests = nil
     local tcpClient = self.tcpClient
     if tcpClient then
       self.tcpClient = nil
