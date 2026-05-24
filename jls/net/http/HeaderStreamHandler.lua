@@ -7,8 +7,8 @@ return require('jls.lang.class').create('jls.io.StreamHandler', function(headerS
   function headerStreamHandler:initialize(message, maxLineLength, maxSize)
     super.initialize(self)
     self.message = message
-    self.maxLineLength = maxLineLength or 4096
-    self.maxSize = maxSize or self.maxLineLength * 8
+    self.maxLineLength = maxLineLength or (16 * 1024)
+    self.maxSize = maxSize or self.maxLineLength * 2
     self.size = 0
     self.firstLine = true
     self.errorStatus = nil
