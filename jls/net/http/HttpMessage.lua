@@ -421,7 +421,7 @@ return class.create(HttpHeaders, function(httpMessage, super, HttpMessage)
   function httpMessage:json()
     local json = require('jls.util.json')
     return self:text():next(function(text)
-      return json.parse(text)
+      return json.parse(text) -- TODO Protect?
     end)
   end
 

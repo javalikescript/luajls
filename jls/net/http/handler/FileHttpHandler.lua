@@ -268,6 +268,7 @@ return class.create('jls.net.http.HttpHandler', function(fileHttpHandler, _, Fil
         HttpExchange.forbidden(exchange)
       end
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
+      -- TODO use a header to overwrite a file
       if self.allowUpdate or not file:exists() then
         if isDirectoryPath then
           file:mkdir() -- TODO Handle errors
@@ -288,9 +289,16 @@ return class.create('jls.net.http.HttpHandler', function(fileHttpHandler, _, Fil
     elseif method == 'MOVE' and self.allowCreate and self.allowDelete then
       local destPath = getDestinationPath(exchange)
       if destPath then
-        local destFile = self:findFile(exchange, destPath)
-        file:renameTo(destFile)
-        HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Moved')
+        if file:exists() then
+          local destFile = self:findFile(exchange, destPath)
+          if file:renameTo(destFile) then
+            HttpExchange.response(exchange, HTTP_CONST.HTTP_CREATED, 'Moved')
+          else
+            HttpExchange.internalServerError(exchange, 'Fail to rename')
+          end
+        else
+          HttpExchange.notFound(exchange)
+        end
       else
         HttpExchange.badRequest(exchange)
       end
