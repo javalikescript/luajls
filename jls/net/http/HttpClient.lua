@@ -61,6 +61,7 @@ return class.create(function(httpClient, _, HttpClient)
   -- @tparam[opt] boolean options.checkHost true to check the host
   -- @return a new HTTP client
   function httpClient:initialize(options)
+    self.userAgent = CONST.DEFAULT_USER_AGENT
     if type(options) == 'string' or Url:isInstance(options) then
       options = { url = options }
     elseif options == nil then
@@ -337,8 +338,10 @@ return class.create(function(httpClient, _, HttpClient)
     self.queueSize = (self.queueSize or 0) + 1
     logger:fine('enqueue() %d', self.queueSize)
     self.queuePromise:finally(function()
-      self.queueSize = self.queueSize - 1
-      logger:fine('dequeue() %d', self.queueSize)
+      if self.queueSize then
+        self.queueSize = self.queueSize - 1
+        logger:fine('dequeue() %d', self.queueSize)
+      end
     end)
     return queuePromise, queueNext
   end
@@ -381,8 +384,8 @@ return class.create(function(httpClient, _, HttpClient)
       hostPort = formatHostPort(self.host, self.port, self.isSecure)
     end
     request:setHeader(CONST.HEADER_HOST, hostPort)
-    if not request:getHeader(CONST.HEADER_USER_AGENT) then
-      request:setHeader(CONST.HEADER_USER_AGENT, CONST.DEFAULT_USER_AGENT)
+    if not request:getHeader(CONST.HEADER_USER_AGENT) and self.userAgent then
+      request:setHeader(CONST.HEADER_USER_AGENT, self.userAgent)
     end
     local response = HttpMessage:new()
     return self:connectV2():next(function()
