@@ -9,6 +9,7 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpHeaders = require('jls.net.http.HttpHeaders')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local ProxyHttpHandler = require('jls.net.http.handler.ProxyHttpHandler')
+local RestHttpHandler = require('jls.net.http.handler.RestHttpHandler')
 local FileHttpHandler = require('jls.net.http.handler.FileHttpHandler')
 local Http1 = require('jls.net.http.Http1')
 local Url = require('jls.net.Url')
@@ -165,19 +166,19 @@ local function encodeHref(href, base, opts)
     if url:getProtocol() == 'https' or url:getProtocol() == 'http' then
       local b = base64:encode(formatBaseUrl(url))
       if b ~= base and string.find(opts, 'o', 1, true) then
-        return '/RW/static/not-found'
+        return '/ReW/static/not-found'
       end
-      return '/RW/'..b..'/'..opts..url:getFile()
+      return '/ReW/'..b..'/'..opts..url:getFile()
     end
   elseif string.find(href, '^/') then
-    if string.find(href, '^//') then
+    if string.find(href, '^//') and base then
       local d = base64:decodeSafe(base)
-      local p = string.match(d, '^([^:]+):')
+      local p = string.match(d, '^([^:]+:)')
       if p then
         return encodeHref(p..href, base, opts)
       end
     else
-      return '/RW/'..base..'/'..opts..href
+      return '/ReW/'..base..'/'..opts..href
     end
   end
   return href
@@ -187,6 +188,7 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
 
   function handler:initialize()
     super.initialize(self)
+    self.exchanges = {}
   end
 
   function handler:getTargetUrl(exchange)
@@ -194,7 +196,8 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     local q = string.match(exchange:getRequest():getTarget(), '^[^%?]*(%?.+)$')
     local b = base64:decodeSafe(e)
     if b then
-      logger:fine('rewrite url is "%s" "%s" "%s" "%s"', b, o, p, q)
+      logger:fine('rewrite URL is "%s" "%s" "%s" "%s"', b, o, p, q)
+      exchange:setAttribute('base-url', b)
       return Url.fromString(q and b..p..q or b..p)
     end
   end
@@ -211,19 +214,21 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
       end
     end
     request:setHeaderValues('accept-encoding', #l > 0 and l or {'identity'})
+    local _, opts = exchange:getRequestArguments()
+    if string.find(opts, 'u', 1, true) then
+      request:setHeader('user-agent', self.userAgent)
+    end
+    request:setHeader('referer')
+    exchange:setAttribute('client-request', request)
   end
 
   local function transformCss(data, base, opts)
     return (string.gsub(data, 'url%(%s*([^%)]+)%)', function(url)
-      local c = string.char(string.byte(url))
-      if c == '"' then
-        url = string.gsub(string.sub(url, 2), '"%s*$', '')
-      elseif c == "'" then
-        url = string.gsub(string.sub(url, 2), "'%s*$", '')
-      else
-        c = ''
+      local c, u = string.match(url, '^%s*([\'"])([^\'"]+)[\'"]%s*$')
+      if c then
+        return 'url('..c..encodeHref(u, base, opts)..c..')'
       end
-      return 'url('..c..encodeHref(url, base, opts)..c..')'
+      return 'url('..encodeHref(url, base, opts)..')'
     end))
   end
 
@@ -243,18 +248,37 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     end
   end
 
+  local function processXmlAttributes(a, r)
+    local function f(n, v, s)
+      local w = r(string.lower(n), v)
+      if w then
+        return n..'='..s..w..s
+      end
+      return ''
+    end
+    local b = string.gsub(a, '(%w+)%s*=%s*"([^"]+)(")', f)
+    return string.gsub(b, "(%w+)%s*=%s*'([^']+)(')", f)
+  end
+
   local function transformHtml(data, base, opts)
-    local function urlToQuery(n, v, s)
-      local m = string.lower(n)
-      if m == 'href' or m == 'src' or m == 'action' then
-        v = encodeHref(v, base, opts)
-      elseif m == 'srcset' then
-        string.gsub(data, '[^,]+', function(w)
-          w = string.gsub(w, '^%s+', '')
-          return encodeHref(w, base, opts)
+    local function replStyle(n, v)
+      if n == 'style' then
+        return transformCss(v, base, opts)
+      end
+      if n == 'nonce' then
+        return nil
+      end
+      return v
+    end
+    local function urlToQuery(n, v)
+      if n == 'href' or n == 'src' or n == 'action' then
+        return encodeHref(v, base, opts)
+      elseif n == 'srcset' then
+        return string.gsub(v, '[^,]+', function(w)
+          return encodeHref(string.gsub(w, '^%s+', ''), base, opts)
         end)
       end
-      return n..'='..s..v..s
+      return replStyle(n, v)
     end
     local d = string.gsub(data, '<%s*(%w+)([^>]*)>', function(tag, atts)
       local m = string.gsub(atts, '%s+$', '')
@@ -267,21 +291,24 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
       if t == 'script' and string.find(opts, 's', 1, true) then
         m = ' type="text/plain"'
       elseif t == 'a' or t == 'link' or t == 'area' or t == 'base' or t == 'img' or t == 'script' or t == 'iframe' then
-        m = string.gsub(m, '(%w+)%s*=%s*"([^"]+)(")', urlToQuery)
-        m = string.gsub(m, "(%w+)%s*=%s*'([^']+)(')", urlToQuery)
+        m = processXmlAttributes(m, urlToQuery)
+      else
+        m = processXmlAttributes(m, replStyle)
       end
       return '<'..tag..m..s..'>'
     end)
     local i = findTag(d, 'head') or findTag(d, 'html') or findTag(d, 'script', true) or findTag(d, 'body')
     if i then
-      d = string.sub(d, 1, i)..'<script src="/RW/static/observe.js"></script>'..string.sub(d, i + 1)
+      d = string.sub(d, 1, i)..'<script src="/ReW/static/observe.js"></script>'..string.sub(d, i + 1)
     end
     return d
   end
 
   function handler:adaptResponseStreamHandler(exchange, sh)
     local response = exchange:getResponse()
+    local resRawHeaders = response:getRawHeaders()
     -- remove unsupported headers
+    response:setHeader('content-security-policy')
     response:setHeader('content-security-policy-report-only')
     response:setHeader('report-to')
     response:setHeader('nel')
@@ -293,6 +320,7 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     end
     local setCookies = response:getHeaderValues('set-cookie')
     for i, v in ipairs(setCookies) do
+      -- TODO handle cookies prefixed with '__'
       setCookies[i] = string.gsub(v, '; *[Dd]omain *=[^;]+', '')
     end
     response:setHeader('set-cookie', setCookies)
@@ -306,8 +334,8 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     if not transform then
       return sh
     end
+    response:setHeader('transfer-encoding')
     response:setContentLength(nil)
-    response:setHeader('transfer-encoding', nil)
     return BufferedStreamHandler:new(StreamHandler:new(function(err, data)
       if err then
         return sh:onError(err)
@@ -318,6 +346,19 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
         logger:finest('transformed to %s', d)
         local l = #d
         response:setContentLength(l)
+        if self.record and self.record > 0 then
+          local req = exchange:getAttribute('client-request') or exchange:getRequest()
+          local bu = exchange:getAttribute('base-url')
+          table.insert(self.exchanges, {
+            b = bu,
+            req = {l = req:formatLine(), h = req:getRawHeaders()},
+            res = {l = response:formatLine(), h = resRawHeaders, b = data}
+          })
+          local n = #self.exchanges
+          if n > self.record then
+            self.exchanges = table.move(self.exchanges, n - self.record + 1, n, 1, {})
+          end
+        end
         if l > Http1.BODY_BLOCK_SIZE then
           local pt = {}
           for value in strings.parts(d, Http1.BODY_BLOCK_SIZE) do
@@ -339,7 +380,8 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
 end)
 
 local RESOURCE_MAP = {
-['observe.js'] = File:new('examples/httpProxy.js'):readAll()
+  ['observe.js'] = File:new('examples/httpProxy.js'):readAll(),
+  ['exchanges.html'] = File:new('examples/httpProxy.html'):readAll(),
 }
 
 local CONFIG_SCHEMA = {
@@ -369,6 +411,38 @@ local CONFIG_SCHEMA = {
         },
       },
     },
+    secure = {
+      type = 'object',
+      additionalProperties = false,
+      properties = {
+        enabled = {
+          title = 'Enable HTTPS',
+          type = 'boolean',
+          default = false
+        },
+        port = {
+          type = 'integer',
+          default = 8443,
+          minimum = 0,
+          maximum = 65535,
+        },
+        commonName = {
+          title = "The server common name",
+          type = "string",
+          default = "localhost"
+        },
+        certificate = {
+          title = "The certificate file",
+          type = "string",
+          default = "cer.pem"
+        },
+        key = {
+          title = "The key file",
+          type = "string",
+          default = "key.pem"
+        }
+      }
+    },
     reverseUrl = {
       title = 'The URL to use for the reverse proxy',
       type = 'string',
@@ -388,7 +462,16 @@ local CONFIG_SCHEMA = {
         enabled = {
           type = 'boolean',
           default = false
-        }
+        },
+        record = {
+          title = 'Max number of exchanges to record',
+          type = 'number',
+          default = 0,
+        },
+        ['user-agent'] = {
+          title = 'The user agent to use when rewriting',
+          type = 'string'
+        },
       }
     },
     proxy = {
@@ -448,6 +531,7 @@ local config = tables.createArgumentTable(system.getArguments(), {
     b = 'server.address',
     hb = 'heartbeat',
     p = 'server.port',
+    s = 'secure.enabled',
     pl = 'proxy.log.enabled',
     ll = 'log-level',
     r = 'rewrite.enabled',
@@ -472,31 +556,64 @@ httpServer:bind(config.server.address, config.server.port):next(function()
           local url = exchange:getRequest():getSearchParam('url')
           if url then
             url = Url.decodePercent(url)
-            logger:info('url is "%s"', url)
             local flags = exchange:getRequest():getSearchParam('flags')
+            logger:info('URL is "%s", flags are "%s"', url, flags)
             HttpExchange.redirect(exchange, encodeHref(url, nil, flags or 'a'))
             return false
           end
           local response = exchange:getResponse()
+          local sampleUrl = 'http://localhost:8000'
+          local sampleFlags = 'a'
           response:setBody(string.format([[<!DOCTYPE html>
   <html>
     <body>
       <p>Please provide an URL in the query!</p>
       <p>As in <a href="%s">this example</a></p>
+      <br/>
+      <p>List the <a href="/ReW/static/exchanges.html">HTTP exchanges</a></p>
+      <br/>
+      <input id="url" type="text" placeholder="URL" value="]]..sampleUrl..[["/>
+      <input id="flags" type="text" placeholder="flags" value="]]..sampleFlags..[[" title="'s' to disable script, 'u' to override user agent"/>
+      <button id="go">Go</button>
+      <script>
+      function asUrlParam(name) {
+        return name + '=' + encodeURIComponent(document.getElementById(name).value);
+      }
+      document.getElementById('go').addEventListener('click', function() {
+        window.location.href = '?' + asUrlParam('url') + '&' + asUrlParam('flags');
+      });
+      </script>
     </body>
   </html>
-  ]], encodeHref('http://localhost:8000', nil, 'a')))
+  ]], encodeHref(sampleUrl, nil, sampleFlags)))
         else
           HttpExchange.notFound(exchange)
         end
       end)
 
     local proxyHandler = RewriteProxyHandler:new()
-    httpServer:createContext('/RW/(%w+)/(%w+)(.*)', proxyHandler)
-    httpServer:createContext('/RW/static/not-found', function(exchange)
+    local userAgent = config.rewrite['user-agent']
+    if userAgent == 'android-11' then
+      proxyHandler.userAgent = 'Mozilla/5.0 (Linux; Android 11; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.210 Mobile Safari/537.36'
+    elseif userAgent == 'lumia-650' then
+      proxyHandler.userAgent = 'Mozilla/5.0 (Windows Phone 10.0; Android 6.0.1; Microsoft; Lumia 650) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Mobile Safari/537.36 Edge/15.15254'
+    else
+      proxyHandler.userAgent = userAgent
+    end
+    proxyHandler.record = config.rewrite.record
+    httpServer:createContext('/ReW/(%w+)/(%w+)(.*)', proxyHandler)
+    httpServer:createContext('/ReW/rest/(.+)', RestHttpHandler:new({
+      ['clearExchanges?method=POST'] = function()
+        proxyHandler.exchanges = {}
+      end,
+      exchanges = function()
+        return proxyHandler.exchanges
+      end
+    }))
+    httpServer:createContext('/ReW/static/not-found', function(exchange)
       HttpExchange.notFound(exchange)
     end)
-    httpServer:createContext('/RW/static/(.+)', function(exchange)
+    httpServer:createContext('/ReW/static/(.+)', function(exchange)
       local n = exchange:getRequestArguments()
       local c = RESOURCE_MAP[n]
       if c then
@@ -532,6 +649,49 @@ end):catch(function(err) -- could failed if address is in use or hostname cannot
   print('Cannot bind proxy server, '..tostring(err))
   os.exit(1)
 end)
+
+if config.secure.enabled then
+  local secure = require('jls.net.secure')
+  local Date = require('jls.util.Date')
+
+  local certFile = File:new(config.secure.certificate)
+  local pkeyFile = File:new(config.secure.key)
+  if not certFile:exists() or not pkeyFile:exists() then
+    local cacert, pkey = secure.createCertificate({
+      commonName = config.secure.commonName
+    })
+    local cacertPem  = cacert:export('pem')
+    local pkeyPem  = pkey:export('pem')
+    certFile:write(cacertPem)
+    pkeyFile:write(pkeyPem)
+    logger:info('Generate certificate %s and associated private key %s', certFile:getPath(), pkeyFile:getPath())
+  else
+    local cert = secure.readCertificate(certFile:readAll())
+    local isValid, notbefore, notafter = cert:validat()
+    local notafterDate = Date:new(notafter:get() * 1000)
+    local notafterText = notafterDate:toISOString(true)
+    logger:info('Using certificate %s valid until %s', certFile:getPath(), notafterText)
+    if not isValid then
+      logger:warn('The certificate is no more valid since %s', notafterText)
+    end
+  end
+
+  local httpSecureServer = HttpServer.createSecure({
+    certificate = certFile:getPath(),
+    key = pkeyFile:getPath(),
+    alpnProtocols = config.h2 and {'h2', 'http/1.1'} or nil,
+  })
+  httpSecureServer:bind(config['bind-address'], config.secure.port):next(function()
+    logger:info('HTTPS bound to "%s" on port %d', config['bind-address'], config.secure.port)
+    stopPromise:next(function()
+      logger:info('Closing HTTP secure server')
+      httpSecureServer:close()
+    end)
+  end, function(err)
+    logger:warn('Cannot bind HTTP to "%s" on port %d due to %s', config['bind-address'], config.secure.port, err)
+  end)
+  httpSecureServer:setParent(httpServer)
+end
 
 stopPromise:next(signal('?!sigint', function() stopCallback() end))
 

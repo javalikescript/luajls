@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP Proxy Exchanges</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      color: #222;
+    }
+    h1, h2 {
+      margin-bottom: 12px;
+    }
+    button {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 24px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    thead {
+      background: #f4f4f4;
+    }
+    tbody tr {
+      cursor: pointer;
+    }
+    tbody tr:hover {
+      background: #f9f9f9;
+    }
+    tr.selected {
+      background: #e7f2ff;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .subtable {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .subtable th, .subtable td {
+      border: 1px solid #ddd;
+      padding: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>HTTP Proxy Exchanges</h1>
+  <button id="refreshBtn">Refresh</button>
+  <button id="clearBtn">Clear</button>
+  <h2>Exchanges</h2>
+  <table id="exchangesTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Base URL</th>
+        <th>Request</th>
+        <th>Response</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <h2>Selected Exchange</h2>
+  <table id="detailTable">
+    <thead>
+      <tr>
+        <th>Section</th>
+        <th>Content</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    const exchangesTableBody = document.querySelector("#exchangesTable tbody");
+    const detailTableBody = document.querySelector("#detailTable tbody");
+    const refreshButton = document.getElementById("refreshBtn");
+    const clearButton = document.getElementById("clearBtn");
+
+    let exchanges = [];
+    let selectedIndex = -1;
+
+    refreshButton.addEventListener("click", loadExchanges);
+    clearButton.addEventListener("click", clearExchanges);
+    document.addEventListener("DOMContentLoaded", loadExchanges);
+
+    function loadExchanges() {
+      refreshButton.disabled = true;
+      refreshButton.textContent = "Refreshing...";
+
+      fetch("/ReW/rest/exchanges")
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("Failed to load exchanges: " + response.status);
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          exchanges = Array.isArray(data) ? data : [];
+          renderExchanges();
+
+          if (exchanges.length > 0) {
+            selectExchange(0);
+          } else {
+            selectedIndex = -1;
+            renderDetail(null);
+          }
+        })
+        .catch(function (err) {
+          console.error(err);
+          renderDetail(null);
+        })
+        .finally(function () {
+          refreshButton.disabled = false;
+          refreshButton.textContent = "Refresh";
+        });
+    }
+
+    function clearExchanges() {
+      clearButton.disabled = true;
+      clearButton.textContent = "Clearing...";
+
+      fetch("/ReW/rest/clearExchanges", { method: "POST" })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("Failed to clear exchanges: " + response.status);
+          }
+          exchanges = [];
+          renderExchanges();
+          renderDetail(null);
+        })
+        .catch(function (err) {
+          console.error(err);
+        })
+        .finally(function () {
+          clearButton.disabled = false;
+          clearButton.textContent = "Clear";
+        });
+    }
+
+    function renderExchanges() {
+      exchangesTableBody.innerHTML = "";
+
+      if (!exchanges.length) {
+        const row = document.createElement("tr");
+        row.innerHTML = "<td colspan='4'>No exchanges yet.</td>";
+        exchangesTableBody.appendChild(row);
+        return;
+      }
+
+      exchanges.forEach(function (exchange, index) {
+        const row = document.createElement("tr");
+        row.dataset.index = index;
+        row.addEventListener("click", function () {
+          selectExchange(index);
+        });
+        if (index === selectedIndex) {
+          row.classList.add("selected");
+        }
+        row.innerHTML = "<td>" + (index + 1) + "</td><td><pre>" + exchange.b + "</pre></td><td><pre>" +
+          escapeHtml(exchange.req.l.substring(0, 64)) + "</pre></td><td><pre>" + escapeHtml(exchange.res.l) + "</pre></td>";
+        exchangesTableBody.appendChild(row);
+      });
+    }
+
+    function selectExchange(index) {
+      selectedIndex = index;
+      renderExchanges();
+      renderDetail(exchanges[index]);
+    }
+
+    function renderDetail(exchange) {
+      detailTableBody.innerHTML = "";
+      if (!exchange) {
+        const row = document.createElement("tr");
+        row.innerHTML = "<td colspan='2'>Select an exchange</td>";
+        detailTableBody.appendChild(row);
+        return;
+      }
+      detailTableBody.innerHTML = detailRow("Request line", exchange.req.l) +
+        detailRow("Request headers", exchange.req.h) + detailRow("Response line", exchange.res.l) +
+        detailRow("Response headers", exchange.res.h) + detailRow("Response Body", exchange.res.b);
+    }
+
+    function detailRow(name, value) {
+      return "<tr><th>" + name + "</th><td><pre>" + escapeHtml(value) + "</pre></td></tr>";
+    }
+    function escapeHtml(value) {
+      return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+  </script>
+</body>
+</html>

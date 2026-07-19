@@ -1,14 +1,18 @@
 (function() {
 var global = window;
-if (global._encodedRW) {
+if (global._encodedReW) {
   console.log('/!\\ ignoring encoded ' + location.pathname);
   return;
 }
-global._encodedRW = true;
+global._encodedReW = true;
 
 var p = location.pathname;
-var i = p.indexOf('/', 4);
-var base = p.substring(4, i);
+if (p.lastIndexOf('/ReW/', 0) !== 0) {
+  console.warn('unsupported path ' + p);
+  return;
+}
+var i = p.indexOf('/', 5);
+var base = p.substring(5, i);
 var opts = p.substring(i + 1, p.indexOf('/', i + 1));
 console.log('base path is ' + base + '/' + opts + ' (' + location.pathname + ')');
 
@@ -30,9 +34,9 @@ function encodeHref(href) {
     if (u.protocol === 'https:' || u.protocol === 'http:') {
       var b = b64e(u.protocol + '//' + u.host);
       if (b !== base && opts.indexOf('o') !== -1) {
-        return '/RW/static/not-found';
+        return '/ReW/static/not-found';
       }
-      return '/RW/' + b + '/' + opts + u.pathname + u.search + u.hash;
+      return '/ReW/' + b + '/' + opts + u.pathname + u.search + u.hash;
     }
   } else if (href.charAt(0) === '/') {
     if (href.charAt(1) === '/') {
@@ -41,8 +45,8 @@ function encodeHref(href) {
       if (i) {
         return encodeHref(d.substring(0, i + 1) + href)
       }
-    } else if (href.lastIndexOf('/RW/', 0) !== 0) {
-      return '/RW/' + base + '/' + opts + href;
+    } else if (href.lastIndexOf('/ReW/', 0) !== 0) {
+      return '/ReW/' + base + '/' + opts + href;
     }
   }
   return null;
@@ -90,6 +94,18 @@ if (global.XMLHttpRequest) {
   var rawXHROpen = global.XMLHttpRequest.prototype.open;
   global.XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
     return rawXHROpen.call(this, method, proxyHref(url, url), async, user, password);
+  };
+}
+if (global.sendBeacon) {
+  var rawSendBeacon = global.sendBeacon;
+  global.sendBeacon = function(url, data) {
+    return rawSendBeacon(proxyHref(url, url), data);
+  };
+}
+if (global.open) {
+  var rawOpen = global.open;
+  global.open = function(url, target, features) {
+    return rawOpen(proxyHref(url, url), target, features);
   };
 }
 
@@ -173,7 +189,7 @@ if (global.MutationObserver) {
     }
   }
   function rewriteElement(node) {
-    if (node.nodeName.toUpperCase().lastIndexOf('RW-', 0) === 0 && rawCreateElement) {
+    if (node.nodeName.toUpperCase().lastIndexOf('ReW-', 0) === 0 && rawCreateElement) {
       console.log('blocked element detected ' + node.nodeName);
       var e = rawCreateElement.call(global.document, node.nodeName.substring(3));
       if (node.attributes) {
