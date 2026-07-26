@@ -205,6 +205,8 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
   local ACCEPTED_ENCODINGS = List.asSet(strings.split('*,identity,deflate,gzip', ','))
 
   function handler:prepareRequest(exchange, request)
+    exchange:setAttribute('client-request-line', request:formatLine())
+    exchange:setAttribute('client-request-headers', request:getRawHeaders())
     local l = {}
     local ae = exchange:getRequest():getHeaderValues('accept-encoding')
     for _, e in ipairs(ae) do
@@ -219,7 +221,14 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
       request:setHeader('user-agent', self.userAgent)
     end
     request:setHeader('referer')
-    exchange:setAttribute('client-request', request)
+    local cookies = request:getHeader('cookie')
+    if type(cookies) == 'table' then
+      for i, v in ipairs(cookies) do
+        if string.match(v, '^rew~') then
+          cookies[i] = string.sub(v, 5)
+        end
+      end
+    end
   end
 
   local function transformCss(data, base, opts)
@@ -288,9 +297,10 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
         s = '/'
       end
       local t = string.lower(tag)
+      -- and (string.find(m, ' text/javascript', 1, true) or not string.find(m, ' type=', 1, true))
       if t == 'script' and string.find(opts, 's', 1, true) then
         m = ' type="text/plain"'
-      elseif t == 'a' or t == 'link' or t == 'area' or t == 'base' or t == 'img' or t == 'script' or t == 'iframe' then
+      elseif t == 'a' or t == 'link' or t == 'area' or t == 'base' or t == 'img' or t == 'script' or t == 'iframe' or t == 'use' then
         m = processXmlAttributes(m, urlToQuery)
       else
         m = processXmlAttributes(m, replStyle)
@@ -318,15 +328,21 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
     if location then
       response:setHeader('location', encodeHref(location, base, opts))
     end
-    local setCookies = response:getHeaderValues('set-cookie')
-    for i, v in ipairs(setCookies) do
+    local cookies = response:getHeaderValues('set-cookie')
+    for i, v in ipairs(cookies) do
       -- TODO handle cookies prefixed with '__'
-      setCookies[i] = string.gsub(v, '; *[Dd]omain *=[^;]+', '')
+      local w = v
+      w = string.gsub(w, '; *[Dd]omain *=[^;]+', '')
+      w = string.gsub(w, '; *[Ss]ecure *', '')
+      if string.match(w, '^__') then
+        w = 'rew~'..w
+      end
+      cookies[i] = w
     end
-    response:setHeader('set-cookie', setCookies)
+    response:setHeader('set-cookie', cookies)
     local transform
     local contentType = response:getContentType()
-    if contentType == 'text/html' then
+    if contentType == 'text/html' or contentType == 'application/xhtml+xml' then
       transform = transformHtml
     elseif contentType == 'text/css' then
       transform = transformCss
@@ -347,11 +363,12 @@ local RewriteProxyHandler = class.create(ProxyHttpHandler, function(handler, sup
         local l = #d
         response:setContentLength(l)
         if self.record and self.record > 0 then
-          local req = exchange:getAttribute('client-request') or exchange:getRequest()
+          local reqLine = exchange:getAttribute('client-request-line') or exchange:getRequest():formatLine()
+          local reqRawHeaders = exchange:getAttribute('client-request-headers') or exchange:getRequest():getRawHeaders()
           local bu = exchange:getAttribute('base-url')
           table.insert(self.exchanges, {
             b = bu,
-            req = {l = req:formatLine(), h = req:getRawHeaders()},
+            req = {l = reqLine, h = reqRawHeaders},
             res = {l = response:formatLine(), h = resRawHeaders, b = data}
           })
           local n = #self.exchanges
@@ -463,6 +480,11 @@ local CONFIG_SCHEMA = {
           type = 'boolean',
           default = false
         },
+        h2 = {
+          title = 'Use HTTP/2 for the proxied request',
+          type = 'boolean',
+          default = false
+        },
         record = {
           title = 'Max number of exchanges to record',
           type = 'number',
@@ -552,43 +574,27 @@ httpServer:bind(config.server.address, config.server.port):next(function()
       logger:info('\n%s%s%s', string.rep('-', 60), string.rep('\n', 10), string.rep('-', 60))
       httpServer:createContext('.*', function(exchange)
         local path = exchange:getRequestPath()
+        local request = exchange:getRequest()
+        request:setHeader('Clear-Site-Data', '"cookies", "storage"')
         if path == '' or path == '/' then
-          local url = exchange:getRequest():getSearchParam('url')
+          local url = request:getSearchParam('url')
           if url then
             url = Url.decodePercent(url)
-            local flags = exchange:getRequest():getSearchParam('flags')
+            local flags = request:getSearchParam('flags')
             logger:info('URL is "%s", flags are "%s"', url, flags)
-            HttpExchange.redirect(exchange, encodeHref(url, nil, flags or 'a'))
-            return false
+            local href = encodeHref(url, nil, flags or 'a')
+            if href ~= url then
+              HttpExchange.redirect(exchange, href)
+            else
+              HttpExchange.notFound(exchange)
+            end
+          else
+            HttpExchange.redirect(exchange, '/ReW/static/exchanges.html')
           end
-          local response = exchange:getResponse()
-          local sampleUrl = 'http://localhost:8000'
-          local sampleFlags = 'a'
-          response:setBody(string.format([[<!DOCTYPE html>
-  <html>
-    <body>
-      <p>Please provide an URL in the query!</p>
-      <p>As in <a href="%s">this example</a></p>
-      <br/>
-      <p>List the <a href="/ReW/static/exchanges.html">HTTP exchanges</a></p>
-      <br/>
-      <input id="url" type="text" placeholder="URL" value="]]..sampleUrl..[["/>
-      <input id="flags" type="text" placeholder="flags" value="]]..sampleFlags..[[" title="'s' to disable script, 'u' to override user agent"/>
-      <button id="go">Go</button>
-      <script>
-      function asUrlParam(name) {
-        return name + '=' + encodeURIComponent(document.getElementById(name).value);
-      }
-      document.getElementById('go').addEventListener('click', function() {
-        window.location.href = '?' + asUrlParam('url') + '&' + asUrlParam('flags');
-      });
-      </script>
-    </body>
-  </html>
-  ]], encodeHref(sampleUrl, nil, sampleFlags)))
         else
           HttpExchange.notFound(exchange)
         end
+        return false
       end)
 
     local proxyHandler = RewriteProxyHandler:new()
@@ -601,10 +607,22 @@ httpServer:bind(config.server.address, config.server.port):next(function()
       proxyHandler.userAgent = userAgent
     end
     proxyHandler.record = config.rewrite.record
+    if config.rewrite.h2 then
+      proxyHandler:setHttpClientOptions({h2 = true})
+    end
     httpServer:createContext('/ReW/(%w+)/(%w+)(.*)', proxyHandler)
     httpServer:createContext('/ReW/rest/(.+)', RestHttpHandler:new({
       ['clearExchanges?method=POST'] = function()
         proxyHandler.exchanges = {}
+      end,
+      ['setMaxExchanges(requestJson)?method=POST&:Content-Type^=application/json'] = function(_, n)
+        proxyHandler.record = type(n) == 'number' and n or 0
+        logger:info("setMaxExchanges(%s)", proxyHandler.record)
+      end,
+      maxExchanges = function(exchange)
+        logger:info("maxExchanges => %s", proxyHandler.record)
+        exchange:getResponse():setContentType('application/json')
+        return proxyHandler.record or -1
       end,
       exchanges = function()
         return proxyHandler.exchanges

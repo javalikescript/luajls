@@ -108,7 +108,7 @@ return require('jls.lang.class').create(function(httpHeaders, _, HttpHeaders)
           table.insert(t, val)
         end
       end
-      value = t
+      value = #t > 0 and t or nil
     else
       logger:fine('httpHeaders:setHeader(%s, %s) ignoring header value', name, valueType)
       return

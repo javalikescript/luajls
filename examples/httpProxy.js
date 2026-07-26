@@ -1,18 +1,19 @@
 (function() {
 var global = window;
 if (global._encodedReW) {
-  console.log('/!\\ ignoring encoded ' + location.pathname);
+  console.warn('ignoring already encoded ' + location.pathname);
   return;
 }
 global._encodedReW = true;
-
+var blockedPrefixTag = 'rew-';
+var rewritePath = '/ReW/';
 var p = location.pathname;
-if (p.lastIndexOf('/ReW/', 0) !== 0) {
+if (p.lastIndexOf(rewritePath, 0) !== 0) {
   console.warn('unsupported path ' + p);
   return;
 }
-var i = p.indexOf('/', 5);
-var base = p.substring(5, i);
+var i = p.indexOf('/', rewritePath.length);
+var base = p.substring(rewritePath.length, i);
 var opts = p.substring(i + 1, p.indexOf('/', i + 1));
 console.log('base path is ' + base + '/' + opts + ' (' + location.pathname + ')');
 
@@ -34,9 +35,9 @@ function encodeHref(href) {
     if (u.protocol === 'https:' || u.protocol === 'http:') {
       var b = b64e(u.protocol + '//' + u.host);
       if (b !== base && opts.indexOf('o') !== -1) {
-        return '/ReW/static/not-found';
+        return rewritePath + 'static/not-found';
       }
-      return '/ReW/' + b + '/' + opts + u.pathname + u.search + u.hash;
+      return rewritePath + b + '/' + opts + u.pathname + u.search + u.hash;
     }
   } else if (href.charAt(0) === '/') {
     if (href.charAt(1) === '/') {
@@ -45,8 +46,8 @@ function encodeHref(href) {
       if (i) {
         return encodeHref(d.substring(0, i + 1) + href)
       }
-    } else if (href.lastIndexOf('/ReW/', 0) !== 0) {
-      return '/ReW/' + base + '/' + opts + href;
+    } else if (href.lastIndexOf(rewritePath, 0) !== 0) {
+      return rewritePath + base + '/' + opts + href;
     }
   }
   return null;
@@ -61,20 +62,20 @@ function proxyHref(href, fallback) {
 }
 function blockTagName(tagName) {
   if (tagName) {
-    var n = tagName.toUpperCase();
-    if (n === 'SCRIPT' || n === 'IFRAME') {
+    var n = tagName.toLowerCase();
+    if (n === 'script' || n === 'iframe') {
       console.log('blocking element creation ' + n);
-      return 'rw-' + tagName;
+      return blockedPrefixTag + tagName;
     }
   }
   return tagName;
 }
 function transformHtml(content) {
   if (content) {
-    var c = content.toUpperCase();
+    var c = content.toLowerCase();
     // TODO rewrite HTML when possible
-    if (c.indexOf('HREF=') > 0 || c.indexOf('SRC=') > 0) {
-      console.log('blocking HTML ' + content);
+    if (c.indexOf('href=') > 0 || c.indexOf('src=') > 0) {
+      console.warn('ignoring unsupported HTML ' + content);
       return '';
     }
   }
@@ -106,6 +107,13 @@ if (global.open) {
   var rawOpen = global.open;
   global.open = function(url, target, features) {
     return rawOpen(proxyHref(url, url), target, features);
+  };
+}
+if (global.navigator && global.navigator.serviceWorker) {
+  var sw = global.navigator.serviceWorker;
+  var rawRegister = sw.register;
+  sw.register = function(url, options) {
+    return rawRegister.call(sw, proxyHref(url, url), options);
   };
 }
 
@@ -189,9 +197,9 @@ if (global.MutationObserver) {
     }
   }
   function rewriteElement(node) {
-    if (node.nodeName.toUpperCase().lastIndexOf('ReW-', 0) === 0 && rawCreateElement) {
+    if (node.nodeName.toLowerCase().lastIndexOf(blockedPrefixTag, 0) === 0 && rawCreateElement) {
       console.log('blocked element detected ' + node.nodeName);
-      var e = rawCreateElement.call(global.document, node.nodeName.substring(3));
+      var e = rawCreateElement.call(global.document, node.nodeName.substring(blockedPrefixTag.length));
       if (node.attributes) {
         for (var ai = 0; ai < node.attributes.length; ai++) {
           var attr = node.attributes[ai];

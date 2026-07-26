@@ -11,6 +11,7 @@ local HttpMessage = require('jls.net.http.HttpMessage')
 local HttpExchange = require('jls.net.http.HttpExchange')
 local Url = require('jls.net.Url')
 local TcpSocket = require('jls.net.TcpSocket')
+local Map = require('jls.util.Map')
 
 local CONST = HttpMessage.CONST
 
@@ -25,6 +26,7 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     self.isReverse = false
     self.baseUrlIndex = 1
     self.pendings = {}
+    self.clientOptions = {}
     self.clients = {}
   end
 
@@ -35,6 +37,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
   function proxyHttpHandler:configureForward(allowConnect)
     self.isReverse = false
     self.allowConnect = allowConnect == true
+    return self
+  end
+
+  function proxyHttpHandler:setHttpClientOptions(clientOptions)
+    self.clientOptions = type(clientOptions) == 'table' and clientOptions or nil
     return self
   end
 
@@ -233,7 +240,11 @@ return require('jls.lang.class').create('jls.net.http.HttpHandler', function(pro
     local client = self.clients[n]
     if not client then
       self:cleanupClients()
-      client = HttpClient:new(url)
+      local co = url
+      if self.clientOptions then
+        co = Map.assign({url = url}, self.clientOptions)
+      end
+      client = HttpClient:new(co)
       client.refCount = 0
       self.clients[n] = client
     end

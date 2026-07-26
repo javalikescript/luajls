@@ -366,6 +366,7 @@ local function processRestResponse(exchange, result)
         HttpExchange.ok(exchange, json.stringify(result), HttpExchange.CONTENT_TYPES.json)
       end
     else
+      logger:info('invalid content type %s for %s', contentType, type(result))
       HttpExchange.internalServerError(exchange)
     end
   end

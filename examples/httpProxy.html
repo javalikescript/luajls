@@ -56,10 +56,16 @@
   </style>
 </head>
 <body>
-  <h1>HTTP Proxy Exchanges</h1>
-  <button id="refreshBtn">Refresh</button>
-  <button id="clearBtn">Clear</button>
+  <h1>HTTP Proxy</h1>
+  <h2>URL</h2>
+  <p>You could provide an URL in the query or by using the form below.</p>
+  <input id="url" type="text" placeholder="URL"/>
+  <input id="flags" type="text" placeholder="flags" title="'s' to disable script, 'u' to override user agent"/>
+  <button onclick="window.location.href = '/?' + asUrlParam('url') + '&' + asUrlParam('flags')">Go</button>
   <h2>Exchanges</h2>
+  <button id="refreshBtn">Refresh</button>
+  <button onclick="clearExchanges()">Clear</button>
+  <button id="enableBtn" disabled>Enable</button>
   <table id="exchangesTable">
     <thead>
       <tr>
@@ -85,20 +91,17 @@
     const exchangesTableBody = document.querySelector("#exchangesTable tbody");
     const detailTableBody = document.querySelector("#detailTable tbody");
     const refreshButton = document.getElementById("refreshBtn");
-    const clearButton = document.getElementById("clearBtn");
+    const enableButton = document.getElementById("enableBtn");
 
     let exchanges = [];
     let selectedIndex = -1;
-
-    refreshButton.addEventListener("click", loadExchanges);
-    clearButton.addEventListener("click", clearExchanges);
-    document.addEventListener("DOMContentLoaded", loadExchanges);
+    let maxExchanges = -1;
 
     function loadExchanges() {
       refreshButton.disabled = true;
       refreshButton.textContent = "Refreshing...";
 
-      fetch("/ReW/rest/exchanges")
+      return fetch("/ReW/rest/exchanges")
         .then(function (response) {
           if (!response.ok) {
             throw new Error("Failed to load exchanges: " + response.status);
@@ -127,25 +130,38 @@
     }
 
     function clearExchanges() {
-      clearButton.disabled = true;
-      clearButton.textContent = "Clearing...";
+      fetch("/ReW/rest/clearExchanges", { method: "POST" }).then(function (response) {
+        if (!response.ok) {
+          throw new Error("Failed to clear exchanges: " + response.status);
+        }
+        exchanges = [];
+        renderExchanges();
+        renderDetail(null);
+      }).catch(console.error);
+    }
 
-      fetch("/ReW/rest/clearExchanges", { method: "POST" })
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error("Failed to clear exchanges: " + response.status);
-          }
-          exchanges = [];
-          renderExchanges();
-          renderDetail(null);
-        })
-        .catch(function (err) {
-          console.error(err);
-        })
-        .finally(function () {
-          clearButton.disabled = false;
-          clearButton.textContent = "Clear";
-        });
+    function setMaxExchanges(n) {
+      return fetch("/ReW/rest/setMaxExchanges", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(n)
+      }).then(function (response) {
+        if (response.ok) {
+          maxExchanges = n;
+        }
+      }).catch(console.error);
+    }
+
+    function toggleMaxExchanges() {
+      if (maxExchanges > 0) {
+        setMaxExchanges(0);
+        enableButton.textContent = "Enable";
+      } else {
+        setMaxExchanges(20);
+        enableButton.textContent = "Disable";
+      }
     }
 
     function renderExchanges() {
@@ -198,6 +214,27 @@
     function escapeHtml(value) {
       return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     }
+    function asUrlParam(name) {
+      return name + '=' + encodeURIComponent(document.getElementById(name).value);
+    }
+
+    enableButton.addEventListener("click", toggleMaxExchanges);
+    refreshButton.addEventListener("click", loadExchanges);
+    document.addEventListener("DOMContentLoaded", function() {
+      loadExchanges();
+      fetch("/ReW/rest/maxExchanges")
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error("Failed to get max exchanges: " + response.status);
+          }
+          return response.json();
+        })
+        .then(function(data) {
+          maxExchanges = data;
+          enableButton.disabled = false;
+        });
+    });
+
   </script>
 </body>
 </html>
