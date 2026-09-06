@@ -6,6 +6,8 @@
 local StringBuffer = require('jls.lang.StringBuffer')
 local List = require('jls.util.List')
 local Map = require('jls.util.Map')
+local strings = require('jls.util.strings')
+local Url = require('jls.net.Url')
 local hasParser, dumbParser = pcall(require, 'dumbParser')
 
 local tables = {}
@@ -386,47 +388,51 @@ local DEFAULT_PATH_SEPARATOR = '/'
 
 local function getPathKey(path, separator)
   local key, remainingPath
-  local keyIndex = 1
-  local sbIndex = string.find(path, '[', keyIndex + 1, true)
   local sep = separator or DEFAULT_PATH_SEPARATOR
-  local sepLength = #sep
-  -- TODO correctly find protected separator
+  local keyIndex = 1
+  -- ignore leading consecutive slashes
+  while strings.charAt(path, keyIndex) == sep do
+    keyIndex = keyIndex + 1
+  end
+  local sbIndex = string.find(path, '[', keyIndex, true)
   local sepIndex = string.find(path, sep, keyIndex, true)
-  if sepIndex == 1 then
-    keyIndex = keyIndex + sepLength
-    sepIndex = string.find(path, sep, keyIndex, true)
-  end
-  if sbIndex and (not sepIndex or sbIndex < sepIndex) then
-    sepIndex = sbIndex
-    sepLength = 0
-  end
-  if sepIndex then
-    key = string.sub(path, keyIndex, sepIndex - 1)
-    remainingPath = string.sub(path, sepIndex + sepLength)
-  elseif keyIndex > 1 then
+  local index = sbIndex and sepIndex and math.min(sbIndex, sepIndex) or sbIndex or sepIndex
+  if not index then
     key = string.sub(path, keyIndex)
-  else
-    key = path
-  end
-  local ekey = string.match(key, '^%[(.*)%]$')
-  if ekey then
-    local skey = string.match(ekey, '^"(.*)"$')
-    if skey then
-      return skey, remainingPath
+    if key == '' then
+      return nil
     end
-    if ekey == 'true' or ekey == 'false' then
-      return ekey == 'true', remainingPath
-    end
-    local n = tonumber(ekey)
-    if n then
-      return n, remainingPath
-    end
+    return Url.decodePercent(key)
+  elseif sbIndex ~= keyIndex then
+    key = string.sub(path, keyIndex, index - 1)
+    remainingPath = string.sub(path, index) -- cannot be empty
+    return Url.decodePercent(key), remainingPath
   end
-  -- accepts positive integer keys
-  if string.find(key, '^[1-9][0-9]*$') then
-    return tonumber(key), remainingPath
+  -- handle key enclosed in square brackets
+  keyIndex = keyIndex + 1
+  index = string.find(path, ']', keyIndex, true)
+  if not index then
+    error('unbalanced character [ in '..path)
+  elseif index == keyIndex then
+    error('invalid key []')
   end
-  return key, remainingPath
+  remainingPath = string.sub(path, index + 1)
+  if remainingPath == '' then
+    remainingPath = nil
+  end
+  local c = strings.charAt(path, keyIndex)
+  if (c == '"' or c == "'") and index > keyIndex + 1 and c == strings.charAt(path, index - 1) then
+    key = string.sub(path, keyIndex + 1, index - 2)
+    return Url.decodePercent(key), remainingPath
+  end
+  key = string.sub(path, keyIndex, index - 1)
+  local n = tonumber(key)
+  if n then
+    return n, remainingPath
+  elseif key == 'true' or key == 'false' then
+    return key == 'true', remainingPath
+  end
+  error('invalid key ['..key..']')
 end
 
 --- Returns the value at the indices in the deep table
@@ -473,24 +479,26 @@ function tables.set(t, value, ...)
   return t, value
 end
 
+local function getPathKeyValue(t, path, separator)
+  local key, remainingPath = getPathKey(path, separator)
+  if key == nil then
+    return key, remainingPath, t
+  end
+  return key, remainingPath, t[key]
+end
+
 --- Returns the value at the specified path in the specified table.
--- A path consists in table keys separated by slashes.
--- A key is interpreted as a boolean, a number then a string.
--- A key could be protected in brackets, without separator, ["1"] is interpreted as a string, not a number.
--- The key are considered as string, number or boolean. Table or userdata keys are not supported.
+-- A path consists in table keys separated by separators such as "/a/b".
+-- A key is interpreted as a string. The characters percent, separator and square brackets must be percent encoded.
+-- A key could be enclosed in square brackets, possibly without separator, to pass boolean, number or string value such as [true], [1], [""] or [''].
+-- Table or userdata keys are not supported. Leading and consecutive separators are ignored.
 -- @tparam table t a table.
 -- @tparam string path the path to look in the table.
 -- @param defaultValue the default value to return if there is no value for the path.
--- @tparam[opt] string separator the path separator, default is `/`.
+-- @tparam[opt] string separator the path separator, default is slash `/`.
 -- @return the value
 function tables.getPath(t, path, defaultValue, separator)
-  local key, remainingPath = getPathKey(path, separator)
-  local value
-  if key == '' then
-    value = t
-  else
-    value = t[key]
-  end
+  local key, remainingPath, value = getPathKeyValue(t, path, separator)
   if remainingPath then
     if type(value) == 'table' then
       return tables.getPath(value, remainingPath, defaultValue, separator)
@@ -510,9 +518,8 @@ end
 -- @tparam[opt] string separator the path separator.
 -- @return the previous value.
 function tables.setPath(t, path, value, separator)
-  local key, remainingPath = getPathKey(path, separator)
-  local v = t[key]
-  if remainingPath and remainingPath ~= '' then
+  local key, remainingPath, v = getPathKeyValue(t, path, separator)
+  if remainingPath then
     if type(v) ~= 'table' then
       if value == nil then
         return
@@ -523,7 +530,7 @@ function tables.setPath(t, path, value, separator)
     end
     return tables.setPath(v, remainingPath, value, separator)
   end
-  if key == '' then
+  if key == nil then
     if type(value) ~= 'table' then
       error('cannot set value '..type(value)..' at '..path)
     end
@@ -537,9 +544,8 @@ function tables.setPath(t, path, value, separator)
 end
 
 function tables.mergePath(t, path, value, keep, separator)
-  local key, remainingPath = getPathKey(path, separator)
-  local v = t[key]
-  if remainingPath and remainingPath ~= '' then
+  local key, remainingPath, v = getPathKeyValue(t, path, separator)
+  if remainingPath then
     if type(v) ~= 'table' then
       -- if the entry does not exist or is not a table then create an intermediary table
       v = {}
@@ -548,6 +554,9 @@ function tables.mergePath(t, path, value, keep, separator)
     return tables.mergePath(v, remainingPath, value, keep, separator)
   end
   if type(v) ~= 'table' then
+    if key == nil then
+      error('cannot merge value '..type(value)..' at '..path)
+    end
     t[key] = value
     return value
   end
@@ -561,8 +570,7 @@ end
 -- @tparam[opt] string separator the path separator.
 -- @return the removed value.
 function tables.removePath(t, path, separator)
-  local key, remainingPath = getPathKey(path, separator)
-  local value = t[key]
+  local key, remainingPath, value = getPathKeyValue(t, path, separator)
   if remainingPath then
     if type(value) == 'table' then
       return tables.removePath(value, remainingPath, separator)
@@ -571,28 +579,21 @@ function tables.removePath(t, path, separator)
   end
   if type(key) == 'number' then
     table.remove(t, key)
-  else
+  elseif key ~= nil then
     t[key] = nil
   end
   return value, t, key
 end
 
 local function keyToPath(key, separator)
-  if type(key) == 'string' then
-    if string.find(key, '^[1-9][0-9]*$')
-      or string.find(key, '^%[.*%]$')
-      or string.find(key, separator, 1, true)
-      or key == 'false' or key == 'true'
-    then
-      return '["'..key..'"]'
-    end
-    return key
-  elseif math.type(key) == 'integer' and key > 0 then
-    return tostring(key)
-  elseif type(key) == 'boolean' then
+  local t = type(key)
+  if t == 'string' then
+    local pattern = '[%[%]%%'..strings.escape(separator)..']'
+    return Url.encodePercent(key, pattern)
+  elseif t == 'number' or t == 'boolean' then
     return '['..tostring(key)..']'
   end
-  error('Invalid key type '..type(key))
+  error('Invalid key type '..t)
 end
 
 local function mapValuesByPath(t, paths, path, separator)
@@ -693,7 +694,7 @@ local function getPathKeyAndSchema(schema, path, separator)
   local key, remainingPath = getPathKey(path, separator)
   local resultSchema
   if schema then
-    if key == '' then
+    if key == nil then
       resultSchema = schema
     elseif schema.type == 'object' and schema.properties then
       resultSchema = schema.properties[key]

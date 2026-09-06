@@ -288,6 +288,26 @@ return require('jls.lang.class').create(function(url, _, Url)
     return (string.gsub(value, pattern, encodePercentChar))
   end
 
+  function Url.encodeURIComponent(value)
+    return encodePercent(value, "[^%a%d%-_%.!~%*'%(%)]")
+  end
+
+  function Url.encodeURI(value)
+    return encodePercent(value, "[^%a%d%-%._~;,/%?:@&=%+%$!%*'%(%)#]")
+  end
+
+  function Url.encodePercent(value, pattern)
+    return encodePercent(value, pattern or '[^%a%d%-%._~]')
+  end
+
+  local function decodePercentChar(v)
+    return string.char(tonumber(v, 16))
+  end
+
+  function Url.decodePercent(value)
+    return (string.gsub(value, '%%(%x%x)', decodePercentChar))
+  end
+
   local function decodeParam(value)
     return Url.decodePercent((string.gsub(value, '%+', ' ')))
   end
@@ -395,30 +415,6 @@ return require('jls.lang.class').create(function(url, _, Url)
       return formatHttp(tUrl):toString()
     end
     return formatCommon(tUrl):toString()
-  end
-
-  function Url.encodeURIComponent(value)
-    return encodePercent(value, "[^%a%d%-_%.!~%*'%(%)]")
-  end
-
-  function Url.encodeURI(value)
-    return encodePercent(value, "[^%a%d%-%._~;,/%?:@&=%+%$!%*'%(%)#]")
-  end
-
-  function Url.encodePercent(value)
-    return encodePercent(value, '[^%a%d%-%._~]')
-  end
-
-  local function decodePercent(v)
-    local n = tonumber(v, 16)
-    if n < 256 then
-      return string.char(n)
-    end
-    return ''
-  end
-
-  function Url.decodePercent(value)
-    return (string.gsub(value, '%%(%x%x)', decodePercent))
   end
 
 end)

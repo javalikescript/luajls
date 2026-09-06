@@ -267,4 +267,8 @@ end
 
 strings.strip = strings.trim
 
+function strings.charAt(s, i)
+  return string.sub(s, i, i)
+end
+
 return strings

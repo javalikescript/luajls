@@ -95,23 +95,45 @@ function Test_getPath_flat()
   lu.assertEquals(tables.getPath({a = 'A value'}, 'a'), 'A value')
   lu.assertEquals(tables.getPath({a = 'A value'}, '/a'), 'A value')
   lu.assertIsNil(tables.getPath({a = 'A value'}, 'b'))
+  lu.assertIsNil(tables.getPath({a = 'A value'}, 'a/'))
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a'), {b = 'A value'})
+  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/'), {b = 'A value'})
+  lu.assertEquals(tables.getPath({['2'] = 'A value'}, '2'), 'A value')
+  lu.assertEquals(tables.getPath({[''] = 'A value'}, '[""]'), 'A value')
+  lu.assertEquals(tables.getPath({[2] = 'A value'}, '[2]'), 'A value')
+  lu.assertEquals(tables.getPath({[true] = 'A value'}, '[true]'), 'A value')
+  lu.assertEquals(tables.getPath({[false] = 'A value'}, '[false]'), 'A value')
+  lu.assertEquals(tables.getPath({[0.10] = 'A value'}, '[0.1]'), 'A value')
+  lu.assertEquals(tables.getPath({[0.1] = 'A value'}, '[0.1]', '.'), 'A value')
 end
 
 function Test_getPath_tree()
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a/b'), 'A value')
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a/b'), 'A value')
   lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a/["b"]'), 'A value')
-  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '/a["b"]'), 'A value')
+  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, "a['b']"), 'A value')
+  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, 'a//b'), 'A value')
+  lu.assertEquals(tables.getPath({a = {b = 'A value'}}, '//a/b'), 'A value')
+end
+
+function Test_getPath_percent()
+  lu.assertEquals(tables.getPath({['b/c'] = 'A value'}, 'b%2Fc'), 'A value')
+  lu.assertEquals(tables.getPath({['b/c'] = 'A value'}, '["b/c"]'), 'A value')
+  lu.assertEquals(tables.getPath({['[1]'] = 'A value'}, '%5b1%5d'), 'A value')
+  lu.assertEquals(tables.getPath({['[1]'] = 'A value'}, '["%5b1%5d"]'), 'A value')
+  lu.assertEquals(tables.getPath({['%'] = 'A value'}, '%'), 'A value')
+  lu.assertEquals(tables.getPath({['%'] = 'A value'}, '%25'), 'A value')
 end
 
 function Test_getPath_list()
-  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/1'), 'x')
+  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a[1]'), 'x')
   lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/[2]'), 'y')
+  lu.assertNil(tables.getPath({a = {'x', 'y', 'z'}}, 'a/2'))
   lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a[2]'), 'y')
-  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a/3'), 'z')
+  lu.assertEquals(tables.getPath({a = {'x', 'y', 'z'}}, 'a[3]'), 'z')
   lu.assertNil(tables.getPath({a = {'x', 'y', 'z'}}, 'a/[4]'))
   lu.assertEquals(tables.getPath({a = {'x', {b = 'A value'}, 'z'}}, 'a[2]/b'), 'A value')
+  lu.assertEquals(tables.getPath({a = {'x', {b = 'A value'}, 'z'}}, 'a[2]b'), 'A value')
   lu.assertEquals(tables.getPath({a = {'x', {b = 'A value'}, 'z'}}, 'a[2]["b"]'), 'A value')
 end
 
@@ -141,13 +163,24 @@ function Test_setPath_tree()
 end
 
 function Test_setPath_list()
+  assertSetPath({a = {'x', 'y', 'z'}}, 'a[2]', 'New y', {a = {'x', 'New y', 'z'}})
   assertSetPath({a = {'x', 'y', 'z'}}, 'a/[2]', 'New y', {a = {'x', 'New y', 'z'}})
-  assertSetPath({a = {'x', 'y', 'z'}}, 'a/2', 'New y', {a = {'x', 'New y', 'z'}})
+end
+
+local function assertSetByPath(key)
+  lu.assertEquals(tables.setByPath({[key] = {x = 1, y = 2}}, {[key] = {x = 3}}), {[key] = {x = 3, y = 2}})
 end
 
 function Test_setByPath()
-  tables.setByPath({a = {x = 1, y = 2}}, {a = {x = 3}})
-  lu.assertEquals(tables.setByPath({a = {x = 1, y = 2}}, {a = {x = 3}}), {a = {x = 3, y = 2}})
+  assertSetByPath('a')
+  assertSetByPath('a/b')
+  assertSetByPath('a.b')
+  assertSetByPath('a|b')
+  assertSetByPath('%')
+  assertSetByPath(2)
+  assertSetByPath(0.1)
+  assertSetByPath(true)
+  assertSetByPath(false)
 end
 
 local function assertMergePath(t, p, v, nt)
@@ -187,6 +220,10 @@ end
 function Test_mapValuesByPath()
   lu.assertEquals(tables.mapValuesByPath({a = {b = 'A value'}}), {['/a/b'] = 'A value'})
   lu.assertEquals(tables.mapValuesByPath({a = {b = 'A value', c = 1}, d = true}), {['/a/b'] = 'A value', ['/a/c'] = 1, ['/d'] = true})
+  lu.assertEquals(tables.mapValuesByPath({['a'] = 'A value'}), {['/a'] = 'A value'})
+  lu.assertEquals(tables.mapValuesByPath({['/'] = 'A value'}), {['/%2F'] = 'A value'})
+  lu.assertEquals(tables.mapValuesByPath({[0.1] = 'A value'}), {['/[0.1]'] = 'A value'})
+  lu.assertEquals(tables.mapValuesByPath({[true] = 'A value'}), {['/[true]'] = 'A value'})
 end
 
 function Test_createArgumentTable()
@@ -480,7 +517,7 @@ function Test_createArgumentTableWithRmptyPath()
 end
 
 function Test_createArgumentTablePath()
-  local arguments = {'-h', '-x', 'y', '-a.b', 'v', '-a.c', 'u', 'v', '-a.e', 'u', '-a.e', 'v'}
+  local arguments = {'-h', '-x', 'y', '-a.b', 'v', '-a.c', 'u', 'v', '-a.e', 'u', '-a.e', 'v', '-a.e[3]', 'w'}
   local t = tables.createArgumentTable(arguments, {
     defaultValues = {a = {c = 'ww', d = 'x'}}
   })
@@ -490,7 +527,7 @@ function Test_createArgumentTablePath()
   lu.assertEquals(tables.getArgument(t, 'a.c'), 'u')
   lu.assertEquals(tables.getArgument(t, 'a.d'), 'x')
   lu.assertEquals(t['0'], 'v')
-  lu.assertEquals(t.a.e, {'u', 'v'})
+  lu.assertEquals(t.a.e, {'u', 'v', 'w'})
   lu.assertNil(tables.getArgument(t, 't'))
   lu.assertNotNil(tables.getArgument(t, 'h'))
 end
