@@ -193,7 +193,7 @@ local function runHttpClientServer(onConnect, isSecure, handler)
     logger:info('server bound')
     server = s
     client = createHttpClient(isSecure)
-    return client:connectV2()
+    return client:connect()
   end):next(function()
     logger:info('client connected')
     return onConnect(client)
@@ -345,6 +345,81 @@ function Test_HttpClientServer_content_encoding()
   lu.assertEquals(responseStatus, 200)
   lu.assertEquals(responseBody, 'Hello Joe!')
   lu.assertEquals(responseVersion, 'HTTP/2')
+end
+
+local event = require('jls.lang.event')
+local StreamHandler = require('jls.io.StreamHandler')
+local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
+
+function Test_HttpClientServer_close()
+  local max = 3
+  local p, cb = Promise.withCallback()
+  local clientError
+  local responseStream = {}
+  runHttpClientServer(function(client)
+    local count = 0
+    client:fetch('/stream'):next(function(response)
+      local sh = StreamHandler:new(function(err, event)
+        if err then
+          logger:warn('stream error: "%s"', err)
+        elseif event then
+          logger:info('stream received %s', event)
+          count = count + 1
+          table.insert(responseStream, event)
+          if count < max then
+            client:fetch('/', {body = 'toc'}):next(function(r)
+              return r:text()
+            end):next(function(content)
+              logger:info('received %s', content)
+            end)
+          elseif count == max then
+            logger:info('closing client')
+            client:close()
+            cb()
+          end
+        end
+      end)
+      local csh = ChunkedStreamHandler:new(sh, '\n', true)
+      response:setBodyStreamHandler(csh)
+      return response:consume()
+    end):catch(function(reason)
+      clientError = reason
+    end)
+    return p
+  end, true, function(exchange)
+    local path = exchange:getRequest():getTargetPath()
+    if path ~= '/stream' then
+      logger:info('request received %s', path)
+      HttpExchange.ok(exchange, string.format('<p>Hello %s.</p>', path))
+      return
+    end
+    logger:info('prepare streaming')
+    local response = exchange:getResponse()
+    response:setStatusCode(200)
+    response:onWriteBodyStreamHandler(function()
+    logger:info('start streaming')
+      local sh = response:getBodyStreamHandler()
+      local count = 0
+      local eventId
+      eventId = event:setInterval(function()
+        count = count + 1
+        if count <= max+1 then
+          logger:info('streaming...')
+          local pp = sh:onData('tic '..tostring(count)..'\n')
+          if pp then
+            pp:catch(function(reason)
+              logger:warn('stream fails due to %s', reason)
+            end)
+          end
+        else
+          event:clearInterval(eventId)
+          sh:close()
+        end
+      end, 100)
+    end)
+  end)
+  lu.assertEquals(#responseStream, max)
+  lu.assertEquals(clientError, 'closed')
 end
 
 os.exit(lu.LuaUnit.run())

@@ -138,7 +138,7 @@ return class.create(function(httpClient, _, HttpClient)
     return self.tcpClient
   end
 
-  function httpClient:connectV2() -- TODO Rename?
+  function httpClient:connect() -- TODO Rename?
     local time = os.time()
     if self.connecting then
       logger:finest('connecting')
@@ -153,9 +153,12 @@ return class.create(function(httpClient, _, HttpClient)
         return Promise.resolve(self)
       end
     end
-    logger:finer('connectV2()')
+    logger:finer('connect()')
     self:close(false)
-    local tcp
+    local tcp = self.tcpClient
+    if tcp then
+      tcp:close()
+    end
     if self.isSecure then
       tcp = secure.TcpSocket:new()
       tcp:setSecureContext(self.secureContext)
@@ -178,10 +181,9 @@ return class.create(function(httpClient, _, HttpClient)
       if self.isSecure and tcp.sslGetAlpnSelected then
         if tcp:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
-          local http2 = Http2:new(tcp, false)
+          self.http2 = Http2:new(tcp, false)
           -- To avoid unnecessary latency, clients are permitted to send additional frames to the server immediately after sending the client connection preface
-          self.http2 = http2
-          return http2:readStart({
+          return self.http2:readStart({
             [Http2.SETTINGS.ENABLE_PUSH] = 0,
             [Http2.SETTINGS.HEADER_TABLE_SIZE] = 65536,
             [Http2.SETTINGS.INITIAL_WINDOW_SIZE] = 6291456,
@@ -388,7 +390,7 @@ return class.create(function(httpClient, _, HttpClient)
       request:setHeader(CONST.HEADER_USER_AGENT, self.userAgent)
     end
     local response = HttpMessage:new()
-    return self:connectV2():next(function()
+    return self:connect():next(function()
       if self.http2 then
         logger:fine('fetch is using HTTP/2')
         return Stream.sendRequest(self.http2, self, options, request, response)
@@ -397,7 +399,7 @@ return class.create(function(httpClient, _, HttpClient)
       request:applyBodyLength()
       local queuePromise, dequeue = enqueue(self)
       return queuePromise:next(function()
-        return self:connectV2() -- we stick to HTTP/1
+        return self:connect() -- we stick to HTTP/1
       end):next(function()
         self.requestCount = (self.requestCount or 0) + 1
         return Http1.writeHeaders(self.tcpClient, request)
@@ -409,6 +411,7 @@ return class.create(function(httpClient, _, HttpClient)
         return Http1.readHeader(self.tcpClient, response, self.remnant)
       end):next(function(buffer)
         logger:finer('fetch read headers done')
+        self.remnant = nil
         local connectionClose = response:getConnection() == CONST.CONNECTION_CLOSE
         local keepAlive = response:getHeader(CONST.CONNECTION_KEEP_ALIVE)
         if keepAlive then
@@ -452,18 +455,22 @@ return class.create(function(httpClient, _, HttpClient)
   end
 
   function httpClient:closeClient(callback)
+    local http2, tcpClient = self.http2, self.tcpClient
+    self.http2 = nil
+    self.tcpClient = nil
     self.queuePromise = nil
     self.queueSize = nil
     self.connectTime = nil
     self.requestCount = nil
     self.timeout = nil
     self.maxRequests = nil
-    local tcpClient = self.tcpClient
-    if tcpClient then
-      self.tcpClient = nil
+    self.remnant = nil
+    if http2 then
+      -- h2 holds and closes the TCP client
+      return http2:close():next(Promise.callbackToNext(callback))
+    elseif tcpClient then
       return tcpClient:close(callback)
-    end
-    if callback then
+    elseif callback then
       callback()
     elseif callback == nil then
       return Promise.resolve()
@@ -478,19 +485,14 @@ return class.create(function(httpClient, _, HttpClient)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
   function httpClient:close(callback)
-    self.remnant = nil
-    local http2 = self.http2
-    if http2 then
-      self.http2 = nil
-      http2:close()
-    end
-    if self.clients then
-      for n, client in pairs(self.clients) do
+    local clients = self.clients
+    if clients then
+      for n, c in pairs(clients) do
         logger:fine('closing sub client "%s"', n)
-        client:close()
+        c:close()
       end
-      self.clients = nil
     end
+    self.clients = nil
     return self:closeClient(callback)
   end
 

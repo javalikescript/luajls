@@ -430,20 +430,18 @@ return class.create(function(http2)
       logger:fine('sending frame %s(%d), 0x%02x, id: %d, #%d, %s', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, self)
       logger:finest('frame data #%l: %x', data, data)
     end
-    local p = self.client:write(frame)
+    local onFulfilled
     if logger:isLoggable(logger.FINER) then
-      p:next(function()
+      onFulfilled = function()
         logger:finer('frame sent %s(%d), 0x%02x, id: %d', FRAME_BY_TYPE[frameType], frameType, flags, streamId)
-      end, function(reason)
-        logger:warn('frame sending failed %s(%d), 0x%02x, id: %d, #%d "%s"', FRAME_BY_TYPE[frameType], frameType, flags, streamId, frameLen, reason)
-      end)
+      end
     end
-    return p:catch(function(reason)
+    return self.client:write(frame):next(onFulfilled, function(reason)
       if frameType == FRAME.GOAWAY or frameType == FRAME.RST_STREAM then
-        logger:fine('write error ignored "%s"', reason)
+        logger:fine('write error ignored "%s", id: %d', reason, streamId)
       else
         self:handleError('write error "%s" %s(%d), 0x%02x, id: %d', reason, FRAME_BY_TYPE[frameType], frameType, flags, streamId)
-        Promise.reject(reason)
+        return Promise.reject(reason)
       end
     end)
   end
@@ -487,7 +485,7 @@ return class.create(function(http2)
       table.insert(self.settingAcks, {settings = settings, time = os.time()})
     end, function(reason)
       self:handleError(string.format('write settings error %s', reason))
-      Promise.reject(reason)
+      return Promise.reject(reason)
     end)
   end
 
@@ -547,7 +545,6 @@ return class.create(function(http2)
   end
 
   function http2:readStart(settings)
-    local client = self.client
     local cs = ChunkedStreamHandler:new(StreamHandler:new(function(err, data)
       if err then
         if err == 'SSL connection closed' then
@@ -724,7 +721,7 @@ return class.create(function(http2)
       end
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading, %s', self)
-    client:readStart(cs)
+    self.client:readStart(cs)
     return self:sendSettings(settings, not self.isServer)
   end
 

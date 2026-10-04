@@ -260,7 +260,7 @@ return class.create(function(webSocket)
   -- @treturn jls.lang.Promise a promise that resolves once the WebSocket is opened.
   function webSocket:open()
     if self.connecting then
-      Promise.reject('already connecting')
+      return Promise.reject('already connecting')
     end
     self:close(false)
     self.connecting = true
@@ -268,7 +268,7 @@ return class.create(function(webSocket)
       url = self.url,
       secureContext = self.secureContext
     })
-    return client:connectV2():next(function()
+    return client:connect():next(function()
       local http2 = client.http2
       if http2 then
         return http2:initialSettings()
