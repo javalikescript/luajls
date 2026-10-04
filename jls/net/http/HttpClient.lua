@@ -138,7 +138,7 @@ return class.create(function(httpClient, _, HttpClient)
     return self.tcpClient
   end
 
-  function httpClient:connect() -- TODO Rename?
+  function httpClient:connect()
     local time = os.time()
     if self.connecting then
       logger:finest('connecting')
@@ -155,10 +155,7 @@ return class.create(function(httpClient, _, HttpClient)
     end
     logger:finer('connect()')
     self:close(false)
-    local tcp = self.tcpClient
-    if tcp then
-      tcp:close()
-    end
+    local tcp
     if self.isSecure then
       tcp = secure.TcpSocket:new()
       tcp:setSecureContext(self.secureContext)
@@ -172,11 +169,9 @@ return class.create(function(httpClient, _, HttpClient)
     else
       tcp = TcpSocket:new()
     end
-    self.tcpClient = tcp
-    local connecting = tcp:connect(self.host, self.port or 80)
-    self.connecting = connecting
-    connecting:next(function()
+    self.connecting = tcp:connect(self.host, self.port or 80):next(function()
       logger:finer('connected %s', tcp)
+      self.tcpClient = tcp
       self.connectTime = time
       if self.isSecure and tcp.sslGetAlpnSelected then
         if tcp:sslGetAlpnSelected() == 'h2' then
@@ -193,11 +188,14 @@ return class.create(function(httpClient, _, HttpClient)
         end
       end
     end):next(function()
-      return self
-    end):finally(function()
       self.connecting = nil
+      return self
+    end, function(reason)
+      logger:finer('connection %s failed due to %s', tcp, reason)
+      self.connecting = nil
+      return Promise.reject(reason)
     end)
-    return connecting
+    return self.connecting
   end
 
   function httpClient:getSubClient(url)
