@@ -242,6 +242,13 @@ function Promise.all(promises)
   end)
 end
 
+--- Returns a promise that fulfills when all of the promises in the
+-- iterable argument have settled, including when an empty iterable is passed.
+-- The outcome of a promise is a table with a status string 'fulfilled' or 'rejected'
+-- and respectively a value or a reason depending on the eventual state of the promise.
+--
+-- @tparam table promises The promises list
+-- @treturn Promise A promise resolving to the table of outcomes
 function Promise.allSettled(promises)
   return Promise:new(function(resolve, reject)
     local count = #promises
@@ -507,7 +514,7 @@ end
 -- end
 function Promise.ensureCallback(callback, fallback)
   if callback == nil then
-    local p, cb = Promise.createWithCallback()
+    local p, cb = Promise.withCallback()
     return cb, p
   elseif type(callback) == 'function' then
     return callback, nil
@@ -546,7 +553,7 @@ end
 -- @treturn function The resolution function
 -- @treturn function The rejection function
 function Promise.callbackToNext(callback)
-  if type(callback) == 'function' then
+  if callback then
     return function(value)
       return callback(nil, value)
     end, function(reason)
@@ -554,6 +561,22 @@ function Promise.callbackToNext(callback)
     end
   end
   return nil, nil
+end
+
+--- Chains the specified promise with an optional callback.
+-- @param p The promise
+-- @param[opt] callback An optional existing callback or false to indicate that no promise is expected
+-- @treturn Promise The specified promise, if necessary
+function Promise.chainCallback(p, callback)
+  if callback == nil then
+    return p
+  elseif type(callback) == 'function' then
+    p:next(Promise.callbackToNext(callback))
+    return
+  elseif callback == false then
+    return
+  end
+  error('invalid callback')
 end
 
 function Promise.setProtectedCall(value)

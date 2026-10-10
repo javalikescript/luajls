@@ -236,23 +236,17 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
 
   function secureTcpSocket:close(callback)
     logger:finer('close()')
-    local cb, d = Promise.ensureCallback(callback, true)
-    super.close(self, function(err)
-      self:sslShutdown()
-      cb(err)
-    end)
-    return d
+    self:sslShutdown()
+    return super.close(self, callback)
   end
 
   function secureTcpSocket:connect(addr, port, callback)
     logger:finer('connect(%s, %s)', addr, port)
     self:sslInit(false, self.secureContext or SecureContext.getDefault())
     self:sslSet('hostname', addr)
-    local cb, d = Promise.ensureCallback(callback)
-    super.connect(self, addr, port):next(function()
+    return Promise.chainCallback(super.connect(self, addr, port):next(function()
       return self:onConnected(addr)
-    end):next(Promise.callbackToNext(cb))
-    return d
+    end), callback)
   end
 
   function secureTcpSocket:sslCheckHost(host, peerCert)
@@ -473,7 +467,7 @@ local SecureTcpSocket = class.create(TcpSocket, function(secureTcpSocket, super,
       data = table.concat(data) -- TODO multiple writes
     end
     if not self.ssl then
-      return Promise.reject('shutdown')
+      return Promise.reject('SSL shutdown')
     end
     local ret, err = self.ssl:write(data)
     -- See https://www.openssl.org/docs/man1.0.2/man3/SSL_write.html

@@ -40,7 +40,7 @@ return class.create(function(exception, _, Exception)
     elseif type(stack) == 'number' then
       self.stack = debug.traceback(nil, stack)
     else
-      self.stack = debug.traceback(nil, 3) -- initialize is called be new, we skip both
+      self.stack = debug.traceback(nil, 3) -- initialize is called by new, we skip both
     end
     self.cause = cause
     self.message = cleanMessage(message, self.stack)

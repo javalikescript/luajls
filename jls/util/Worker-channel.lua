@@ -213,7 +213,7 @@ return class.create(function(worker)
         table.insert(promises, p)
       end
     end
-    Promise.all(promises):next(Promise.callbackToNext(cb))
+    Promise.chainCallback(Promise.all(promises), cb)
   end
 
   function worker:postMessage(message)
