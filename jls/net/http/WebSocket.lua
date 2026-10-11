@@ -194,21 +194,11 @@ local StreamAdapter = class.create(function(streamAdapter)
   end
 
   function streamAdapter:write(data, callback)
-    local p = self.stream:sendData(data) -- TODO clean
-    if callback then
-      p:next(Promise.callbackToNext(callback))
-    else
-      return p
-    end
+    return Promise.chainCallback(self.stream:sendData(data), callback) -- TODO clean
   end
 
   function streamAdapter:close(callback)
-    local p = self.stream:sendData(nil, true) -- TODO clean
-    if callback then
-      p:next(Promise.callbackToNext(callback))
-    else
-      return p
-    end
+    return Promise.chainCallback(self.stream:sendData(nil, true), callback) -- TODO clean
   end
 
 end)
@@ -269,18 +259,18 @@ return class.create(function(webSocket)
       secureContext = self.secureContext
     })
     return client:connect():next(function()
-      local http2 = client.http2
-      if http2 then
-        return http2:initialSettings()
+      if client.http2 then
+        return client.http2:initialSettings()
       end
     end):next(function()
       local http2 = client.http2
       if http2 and http2:getRemoteSetting(Http2.SETTINGS.ENABLE_CONNECT_PROTOCOL) == 1 then
         logger:fine('websocket client is using HTTP/2')
+        local registeredStream
         function http2:registerStream(stream)
-          stream.message.tcpClient = StreamAdapter:new(stream)
-          logger:fine('websocket stream registered')
-          return Http2.prototype.registerStream(self, stream)
+          registeredStream = stream
+          self.registerStream = Http2.prototype.registerStream
+          return self:registerStream(stream)
         end
         return client:fetch(nil, {
           method = 'CONNECT',
@@ -291,7 +281,14 @@ return class.create(function(webSocket)
             [CONST.HEADER_SEC_WEBSOCKET_PROTOCOL] = self.protocols,
           }
         }):next(function(response)
-          self.tcp = response.tcpClient
+          if registeredStream and client.http2 == http2 then
+            logger:fine('websocket stream registered')
+            self.tcp = StreamAdapter:new(registeredStream)
+            self._http2 = http2
+            client.http2 = nil -- steal h2 prior closing client
+          else
+            return Promise.reject('websocket stream not registered')
+          end
         end)
       end
       -- The value of this header field MUST be a nonce consisting of a randomly selected 16-byte value that has been base64-encoded.
@@ -316,12 +313,11 @@ return class.create(function(webSocket)
         end
         logger:fine('open() Switching protocols')
         self.tcp = client.tcpClient
+        client.tcpClient = nil -- steal tcp prior closing client
+        response:consume() -- to cleanup client
       end)
-    end):catch(function(reason)
-      client:close()
-      logger:fine('open() error: "%s"', reason)
-      return Promise.reject(reason)
     end):finally(function()
+      client:close()
       self.connecting = nil
     end)
   end
@@ -360,16 +356,16 @@ return class.create(function(webSocket)
           end
           local idx = 3
           if sizeLength > 0 then
-              len = 0
-              for i = idx, idx + sizeLength - 1 do
-                  len = (len * 256) + string_byte(buffer, i)
-              end
-              idx = idx + sizeLength
+            len = 0
+            for i = idx, idx + sizeLength - 1 do
+              len = (len * 256) + string_byte(buffer, i)
+            end
+            idx = idx + sizeLength
           end
           local maskChars
           if maskLength > 0 then
-              maskChars = string.sub(buffer, idx, idx + maskLength - 1)
-              idx = idx + maskLength
+            maskChars = string.sub(buffer, idx, idx + maskLength - 1)
+            idx = idx + maskLength
           end
           local frameLength = headerLength + len
           if bufferLength < frameLength then
@@ -377,7 +373,7 @@ return class.create(function(webSocket)
           end
           local payload = string.sub(buffer, idx, idx + len - 1)
           if maskChars then
-              payload = applyMask(maskChars, payload)
+            payload = applyMask(maskChars, payload)
           end
           if bufferLength == frameLength then
             buffer = ''

@@ -403,7 +403,7 @@ function Test_HttpClientServer_close()
       local eventId
       eventId = event:setInterval(function()
         count = count + 1
-        if count <= max+1 then
+        if count <= max then
           logger:info('streaming...')
           local pp = sh:onData('tic '..tostring(count)..'\n')
           if pp then

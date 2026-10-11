@@ -135,18 +135,24 @@ return class.create(function(httpClient, _, HttpClient)
   end
 
   function httpClient:getTcpClient()
+    if self.http2 then
+      return self.http2:getTcpClient()
+    end
     return self.tcpClient
   end
 
   function httpClient:connect()
-    local time = os.time()
-    if self.connecting then
+    if self.closed then
+      return Promise.reject('closed')
+    elseif self.connecting then
       logger:finest('connecting')
       return self.connecting
-    elseif not self:isClosed() then
+    end
+    local time = os.time()
+    if not self:isClosed() then
       if self.timeout and self.connectTime and (time + 1 - self.connectTime) >= self.timeout then
         logger:fine('timeout reached (%d), closing', self.timeout)
-      elseif self.maxRequests and self.requestCount and self.requestCount + 1 >= self.maxRequests then
+      elseif self.maxRequests and self.requestCount and self.requestCount >= self.maxRequests then
         logger:fine('max request (%d) reached, closing', self.maxRequests)
       else
         logger:finest('connected')
@@ -154,31 +160,32 @@ return class.create(function(httpClient, _, HttpClient)
       end
     end
     logger:finer('connect()')
-    self:close(false)
-    local tcp
+    self:disconnect(false)
+    local tcpClient, http2
     if self.isSecure then
-      tcp = secure.TcpSocket:new()
-      tcp:setSecureContext(self.secureContext)
+      tcpClient = secure.TcpSocket:new()
+      tcpClient:setSecureContext(self.secureContext)
       if self.checkHost == false then
-        tcp.sslCheckHost = function()
+        tcpClient.sslCheckHost = function()
           return true
         end
       elseif type(self.checkHost) == 'function' then
-        tcp.sslCheckHost = self.checkHost
+        tcpClient.sslCheckHost = self.checkHost
       end
     else
-      tcp = TcpSocket:new()
+      tcpClient = TcpSocket:new()
     end
-    self.connecting = tcp:connect(self.host, self.port or 80):next(function()
-      logger:finer('connected %s', tcp)
-      self.tcpClient = tcp
-      self.connectTime = time
-      if self.isSecure and tcp.sslGetAlpnSelected then
-        if tcp:sslGetAlpnSelected() == 'h2' then
+    local connecting, cb = Promise.withCallback()
+    self.connecting = connecting
+    tcpClient:connect(self.host, self.port or 80):next(function()
+      logger:finer('connected %s', tcpClient)
+      if self.isSecure and tcpClient.sslGetAlpnSelected then
+        if tcpClient:sslGetAlpnSelected() == 'h2' then
           logger:fine('using HTTP/2')
-          self.http2 = Http2:new(tcp, false)
+          http2 = Http2:new(tcpClient, false)
+          tcpClient = nil
           -- To avoid unnecessary latency, clients are permitted to send additional frames to the server immediately after sending the client connection preface
-          return self.http2:readStart({
+          return http2:readStart({
             [Http2.SETTINGS.ENABLE_PUSH] = 0,
             [Http2.SETTINGS.HEADER_TABLE_SIZE] = 65536,
             [Http2.SETTINGS.INITIAL_WINDOW_SIZE] = 6291456,
@@ -188,14 +195,25 @@ return class.create(function(httpClient, _, HttpClient)
         end
       end
     end):next(function()
+      if self.closed then
+        return Promise.reject('closed')
+      end
       self.connecting = nil
-      return self
-    end, function(reason)
-      logger:finer('connection %s failed due to %s', tcp, reason)
+      self.connectTime = time
+      self.http2 = http2
+      self.tcpClient = tcpClient
+      cb(nil, self)
+    end):catch(function(reason)
+      logger:finer('connection %s failed due to %s', self, reason)
+      if http2 then
+        http2:close(false)
+      elseif tcpClient then
+        tcpClient:close(false)
+      end
       self.connecting = nil
-      return Promise.reject(reason)
+      cb(reason)
     end)
-    return self.connecting
+    return connecting
   end
 
   function httpClient:getSubClient(url)
@@ -268,7 +286,7 @@ return class.create(function(httpClient, _, HttpClient)
       local endHeadersCallback = self.endHeadersCallback
       if endHeadersCallback then
         self.endHeadersCallback = nil
-        p:next(Promise.callbackToNext(endHeadersCallback))
+        Promise.chainCallback(p, endHeadersCallback)
       end
     end
 
@@ -330,16 +348,47 @@ return class.create(function(httpClient, _, HttpClient)
 
   end)
 
+  local function clearqueue(self, reason)
+    local queueNexts = self.queueNexts
+    self.queuePromise = nil
+    self.queueSize = nil
+    self.queueNexts = nil
+    if queueNexts and #queueNexts > 0 then
+      logger:warn('client %p queue not empty (%l)', self, queueNexts)
+      for _, n in ipairs(queueNexts) do
+        n(reason)
+      end
+    end
+  end
+
   local function enqueue(self)
-    -- SLA TODO Keep track of all queued requests to close them properly
     local queuePromise = self.queuePromise or Promise.resolve()
     local queueNext
     self.queuePromise, queueNext = Promise.withCallback()
+    if self.queueNexts then
+      table.insert(self.queueNexts, queueNext)
+    else
+      self.queueNexts = {queueNext}
+    end
     self.queueSize = (self.queueSize or 0) + 1
     logger:fine('enqueue() %d', self.queueSize)
     self.queuePromise:finally(function()
       if self.queueSize then
         self.queueSize = self.queueSize - 1
+        if self.queueNexts then
+          local queueNextIndex
+          for i, n in ipairs(self.queueNexts) do
+            if n == queueNext then
+              queueNextIndex = i
+              break
+            end
+          end
+          if queueNextIndex then
+            table.remove(self.queueNexts, queueNextIndex)
+          else
+            logger:warn('queue next not found %p', self)
+          end
+        end
         logger:fine('dequeue() %d', self.queueSize)
       end
     end)
@@ -435,7 +484,7 @@ return class.create(function(httpClient, _, HttpClient)
             end
             promise:finally(function()
               if connectionClose then
-                self:closeClient(false)
+                self:disconnect(false)
               end
               dequeue()
             end)
@@ -445,27 +494,25 @@ return class.create(function(httpClient, _, HttpClient)
         return handleRedirect(self, options, request, response)
       end):catch(function(reason)
         logger:fine('fetch error %s', reason)
-        self:closeClient(false)
+        self:disconnect(false)
         dequeue()
         return Promise.reject(reason)
       end)
     end)
   end
 
-  function httpClient:closeClient(callback)
+  function httpClient:disconnect(callback)
+    logger:finest('disconnect() %p', self)
     local http2, tcpClient = self.http2, self.tcpClient
     self.http2 = nil
     self.tcpClient = nil
-    self.queuePromise = nil
-    self.queueSize = nil
     self.connectTime = nil
     self.requestCount = nil
     self.timeout = nil
     self.maxRequests = nil
     self.remnant = nil
     if http2 then
-      -- h2 holds and closes the TCP client
-      return http2:close():next(Promise.callbackToNext(callback))
+      return http2:close(callback)
     elseif tcpClient then
       return tcpClient:close(callback)
     elseif callback then
@@ -476,6 +523,9 @@ return class.create(function(httpClient, _, HttpClient)
   end
 
   function httpClient:isClosed()
+    if self.http2 then
+      return self.http2:isClosed()
+    end
     return self.tcpClient == nil or self.tcpClient:isClosed()
   end
 
@@ -483,15 +533,28 @@ return class.create(function(httpClient, _, HttpClient)
   -- @tparam[opt] function callback an optional callback function to use in place of promise.
   -- @treturn jls.lang.Promise a promise that resolves once the client is closed.
   function httpClient:close(callback)
+    logger:finest('close() %p', self)
+    self.closed = true
+    clearqueue(self, 'closed')
     local clients = self.clients
-    if clients then
+    self.clients = nil
+    if clients and #clients > 0 then
       for n, c in pairs(clients) do
         logger:fine('closing sub client "%s"', n)
-        c:close()
+        c:close(false)
       end
     end
-    self.clients = nil
-    return self:closeClient(callback)
+    return self:disconnect(callback)
+  end
+
+  function httpClient:finalize()
+    -- will not be called if the client is still registered for read or write
+    logger:finest('finalize() %p', self)
+    if not self.closed then
+      logger:warn('finalizing client %p', self)
+      self.closed = true
+    end
+    self:disconnect(false)
   end
 
 end)

@@ -372,6 +372,10 @@ return class.create(function(http2)
     self.initialSettingsPromise, self.initialSettingsCb = Promise.withCallback()
   end
 
+  function http2:getTcpClient()
+    return self.client
+  end
+
   function http2:toString()
     return string.format('http2: %p; %s, streams %d/%d', self, self.isServer and 'server' or 'client', self.streamNextId, Map.size(self.streams))
   end
@@ -440,7 +444,7 @@ return class.create(function(http2)
       if frameType == FRAME.GOAWAY or frameType == FRAME.RST_STREAM then
         logger:fine('write error ignored "%s", id: %d', reason, streamId)
       else
-        self:handleError('write error "%s" %s(%d), 0x%02x, id: %d', reason, FRAME_BY_TYPE[frameType], frameType, flags, streamId)
+        self:handleError('write error "%s" %s(%d), 0x%02x, id: %d, #%d, %s', reason, FRAME_BY_TYPE[frameType], frameType, flags, streamId, #data, self)
         return Promise.reject(reason)
       end
     end)
@@ -549,9 +553,9 @@ return class.create(function(http2)
       if err then
         if err == 'SSL connection closed' then
           logger:info('h2 read error "%s", closing', err)
-          self:doClose()
+          self:doClose(false)
         else
-          self:handleError('read error "%s"', err)
+          self:handleError('read error "%s" %s', err, self)
         end
       elseif data then
         local frameType, flags, streamId = string.unpack('>BBI4', data, 4)
@@ -717,7 +721,7 @@ return class.create(function(http2)
         end
       else
         logger:info('end of h2 reading')
-        self:doClose()
+        self:doClose(false)
       end
     end), self.isServer and findFrameWithPreface or findFrame)
     logger:fine('start reading, %s', self)
@@ -756,7 +760,7 @@ return class.create(function(http2)
     end
   end
 
-  function http2:goAway(errorCode, debugData, ...)
+  function http2:sendGoAway(errorCode, debugData, ...)
     if logger:isLoggable(logger.FINE) then
       logger:fine('goAway(%s, %s) %s', errorCode, debugData and string.format(debugData, ...), self)
     end
@@ -765,14 +769,18 @@ return class.create(function(http2)
     if debugData then
       data = data..string.format(debugData, ...)
     end
-    return self:sendFrame(FRAME.GOAWAY, 0, 0, data):finally(function()
-      self:doClose()
+    return self:sendFrame(FRAME.GOAWAY, 0, 0, data)
+  end
+
+  function http2:goAway(...)
+    return self:sendGoAway(...):finally(function()
+      return self:doClose()
     end)
   end
 
-  function http2:doClose()
+  function http2:doClose(callback)
     self.client:readStop()
-    self.client:close()
+    return self.client:close(callback)
   end
 
   function http2:isClosed()
@@ -780,7 +788,7 @@ return class.create(function(http2)
   end
 
   function http2:handleError(reason, ...)
-    self:doClose()
+    self:doClose(false)
     if type(reason) == 'string' then
       self:onError(string.format(reason, ...))
     else
@@ -805,7 +813,7 @@ return class.create(function(http2)
     logger:warn('h2 error %s', reason)
   end
 
-  function http2:close()
+  function http2:close(callback)
     logger:fine('close()')
     local count = 0
     for _, stream in pairs(self.streams) do
@@ -813,7 +821,9 @@ return class.create(function(http2)
       count = count + 1
     end
     logger:fine('%d stream(s) closed', count)
-    return self:goAway()
+    return self:sendGoAway():finally(function()
+      return self:doClose(callback)
+    end)
   end
 
 end, function(Http2)
