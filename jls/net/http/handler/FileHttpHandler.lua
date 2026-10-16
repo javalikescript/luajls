@@ -268,8 +268,9 @@ return class.create('jls.net.http.HttpHandler', function(fileHttpHandler, _, Fil
         HttpExchange.forbidden(exchange)
       end
     elseif method == HTTP_CONST.METHOD_PUT and self.allowCreate then
-      -- TODO use a header to overwrite a file
-      if self.allowUpdate or not file:exists() then
+      local ifNoneMatch = exchange:getRequest():getHeader('if-none-match')
+      local allowUpdate = ifNoneMatch ~= '*' and self.allowUpdate
+      if allowUpdate or not file:exists() then
         if isDirectoryPath then
           file:mkdir() -- TODO Handle errors
         else

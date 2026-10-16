@@ -115,7 +115,10 @@ function createDir(name) {
   if (typeof name === 'string' && name && name.indexOf('/') === -1) {
     fetch(name + '/', {
       credentials: "same-origin",
-      method: "PUT"
+      method: "PUT",
+      headers: {
+        "If-None-Match": "*"
+      }
     }).then(function() {
       window.location.reload();
     });
@@ -135,15 +138,21 @@ function putFiles(files) {
         credentials: "same-origin",
         method: "PUT",
         headers: {
+          "If-None-Match": "*",
           "jls-last-modified": file.lastModified
         },
         body: file
-      }).then(function() {
+      }).then(function(response) {
+        if (!response.ok) {
+          return Promise.reject();
+        }
         count++;
         showMessage('' + count + '/' + files.length + ' files uploaded...');
       });
     })).then(function() {
       window.location.reload();
+    }, function(reason) {
+      showMessage('upload failed');
     });
   }
 }
