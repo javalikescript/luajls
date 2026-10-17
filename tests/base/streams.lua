@@ -5,6 +5,10 @@ local BufferedStreamHandler = require('jls.io.streams.BufferedStreamHandler')
 local ChunkedStreamHandler = require('jls.io.streams.ChunkedStreamHandler')
 local BlockStreamHandler = require('jls.io.streams.BlockStreamHandler')
 local RangeStreamHandler = require('jls.io.streams.RangeStreamHandler')
+local DelayedStreamHandler = require('jls.io.streams.DelayedStreamHandler')
+local LimitedStreamHandler = require('jls.io.streams.LimitedStreamHandler')
+local PromiseStreamHandler = require('jls.io.streams.PromiseStreamHandler')
+local PromisesStreamHandler = require('jls.io.streams.PromisesStreamHandler')
 local Promise = require('jls.lang.Promise')
 
 local function assertStreamHandling(s, t)
@@ -52,6 +56,28 @@ local function createCaptureStreamHandler()
   end, function(self, err)
     table.insert(self._captured.error_list, err ~= nil and err)
   end))
+end
+
+local function createCapturedStreamHandler()
+  local captured = {data_list = {}, error_list = {}}
+  local handler = StreamHandler:new(function(_, data)
+    table.insert(captured.data_list, data ~= nil and data)
+  end, function(_, err)
+    table.insert(captured.error_list, err ~= nil and err)
+  end)
+  return captured, handler
+end
+
+local function capture(promise)
+  local result = {}
+  promise:next(function(value)
+    result.resolved = true
+    result.value = value
+  end, function(err)
+    result.failed = true
+    result.error = err
+  end)
+  return result
 end
 
 function Test_streamHandler()
@@ -246,6 +272,241 @@ function Test_fill()
     return Promise.resolve(data)
   end)
   lu.assertTrue(Promise:isInstance(StreamHandler.fill(ps, 'Hi')))
+end
+
+function Test_delayed_initial_state()
+  local s = DelayedStreamHandler:new()
+  lu.assertIsFalse(s:isEnded())
+  lu.assertIsFalse(s:isClosed())
+  lu.assertIsNil(s:getError())
+  lu.assertNotNil(s:getStringBuffer())
+  lu.assertEquals(s:getBuffer(), '')
+end
+
+function Test_delayed_buffer()
+  local s = DelayedStreamHandler:new()
+  s:onData('Hello')
+  s:onData(' world')
+  lu.assertIsFalse(s:isEnded())
+  lu.assertEquals(s:getBuffer(), 'Hello world')
+  local captured, handler = createCapturedStreamHandler()
+  s:setStreamHandler(handler)
+  lu.assertIs(s:getStreamHandler(), handler)
+  lu.assertEquals(captured.data_list, {'Hello world'})
+  lu.assertIsNil(s:getStringBuffer())
+end
+
+function Test_delayed_end()
+  local s = DelayedStreamHandler:new()
+  s:onData('Hello')
+  s:onData()
+  lu.assertTrue(s:isEnded())
+  local captured, handler = createCapturedStreamHandler()
+  s:setStreamHandler(handler)
+  lu.assertEquals(captured.data_list, {'Hello', false})
+end
+
+function Test_delayed_error()
+  local s = DelayedStreamHandler:new()
+  s:onData('Hello')
+  s:onError('Ooops')
+  lu.assertTrue(s:isEnded())
+  lu.assertEquals(s:getError(), 'Ooops')
+  local captured, handler = createCapturedStreamHandler()
+  s:setStreamHandler(handler)
+  lu.assertEquals(captured.error_list, {'Ooops'})
+end
+
+function Test_delayed_close()
+  local s = DelayedStreamHandler:new()
+  s:close()
+  lu.assertTrue(s:isClosed())
+  local closed = false
+  local handler = StreamHandler:new(function() end)
+  handler.close = function() closed = true end
+  s:setStreamHandler(handler)
+  lu.assertTrue(closed)
+end
+
+function Test_delayed_direct()
+  local captured, handler = createCapturedStreamHandler()
+  local s = DelayedStreamHandler:new()
+  s:setStreamHandler(handler)
+  s:onData('Hi')
+  lu.assertEquals(captured.data_list, {'Hi'})
+  s:onData()
+  lu.assertEquals(captured.data_list, {'Hi', false})
+end
+
+function Test_limited_basic()
+  local captured, handler = createCapturedStreamHandler()
+  local s = LimitedStreamHandler:new(handler, 10, 0)
+  lu.assertIs(s:getStreamHandler(), handler)
+  lu.assertEquals(captured.data_list, {})
+  s:onData('Hello')
+  lu.assertEquals(captured.data_list, {'Hello'})
+  s:onData(' world !')
+  lu.assertEquals(captured.data_list, {'Hello', ' worl', false})
+end
+
+function Test_limited_offset()
+  local captured, handler = createCapturedStreamHandler()
+  local s = LimitedStreamHandler:new(handler, 5, 2)
+  lu.assertEquals(captured.data_list, {})
+  s:onData('Hello world !')
+  lu.assertEquals(captured.data_list, {'llo w', false})
+end
+
+function Test_limited_full()
+  local captured, handler = createCapturedStreamHandler()
+  local s = LimitedStreamHandler:new(handler, 100, 0)
+  s:onData('Hello world !')
+  s:onData()
+  lu.assertEquals(captured.data_list, {'Hello world !', false})
+end
+
+function Test_limited_empty()
+  local captured, handler = createCapturedStreamHandler()
+  local s = LimitedStreamHandler:new(handler, 5, 0)
+  s:onData()
+  lu.assertEquals(captured.data_list, {false})
+end
+
+function Test_promise_pending()
+  local captured, handler = createCapturedStreamHandler()
+  local s = PromiseStreamHandler:new(handler)
+  local result = capture(s:getPromise())
+  lu.assertIsNil(result.resolved)
+  lu.assertIsNil(result.failed)
+  s:onData('Hello')
+  lu.assertIsNil(result.resolved)
+  lu.assertEquals(captured.data_list, {'Hello'})
+end
+
+function Test_promise_resolves_with_size()
+  local captured, handler = createCapturedStreamHandler()
+  local s = PromiseStreamHandler:new(handler)
+  local result = capture(s:getPromise())
+  s:onData('Hello')
+  s:onData('Hi')
+  s:onData()
+  lu.assertTrue(result.resolved)
+  lu.assertEquals(result.value, 7)
+  lu.assertEquals(captured.data_list, {'Hello', 'Hi', false})
+end
+
+function Test_promise_handler_promise()
+  local handler = StreamHandler:new(function(_, data)
+    return Promise.resolve(data)
+  end)
+  local s = PromiseStreamHandler:new(handler)
+  local result = capture(s:getPromise())
+  s:onData('Hello')
+  lu.assertIsNil(result.resolved)
+  s:onData()
+  lu.assertTrue(result.resolved)
+  lu.assertEquals(result.value, 5)
+end
+
+function Test_promise_error()
+  local captured, handler = createCapturedStreamHandler()
+  local s = PromiseStreamHandler:new(handler)
+  local result = capture(s:getPromise())
+  s:onError('Ooops')
+  lu.assertTrue(result.failed)
+  lu.assertEquals(result.error, 'Ooops')
+  lu.assertEquals(captured.error_list, {'Ooops'})
+end
+
+function Test_promise_close()
+  local s = PromiseStreamHandler:new(StreamHandler:new(function() end))
+  local result = capture(s:getPromise())
+  s:close()
+  lu.assertTrue(result.failed)
+  lu.assertEquals(result.error, 'Closed')
+end
+
+function Test_promise_reset()
+  local s = PromiseStreamHandler:new(StreamHandler:new(function() end))
+  local result = capture(s:getPromise())
+  s:onData('Hi')
+  s:onData()
+  lu.assertEquals(result.value, 2)
+  s:reset()
+  local newResult = capture(s:getPromise())
+  lu.assertIsNil(newResult.resolved)
+  lu.assertIsNil(newResult.failed)
+end
+
+function Test_read_then_onData()
+  local s = PromisesStreamHandler:new()
+  lu.assertFalse(s:available())
+  local result = capture(s:read())
+  lu.assertFalse(s:available())
+  s:onData('Hello')
+  lu.assertTrue(result.resolved)
+  lu.assertEquals(result.value, 'Hello')
+  lu.assertFalse(s:available())
+end
+
+function Test_onData_then_read()
+  local s = PromisesStreamHandler:new()
+  s:onData('Hi')
+  lu.assertTrue(s:available())
+  local result = capture(s:read())
+  lu.assertEquals(result.value, 'Hi')
+  lu.assertFalse(s:available())
+end
+
+function Test_read_seq()
+  local s = PromisesStreamHandler:new()
+  local r1 = capture(s:read())
+  local r2 = capture(s:read())
+  s:onData('a')
+  s:onData('b')
+  lu.assertEquals(r1.value, 'a')
+  lu.assertEquals(r2.value, 'b')
+end
+
+function Test_end()
+  local s = PromisesStreamHandler:new()
+  s:onData('a')
+  s:onData()
+  local r1 = capture(s:read())
+  lu.assertEquals(r1.value, 'a')
+  local r2 = capture(s:read())
+  lu.assertTrue(r2.resolved)
+  lu.assertIsNil(r2.value)
+  local r3 = capture(s:read())
+  lu.assertTrue(r3.failed)
+  lu.assertEquals(r3.error, 'ended')
+end
+
+function Test_end_pending()
+  local s = PromisesStreamHandler:new()
+  local r1 = capture(s:read())
+  s:onData()
+  lu.assertTrue(r1.resolved)
+  lu.assertIsNil(r1.value)
+  local r2 = capture(s:read())
+  lu.assertTrue(r2.failed)
+  lu.assertEquals(r2.error, 'ended')
+end
+
+function Test_error()
+  local s = PromisesStreamHandler:new()
+  local result = capture(s:read())
+  s:onError('Ooops')
+  lu.assertTrue(result.failed)
+  lu.assertEquals(result.error, 'Ooops')
+end
+
+function Test_close()
+  local s = PromisesStreamHandler:new()
+  s:close()
+  local result = capture(s:read())
+  lu.assertTrue(result.failed)
+  lu.assertEquals(result.error, 'closed')
 end
 
 os.exit(lu.LuaUnit.run())
