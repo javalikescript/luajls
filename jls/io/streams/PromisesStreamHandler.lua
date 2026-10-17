@@ -12,9 +12,18 @@ return require('jls.lang.class').create(StreamHandler, function(promisesStreamHa
     self.writeIndex = 0
   end
 
-  local function setPromise(self, value)
-    self.list = nil
-    self.promise = value
+  local function reject(self, reason)
+    local readIndex, list = self.readIndex, self.list
+    self:initialize()
+    self.promise = Promise.reject(reason)
+    for index = readIndex, 1, -1 do
+      local promise = list[index]
+      if promise and promise._apply then
+        promise._apply(reason)
+      else
+        break
+      end
+    end
   end
 
   function promisesStreamHandler:read()
@@ -26,10 +35,9 @@ return require('jls.lang.class').create(StreamHandler, function(promisesStreamHa
     self.readIndex = index
     local promise = self.list[index]
     if promise then
+      self.list[index] = nil
       if promise == END then
-        setPromise(self, Promise.reject('ended'))
-      else
-        self.list[index] = nil
+        reject(self, 'ended')
       end
     else
       local apply
@@ -41,14 +49,17 @@ return require('jls.lang.class').create(StreamHandler, function(promisesStreamHa
   end
 
   local function write(self, err, data)
+    if self.promise then
+      return
+    end
     local index = self.writeIndex + 1
     self.writeIndex = index
     local promise = self.list[index]
     if promise then
-      promise._apply(err, data)
       self.list[index] = nil
-      if not data and not err then
-        setPromise(self, Promise.reject('ended'))
+      promise._apply(err, data)
+      if not (data or err) then
+        reject(self, 'ended')
       end
     else
       if err then
@@ -75,15 +86,7 @@ return require('jls.lang.class').create(StreamHandler, function(promisesStreamHa
   end
 
   function promisesStreamHandler:close()
-    for index = self.readIndex - 1, 1, -1 do
-      local promise = self.list[index]
-      if promise then
-        promise._apply('closed')
-      else
-        break
-      end
-    end
-    setPromise(self, Promise.reject('closed'))
+    reject(self, 'closed')
   end
 
 end)

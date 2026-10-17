@@ -16,14 +16,15 @@ local StreamHandler = require('jls.io.StreamHandler')
 return require('jls.lang.class').create(StreamHandler.WrappedStreamHandler, function(delayedStreamHandler, super)
 
   --- Creates a delayed @{StreamHandler}.
+  -- @tparam[opt] StreamHandler handler the stream handler to wrap, must be nil to delay
   -- @function DelayedStreamHandler:new
-  function delayedStreamHandler:initialize()
+  function delayedStreamHandler:initialize(handler)
     logger:finest('initialize()')
-    super.initialize(self)
     self.buffer = StringBuffer:new()
     self.error = nil
     self.ended = false
     self.closed = false
+    super.initialize(self, handler)
   end
 
   --- Sets the sub handler.

@@ -182,6 +182,9 @@ function strings.decodeVariableByteInteger(s, offset)
   local i = 0
   for l = 0, 3 do
     local b = string.byte(s, offset + l)
+    if not b then
+      break
+    end
     i = ((b & 0x7f) << (7 * l)) | i
     if (b & 0x80) ~= 0x80 then
       return i, offset + l + 1
