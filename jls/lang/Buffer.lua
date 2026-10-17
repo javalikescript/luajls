@@ -34,7 +34,7 @@ return class.create(function(buffer)
   -- @tparam[opt] number to The end position included, default to from
   -- @return The bytes at the specified position
   function buffer:getBytes(from, to)
-    local s = self:get(from, to)
+    local s = self:get(from or 1, to or from or 1)
     return string.byte(s, 1, #s)
   end
 

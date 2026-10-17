@@ -34,8 +34,33 @@ local function assertBuffers(assertFn, size)
   assertFn(Buffer.allocate(size + 2):view(2, size + 1))
 end
 
+local function assertGetBytes(buffer)
+  buffer:setBytes(1, 11, 12, 13, 14, 15)
+  -- 'to' defaults to 'from' and 'from' defaults to 1
+  lu.assertEquals({buffer:getBytes()}, {11})
+  lu.assertEquals({buffer:getBytes(1)}, {11})
+  lu.assertEquals({buffer:getBytes(2)}, {12})
+  lu.assertEquals({buffer:getBytes(5)}, {15})
+  lu.assertEquals({buffer:getBytes(2, 4)}, {12, 13, 14})
+end
+
 function Test_buffer_bytes()
   assertBuffers(assertSetGetBytes, 5)
+end
+
+function Test_buffer_getBytes()
+  assertBuffers(assertGetBytes, 5)
+end
+
+function Test_buffer_getBytes_default()
+  local buffer = Buffer.allocate(5)
+  buffer:setBytes(1, 11, 12, 13, 14, 15)
+  lu.assertEquals({buffer:getBytes(3)}, {13})
+  lu.assertEquals({buffer:getBytes()}, {11})
+  local vb = buffer:view(2, 4)
+  lu.assertEquals({vb:getBytes()}, {12})
+  lu.assertEquals({vb:getBytes(3)}, {14})
+  lu.assertEquals({vb:getBytes(2, 3)}, {13, 14})
 end
 
 function Test_buffer_string()

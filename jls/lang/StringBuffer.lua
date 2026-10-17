@@ -37,7 +37,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
         local parts = value:getParts()
         local len = #parts
         if index then
-          table.move(self.values, index, index + len, index + len + 1)
+          table.move(self.values, index, #self.values, index + len)
         else
           index = #self.values + 1
         end
@@ -227,7 +227,7 @@ return require('jls.lang.class').create(function(stringBuffer, _, StringBuffer)
       self.len = 0
       self.values = {}
     elseif i < self.len then
-      local _, ii = self:cut(i)
+      local _, ii = self:cut(i + 1)
       for j = ii, #self.values do
         self.values[j] = nil
       end

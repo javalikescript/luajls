@@ -12,7 +12,7 @@ return function(args)
     else
       -- see https://www.oreilly.com/library/view/learning-the-bash/1565923472/ch01s09.html
       if string.find(arg, '[%s"~`#$&%*%(%)\\|%[%]{};\'"<>/%?!]') and not string.match(arg, '^[<>|&]+$') then
-        earg = '"'..string.gsub(arg, '["\\]', '\\%&1')..'"'
+        earg = '"'..string.gsub(arg, '["\\]', '\\%0')..'"'
       end
     end
     table.insert(pargs, earg)

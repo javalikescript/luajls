@@ -111,6 +111,68 @@ function Test_replace_parts()
   assert_replace(buffer)
 end
 
+function Test_insert()
+  local buffer = StringBuffer:new()
+  buffer:append('Hello'):append(' the'):append(' World !')
+  assertEquals(buffer:clone():insert(1, 'AB'), 'ABHello the World !')
+  assertEquals(buffer:clone():insert(6, 'AB'), 'HelloAB the World !')
+  assertEquals(buffer:clone():insert(8, 'x'), 'Hello txhe World !')
+  assertEquals(buffer:clone():insert(18, 'OK'), 'Hello the World !OK')
+  assertEquals(buffer:clone():insert(30, 'KO'), 'Hello the World !KO')
+end
+
+function Test_insert_parts()
+  local buffer = StringBuffer:new()
+  buffer:append('Hello'):append(' the'):append(' World !')
+  assertEquals(buffer:clone():insert(1, StringBuffer:new('AB')), 'ABHello the World !')
+  assertEquals(buffer:clone():insert(1, StringBuffer:new('AB', 'CD')), 'ABCDHello the World !')
+  assertEquals(buffer:clone():insert(6, StringBuffer:new('AB', 'CD')), 'HelloABCD the World !')
+  assertEquals(buffer:clone():insert(11, StringBuffer:new('AB')), 'Hello the ABWorld !')
+  assertEquals(buffer:clone():insert(18, StringBuffer:new('AB')), 'Hello the World !AB')
+end
+
+function Test_insert_parts_after()
+  -- inserting a part buffer must not duplicate nor lose the parts after the insertion index
+  local buffer = StringBuffer:new('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h')
+  assertEquals(buffer:clone():insert(3, StringBuffer:new('X', 'Y', 'ZZ')), 'abXYZZcdefgh')
+  assertEquals(buffer:clone():insert(1, StringBuffer:new('X', 'Y', 'ZZ')), 'XYZZabcdefgh')
+  assertEquals(buffer:clone():insert(9, StringBuffer:new('X', 'Y', 'ZZ')), 'abcdefghXYZZ')
+end
+
+function Test_setLength()
+  assertEquals(StringBuffer:new('Hello'):setLength(5), 'Hello')
+  assertEquals(StringBuffer:new('Hello'):setLength(2), 'He')
+  assertEquals(StringBuffer:new('Hello'):setLength(1), 'H')
+  assertEquals(StringBuffer:new('Hello'):setLength(0), '')
+  assertEquals(StringBuffer:new('Hello'):setLength(8), 'Hello\0\0\0')
+end
+
+function Test_setLength_parts()
+  local buffer = StringBuffer:new()
+  buffer:append('Hello'):append(' the'):append(' World !')
+  assertEquals(buffer:clone():setLength(17), 'Hello the World !')
+  assertEquals(buffer:clone():setLength(12), 'Hello the Wo')
+  assertEquals(buffer:clone():setLength(6), 'Hello ')
+  assertEquals(buffer:clone():setLength(5), 'Hello')
+  assertEquals(buffer:clone():setLength(1), 'H')
+  assertEquals(buffer:clone():setLength(0), '')
+  assertEquals(buffer:clone():setLength(21), 'Hello the World !\0\0\0\0')
+end
+
+function Test_setLength_length()
+  local buffer = StringBuffer:new('Hello'):append(' the'):append(' World !')
+  buffer:setLength(12)
+  lu.assertEquals(buffer:length(), 12)
+  lu.assertEquals(#buffer:toString(), 12)
+  buffer:setLength(4)
+  lu.assertEquals(buffer:length(), 4)
+  lu.assertEquals(#buffer:toString(), 4)
+end
+
+function Test_setLength_then_append()
+  assertEquals(StringBuffer:new('Hello'):append(' the'):append(' World !'):setLength(8):append('!'), 'Hello th!')
+end
+
 function Test_length()
   local buffer = StringBuffer:new()
   lu.assertEquals(buffer:length(), 0)
