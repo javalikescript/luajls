@@ -132,4 +132,109 @@ function Test_strip()
   lu.assertEquals(strings.strip('  Hello world !   '), 'Hello world !')
 end
 
+function Test_charAt()
+  lu.assertEquals(strings.charAt('Hello', 1), 'H')
+  lu.assertEquals(strings.charAt('Hello', 2), 'e')
+  lu.assertEquals(strings.charAt('Hello', 5), 'o')
+  lu.assertEquals(strings.charAt('Hello', 0), '')
+  lu.assertEquals(strings.charAt('Hello', 6), '')
+  lu.assertEquals(strings.charAt('', 1), '')
+end
+
+function Test_split_plain()
+  lu.assertEquals(strings.split('a.b.c', '.', true), {'a', 'b', 'c'})
+  lu.assertEquals(strings.split('3+4=7', '+', true), {'3', '4=7'})
+  lu.assertEquals(strings.split('a1b2c', '%d+'), {'a', 'b', 'c'})
+end
+
+function Test_split_empty_values()
+  lu.assertEquals(strings.split('a,b,', ','), {'a', 'b'})
+  lu.assertEquals(strings.split(',a', ','), {'', 'a'})
+  lu.assertEquals(strings.split('a,,b', ','), {'a', '', 'b'})
+end
+
+local function partsAsList(value, pattern, plain)
+  local list = {}
+  for s, ended, pos in strings.parts(value, pattern, plain) do
+    table.insert(list, {s, ended, pos})
+  end
+  return list
+end
+
+function Test_parts_flags()
+  lu.assertEquals(partsAsList('a,b,c', ','), {
+    {'a', false, 1},
+    {'b', false, 3},
+    {'c', true, 5},
+  })
+  lu.assertEquals(partsAsList('abcdef', 2), {
+    {'ab', false, 1},
+    {'cd', false, 3},
+    {'ef', true, 5},
+  })
+end
+
+function Test_parts_plain()
+  lu.assertEquals(partsAsList('a.b.c', '.', true), {
+    {'a', false, 1},
+    {'b', false, 3},
+    {'c', true, 5},
+  })
+end
+
+function Test_parts_invalid()
+  lu.assertFalse(pcall(strings.parts, 'a', true))
+  lu.assertFalse(pcall(strings.parts, 'a', 0))
+  lu.assertFalse(pcall(strings.parts, 'a', -1))
+end
+
+function Test_cut_init_plain()
+  lu.assertEquals({strings.cut('a=b=c', '=', 3)}, {'a=b', 'c'})
+  lu.assertEquals({strings.cut('a.b', '.', 1, true)}, {'a', 'b'})
+end
+
+function Test_variableByteInteger_bounds()
+  local encode = strings.encodeVariableByteInteger
+  local decode = strings.decodeVariableByteInteger
+  for _, i in ipairs({0, 1, 127, 128, 16383, 16384, 2097151, 2097152, 268435455}) do
+    local encoded = encode(i)
+    local expectedLength = (i < 128 and 1) or (i < 16384 and 2) or (i < 2097152 and 3) or 4
+    lu.assertEquals(#encoded, expectedLength)
+    lu.assertEquals((decode(encoded)), i)
+  end
+  lu.assertIsNil(encode(-1))
+  lu.assertIsNil(encode(268435456))
+end
+
+function Test_decodeVariableByteInteger_offset()
+  local encoded = strings.encodeVariableByteInteger(300)
+  local value, pos = strings.decodeVariableByteInteger('..'..encoded, 3)
+  lu.assertEquals(value, 300)
+  lu.assertEquals(pos, 3 + #encoded)
+  local value1, pos1 = strings.decodeVariableByteInteger(encoded)
+  lu.assertEquals(value1, 300)
+  lu.assertEquals(pos1, 1 + #encoded)
+end
+
+function Test_decodeVariableByteInteger_error()
+  local value, err = strings.decodeVariableByteInteger(string.char(0x80, 0x80, 0x80, 0x80))
+  lu.assertIsNil(value)
+  lu.assertEquals(err, 'unexpected end of string')
+end
+
+function Test_formatInteger_radix()
+  lu.assertEquals(strings.formatInteger(10, 1), '10')
+  lu.assertEquals(strings.formatInteger(10, 100), '10')
+  lu.assertEquals(strings.formatInteger(10, 2), '1010')
+  lu.assertEquals(strings.formatInteger(255, 16, 2), 'FF')
+  lu.assertEquals(strings.formatInteger(0, 2, 5), '00000')
+end
+
+function Test_formatInteger_chars_pad()
+  lu.assertEquals(strings.formatInteger(5, 2, nil, '01', '0'), '101')
+  lu.assertEquals(strings.formatInteger(9, 10, 4, nil, '_'), '___9')
+  lu.assertEquals(strings.formatInteger(-10, 16, 4, nil, '0'), '-00A')
+  lu.assertEquals(strings.formatInteger(0, 64, 4), '0000')
+end
+
 os.exit(lu.LuaUnit.run())

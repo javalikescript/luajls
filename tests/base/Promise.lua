@@ -602,4 +602,242 @@ function Test_applyCallback()
   lu.assertNil(value)
 end
 
+function Test_new_executor_resolve()
+  local result
+  local p = Promise:new(function(resolve, reject)
+    resolve('done')
+  end)
+  p:next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 'done')
+end
+
+function Test_new_executor_reject()
+  local reason
+  local p = Promise:new(function(resolve, reject)
+    reject('fail')
+  end)
+  p:next(nil, function(value)
+    reason = value
+  end)
+  lu.assertEquals(reason, 'fail')
+end
+
+function Test_resolve_instance()
+  local p = Promise:new()
+  lu.assertIs(Promise.resolve(p), p)
+  lu.assertTrue(Promise.isPromise(p))
+  lu.assertFalse(Promise.isPromise({}))
+  lu.assertFalse(Promise.isPromise(1))
+  lu.assertFalse(Promise.isPromise(nil))
+end
+
+function Test_withCallback()
+  local p, cb = Promise.withCallback()
+  local result
+  p:next(function(value)
+    result = value
+  end)
+  cb(nil, 5)
+  lu.assertEquals(result, 5)
+
+  local p2, cb2 = Promise.withCallback()
+  local reason
+  p2:catch(function(value)
+    reason = value
+  end)
+  cb2('bad')
+  lu.assertEquals(reason, 'bad')
+end
+
+function Test_newCallback()
+  local result
+  local p = Promise.newCallback(function(cb)
+    cb(nil, 7)
+  end)
+  p:next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 7)
+end
+
+function Test_callbackToNext()
+  lu.assertNil((Promise.callbackToNext(nil)))
+  local calls = {}
+  local onFulfilled, onRejected = Promise.callbackToNext(function(reason, value)
+    calls[#calls + 1] = {reason, value}
+  end)
+  onFulfilled(3)
+  onRejected('err')
+  onRejected(nil)
+  lu.assertEquals(calls[1], {nil, 3})
+  lu.assertEquals(calls[2][1], 'err')
+  lu.assertEquals(calls[3][1], 'unknown reason')
+end
+
+function Test_chainCallback()
+  local p = Promise.resolve(3)
+  lu.assertIs(Promise.chainCallback(p, nil), p)
+  lu.assertNil(Promise.chainCallback(p, false))
+  local calls = {}
+  Promise.chainCallback(Promise.resolve(5), function(reason, value)
+    calls[#calls + 1] = {reason, value}
+  end)
+  lu.assertEquals(calls[1], {nil, 5})
+  local ok, err = pcall(Promise.chainCallback, p, 3)
+  lu.assertFalse(ok)
+  lu.assertStrContains(err, 'invalid callback')
+end
+
+function Test_invalidCallback()
+  lu.assertFalse(pcall(Promise.ensureCallback, 3))
+  lu.assertFalse(pcall(Promise.applyCallback, 3))
+end
+
+function Test_setProtectedCall()
+  local count = 0
+  Promise.setProtectedCall(function(f, ...)
+    count = count + 1
+    return pcall(f, ...)
+  end)
+  local result
+  Promise.resolve(1):next(function(value)
+    return value + 1
+  end):next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 2)
+  lu.assertTrue(count > 0)
+  local ok, Exception = pcall(require, 'jls.lang.Exception')
+  Promise.setProtectedCall(ok and Exception.pcall or nil)
+end
+
+function Test_createWeakWithCallback()
+  local prepared
+  local p = Promise.createWeakWithCallback(function(cb)
+    prepared = cb
+  end)
+  local result
+  p:next(function(value)
+    result = value
+  end)
+  lu.assertNotNil(prepared)
+  prepared(nil, 9)
+  lu.assertEquals(result, 9)
+  local first = prepared
+  p:next(function() end)
+  lu.assertIs(first, prepared)
+end
+
+function Test_async_return()
+  local result
+  local p = Promise.async(function()
+    return 5
+  end)
+  lu.assertTrue(Promise.isPromise(p))
+  p:next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 5)
+end
+
+function Test_async_args()
+  local result
+  Promise.async(function(await, a, b)
+    return a + b
+  end, 2, 3):next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 5)
+end
+
+function Test_async_await_resolved()
+  local result
+  Promise.async(function(await)
+    local value = await(Promise.resolve(3))
+    return value + 1
+  end):next(function(value)
+    result = value
+  end)
+  lu.assertEquals(result, 4)
+end
+
+function Test_async_await_pending()
+  local deferred, pending = deferPromise()
+  local result
+  Promise.async(function(await)
+    local value = await(pending)
+    return value..'!'
+  end):next(function(value)
+    result = value
+  end)
+  lu.assertNil(result)
+  deferred.resolve('hi')
+  lu.assertEquals(result, 'hi!')
+end
+
+function Test_async_await_multiple()
+  local deferred1, pending1 = deferPromise()
+  local deferred2, pending2 = deferPromise()
+  local result
+  Promise.async(function(await)
+    local a = await(pending1)
+    local b = await(pending2)
+    return a + b
+  end):next(function(value)
+    result = value
+  end)
+  deferred1.resolve(2)
+  lu.assertNil(result)
+  deferred2.resolve(3)
+  lu.assertEquals(result, 5)
+end
+
+function Test_async_await_rejected()
+  local reason
+  Promise.async(function(await)
+    return await(Promise.reject('boom'))
+  end):catch(function(value)
+    reason = value
+  end)
+  lu.assertEquals(reason:getMessage(), 'boom')
+end
+
+function Test_async_await_pending_reject()
+  local deferred, pending = deferPromise()
+  local reason
+  Promise.async(function(await)
+    return await(pending)
+  end):catch(function(value)
+    reason = value
+  end)
+  lu.assertNil(reason)
+  deferred.reject('nope')
+  lu.assertEquals(reason:getMessage(), 'nope')
+end
+
+function Test_async_throw()
+  local reason
+  Promise.async(function()
+    error('kaboom', 0)
+  end):catch(function(value)
+    reason = value
+  end)
+  lu.assertEquals(reason:getMessage(), 'kaboom')
+end
+
+function Test_async_await_error_state()
+  local inner = Promise.resolve(1):next(function()
+    error('oops', 0)
+  end)
+  local reason
+  Promise.async(function(await)
+    return await(inner)
+  end):catch(function(value)
+    reason = value
+  end)
+  lu.assertEquals(reason:getMessage(), 'oops')
+end
+
 os.exit(lu.LuaUnit.run())

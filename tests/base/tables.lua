@@ -320,8 +320,8 @@ local function getSchemaValueOrFail(schema, value, translateValues)
   return result
 end
 
-local function getSchemaValueError(schema, value)
-  local result, err = tables.getSchemaValue(schema, value)
+local function getSchemaValueError(schema, value, populate)
+  local result, err = tables.getSchemaValue(schema, value, populate)
   if result or not err then
     lu.fail('error expected')
     return
@@ -581,6 +581,378 @@ function Test_forEach()
     c = c + v
   end)
   lu.assertEquals(c, 6)
+end
+
+function Test_getSchemaValue_missingSchema()
+  local code
+  tables.getSchemaValue(1, 'value', false, function(c)
+    code = c
+  end)
+  lu.assertEquals(code, 'MISSING_SCHEMA')
+end
+
+function Test_getSchemaValue_invalidSchemaType()
+  lu.assertStrContains(getSchemaValueError({}, 'value'), 'unsupported schema type')
+end
+
+function Test_getSchemaValue_defaultValue()
+  lu.assertEquals(tables.getSchemaValue({type = 'string', default = 'Def'}, nil, true), 'Def')
+  lu.assertNil(tables.getSchemaValue({type = 'string', default = 'Def'}, nil))
+  lu.assertEquals(tables.getSchemaValue({type = 'string', const = 'Cst'}, nil, true), 'Cst')
+end
+
+function Test_getSchemaValue_objectConstraints()
+  local schema = {
+    type = 'object',
+    minProperties = 1,
+    maxProperties = 2,
+    additionalProperties = false,
+    properties = {
+      a = {type = 'string'},
+      b = {type = 'string'}
+    }
+  }
+  lu.assertEquals(getSchemaValueOrFail(schema, {a = 'A'}), {a = 'A'})
+  getSchemaValueError(schema, {})
+  getSchemaValueError(schema, {a = 'A', b = 'B', c = 'C'})
+  getSchemaValueError(schema, {a = 'A', c = 'C'})
+end
+
+function Test_getSchemaValue_propertyNames()
+  local schema = {type = 'object', propertyNames = {pattern = '^[a-z]+$'}}
+  lu.assertEquals(getSchemaValueOrFail(schema, {abc = 'A'}), {abc = 'A'})
+  getSchemaValueError(schema, {ABC = 'A'})
+end
+
+function Test_getSchemaValue_required()
+  local schema = {
+    type = 'object',
+    properties = {a = {type = 'string'}},
+    required = {'a'}
+  }
+  lu.assertEquals(getSchemaValueOrFail(schema, {a = 'A'}), {a = 'A'})
+  getSchemaValueError(schema, {})
+end
+
+function Test_getSchemaValue_objectPassthrough()
+  local value = {a = 1}
+  lu.assertIs(tables.getSchemaValue({type = 'object'}, value), value)
+  lu.assertEquals(getSchemaValueOrFail({type = 'object', properties = {a = {type = 'string'}}}, {a = 'A', b = 1}),
+    {a = 'A', b = 1})
+end
+
+function Test_getSchemaValue_objectPopulateConst()
+  local schema = {
+    type = 'object',
+    properties = {
+      a = {type = 'string', const = 'X'}
+    }
+  }
+  lu.assertEquals(getSchemaValueOrFail(schema, {}, true), {a = 'X'})
+end
+
+function Test_getSchemaValue_array()
+  local schema = {type = 'array', items = {type = 'string'}, minItems = 1, maxItems = 2}
+  lu.assertEquals(getSchemaValueOrFail(schema, {'A'}), {'A'})
+  lu.assertEquals(getSchemaValueOrFail(schema, {'A', 'B'}), {'A', 'B'})
+  getSchemaValueError(schema, {})
+  getSchemaValueError(schema, {'A', 'B', 'C'})
+  getSchemaValueError(schema, {a = 1})
+  getSchemaValueError(schema, {1})
+end
+
+function Test_getSchemaValue_arrayNoItems()
+  lu.assertEquals(getSchemaValueOrFail({type = 'array'}, {1, 'A'}), {1, 'A'})
+end
+
+function Test_getSchemaValue_constEnum()
+  lu.assertEquals(getSchemaValueOrFail({type = 'string', const = 'A'}, 'A'), 'A')
+  getSchemaValueError({type = 'string', const = 'A'}, 'B')
+  lu.assertEquals(getSchemaValueOrFail({type = 'string', enum = {'A', 'B'}}, 'B'), 'B')
+  getSchemaValueError({type = 'string', enum = {'A', 'B'}}, 'C')
+end
+
+function Test_getSchemaValue_stringConstraints()
+  local schema = {type = 'string', pattern = '^a+$', minLength = 1, maxLength = 3}
+  lu.assertEquals(getSchemaValueOrFail(schema, 'aa'), 'aa')
+  getSchemaValueError(schema, 'b')
+  getSchemaValueError(schema, 'aaaa')
+  getSchemaValueError(schema, '')
+end
+
+function Test_getSchemaValue_numberConstraints()
+  local schema = {type = 'number', minimum = 0, maximum = 10, multipleOf = 0.5}
+  lu.assertEquals(getSchemaValueOrFail(schema, 2.5), 2.5)
+  getSchemaValueError(schema, -1)
+  getSchemaValueError(schema, 11)
+  getSchemaValueError(schema, 0.3)
+end
+
+function Test_getSchemaValue_exclusiveConstraints()
+  local schema = {type = 'number', exclusiveMinimum = 0, exclusiveMaximum = 10}
+  lu.assertEquals(getSchemaValueOrFail(schema, 5), 5)
+  getSchemaValueError(schema, 0)
+  getSchemaValueError(schema, 10)
+end
+
+function Test_getSchemaValue_cannotParse()
+  lu.assertStrContains(getSchemaValueError({type = 'number'}, 'abc', true), 'Cannot parse value')
+end
+
+function Test_getSchemaValue_oneOfMultipleMatch()
+  local schema = {oneOf = {{type = 'string'}, {type = 'string'}}}
+  lu.assertStrContains(getSchemaValueError(schema, 'value'), 'Unmatched composition')
+end
+
+function Test_getSchemaByPath()
+  local schema = {
+    type = 'object',
+    properties = {
+      a = {type = 'object', properties = {b = {type = 'string'}}},
+      list = {type = 'array', items = {type = 'number'}}
+    }
+  }
+  lu.assertEquals(tables.getSchemaByPath(schema, 'a/b').type, 'string')
+  lu.assertEquals(tables.getSchemaByPath(schema, 'list/0').type, 'number')
+  lu.assertNil(tables.getSchemaByPath(schema, 'x'))
+end
+
+function Test_mapSchemasByPath()
+  local schema = {
+    type = 'object',
+    allOf = {{type = 'string'}},
+    properties = {
+      name = {type = 'string'},
+      nested = {type = 'object', properties = {count = {type = 'integer'}}},
+      list = {type = 'array', items = {type = 'number'}}
+    }
+  }
+  local paths = tables.mapSchemasByPath(schema, '')
+  lu.assertEquals(paths[''].type, 'string')
+  lu.assertEquals(paths['name'].type, 'string')
+  lu.assertNil(paths['nested'])
+  lu.assertEquals(paths['nested/count'].type, 'integer')
+  lu.assertEquals(paths['list/#'].type, 'number')
+end
+
+function Test_parseLoad_error()
+  local value, err = tables.parseLoad('{a=')
+  lu.assertNil(value)
+  lu.assertNotNil(err)
+end
+
+function Test_stringify_errors()
+  local t = {}
+  t.self = t
+  lu.assertFalse(pcall(tables.stringify, t))
+  lu.assertFalse(pcall(tables.stringify, io.stdout))
+end
+
+function Test_deepEquals_false()
+  lu.assertFalse(tables.deepEquals({a = 1}, {a = '1'}))
+  lu.assertFalse(tables.deepEquals({a = 1}, {a = 2}))
+  lu.assertFalse(tables.deepEquals({a = {b = 1}}, {a = {b = 2}}))
+  lu.assertFalse(tables.deepEquals({}, {a = 1}))
+end
+
+function Test_compare_nested()
+  lu.assertEquals(tables.compare({a = {b = 1}}, {a = {b = 2}}), {a = {b = 2}})
+  local diff = tables.compare({a = 1, b = 2, c = 3}, {c = 3})
+  lu.assertEquals(#diff._deleted, 2)
+  local set = {}
+  for _, key in ipairs(diff._deleted) do
+    set[key] = true
+  end
+  lu.assertEquals(set, {a = true, b = true})
+end
+
+function Test_patch_nested()
+  lu.assertEquals(tables.patch({a = {b = 1, c = 2}}, {a = {b = 3}}), {a = {b = 3, c = 2}})
+end
+
+function Test_getPath_errors()
+  lu.assertFalse(pcall(tables.getPath, {a = {}}, 'a['))
+  lu.assertFalse(pcall(tables.getPath, {a = {}}, 'a[]'))
+  lu.assertFalse(pcall(tables.getPath, {a = {}}, 'a[b]'))
+  lu.assertNil(tables.get({a = 1}, 'a', 'b'))
+end
+
+function Test_set_errors()
+  lu.assertNil((tables.set({a = 1}, 'value', 'a', 'b')))
+  local t = {}
+  lu.assertNil(tables.setPath(t, 'a/b', nil))
+  lu.assertEquals(t, {})
+  lu.assertFalse(pcall(tables.setPath, {}, '/', 'scalar'))
+end
+
+function Test_mergePath_create()
+  local t = {}
+  tables.mergePath(t, 'a/b', {c = 1})
+  lu.assertEquals(t, {a = {b = {c = 1}}})
+end
+
+function Test_removePath_errors()
+  lu.assertNil(tables.removePath({a = 1}, 'a/b'))
+end
+
+function Test_mapValuesByPath_invalidKey()
+  lu.assertFalse(pcall(tables.mapValuesByPath, {[function() end] = 1}))
+end
+
+function Test_mergeValuesByPath_types()
+  lu.assertEquals(tables.mergeValuesByPath({a = {b = 1}}, {a = 2}), {['/a'] = {new = 2}, ['/a/b'] = {old = 1}})
+  lu.assertEquals(tables.mergeValuesByPath({a = 1}, {a = {b = 2}}), {['/a'] = {old = 1}, ['/a/b'] = {new = 2}})
+end
+
+function Test_createArgumentTable_errors()
+  lu.assertFalse(pcall(tables.createArgumentTable, {}, {schema = 1}))
+  lu.assertFalse(pcall(tables.createArgumentTable, {}, {defaultValues = 1}))
+end
+
+function Test_createArgumentTable_multipleValues()
+  lu.assertEquals(tables.createArgumentTable({'-a', '1', '-a', '2', '-a', '3'}).a, {'1', '2', '3'})
+end
+
+function Test_createArgumentTable_config()
+  local t = tables.createArgumentTable({'-c', 'config.json'}, {
+    configPath = 'c',
+    configLoader = function(path)
+      lu.assertEquals(path, 'config.json')
+      return {a = 'fromFile'}
+    end
+  })
+  lu.assertEquals(t.a, 'fromFile')
+  lu.assertEquals(t.c, 'config.json')
+end
+
+function Test_createArgumentTable_configFromDefaults()
+  local t = tables.createArgumentTable({}, {
+    configPath = 'c',
+    defaultValues = {c = 'default.json'},
+    configLoader = function(path)
+      lu.assertEquals(path, 'default.json')
+      return {b = 2}
+    end
+  })
+  lu.assertEquals(t.b, 2)
+end
+
+function Test_createArgumentTable_configFromSchema()
+  local loaded
+  tables.createArgumentTable({}, {
+    configPath = 'c',
+    schema = {type = 'object', properties = {c = {type = 'string', default = 'schema.json'}}},
+    configLoader = function(path)
+      loaded = path
+      return {c = 'schema.json'}
+    end
+  })
+  lu.assertEquals(loaded, 'schema.json')
+end
+
+function Test_createArgumentTable_configErrors()
+  lu.assertFalse(pcall(tables.createArgumentTable, {'-c', 'f'}, {configPath = 'c', configLoader = true}))
+  local printed, code
+  local ok = pcall(tables.createArgumentTable, {'-c', 'f'}, {
+    configPath = 'c',
+    configLoader = function()
+      error('invalid file')
+    end,
+    println = function(message)
+      printed = message
+    end,
+    exit = function(c)
+      code = c
+      error('exit')
+    end
+  })
+  lu.assertFalse(ok)
+  lu.assertNotNil(printed)
+  lu.assertEquals(code, 1)
+end
+
+function Test_createArgumentTable_help()
+  local lines = {}
+  local schema = {
+    title = 'My tool',
+    description = 'Does things',
+    type = 'object',
+    properties = {
+      name = {type = 'string', title = 'The name', description = 'The person name', default = 'World'},
+      level = {type = 'string', enum = {'low', 'high'}}
+    }
+  }
+  local exited
+  tables.createArgumentTable({'-h'}, {
+    helpPath = 'h',
+    help = 'Usage: tool',
+    schema = schema,
+    defaultValues = {name = 'Default'},
+    aliases = {n = 'name'},
+    println = function(...)
+      lines[#lines + 1] = table.concat({...}, ' ')
+    end,
+    exit = function(code)
+      exited = code
+    end
+  })
+  lu.assertEquals(exited, 0)
+  local text = table.concat(lines, '\n')
+  lu.assertStrContains(text, 'Usage: tool')
+  lu.assertStrContains(text, 'My tool')
+  lu.assertStrContains(text, 'Does things')
+  lu.assertStrContains(text, 'Arguments:')
+  lu.assertStrContains(text, '--name')
+  lu.assertStrContains(text, 'defaults to "World"')
+  lu.assertStrContains(text, 'The person name')
+  lu.assertStrContains(text, 'in |low|high|')
+  lu.assertStrContains(text, 'Default values:')
+end
+
+function Test_createArgumentTable_logPath()
+  local logger = require('jls.lang.logger')
+  local before = logger:getConfig()
+  local t = tables.createArgumentTable({'-l', 'warn'}, {logPath = 'l'})
+  lu.assertNil(t.l)
+  lu.assertEquals(logger:getConfig(), 'WARN')
+  logger:setConfig(before)
+end
+
+function Test_createArgumentTable_schemaError()
+  local printed, code
+  tables.createArgumentTable({}, {
+    schema = {type = 'object', properties = {n = {type = 'integer'}}, required = {'n'}},
+    println = function(message)
+      printed = message
+    end,
+    exit = function(c)
+      code = c
+    end
+  })
+  lu.assertNotNil(printed)
+  lu.assertEquals(code, 22)
+end
+
+function Test_getArgument()
+  local t = {a = 'A', b = {'B1', 'B2'}, n = 2, flag = true, ['0'] = 'zero'}
+  lu.assertEquals(tables.getArgument(t, 'a'), 'A')
+  lu.assertEquals(tables.getArgument(t, 'b'), 'B1')
+  lu.assertEquals(tables.getArgument(t, 'b', nil, 2), 'B2')
+  lu.assertNil(tables.getArgument(t, 'b', nil, 3))
+  lu.assertNil(tables.getArgument(t, 'missing'))
+  lu.assertEquals(tables.getArgument(t, 'missing', 'def'), 'def')
+  lu.assertEquals(tables.getArgument(t, 'n', nil, 1, true), '2')
+  lu.assertNil(tables.getArgument(t, 'n', nil, 2))
+  lu.assertIsTrue(tables.getArgument(t, 'flag'))
+  lu.assertEquals(tables.getArgument(t), 'zero')
+end
+
+function Test_getArguments()
+  lu.assertEquals(tables.getArguments({}), {})
+  lu.assertEquals(tables.getArguments({a = true}, 'a'), {})
+  lu.assertEquals(tables.getArguments({a = 'A'}, 'a'), {'A'})
+  lu.assertEquals(tables.getArguments({a = {'A', 'B'}}, 'a'), {'A', 'B'})
+  lu.assertEquals(tables.getArguments({['0'] = 'zero'}), {'zero'})
 end
 
 os.exit(lu.LuaUnit.run())
