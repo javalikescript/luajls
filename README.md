@@ -103,7 +103,7 @@ Lua, luajls and all the dependencies are available in the [Lua C libraries repos
 
 ## What are the supported Lua versions?
 
-The only fully supported version is the latest, currently Lua 5.4.
+The only fully supported version is the latest, currently Lua 5.5.
 
 In order to support the majority of Lua engines, an effort is made to provide a good level of compatibility for Lua 5.1 and LuaJIT.
 Lua 5.1 compatibility is achived by using a transcompiler and is available in the respective 5.1 releases, the default code base is not fully compatible with Lua 5.1.

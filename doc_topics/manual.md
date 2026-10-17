@@ -3,7 +3,7 @@
 ## Audience
 
 This document is intended for Lua users wanting to use and understand the luajls library, more broadly to people developping standalone Lua application.
-It is presumed that the reader has a good knowledge of Lua, please consult the Lua [reference manual](https://www.lua.org/manual/5.4/manual.html) and [Programming in Lua](https://www.lua.org/pil/) to learn details regarding Lua itself.
+It is presumed that the reader has a good knowledge of Lua, please consult the Lua [reference manual](https://www.lua.org/manual/5.5/manual.html) and [Programming in Lua](https://www.lua.org/pil/) to learn details regarding Lua itself.
 
 
 ## Overview
@@ -16,7 +16,7 @@ The modules support asynchronous I/O based on an event loop.
 The modules expose an API to abstract the host platform and general purpose libraries such as _SSL_, _JSON_, _XML_, _ZIP_.
 The main targeted OSes are _Linux_ and _Windows_.
 
-The only required dependency is Lua 5.4
+The only required dependency is Lua 5.5
 
 Optional dependencies are C and Lua modules such as _luafilesystem_, _luasocket_, _luv_, _lua-openssl_, _lua-cjson_.
 By example, the file system manipulation requires one of the _luafilesystem_ or the _luv_ dependent module.
