@@ -479,4 +479,97 @@ function Test_proxy()
   lu.assertEquals(shift(responses):getBody(), 'Hello John')
 end
 
+local json = require('jls.util.json')
+local HttpExchange = require('jls.net.http.HttpExchange')
+local HttpMessage = require('jls.net.http.HttpMessage')
+local HTTP_CONST = HttpMessage.CONST
+local TableHttpHandler = require('jls.net.http.handler.TableHttpHandler')
+
+local function newExchange(method, target)
+  local exchange = HttpExchange:new()
+  exchange:setContext({
+    replacePath = function(_, path)
+      return path
+    end
+  })
+  local request = exchange:getRequest()
+  request:setMethod(method)
+  request:setTarget(target)
+  return exchange
+end
+
+function Test_table_get()
+  local handler = TableHttpHandler:new({a = {b = 'Hi'}})
+  local exchange = newExchange(HTTP_CONST.METHOD_GET, '/a/b')
+  handler:handle(exchange)
+  lu.assertEquals(exchange:getResponse():getStatusCode(), HTTP_CONST.HTTP_OK)
+  lu.assertEquals(json.decode(exchange:getResponse():getBody()), {value = 'Hi'})
+  exchange = newExchange(HTTP_CONST.METHOD_GET, '/a/c')
+  handler:handle(exchange)
+  lu.assertEquals(json.decode(exchange:getResponse():getBody()), {})
+  exchange = newExchange(HTTP_CONST.METHOD_DELETE, '/a/b')
+  handler:handle(exchange)
+  lu.assertEquals(exchange:getResponse():getStatusCode(), HTTP_CONST.HTTP_METHOD_NOT_ALLOWED)
+  lu.assertEquals(handler.table, {a = {b = 'Hi'}})
+end
+
+function Test_editable_unsupportedMethod()
+  local handler = TableHttpHandler:new({}, '', true)
+  local exchange = newExchange(HTTP_CONST.METHOD_OPTIONS, '/')
+  handler:handle(exchange)
+  lu.assertEquals(exchange:getResponse():getStatusCode(), HTTP_CONST.HTTP_METHOD_NOT_ALLOWED)
+end
+
+function Test_editable_basePath()
+  local handler = TableHttpHandler:new({root = {a = 1}}, '/root', true)
+  local exchange = newExchange(HTTP_CONST.METHOD_GET, '/a')
+  handler:handle(exchange)
+  lu.assertEquals(json.decode(exchange:getResponse():getBody()), {value = 1})
+end
+
+local function setRequestBody(exchange, body)
+  local request = HttpMessage:new()
+  request:setMethod(exchange:getRequestMethod())
+  request:setTarget(exchange:getRequest():getTarget())
+  request:bufferBody()
+  request.body = body
+  request.consume = function()
+    return Promise.resolve()
+  end
+  exchange.request = request
+end
+
+function Test_editable_put()
+  local handler = TableHttpHandler:new({a = {b = 1}}, '', true)
+  local exchange = newExchange(HTTP_CONST.METHOD_PUT, '/a/b')
+  setRequestBody(exchange, json.encode({value = 42}))
+  handler:handle(exchange)
+  lu.assertEquals(exchange:getResponse():getStatusCode(), HTTP_CONST.HTTP_OK)
+  lu.assertEquals(handler.table, {a = {b = 42}})
+end
+
+function Test_editable_post()
+  local handler = TableHttpHandler:new({a = {b = 1}}, '', true)
+  local exchange = newExchange(HTTP_CONST.METHOD_POST, '/a')
+  setRequestBody(exchange, json.encode({value = {c = 2}}))
+  handler:handle(exchange)
+  lu.assertEquals(handler.table, {a = {b = 1, c = 2}})
+end
+
+function Test_editable_patch()
+  local handler = TableHttpHandler:new({a = {b = 1}}, '', true)
+  local exchange = newExchange(HTTP_CONST.METHOD_PATCH, '/a')
+  setRequestBody(exchange, json.encode({value = {c = 3}}))
+  handler:handle(exchange)
+  lu.assertEquals(handler.table, {a = {b = 1, c = 3}})
+end
+
+function Test_editable_delete()
+  local handler = TableHttpHandler:new({a = {b = 1}, c = 2}, '', true)
+  local exchange = newExchange(HTTP_CONST.METHOD_DELETE, '/a/b')
+  handler:handle(exchange)
+  lu.assertEquals(exchange:getResponse():getStatusCode(), HTTP_CONST.HTTP_OK)
+  lu.assertEquals(handler.table, {a = {}, c = 2})
+end
+
 os.exit(lu.LuaUnit.run())
